@@ -1,0 +1,93 @@
+package main
+
+import (
+	"app/pkg"
+	"app/pkg/auth"
+	"context"
+	"log/slog"
+	"service-core/config"
+	"service-core/domain/email"
+	"service-core/domain/file"
+	"service-core/domain/login"
+	"service-core/domain/note"
+	"service-core/domain/payment"
+	"service-core/domain/user"
+	"service-core/grpc"
+	"service-core/rest"
+	"service-core/storage"
+	"service-core/storage/query"
+)
+
+func main() {
+	// Load the configuration
+	cfg := config.LoadConfig()
+
+	// Set up the logger
+	pkg.InitLogger(cfg.LogLevel)
+
+	// Connect to the database
+	s, clean, err := storage.NewStorage(cfg)
+	defer clean()
+	if err != nil {
+		slog.Error("Error opening database", "error", err)
+		panic(err)
+	}
+	err = s.Conn.PingContext(context.Background())
+	if err != nil {
+		slog.Error("Error connecting to database", "error", err)
+		panic(err)
+	}
+	slog.Info("Database connected")
+
+	// Set up the REST handlers
+	restHandler := setupRESTHandlers(cfg, s)
+	// Run the REST server
+	rest.Run(restHandler)
+
+	// Set up the gRPC handlers
+	grpcHandler := setupGRPCHandlers(cfg, s)
+	// Run the gRPC server
+	grpc.Run(grpcHandler)
+
+	select {}
+}
+
+func setupRESTHandlers(cfg *config.Config, storage *storage.Storage) *rest.Handler {
+	store := query.New(storage.Conn)
+	authService := auth.NewService()
+	fileProvider := file.NewProvider(cfg)
+	fileService := file.NewService(cfg, store, fileProvider)
+	emailProvider := email.NewProvider(cfg)
+	emailService := email.NewService(cfg, store, emailProvider, fileService)
+	loginService := login.NewService(cfg, store, authService, emailService)
+	paymentProvider := payment.NewProvider(cfg)
+	paymentService := payment.NewService(cfg, store, paymentProvider)
+	noteService := note.NewService(store)
+	apiHandler := rest.NewHandler(
+		cfg,
+		storage,
+		authService,
+		loginService,
+		paymentService,
+		emailService,
+		fileService,
+		noteService,
+	)
+	return apiHandler
+}
+
+func setupGRPCHandlers(cfg *config.Config, storage *storage.Storage) *grpc.Handler {
+	store := query.New(storage.Conn)
+	authService := auth.NewService()
+	loginService := login.NewService(cfg, store, authService, nil) // Email service is not used in gRPC
+	userService := user.NewService(cfg, store)
+	noteService := note.NewService(store)
+	grpcHandler := grpc.NewHandler(
+		cfg,
+		authService,
+		loginService,
+		userService,
+		noteService,
+	)
+	return grpcHandler
+}

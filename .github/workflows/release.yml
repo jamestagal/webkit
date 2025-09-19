@@ -1,0 +1,73 @@
+name: Deploy
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  lint-service-core:
+    uses: ./.github/workflows/lint-go.yml
+    with:
+      working-directory: app/service-core
+  lint-service-admin:
+    uses: ./.github/workflows/lint-go.yml
+    with:
+      working-directory: app/service-admin
+  lint-service-client:
+    uses: ./.github/workflows/lint-ts.yml
+    with:
+      working-directory: service-client
+  migration:
+    uses: ./.github/workflows/migration.yml
+    with:
+      DIRECTORY: app/service-core/storage
+    secrets: inherit
+    needs:
+      - lint-service-core
+      - lint-service-admin
+      - lint-service-client
+  deploy-service-core:
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-and-deploy.yml
+    with:
+      REGISTRY: ghcr.io
+      IMAGE_R: service-core-r
+      IMAGE_RC: service-core-rc
+      SERVICE: service-core
+      DIRECTORY: app/service-core
+      CONTEXT: app
+    secrets: inherit
+    needs:
+      - migration
+  deploy-service-admin:
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-and-deploy.yml
+    with:
+      REGISTRY: ghcr.io
+      IMAGE_R: service-admin-r
+      IMAGE_RC: service-admin-rc
+      SERVICE: service-admin
+      DIRECTORY: app/service-admin
+      CONTEXT: app
+    secrets: inherit
+    needs:
+      - migration
+  deploy-service-client:
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-and-deploy.yml
+    with:
+      REGISTRY: ghcr.io
+      IMAGE_R: service-client-r
+      IMAGE_RC: service-client-rc
+      SERVICE: service-client
+      DIRECTORY: service-client
+      CONTEXT: service-client
+    secrets: inherit
+    needs:
+      - migration
