@@ -1,11 +1,7 @@
 <script lang="ts">
 	import { page } from "$app/state";
 	import type { Snippet } from "svelte";
-	import homeIcon from "$lib/assets/feather/home.svg?raw";
-	import bookIcon from "$lib/assets/feather/book.svg?raw";
-	import dollarIcon from "$lib/assets/feather/dollar-sign.svg?raw";
-	import mailIcon from "$lib/assets/feather/mail.svg?raw";
-	import fileIcon from "$lib/assets/feather/file.svg?raw";
+	import { House, BookOpen, DollarSign, Mail, File, LogOut } from "lucide-svelte";
 	import { env } from "$env/dynamic/public";
 
 	let { children }: { children: Snippet } = $props();
@@ -13,11 +9,11 @@
 	let current = $derived(page.url.pathname);
 
 	const nav = [
-		{ label: "Dashboard", url: "/", icon: homeIcon },
-		{ label: "Notes", url: "/notes", icon: bookIcon },
-		{ label: "Payments", url: "/payments", icon: dollarIcon },
-		{ label: "Files", url: "/files", icon: fileIcon },
-		{ label: "Emails", url: "/emails", icon: mailIcon },
+		{ label: "Dashboard", url: "/", icon: House },
+		{ label: "Notes", url: "/notes", icon: BookOpen },
+		{ label: "Payments", url: "/payments", icon: DollarSign },
+		{ label: "Files", url: "/files", icon: File },
+		{ label: "Emails", url: "/emails", icon: Mail },
 	];
 
 	function showModal(): undefined {
@@ -48,8 +44,7 @@
 									class="group hover:bg-base-100 flex cursor-pointer gap-x-3 rounded-md p-3 text-sm/6 font-semibold hover:opacity-80
                                             {current == item.url ? 'bg-base-100' : ''}"
 								>
-									<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-									{@html item.icon}
+									<item.icon class="h-6 w-6" />
 									<span class="sr-only">{item.label}</span>
 								</a>
 							</div>
@@ -64,24 +59,7 @@
 							>
 								<input type="hidden" name="return_url" value={env.PUBLIC_CLIENT_URL} />
 								<button class="cursor-pointer p-3">
-									<svg
-										width="24"
-										height="24"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										class="icon icon-tabler icons-tabler-outline icon-tabler-logout"
-									>
-										<path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-										<path
-											d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2"
-										></path>
-										<path d="M9 12h12l-3 -3"></path>
-										<path d="M18 15l3 -3"></path>
-									</svg>
+									<LogOut class="h-6 w-6" />
 									<span class="sr-only">Logout</span>
 								</button>
 							</form>
@@ -136,8 +114,7 @@
 									class="group hover:bg-base-200 flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold hover:opacity-80
                                                 {current == item.url ? 'bg-base-200' : ''}"
 								>
-									<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-									{@html item.icon}
+									<item.icon class="h-6 w-6" />
 									{item.label}
 								</a>
 							</li>
@@ -150,25 +127,7 @@
 							>
 								<input type="hidden" name="return_url" value={env.PUBLIC_CLIENT_URL} />
 								<button class="flex cursor-pointer gap-x-3 p-2">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="24"
-										height="24"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										class="icon icon-tabler icons-tabler-outline icon-tabler-logout"
-									>
-										<path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-										<path
-											d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2"
-										></path>
-										<path d="M9 12h12l-3 -3"></path>
-										<path d="M18 15l3 -3"></path>
-									</svg>
+									<LogOut class="h-6 w-6" />
 									Logout
 								</button>
 							</form>
