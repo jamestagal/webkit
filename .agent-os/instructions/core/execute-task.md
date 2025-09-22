@@ -2,7 +2,7 @@
 description: Rules to execute a task and its sub-tasks using Agent OS
 globs:
 alwaysApply: false
-version: 1.0
+version: 1.1
 encoding: UTF-8
 ---
 
@@ -10,7 +10,7 @@ encoding: UTF-8
 
 ## Overview
 
-Execute a specific task along with its sub-tasks systematically following a TDD development workflow.
+Execute a specific task along with its sub-tasks systematically following a TDD development workflow with proper specialist agent involvement.
 
 <pre_flight_check>
   EXECUTE: @.agent-os/instructions/meta/pre-flight.md
@@ -43,34 +43,83 @@ Read and analyze the given parent task and all its sub-tasks from tasks.md to ga
 
 </step>
 
-<step number="2" name="technical_spec_review">
+<step number="2" name="specialist_assignment">
 
-### Step 2: Technical Specification Review
+### Step 2: Specialist Agent Assignment
 
-Search and extract relevant sections from technical-spec.md to understand the technical implementation approach for this task.
+Based on the task requirements, invoke the appropriate specialist agent(s) to handle implementation.
+
+<specialist_selection>
+  ANALYZE: Task technology requirements
+  
+  ASSIGN based on task domain:
+    IF task.involves("Go", "API", "backend", "domain", "service"):
+      ACTION: Load .claude/agents/go-backend.md and act as that specialist
+      EXECUTE: Task as go-backend specialist following Go patterns
+      
+    IF task.involves("Svelte", "component", "UI", "frontend", "route"):
+      ACTION: Load .claude/agents/sveltekit-specialist.md and act as that specialist
+      EXECUTE: Task as sveltekit-specialist following SvelteKit patterns
+      
+    IF task.involves("deployment", "Docker", "CI/CD"):
+      ACTION: Load .claude/agents/devops-engineer.md and act as that specialist
+      EXECUTE: Task as devops-engineer following infrastructure patterns
+      
+    IF task.involves("Cloudflare", "Workers", "D1", "KV", "R2"):
+      ACTION: Load .claude/agents/cloudflare-specialist.md and act as that specialist
+      EXECUTE: Task as cloudflare-specialist following Cloudflare patterns
+      
+    IF task.involves("test", "testing", "spec"):
+      ACTION: Load .claude/agents/test-runner.md and act as that specialist
+      EXECUTE: Task as test-runner following testing patterns
+      
+  IMPORTANT: Actually load and read these agent files to adopt their expertise!
+</specialist_selection>
+
+<specialist_handoff>
+  PROVIDE to specialist:
+    - Task description and subtasks
+    - Technical specifications
+    - Project context and patterns
+    - Existing code to review
+    
+  REQUEST from specialist:
+    - Implementation following project patterns
+    - Proper error handling
+    - Test coverage
+    - Documentation
+</specialist_handoff>
+
+</step>
+
+<step number="3" name="technical_spec_review">
+
+### Step 3: Technical Specification Review
+
+Specialist reviews technical specifications relevant to their domain.
 
 <selective_reading>
   <search_technical_spec>
-    FIND sections in technical-spec.md related to:
-    - Current task functionality
-    - Implementation approach for this feature
-    - Integration requirements
-    - Performance criteria
+    FIND sections relevant to:
+    - Current task's feature area
+    - Implementation patterns required
+    - Data models needed
+    - API contracts defined
   </search_technical_spec>
 </selective_reading>
 
 <instructions>
-  ACTION: Search technical-spec.md for task-relevant sections
-  EXTRACT: Only implementation details for current task
-  SKIP: Unrelated technical specifications
-  FOCUS: Technical approach for this specific feature
+  ACTION: Specialist reviews technical-spec.md
+  EXTRACT: Sections relevant to current task
+  UNDERSTAND: Technical requirements
+  IDENTIFY: Implementation patterns to follow
 </instructions>
 
 </step>
 
-<step number="3" subagent="context-fetcher" name="best_practices_review">
+<step number="4" subagent="context-fetcher" name="best_practices_review">
 
-### Step 3: Best Practices Review
+### Step 4: Best Practices Review
 
 Use the context-fetcher subagent to retrieve relevant sections from @.agent-os/standards/best-practices.md that apply to the current task's technology stack and feature type.
 
@@ -97,9 +146,9 @@ Use the context-fetcher subagent to retrieve relevant sections from @.agent-os/s
 
 </step>
 
-<step number="4" subagent="context-fetcher" name="code_style_review">
+<step number="5" subagent="context-fetcher" name="code_style_review">
 
-### Step 4: Code Style Review
+### Step 5: Code Style Review
 
 Use the context-fetcher subagent to retrieve relevant code style rules from @.agent-os/standards/code-style.md for the languages and file types being used in this task.
 
@@ -126,11 +175,11 @@ Use the context-fetcher subagent to retrieve relevant code style rules from @.ag
 
 </step>
 
-<step number="5" name="task_execution">
+<step number="6" name="task_execution">
 
-### Step 5: Task and Sub-task Execution
+### Step 6: Task and Sub-task Execution
 
-Execute the parent task and all sub-tasks in order using test-driven development (TDD) approach.
+The assigned specialist agent executes the parent task and all sub-tasks in order using test-driven development (TDD) approach.
 
 <typical_task_structure>
   <first_subtask>Write tests for [feature]</first_subtask>
@@ -141,7 +190,7 @@ Execute the parent task and all sub-tasks in order using test-driven development
 <execution_order>
   <subtask_1_tests>
     IF sub-task 1 is "Write tests for [feature]":
-      - Write all tests for the parent feature
+      - Specialist writes all tests for the parent feature
       - Include unit tests, integration tests, edge cases
       - Run tests to ensure they fail appropriately
       - Mark sub-task 1 complete
@@ -149,7 +198,7 @@ Execute the parent task and all sub-tasks in order using test-driven development
 
   <middle_subtasks_implementation>
     FOR each implementation sub-task (2 through n-1):
-      - Implement the specific functionality
+      - Specialist implements the specific functionality
       - Make relevant tests pass
       - Update any adjacent/related tests if needed
       - Refactor while keeping tests green
@@ -179,7 +228,7 @@ Execute the parent task and all sub-tasks in order using test-driven development
 </test_management>
 
 <instructions>
-  ACTION: Execute sub-tasks in their defined order
+  ACTION: Specialist executes sub-tasks in their defined order
   RECOGNIZE: First sub-task typically writes all tests
   IMPLEMENT: Middle sub-tasks build functionality
   VERIFY: Final sub-task ensures all tests pass
@@ -188,9 +237,9 @@ Execute the parent task and all sub-tasks in order using test-driven development
 
 </step>
 
-<step number="6" subagent="test-runner" name="task_test_verification">
+<step number="7" subagent="test-runner" name="task_test_verification">
 
-### Step 6: Task-Specific Test Verification
+### Step 7: Task-Specific Test Verification
 
 Use the test-runner subagent to run and verify only the tests specific to this parent task (not the full test suite) to ensure the feature is working correctly.
 
@@ -216,42 +265,34 @@ Use the test-runner subagent to run and verify only the tests specific to this p
 </final_verification>
 
 <instructions>
-  ACTION: Use test-runner subagent
-  REQUEST: "Run tests for [this parent task's test files]"
-  WAIT: For test-runner analysis
-  PROCESS: Returned failure information
-  VERIFY: 100% pass rate for task-specific tests
-  CONFIRM: This feature's tests are complete
+  ACTION: Use test-runner subagent for focused tests
+  EXECUTE: Only tests specific to this task
+  VERIFY: All new/updated tests pass
+  SKIP: Full suite testing (done after all tasks)
 </instructions>
 
 </step>
 
-<step number="7" name="task_status_updates">
+<step number="8" name="task_status_updates">
 
-### Step 7: Mark this task and sub-tasks complete
+### Step 8: Task Status Updates
 
-IMPORTANT: In the tasks.md file, mark this task and its sub-tasks complete by updating each task checkbox to [x].
+Update tasks.md to reflect the completion status of the parent task and all sub-tasks.
 
-<update_format>
-  <completed>- [x] Task description</completed>
-  <incomplete>- [ ] Task description</incomplete>
-  <blocked>
-    - [ ] Task description
-    ⚠️ Blocking issue: [DESCRIPTION]
-  </blocked>
-</update_format>
-
-<blocking_criteria>
-  <attempts>maximum 3 different approaches</attempts>
-  <action>document blocking issue</action>
-  <emoji>⚠️</emoji>
-</blocking_criteria>
+<status_tracking>
+  <mark_complete>
+    - Parent task checkbox
+    - All sub-task checkboxes
+    - Add completion timestamp if desired
+    - Note any deviations from plan
+  </mark_complete>
+</status_tracking>
 
 <instructions>
-  ACTION: Update tasks.md after each task completion
-  MARK: [x] for completed items immediately
-  DOCUMENT: Blocking issues with ⚠️ emoji
-  LIMIT: 3 attempts before marking as blocked
+  ACTION: Update tasks.md with completion status
+  MARK: All completed checkboxes
+  NOTE: Any issues or deviations
+  READY: For next task execution
 </instructions>
 
 </step>

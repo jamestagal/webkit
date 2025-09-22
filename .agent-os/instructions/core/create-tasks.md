@@ -18,11 +18,51 @@ With the user's approval, proceed to creating a tasks list based on the current 
 
 <process_flow>
 
-<step number="1" subagent="file-creator" name="create_tasks">
+<step number="1" subagent="project-manager" name="specialist_consultation">
 
-### Step 1: Create tasks.md
+### Step 1: Consult Specialist Agents
 
-Use the file-creator subagent to create file: tasks.md inside of the current feature's spec folder.
+Before creating tasks, invoke relevant specialist agents based on the spec's technical requirements.
+
+<specialist_invocation>
+  ANALYZE: Review spec for technology domains
+  INVOKE: Appropriate specialists based on detected technologies
+  
+  IF backend_work_detected (Go, API, database):
+    ACTION: Load .claude/agents/go-backend.md and act as that specialist
+    PROVIDE: Backend task planning following Go patterns
+  
+  IF frontend_work_detected (Svelte, SvelteKit, UI):
+    ACTION: Load .claude/agents/sveltekit-specialist.md and act as that specialist
+    PROVIDE: Frontend task planning following SvelteKit patterns
+  
+  IF infrastructure_work_detected (Docker, deployment):
+    ACTION: Load .claude/agents/devops-engineer.md and act as that specialist
+    PROVIDE: Infrastructure task planning
+  
+  IF cloudflare_work_detected (Workers, D1, KV):
+    ACTION: Load .claude/agents/cloudflare-specialist.md and act as that specialist
+    PROVIDE: Cloudflare service task planning
+    
+  IMPORTANT: Actually load and read these agent files to get their expertise!
+</specialist_invocation>
+
+<specialist_collaboration>
+  REQUEST: Each specialist to provide:
+    - Technology-specific task breakdowns
+    - Best practices for their domain
+    - Testing strategies
+    - Common pitfalls to avoid
+  COMBINE: Specialist inputs into comprehensive task list
+</specialist_collaboration>
+
+</step>
+
+<step number="2" subagent="file-creator" name="create_tasks">
+
+### Step 2: Create tasks.md with Specialist Input
+
+Use the file-creator subagent to create file: tasks.md inside of the current feature's spec folder, incorporating all specialist recommendations.
 
 <file_template>
   <header>
@@ -67,9 +107,9 @@ Use the file-creator subagent to create file: tasks.md inside of the current fea
 
 </step>
 
-<step number="2" name="execution_readiness">
+<step number="3" name="execution_readiness">
 
-### Step 2: Execution Readiness Check
+### Step 3: Execution Readiness Check
 
 Evaluate readiness to begin implementation by presenting the first task summary and requesting user confirmation to proceed.
 
