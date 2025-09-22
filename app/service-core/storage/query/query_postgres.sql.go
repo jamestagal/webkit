@@ -12,16 +12,53 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
 
-const countConsultations = `-- name: CountConsultations :one
-
-select count(*) from consultations where user_id = $1
+const cleanupOldDrafts = `-- name: CleanupOldDrafts :exec
+DELETE FROM consultation_drafts
+WHERE auto_saved = true
+AND updated_at < $1
 `
 
-// Consultation queries
-func (q *Queries) CountConsultations(ctx context.Context, userID uuid.UUID) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countConsultations, userID)
+func (q *Queries) CleanupOldDrafts(ctx context.Context, updatedAt sql.NullTime) error {
+	_, err := q.db.ExecContext(ctx, cleanupOldDrafts, updatedAt)
+	return err
+}
+
+const countConsultationVersions = `-- name: CountConsultationVersions :one
+SELECT COUNT(*) FROM consultation_versions WHERE consultation_id = $1
+`
+
+func (q *Queries) CountConsultationVersions(ctx context.Context, consultationID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countConsultationVersions, consultationID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countConsultationsByStatus = `-- name: CountConsultationsByStatus :one
+SELECT COUNT(*) FROM consultations WHERE user_id = $1 AND status = $2
+`
+
+type CountConsultationsByStatusParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Status string    `json:"status"`
+}
+
+func (q *Queries) CountConsultationsByStatus(ctx context.Context, arg CountConsultationsByStatusParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countConsultationsByStatus, arg.UserID, arg.Status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countConsultationsByUser = `-- name: CountConsultationsByUser :one
+SELECT COUNT(*) FROM consultations WHERE user_id = $1
+`
+
+func (q *Queries) CountConsultationsByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countConsultationsByUser, userID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -38,8 +75,170 @@ func (q *Queries) CountNotes(ctx context.Context, userID uuid.UUID) (int64, erro
 	return count, err
 }
 
+const createConsultation = `-- name: CreateConsultation :one
+
+
+INSERT INTO consultations (
+    id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+) RETURNING id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at
+`
+
+type CreateConsultationParams struct {
+	ID                   uuid.UUID       `json:"id"`
+	UserID               uuid.UUID       `json:"user_id"`
+	ContactInfo          json.RawMessage `json:"contact_info"`
+	BusinessContext      json.RawMessage `json:"business_context"`
+	PainPoints           json.RawMessage `json:"pain_points"`
+	GoalsObjectives      json.RawMessage `json:"goals_objectives"`
+	Status               string          `json:"status"`
+	CompletionPercentage sql.NullInt32   `json:"completion_percentage"`
+}
+
+// Consultation queries (New Schema)
+// Basic CRUD operations for consultations
+func (q *Queries) CreateConsultation(ctx context.Context, arg CreateConsultationParams) (Consultation, error) {
+	row := q.db.QueryRowContext(ctx, createConsultation,
+		arg.ID,
+		arg.UserID,
+		arg.ContactInfo,
+		arg.BusinessContext,
+		arg.PainPoints,
+		arg.GoalsObjectives,
+		arg.Status,
+		arg.CompletionPercentage,
+	)
+	var i Consultation
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ContactInfo,
+		&i.BusinessContext,
+		&i.PainPoints,
+		&i.GoalsObjectives,
+		&i.Status,
+		&i.CompletionPercentage,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
+	)
+	return i, err
+}
+
+const createConsultationDraft = `-- name: CreateConsultationDraft :one
+
+INSERT INTO consultation_drafts (
+    id, consultation_id, user_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
+) RETURNING id, consultation_id, user_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes, created_at, updated_at
+`
+
+type CreateConsultationDraftParams struct {
+	ID              uuid.UUID       `json:"id"`
+	ConsultationID  uuid.UUID       `json:"consultation_id"`
+	UserID          uuid.UUID       `json:"user_id"`
+	ContactInfo     json.RawMessage `json:"contact_info"`
+	BusinessContext json.RawMessage `json:"business_context"`
+	PainPoints      json.RawMessage `json:"pain_points"`
+	GoalsObjectives json.RawMessage `json:"goals_objectives"`
+	AutoSaved       sql.NullBool    `json:"auto_saved"`
+	DraftNotes      sql.NullString  `json:"draft_notes"`
+}
+
+// Draft management queries
+func (q *Queries) CreateConsultationDraft(ctx context.Context, arg CreateConsultationDraftParams) (ConsultationDraft, error) {
+	row := q.db.QueryRowContext(ctx, createConsultationDraft,
+		arg.ID,
+		arg.ConsultationID,
+		arg.UserID,
+		arg.ContactInfo,
+		arg.BusinessContext,
+		arg.PainPoints,
+		arg.GoalsObjectives,
+		arg.AutoSaved,
+		arg.DraftNotes,
+	)
+	var i ConsultationDraft
+	err := row.Scan(
+		&i.ID,
+		&i.ConsultationID,
+		&i.UserID,
+		&i.ContactInfo,
+		&i.BusinessContext,
+		&i.PainPoints,
+		&i.GoalsObjectives,
+		&i.AutoSaved,
+		&i.DraftNotes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createConsultationVersion = `-- name: CreateConsultationVersion :one
+
+INSERT INTO consultation_versions (
+    id, consultation_id, user_id, version_number, contact_info, business_context, pain_points, goals_objectives,
+    status, completion_percentage, change_summary, changed_fields
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+) RETURNING id, consultation_id, user_id, version_number, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, change_summary, changed_fields, created_at
+`
+
+type CreateConsultationVersionParams struct {
+	ID                   uuid.UUID             `json:"id"`
+	ConsultationID       uuid.UUID             `json:"consultation_id"`
+	UserID               uuid.UUID             `json:"user_id"`
+	VersionNumber        int32                 `json:"version_number"`
+	ContactInfo          json.RawMessage       `json:"contact_info"`
+	BusinessContext      json.RawMessage       `json:"business_context"`
+	PainPoints           json.RawMessage       `json:"pain_points"`
+	GoalsObjectives      json.RawMessage       `json:"goals_objectives"`
+	Status               string                `json:"status"`
+	CompletionPercentage int32                 `json:"completion_percentage"`
+	ChangeSummary        sql.NullString        `json:"change_summary"`
+	ChangedFields        pqtype.NullRawMessage `json:"changed_fields"`
+}
+
+// Version tracking queries
+func (q *Queries) CreateConsultationVersion(ctx context.Context, arg CreateConsultationVersionParams) (ConsultationVersion, error) {
+	row := q.db.QueryRowContext(ctx, createConsultationVersion,
+		arg.ID,
+		arg.ConsultationID,
+		arg.UserID,
+		arg.VersionNumber,
+		arg.ContactInfo,
+		arg.BusinessContext,
+		arg.PainPoints,
+		arg.GoalsObjectives,
+		arg.Status,
+		arg.CompletionPercentage,
+		arg.ChangeSummary,
+		arg.ChangedFields,
+	)
+	var i ConsultationVersion
+	err := row.Scan(
+		&i.ID,
+		&i.ConsultationID,
+		&i.UserID,
+		&i.VersionNumber,
+		&i.ContactInfo,
+		&i.BusinessContext,
+		&i.PainPoints,
+		&i.GoalsObjectives,
+		&i.Status,
+		&i.CompletionPercentage,
+		&i.ChangeSummary,
+		&i.ChangedFields,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const deleteConsultation = `-- name: DeleteConsultation :exec
-delete from consultations where id = $1
+DELETE FROM consultations WHERE id = $1
 `
 
 func (q *Queries) DeleteConsultation(ctx context.Context, id uuid.UUID) error {
@@ -48,21 +247,30 @@ func (q *Queries) DeleteConsultation(ctx context.Context, id uuid.UUID) error {
 }
 
 const deleteConsultationDraft = `-- name: DeleteConsultationDraft :exec
-delete from consultation_drafts where consultation_id = $1 and user_id = $2
+DELETE FROM consultation_drafts WHERE consultation_id = $1
 `
 
-type DeleteConsultationDraftParams struct {
+func (q *Queries) DeleteConsultationDraft(ctx context.Context, consultationID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteConsultationDraft, consultationID)
+	return err
+}
+
+const deleteConsultationDraftByUser = `-- name: DeleteConsultationDraftByUser :exec
+DELETE FROM consultation_drafts WHERE consultation_id = $1 AND user_id = $2
+`
+
+type DeleteConsultationDraftByUserParams struct {
 	ConsultationID uuid.UUID `json:"consultation_id"`
 	UserID         uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) DeleteConsultationDraft(ctx context.Context, arg DeleteConsultationDraftParams) error {
-	_, err := q.db.ExecContext(ctx, deleteConsultationDraft, arg.ConsultationID, arg.UserID)
+func (q *Queries) DeleteConsultationDraftByUser(ctx context.Context, arg DeleteConsultationDraftByUserParams) error {
+	_, err := q.db.ExecContext(ctx, deleteConsultationDraftByUser, arg.ConsultationID, arg.UserID)
 	return err
 }
 
 const deleteConsultationVersions = `-- name: DeleteConsultationVersions :exec
-delete from consultation_versions where consultation_id = $1
+DELETE FROM consultation_versions WHERE consultation_id = $1
 `
 
 func (q *Queries) DeleteConsultationVersions(ctx context.Context, consultationID uuid.UUID) error {
@@ -97,185 +305,345 @@ func (q *Queries) DeleteTokens(ctx context.Context) error {
 	return err
 }
 
-const getLatestVersionNumber = `-- name: GetLatestVersionNumber :one
-select coalesce(max(version_number), 0) from consultation_versions where consultation_id = $1
+const getConsultation = `-- name: GetConsultation :one
+SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations WHERE id = $1
 `
 
-func (q *Queries) GetLatestVersionNumber(ctx context.Context, consultationID uuid.UUID) (interface{}, error) {
-	row := q.db.QueryRowContext(ctx, getLatestVersionNumber, consultationID)
-	var coalesce interface{}
-	err := row.Scan(&coalesce)
-	return coalesce, err
-}
-
-const insertConsultation = `-- name: InsertConsultation :one
-insert into consultations (
-    id, user_id, business_name, contact_name, contact_title, email, phone, website,
-    preferred_contact, industry, location, years_in_business, team_size, monthly_traffic,
-    current_platform, business_data, challenges, goals, budget, consultation_date,
-    duration_minutes, sales_rep, notes, next_steps, commitment_level, status
-) values (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
-) returning id, created, updated, user_id, business_name, contact_name, contact_title, email, phone, website, preferred_contact, industry, location, years_in_business, team_size, monthly_traffic, current_platform, business_data, challenges, goals, budget, consultation_date, duration_minutes, sales_rep, notes, next_steps, commitment_level, status
-`
-
-type InsertConsultationParams struct {
-	ID               uuid.UUID       `json:"id"`
-	UserID           uuid.UUID       `json:"user_id"`
-	BusinessName     string          `json:"business_name"`
-	ContactName      string          `json:"contact_name"`
-	ContactTitle     string          `json:"contact_title"`
-	Email            string          `json:"email"`
-	Phone            string          `json:"phone"`
-	Website          string          `json:"website"`
-	PreferredContact string          `json:"preferred_contact"`
-	Industry         string          `json:"industry"`
-	Location         string          `json:"location"`
-	YearsInBusiness  sql.NullInt32   `json:"years_in_business"`
-	TeamSize         sql.NullInt32   `json:"team_size"`
-	MonthlyTraffic   sql.NullInt32   `json:"monthly_traffic"`
-	CurrentPlatform  string          `json:"current_platform"`
-	BusinessData     json.RawMessage `json:"business_data"`
-	Challenges       json.RawMessage `json:"challenges"`
-	Goals            json.RawMessage `json:"goals"`
-	Budget           json.RawMessage `json:"budget"`
-	ConsultationDate sql.NullTime    `json:"consultation_date"`
-	DurationMinutes  sql.NullInt32   `json:"duration_minutes"`
-	SalesRep         string          `json:"sales_rep"`
-	Notes            string          `json:"notes"`
-	NextSteps        json.RawMessage `json:"next_steps"`
-	CommitmentLevel  sql.NullInt32   `json:"commitment_level"`
-	Status           string          `json:"status"`
-}
-
-func (q *Queries) InsertConsultation(ctx context.Context, arg InsertConsultationParams) (Consultation, error) {
-	row := q.db.QueryRowContext(ctx, insertConsultation,
-		arg.ID,
-		arg.UserID,
-		arg.BusinessName,
-		arg.ContactName,
-		arg.ContactTitle,
-		arg.Email,
-		arg.Phone,
-		arg.Website,
-		arg.PreferredContact,
-		arg.Industry,
-		arg.Location,
-		arg.YearsInBusiness,
-		arg.TeamSize,
-		arg.MonthlyTraffic,
-		arg.CurrentPlatform,
-		arg.BusinessData,
-		arg.Challenges,
-		arg.Goals,
-		arg.Budget,
-		arg.ConsultationDate,
-		arg.DurationMinutes,
-		arg.SalesRep,
-		arg.Notes,
-		arg.NextSteps,
-		arg.CommitmentLevel,
-		arg.Status,
-	)
+func (q *Queries) GetConsultation(ctx context.Context, id uuid.UUID) (Consultation, error) {
+	row := q.db.QueryRowContext(ctx, getConsultation, id)
 	var i Consultation
 	err := row.Scan(
 		&i.ID,
-		&i.Created,
-		&i.Updated,
 		&i.UserID,
-		&i.BusinessName,
-		&i.ContactName,
-		&i.ContactTitle,
-		&i.Email,
-		&i.Phone,
-		&i.Website,
-		&i.PreferredContact,
-		&i.Industry,
-		&i.Location,
-		&i.YearsInBusiness,
-		&i.TeamSize,
-		&i.MonthlyTraffic,
-		&i.CurrentPlatform,
-		&i.BusinessData,
-		&i.Challenges,
-		&i.Goals,
-		&i.Budget,
-		&i.ConsultationDate,
-		&i.DurationMinutes,
-		&i.SalesRep,
-		&i.Notes,
-		&i.NextSteps,
-		&i.CommitmentLevel,
+		&i.ContactInfo,
+		&i.BusinessContext,
+		&i.PainPoints,
+		&i.GoalsObjectives,
 		&i.Status,
+		&i.CompletionPercentage,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
 	)
 	return i, err
 }
 
-const insertConsultationDraft = `-- name: InsertConsultationDraft :one
-insert into consultation_drafts (id, consultation_id, user_id, draft_data)
-values ($1, $2, $3, $4) returning id, consultation_id, user_id, draft_data, created, updated
+const getConsultationByUser = `-- name: GetConsultationByUser :one
+SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations WHERE id = $1 AND user_id = $2
 `
 
-type InsertConsultationDraftParams struct {
-	ID             uuid.UUID       `json:"id"`
-	ConsultationID uuid.UUID       `json:"consultation_id"`
-	UserID         uuid.UUID       `json:"user_id"`
-	DraftData      json.RawMessage `json:"draft_data"`
+type GetConsultationByUserParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) InsertConsultationDraft(ctx context.Context, arg InsertConsultationDraftParams) (ConsultationDraft, error) {
-	row := q.db.QueryRowContext(ctx, insertConsultationDraft,
-		arg.ID,
-		arg.ConsultationID,
-		arg.UserID,
-		arg.DraftData,
+func (q *Queries) GetConsultationByUser(ctx context.Context, arg GetConsultationByUserParams) (Consultation, error) {
+	row := q.db.QueryRowContext(ctx, getConsultationByUser, arg.ID, arg.UserID)
+	var i Consultation
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ContactInfo,
+		&i.BusinessContext,
+		&i.PainPoints,
+		&i.GoalsObjectives,
+		&i.Status,
+		&i.CompletionPercentage,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
 	)
+	return i, err
+}
+
+const getConsultationDraft = `-- name: GetConsultationDraft :one
+SELECT id, consultation_id, user_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes, created_at, updated_at FROM consultation_drafts WHERE consultation_id = $1
+`
+
+func (q *Queries) GetConsultationDraft(ctx context.Context, consultationID uuid.UUID) (ConsultationDraft, error) {
+	row := q.db.QueryRowContext(ctx, getConsultationDraft, consultationID)
 	var i ConsultationDraft
 	err := row.Scan(
 		&i.ID,
 		&i.ConsultationID,
 		&i.UserID,
-		&i.DraftData,
-		&i.Created,
-		&i.Updated,
+		&i.ContactInfo,
+		&i.BusinessContext,
+		&i.PainPoints,
+		&i.GoalsObjectives,
+		&i.AutoSaved,
+		&i.DraftNotes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const insertConsultationVersion = `-- name: InsertConsultationVersion :one
-insert into consultation_versions (id, consultation_id, user_id, version_number, version_data, change_description)
-values ($1, $2, $3, $4, $5, $6) returning id, consultation_id, user_id, version_number, version_data, change_description, created
+const getConsultationDraftByUser = `-- name: GetConsultationDraftByUser :one
+SELECT id, consultation_id, user_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes, created_at, updated_at FROM consultation_drafts WHERE consultation_id = $1 AND user_id = $2
 `
 
-type InsertConsultationVersionParams struct {
-	ID                uuid.UUID       `json:"id"`
-	ConsultationID    uuid.UUID       `json:"consultation_id"`
-	UserID            uuid.UUID       `json:"user_id"`
-	VersionNumber     int32           `json:"version_number"`
-	VersionData       json.RawMessage `json:"version_data"`
-	ChangeDescription string          `json:"change_description"`
+type GetConsultationDraftByUserParams struct {
+	ConsultationID uuid.UUID `json:"consultation_id"`
+	UserID         uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) InsertConsultationVersion(ctx context.Context, arg InsertConsultationVersionParams) (ConsultationVersion, error) {
-	row := q.db.QueryRowContext(ctx, insertConsultationVersion,
-		arg.ID,
-		arg.ConsultationID,
-		arg.UserID,
-		arg.VersionNumber,
-		arg.VersionData,
-		arg.ChangeDescription,
+func (q *Queries) GetConsultationDraftByUser(ctx context.Context, arg GetConsultationDraftByUserParams) (ConsultationDraft, error) {
+	row := q.db.QueryRowContext(ctx, getConsultationDraftByUser, arg.ConsultationID, arg.UserID)
+	var i ConsultationDraft
+	err := row.Scan(
+		&i.ID,
+		&i.ConsultationID,
+		&i.UserID,
+		&i.ContactInfo,
+		&i.BusinessContext,
+		&i.PainPoints,
+		&i.GoalsObjectives,
+		&i.AutoSaved,
+		&i.DraftNotes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
+	return i, err
+}
+
+const getConsultationVersion = `-- name: GetConsultationVersion :one
+SELECT id, consultation_id, user_id, version_number, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, change_summary, changed_fields, created_at FROM consultation_versions
+WHERE consultation_id = $1 AND version_number = $2
+`
+
+type GetConsultationVersionParams struct {
+	ConsultationID uuid.UUID `json:"consultation_id"`
+	VersionNumber  int32     `json:"version_number"`
+}
+
+func (q *Queries) GetConsultationVersion(ctx context.Context, arg GetConsultationVersionParams) (ConsultationVersion, error) {
+	row := q.db.QueryRowContext(ctx, getConsultationVersion, arg.ConsultationID, arg.VersionNumber)
 	var i ConsultationVersion
 	err := row.Scan(
 		&i.ID,
 		&i.ConsultationID,
 		&i.UserID,
 		&i.VersionNumber,
-		&i.VersionData,
-		&i.ChangeDescription,
-		&i.Created,
+		&i.ContactInfo,
+		&i.BusinessContext,
+		&i.PainPoints,
+		&i.GoalsObjectives,
+		&i.Status,
+		&i.CompletionPercentage,
+		&i.ChangeSummary,
+		&i.ChangedFields,
+		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getConsultationsByBusinessName = `-- name: GetConsultationsByBusinessName :many
+
+SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+WHERE user_id = $1
+AND contact_info->>'business_name' ILIKE $2
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type GetConsultationsByBusinessNameParams struct {
+	UserID      uuid.UUID       `json:"user_id"`
+	ContactInfo json.RawMessage `json:"contact_info"`
+	Limit       int32           `json:"limit"`
+	Offset      int32           `json:"offset"`
+}
+
+// JSONB field queries for advanced filtering
+func (q *Queries) GetConsultationsByBusinessName(ctx context.Context, arg GetConsultationsByBusinessNameParams) ([]Consultation, error) {
+	rows, err := q.db.QueryContext(ctx, getConsultationsByBusinessName,
+		arg.UserID,
+		arg.ContactInfo,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Consultation
+	for rows.Next() {
+		var i Consultation
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ContactInfo,
+			&i.BusinessContext,
+			&i.PainPoints,
+			&i.GoalsObjectives,
+			&i.Status,
+			&i.CompletionPercentage,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getConsultationsByIndustry = `-- name: GetConsultationsByIndustry :many
+SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+WHERE user_id = $1
+AND business_context->>'industry' = $2
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type GetConsultationsByIndustryParams struct {
+	UserID          uuid.UUID       `json:"user_id"`
+	BusinessContext json.RawMessage `json:"business_context"`
+	Limit           int32           `json:"limit"`
+	Offset          int32           `json:"offset"`
+}
+
+func (q *Queries) GetConsultationsByIndustry(ctx context.Context, arg GetConsultationsByIndustryParams) ([]Consultation, error) {
+	rows, err := q.db.QueryContext(ctx, getConsultationsByIndustry,
+		arg.UserID,
+		arg.BusinessContext,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Consultation
+	for rows.Next() {
+		var i Consultation
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ContactInfo,
+			&i.BusinessContext,
+			&i.PainPoints,
+			&i.GoalsObjectives,
+			&i.Status,
+			&i.CompletionPercentage,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getConsultationsByUrgency = `-- name: GetConsultationsByUrgency :many
+SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+WHERE user_id = $1
+AND pain_points->>'urgency_level' = $2
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type GetConsultationsByUrgencyParams struct {
+	UserID     uuid.UUID       `json:"user_id"`
+	PainPoints json.RawMessage `json:"pain_points"`
+	Limit      int32           `json:"limit"`
+	Offset     int32           `json:"offset"`
+}
+
+func (q *Queries) GetConsultationsByUrgency(ctx context.Context, arg GetConsultationsByUrgencyParams) ([]Consultation, error) {
+	rows, err := q.db.QueryContext(ctx, getConsultationsByUrgency,
+		arg.UserID,
+		arg.PainPoints,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Consultation
+	for rows.Next() {
+		var i Consultation
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ContactInfo,
+			&i.BusinessContext,
+			&i.PainPoints,
+			&i.GoalsObjectives,
+			&i.Status,
+			&i.CompletionPercentage,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getLatestConsultationVersion = `-- name: GetLatestConsultationVersion :one
+SELECT id, consultation_id, user_id, version_number, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, change_summary, changed_fields, created_at FROM consultation_versions
+WHERE consultation_id = $1
+ORDER BY version_number DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestConsultationVersion(ctx context.Context, consultationID uuid.UUID) (ConsultationVersion, error) {
+	row := q.db.QueryRowContext(ctx, getLatestConsultationVersion, consultationID)
+	var i ConsultationVersion
+	err := row.Scan(
+		&i.ID,
+		&i.ConsultationID,
+		&i.UserID,
+		&i.VersionNumber,
+		&i.ContactInfo,
+		&i.BusinessContext,
+		&i.PainPoints,
+		&i.GoalsObjectives,
+		&i.Status,
+		&i.CompletionPercentage,
+		&i.ChangeSummary,
+		&i.ChangedFields,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getNextVersionNumber = `-- name: GetNextVersionNumber :one
+SELECT COALESCE(MAX(version_number), 0) + 1
+FROM consultation_versions
+WHERE consultation_id = $1
+`
+
+func (q *Queries) GetNextVersionNumber(ctx context.Context, consultationID uuid.UUID) (int32, error) {
+	row := q.db.QueryRowContext(ctx, getNextVersionNumber, consultationID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const insertEmail = `-- name: InsertEmail :one
@@ -480,103 +848,21 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, e
 	return i, err
 }
 
-const selectConsultation = `-- name: SelectConsultation :one
-select id, created, updated, user_id, business_name, contact_name, contact_title, email, phone, website, preferred_contact, industry, location, years_in_business, team_size, monthly_traffic, current_platform, business_data, challenges, goals, budget, consultation_date, duration_minutes, sales_rep, notes, next_steps, commitment_level, status from consultations where id = $1
+const listConsultationVersions = `-- name: ListConsultationVersions :many
+SELECT id, consultation_id, user_id, version_number, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, change_summary, changed_fields, created_at FROM consultation_versions
+WHERE consultation_id = $1
+ORDER BY version_number DESC
+LIMIT $2 OFFSET $3
 `
 
-func (q *Queries) SelectConsultation(ctx context.Context, id uuid.UUID) (Consultation, error) {
-	row := q.db.QueryRowContext(ctx, selectConsultation, id)
-	var i Consultation
-	err := row.Scan(
-		&i.ID,
-		&i.Created,
-		&i.Updated,
-		&i.UserID,
-		&i.BusinessName,
-		&i.ContactName,
-		&i.ContactTitle,
-		&i.Email,
-		&i.Phone,
-		&i.Website,
-		&i.PreferredContact,
-		&i.Industry,
-		&i.Location,
-		&i.YearsInBusiness,
-		&i.TeamSize,
-		&i.MonthlyTraffic,
-		&i.CurrentPlatform,
-		&i.BusinessData,
-		&i.Challenges,
-		&i.Goals,
-		&i.Budget,
-		&i.ConsultationDate,
-		&i.DurationMinutes,
-		&i.SalesRep,
-		&i.Notes,
-		&i.NextSteps,
-		&i.CommitmentLevel,
-		&i.Status,
-	)
-	return i, err
-}
-
-const selectConsultationDraft = `-- name: SelectConsultationDraft :one
-
-select id, consultation_id, user_id, draft_data, created, updated from consultation_drafts where consultation_id = $1 and user_id = $2
-`
-
-type SelectConsultationDraftParams struct {
+type ListConsultationVersionsParams struct {
 	ConsultationID uuid.UUID `json:"consultation_id"`
-	UserID         uuid.UUID `json:"user_id"`
+	Limit          int32     `json:"limit"`
+	Offset         int32     `json:"offset"`
 }
 
-// Consultation Draft queries
-func (q *Queries) SelectConsultationDraft(ctx context.Context, arg SelectConsultationDraftParams) (ConsultationDraft, error) {
-	row := q.db.QueryRowContext(ctx, selectConsultationDraft, arg.ConsultationID, arg.UserID)
-	var i ConsultationDraft
-	err := row.Scan(
-		&i.ID,
-		&i.ConsultationID,
-		&i.UserID,
-		&i.DraftData,
-		&i.Created,
-		&i.Updated,
-	)
-	return i, err
-}
-
-const selectConsultationVersion = `-- name: SelectConsultationVersion :one
-select id, consultation_id, user_id, version_number, version_data, change_description, created from consultation_versions where consultation_id = $1 and version_number = $2
-`
-
-type SelectConsultationVersionParams struct {
-	ConsultationID uuid.UUID `json:"consultation_id"`
-	VersionNumber  int32     `json:"version_number"`
-}
-
-func (q *Queries) SelectConsultationVersion(ctx context.Context, arg SelectConsultationVersionParams) (ConsultationVersion, error) {
-	row := q.db.QueryRowContext(ctx, selectConsultationVersion, arg.ConsultationID, arg.VersionNumber)
-	var i ConsultationVersion
-	err := row.Scan(
-		&i.ID,
-		&i.ConsultationID,
-		&i.UserID,
-		&i.VersionNumber,
-		&i.VersionData,
-		&i.ChangeDescription,
-		&i.Created,
-	)
-	return i, err
-}
-
-const selectConsultationVersions = `-- name: SelectConsultationVersions :many
-
-select id, consultation_id, user_id, version_number, version_data, change_description, created from consultation_versions where consultation_id = $1 order by version_number desc
-`
-
-// Consultation Version queries
-func (q *Queries) SelectConsultationVersions(ctx context.Context, consultationID uuid.UUID) ([]ConsultationVersion, error) {
-	rows, err := q.db.QueryContext(ctx, selectConsultationVersions, consultationID)
+func (q *Queries) ListConsultationVersions(ctx context.Context, arg ListConsultationVersionsParams) ([]ConsultationVersion, error) {
+	rows, err := q.db.QueryContext(ctx, listConsultationVersions, arg.ConsultationID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -589,9 +875,15 @@ func (q *Queries) SelectConsultationVersions(ctx context.Context, consultationID
 			&i.ConsultationID,
 			&i.UserID,
 			&i.VersionNumber,
-			&i.VersionData,
-			&i.ChangeDescription,
-			&i.Created,
+			&i.ContactInfo,
+			&i.BusinessContext,
+			&i.PainPoints,
+			&i.GoalsObjectives,
+			&i.Status,
+			&i.CompletionPercentage,
+			&i.ChangeSummary,
+			&i.ChangedFields,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -606,18 +898,30 @@ func (q *Queries) SelectConsultationVersions(ctx context.Context, consultationID
 	return items, nil
 }
 
-const selectConsultations = `-- name: SelectConsultations :many
-select id, created, updated, user_id, business_name, contact_name, contact_title, email, phone, website, preferred_contact, industry, location, years_in_business, team_size, monthly_traffic, current_platform, business_data, challenges, goals, budget, consultation_date, duration_minutes, sales_rep, notes, next_steps, commitment_level, status from consultations where user_id = $1 order by created desc limit $2 offset $3
+const listConsultationsByCompletion = `-- name: ListConsultationsByCompletion :many
+SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+WHERE user_id = $1
+AND completion_percentage BETWEEN $2 AND $3
+ORDER BY completion_percentage DESC, created_at DESC
+LIMIT $4 OFFSET $5
 `
 
-type SelectConsultationsParams struct {
-	UserID uuid.UUID `json:"user_id"`
-	Limit  int32     `json:"limit"`
-	Offset int32     `json:"offset"`
+type ListConsultationsByCompletionParams struct {
+	UserID                 uuid.UUID     `json:"user_id"`
+	CompletionPercentage   sql.NullInt32 `json:"completion_percentage"`
+	CompletionPercentage_2 sql.NullInt32 `json:"completion_percentage_2"`
+	Limit                  int32         `json:"limit"`
+	Offset                 int32         `json:"offset"`
 }
 
-func (q *Queries) SelectConsultations(ctx context.Context, arg SelectConsultationsParams) ([]Consultation, error) {
-	rows, err := q.db.QueryContext(ctx, selectConsultations, arg.UserID, arg.Limit, arg.Offset)
+func (q *Queries) ListConsultationsByCompletion(ctx context.Context, arg ListConsultationsByCompletionParams) ([]Consultation, error) {
+	rows, err := q.db.QueryContext(ctx, listConsultationsByCompletion,
+		arg.UserID,
+		arg.CompletionPercentage,
+		arg.CompletionPercentage_2,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -627,33 +931,16 @@ func (q *Queries) SelectConsultations(ctx context.Context, arg SelectConsultatio
 		var i Consultation
 		if err := rows.Scan(
 			&i.ID,
-			&i.Created,
-			&i.Updated,
 			&i.UserID,
-			&i.BusinessName,
-			&i.ContactName,
-			&i.ContactTitle,
-			&i.Email,
-			&i.Phone,
-			&i.Website,
-			&i.PreferredContact,
-			&i.Industry,
-			&i.Location,
-			&i.YearsInBusiness,
-			&i.TeamSize,
-			&i.MonthlyTraffic,
-			&i.CurrentPlatform,
-			&i.BusinessData,
-			&i.Challenges,
-			&i.Goals,
-			&i.Budget,
-			&i.ConsultationDate,
-			&i.DurationMinutes,
-			&i.SalesRep,
-			&i.Notes,
-			&i.NextSteps,
-			&i.CommitmentLevel,
+			&i.ContactInfo,
+			&i.BusinessContext,
+			&i.PainPoints,
+			&i.GoalsObjectives,
 			&i.Status,
+			&i.CompletionPercentage,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -668,19 +955,79 @@ func (q *Queries) SelectConsultations(ctx context.Context, arg SelectConsultatio
 	return items, nil
 }
 
-const selectConsultationsByStatus = `-- name: SelectConsultationsByStatus :many
-select id, created, updated, user_id, business_name, contact_name, contact_title, email, phone, website, preferred_contact, industry, location, years_in_business, team_size, monthly_traffic, current_platform, business_data, challenges, goals, budget, consultation_date, duration_minutes, sales_rep, notes, next_steps, commitment_level, status from consultations where user_id = $1 and status = $2 order by created desc limit $3 offset $4
+const listConsultationsByDateRange = `-- name: ListConsultationsByDateRange :many
+SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+WHERE user_id = $1
+AND created_at BETWEEN $2 AND $3
+ORDER BY created_at DESC
+LIMIT $4 OFFSET $5
 `
 
-type SelectConsultationsByStatusParams struct {
+type ListConsultationsByDateRangeParams struct {
+	UserID      uuid.UUID    `json:"user_id"`
+	CreatedAt   sql.NullTime `json:"created_at"`
+	CreatedAt_2 sql.NullTime `json:"created_at_2"`
+	Limit       int32        `json:"limit"`
+	Offset      int32        `json:"offset"`
+}
+
+func (q *Queries) ListConsultationsByDateRange(ctx context.Context, arg ListConsultationsByDateRangeParams) ([]Consultation, error) {
+	rows, err := q.db.QueryContext(ctx, listConsultationsByDateRange,
+		arg.UserID,
+		arg.CreatedAt,
+		arg.CreatedAt_2,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Consultation
+	for rows.Next() {
+		var i Consultation
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ContactInfo,
+			&i.BusinessContext,
+			&i.PainPoints,
+			&i.GoalsObjectives,
+			&i.Status,
+			&i.CompletionPercentage,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listConsultationsByStatus = `-- name: ListConsultationsByStatus :many
+SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+WHERE user_id = $1 AND status = $2
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type ListConsultationsByStatusParams struct {
 	UserID uuid.UUID `json:"user_id"`
 	Status string    `json:"status"`
 	Limit  int32     `json:"limit"`
 	Offset int32     `json:"offset"`
 }
 
-func (q *Queries) SelectConsultationsByStatus(ctx context.Context, arg SelectConsultationsByStatusParams) ([]Consultation, error) {
-	rows, err := q.db.QueryContext(ctx, selectConsultationsByStatus,
+func (q *Queries) ListConsultationsByStatus(ctx context.Context, arg ListConsultationsByStatusParams) ([]Consultation, error) {
+	rows, err := q.db.QueryContext(ctx, listConsultationsByStatus,
 		arg.UserID,
 		arg.Status,
 		arg.Limit,
@@ -695,33 +1042,125 @@ func (q *Queries) SelectConsultationsByStatus(ctx context.Context, arg SelectCon
 		var i Consultation
 		if err := rows.Scan(
 			&i.ID,
-			&i.Created,
-			&i.Updated,
 			&i.UserID,
-			&i.BusinessName,
-			&i.ContactName,
-			&i.ContactTitle,
-			&i.Email,
-			&i.Phone,
-			&i.Website,
-			&i.PreferredContact,
-			&i.Industry,
-			&i.Location,
-			&i.YearsInBusiness,
-			&i.TeamSize,
-			&i.MonthlyTraffic,
-			&i.CurrentPlatform,
-			&i.BusinessData,
-			&i.Challenges,
-			&i.Goals,
-			&i.Budget,
-			&i.ConsultationDate,
-			&i.DurationMinutes,
-			&i.SalesRep,
-			&i.Notes,
-			&i.NextSteps,
-			&i.CommitmentLevel,
+			&i.ContactInfo,
+			&i.BusinessContext,
+			&i.PainPoints,
+			&i.GoalsObjectives,
 			&i.Status,
+			&i.CompletionPercentage,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listConsultationsByUser = `-- name: ListConsultationsByUser :many
+
+SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListConsultationsByUserParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
+}
+
+// Consultation listing and filtering
+func (q *Queries) ListConsultationsByUser(ctx context.Context, arg ListConsultationsByUserParams) ([]Consultation, error) {
+	rows, err := q.db.QueryContext(ctx, listConsultationsByUser, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Consultation
+	for rows.Next() {
+		var i Consultation
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ContactInfo,
+			&i.BusinessContext,
+			&i.PainPoints,
+			&i.GoalsObjectives,
+			&i.Status,
+			&i.CompletionPercentage,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchConsultations = `-- name: SearchConsultations :many
+SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+WHERE user_id = $1
+AND (
+    contact_info->>'business_name' ILIKE $2 OR
+    contact_info->>'contact_person' ILIKE $2 OR
+    business_context->>'industry' ILIKE $2
+)
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type SearchConsultationsParams struct {
+	UserID      uuid.UUID       `json:"user_id"`
+	ContactInfo json.RawMessage `json:"contact_info"`
+	Limit       int32           `json:"limit"`
+	Offset      int32           `json:"offset"`
+}
+
+func (q *Queries) SearchConsultations(ctx context.Context, arg SearchConsultationsParams) ([]Consultation, error) {
+	rows, err := q.db.QueryContext(ctx, searchConsultations,
+		arg.UserID,
+		arg.ContactInfo,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Consultation
+	for rows.Next() {
+		var i Consultation
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ContactInfo,
+			&i.BusinessContext,
+			&i.PainPoints,
+			&i.GoalsObjectives,
+			&i.Status,
+			&i.CompletionPercentage,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1055,193 +1494,134 @@ func (q *Queries) SelectUsers(ctx context.Context) ([]User, error) {
 }
 
 const updateConsultation = `-- name: UpdateConsultation :one
-update consultations set
-    business_name = $1,
-    contact_name = $2,
-    contact_title = $3,
-    email = $4,
-    phone = $5,
-    website = $6,
-    preferred_contact = $7,
-    industry = $8,
-    location = $9,
-    years_in_business = $10,
-    team_size = $11,
-    monthly_traffic = $12,
-    current_platform = $13,
-    business_data = $14,
-    challenges = $15,
-    goals = $16,
-    budget = $17,
-    consultation_date = $18,
-    duration_minutes = $19,
-    sales_rep = $20,
-    notes = $21,
-    next_steps = $22,
-    commitment_level = $23,
-    status = $24,
-    updated = current_timestamp
-where id = $25 returning id, created, updated, user_id, business_name, contact_name, contact_title, email, phone, website, preferred_contact, industry, location, years_in_business, team_size, monthly_traffic, current_platform, business_data, challenges, goals, budget, consultation_date, duration_minutes, sales_rep, notes, next_steps, commitment_level, status
+UPDATE consultations SET
+    contact_info = $2,
+    business_context = $3,
+    pain_points = $4,
+    goals_objectives = $5,
+    status = $6,
+    completion_percentage = $7,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+RETURNING id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at
 `
 
 type UpdateConsultationParams struct {
-	BusinessName     string          `json:"business_name"`
-	ContactName      string          `json:"contact_name"`
-	ContactTitle     string          `json:"contact_title"`
-	Email            string          `json:"email"`
-	Phone            string          `json:"phone"`
-	Website          string          `json:"website"`
-	PreferredContact string          `json:"preferred_contact"`
-	Industry         string          `json:"industry"`
-	Location         string          `json:"location"`
-	YearsInBusiness  sql.NullInt32   `json:"years_in_business"`
-	TeamSize         sql.NullInt32   `json:"team_size"`
-	MonthlyTraffic   sql.NullInt32   `json:"monthly_traffic"`
-	CurrentPlatform  string          `json:"current_platform"`
-	BusinessData     json.RawMessage `json:"business_data"`
-	Challenges       json.RawMessage `json:"challenges"`
-	Goals            json.RawMessage `json:"goals"`
-	Budget           json.RawMessage `json:"budget"`
-	ConsultationDate sql.NullTime    `json:"consultation_date"`
-	DurationMinutes  sql.NullInt32   `json:"duration_minutes"`
-	SalesRep         string          `json:"sales_rep"`
-	Notes            string          `json:"notes"`
-	NextSteps        json.RawMessage `json:"next_steps"`
-	CommitmentLevel  sql.NullInt32   `json:"commitment_level"`
-	Status           string          `json:"status"`
-	ID               uuid.UUID       `json:"id"`
+	ID                   uuid.UUID       `json:"id"`
+	ContactInfo          json.RawMessage `json:"contact_info"`
+	BusinessContext      json.RawMessage `json:"business_context"`
+	PainPoints           json.RawMessage `json:"pain_points"`
+	GoalsObjectives      json.RawMessage `json:"goals_objectives"`
+	Status               string          `json:"status"`
+	CompletionPercentage sql.NullInt32   `json:"completion_percentage"`
 }
 
 func (q *Queries) UpdateConsultation(ctx context.Context, arg UpdateConsultationParams) (Consultation, error) {
 	row := q.db.QueryRowContext(ctx, updateConsultation,
-		arg.BusinessName,
-		arg.ContactName,
-		arg.ContactTitle,
-		arg.Email,
-		arg.Phone,
-		arg.Website,
-		arg.PreferredContact,
-		arg.Industry,
-		arg.Location,
-		arg.YearsInBusiness,
-		arg.TeamSize,
-		arg.MonthlyTraffic,
-		arg.CurrentPlatform,
-		arg.BusinessData,
-		arg.Challenges,
-		arg.Goals,
-		arg.Budget,
-		arg.ConsultationDate,
-		arg.DurationMinutes,
-		arg.SalesRep,
-		arg.Notes,
-		arg.NextSteps,
-		arg.CommitmentLevel,
-		arg.Status,
 		arg.ID,
+		arg.ContactInfo,
+		arg.BusinessContext,
+		arg.PainPoints,
+		arg.GoalsObjectives,
+		arg.Status,
+		arg.CompletionPercentage,
 	)
 	var i Consultation
 	err := row.Scan(
 		&i.ID,
-		&i.Created,
-		&i.Updated,
 		&i.UserID,
-		&i.BusinessName,
-		&i.ContactName,
-		&i.ContactTitle,
-		&i.Email,
-		&i.Phone,
-		&i.Website,
-		&i.PreferredContact,
-		&i.Industry,
-		&i.Location,
-		&i.YearsInBusiness,
-		&i.TeamSize,
-		&i.MonthlyTraffic,
-		&i.CurrentPlatform,
-		&i.BusinessData,
-		&i.Challenges,
-		&i.Goals,
-		&i.Budget,
-		&i.ConsultationDate,
-		&i.DurationMinutes,
-		&i.SalesRep,
-		&i.Notes,
-		&i.NextSteps,
-		&i.CommitmentLevel,
+		&i.ContactInfo,
+		&i.BusinessContext,
+		&i.PainPoints,
+		&i.GoalsObjectives,
 		&i.Status,
+		&i.CompletionPercentage,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
 	)
 	return i, err
 }
 
 const updateConsultationDraft = `-- name: UpdateConsultationDraft :one
-update consultation_drafts set
-    draft_data = $1,
-    updated = current_timestamp
-where consultation_id = $2 and user_id = $3 returning id, consultation_id, user_id, draft_data, created, updated
+UPDATE consultation_drafts SET
+    contact_info = $2,
+    business_context = $3,
+    pain_points = $4,
+    goals_objectives = $5,
+    auto_saved = $6,
+    draft_notes = $7,
+    updated_at = CURRENT_TIMESTAMP
+WHERE consultation_id = $1
+RETURNING id, consultation_id, user_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes, created_at, updated_at
 `
 
 type UpdateConsultationDraftParams struct {
-	DraftData      json.RawMessage `json:"draft_data"`
-	ConsultationID uuid.UUID       `json:"consultation_id"`
-	UserID         uuid.UUID       `json:"user_id"`
+	ConsultationID  uuid.UUID       `json:"consultation_id"`
+	ContactInfo     json.RawMessage `json:"contact_info"`
+	BusinessContext json.RawMessage `json:"business_context"`
+	PainPoints      json.RawMessage `json:"pain_points"`
+	GoalsObjectives json.RawMessage `json:"goals_objectives"`
+	AutoSaved       sql.NullBool    `json:"auto_saved"`
+	DraftNotes      sql.NullString  `json:"draft_notes"`
 }
 
 func (q *Queries) UpdateConsultationDraft(ctx context.Context, arg UpdateConsultationDraftParams) (ConsultationDraft, error) {
-	row := q.db.QueryRowContext(ctx, updateConsultationDraft, arg.DraftData, arg.ConsultationID, arg.UserID)
+	row := q.db.QueryRowContext(ctx, updateConsultationDraft,
+		arg.ConsultationID,
+		arg.ContactInfo,
+		arg.BusinessContext,
+		arg.PainPoints,
+		arg.GoalsObjectives,
+		arg.AutoSaved,
+		arg.DraftNotes,
+	)
 	var i ConsultationDraft
 	err := row.Scan(
 		&i.ID,
 		&i.ConsultationID,
 		&i.UserID,
-		&i.DraftData,
-		&i.Created,
-		&i.Updated,
+		&i.ContactInfo,
+		&i.BusinessContext,
+		&i.PainPoints,
+		&i.GoalsObjectives,
+		&i.AutoSaved,
+		&i.DraftNotes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const updateConsultationStatus = `-- name: UpdateConsultationStatus :one
-update consultations set status = $1, updated = current_timestamp where id = $2 returning id, created, updated, user_id, business_name, contact_name, contact_title, email, phone, website, preferred_contact, industry, location, years_in_business, team_size, monthly_traffic, current_platform, business_data, challenges, goals, budget, consultation_date, duration_minutes, sales_rep, notes, next_steps, commitment_level, status
+UPDATE consultations SET
+    status = $2,
+    completed_at = CASE WHEN $2 = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+RETURNING id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at
 `
 
 type UpdateConsultationStatusParams struct {
-	Status string    `json:"status"`
 	ID     uuid.UUID `json:"id"`
+	Status string    `json:"status"`
 }
 
 func (q *Queries) UpdateConsultationStatus(ctx context.Context, arg UpdateConsultationStatusParams) (Consultation, error) {
-	row := q.db.QueryRowContext(ctx, updateConsultationStatus, arg.Status, arg.ID)
+	row := q.db.QueryRowContext(ctx, updateConsultationStatus, arg.ID, arg.Status)
 	var i Consultation
 	err := row.Scan(
 		&i.ID,
-		&i.Created,
-		&i.Updated,
 		&i.UserID,
-		&i.BusinessName,
-		&i.ContactName,
-		&i.ContactTitle,
-		&i.Email,
-		&i.Phone,
-		&i.Website,
-		&i.PreferredContact,
-		&i.Industry,
-		&i.Location,
-		&i.YearsInBusiness,
-		&i.TeamSize,
-		&i.MonthlyTraffic,
-		&i.CurrentPlatform,
-		&i.BusinessData,
-		&i.Challenges,
-		&i.Goals,
-		&i.Budget,
-		&i.ConsultationDate,
-		&i.DurationMinutes,
-		&i.SalesRep,
-		&i.Notes,
-		&i.NextSteps,
-		&i.CommitmentLevel,
+		&i.ContactInfo,
+		&i.BusinessContext,
+		&i.PainPoints,
+		&i.GoalsObjectives,
 		&i.Status,
+		&i.CompletionPercentage,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
 	)
 	return i, err
 }
@@ -1292,12 +1672,12 @@ func (q *Queries) UpdateToken(ctx context.Context, arg UpdateTokenParams) error 
 }
 
 const updateUser = `-- name: UpdateUser :one
-update users set 
-    email = $1, 
-    phone = $2, 
-    access = $3, 
-    avatar = $4, 
-    subscription_id = $5, 
+update users set
+    email = $1,
+    phone = $2,
+    access = $3,
+    avatar = $4,
+    subscription_id = $5,
     subscription_end = $6,
     api_key = $7,
     updated = current_timestamp
@@ -1432,20 +1812,33 @@ func (q *Queries) UpdateUserSubscription(ctx context.Context, arg UpdateUserSubs
 }
 
 const upsertConsultationDraft = `-- name: UpsertConsultationDraft :one
-insert into consultation_drafts (id, consultation_id, user_id, draft_data)
-values ($1, $2, $3, $4)
-on conflict (consultation_id, user_id)
-do update set
-    draft_data = excluded.draft_data,
-    updated = current_timestamp
-returning id, consultation_id, user_id, draft_data, created, updated
+INSERT INTO consultation_drafts (
+    id, consultation_id, user_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
+)
+ON CONFLICT (consultation_id)
+DO UPDATE SET
+    contact_info = EXCLUDED.contact_info,
+    business_context = EXCLUDED.business_context,
+    pain_points = EXCLUDED.pain_points,
+    goals_objectives = EXCLUDED.goals_objectives,
+    auto_saved = EXCLUDED.auto_saved,
+    draft_notes = EXCLUDED.draft_notes,
+    updated_at = CURRENT_TIMESTAMP
+RETURNING id, consultation_id, user_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes, created_at, updated_at
 `
 
 type UpsertConsultationDraftParams struct {
-	ID             uuid.UUID       `json:"id"`
-	ConsultationID uuid.UUID       `json:"consultation_id"`
-	UserID         uuid.UUID       `json:"user_id"`
-	DraftData      json.RawMessage `json:"draft_data"`
+	ID              uuid.UUID       `json:"id"`
+	ConsultationID  uuid.UUID       `json:"consultation_id"`
+	UserID          uuid.UUID       `json:"user_id"`
+	ContactInfo     json.RawMessage `json:"contact_info"`
+	BusinessContext json.RawMessage `json:"business_context"`
+	PainPoints      json.RawMessage `json:"pain_points"`
+	GoalsObjectives json.RawMessage `json:"goals_objectives"`
+	AutoSaved       sql.NullBool    `json:"auto_saved"`
+	DraftNotes      sql.NullString  `json:"draft_notes"`
 }
 
 func (q *Queries) UpsertConsultationDraft(ctx context.Context, arg UpsertConsultationDraftParams) (ConsultationDraft, error) {
@@ -1453,16 +1846,26 @@ func (q *Queries) UpsertConsultationDraft(ctx context.Context, arg UpsertConsult
 		arg.ID,
 		arg.ConsultationID,
 		arg.UserID,
-		arg.DraftData,
+		arg.ContactInfo,
+		arg.BusinessContext,
+		arg.PainPoints,
+		arg.GoalsObjectives,
+		arg.AutoSaved,
+		arg.DraftNotes,
 	)
 	var i ConsultationDraft
 	err := row.Scan(
 		&i.ID,
 		&i.ConsultationID,
 		&i.UserID,
-		&i.DraftData,
-		&i.Created,
-		&i.Updated,
+		&i.ContactInfo,
+		&i.BusinessContext,
+		&i.PainPoints,
+		&i.GoalsObjectives,
+		&i.AutoSaved,
+		&i.DraftNotes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

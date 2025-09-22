@@ -1,100 +1,5 @@
--- name: SelectToken :one
-select * from tokens where id = $1;
-
--- name: InsertToken :one
-insert into tokens (id, expires, target, callback) values ($1, $2, $3, $4) returning *;
-
--- name: UpdateToken :exec
-update tokens set expires = $1 where id = $2 returning *;
-
--- name: DeleteTokens :exec
-delete from tokens where expires < current_timestamp;
-
--- name: SelectUsers :many
-select * from users;
-
--- name: SelectUser :one
-select * from users where id = $1;
-
--- name: SelectUserByCustomerID :one
-select * from users where customer_id = $1;
-
--- name: SelectUserByEmailAndSub :one
-select * from users where email = $1 and sub = $2;
-
--- name: InsertUser :one
-insert into users (id, email, access, sub, avatar, api_key) values ($1, $2, $3, $4, $5, $6) returning *;
-
--- name: UpdateUserPhone :exec
-update users set phone = $2 where id = $1;
-
--- name: UpdateUserActivity :exec
-update users set updated = current_timestamp where id = $1;
-
--- name: UpdateUserCustomerID :exec
-update users set customer_id = $1 where id = $2;
-
--- name: UpdateUserSubscription :exec
-update users set access = $1, subscription_id = $2, subscription_end = $3 where customer_id = $4;
-
--- name: UpdateUserAccess :one
-update users set access = $1 where id = $2 returning *;
-
--- name: UpdateUser :one
-update users set
-    email = $1,
-    phone = $2,
-    access = $3,
-    avatar = $4,
-    subscription_id = $5,
-    subscription_end = $6,
-    api_key = $7,
-    updated = current_timestamp
-where id = $8 returning *;
-
--- name: SelectFiles :many
-select * from files where user_id = $1;
-
--- name: SelectFile :one
-select * from files where id = $1;
-
--- name: InsertFile :one
-insert into files (id, user_id, file_key, file_name, file_size, content_type) values ($1, $2, $3, $4, $5, $6) returning *;
-
--- name: DeleteFile :exec
-delete from files where id = $1;
-
--- name: SelectEmails :many
-select * from emails where user_id = $1;
-
--- name: InsertEmail :one
-insert into emails (id, user_id, email_to, email_from, email_subject, email_body) values ($1, $2, $3, $4, $5, $6) returning *;
-
--- name: SelectEmailAttachments :many
-select * from email_attachments where email_id = $1;
-
--- name: InsertEmailAttachment :one
-insert into email_attachments (id, email_id, file_name, content_type) values ($1, $2, $3, $4) returning *;
-
--- name: CountNotes :one
-select count(*) from notes where user_id = $1;
-
--- name: SelectNotes :many
-select * from notes where user_id = $1 order by created desc limit $2 offset $3;
-
--- name: SelectNote :one
-select * from notes where id = $1;
-
--- name: InsertNote :one
-insert into notes (id, user_id, title, category, content) values ($1, $2, $3, $4, $5) returning *;
-
--- name: UpdateNote :one
-update notes set title = $1, category = $2, content = $3 where id = $4 returning *;
-
--- name: DeleteNote :exec
-delete from notes where id = $1;
-
--- Consultation queries (New Schema)
+-- SQLC query file for consultation domain operations
+-- New schema with structured JSONB fields
 
 -- Basic CRUD operations for consultations
 
@@ -252,6 +157,13 @@ DELETE FROM consultation_drafts WHERE consultation_id = $1;
 -- name: DeleteConsultationDraftByUser :exec
 DELETE FROM consultation_drafts WHERE consultation_id = $1 AND user_id = $2;
 
+-- name: ListOldDrafts :many
+SELECT * FROM consultation_drafts
+WHERE auto_saved = true
+AND updated_at < $1
+ORDER BY updated_at ASC
+LIMIT $2;
+
 -- name: CleanupOldDrafts :exec
 DELETE FROM consultation_drafts
 WHERE auto_saved = true
@@ -293,3 +205,81 @@ WHERE consultation_id = $1;
 
 -- name: DeleteConsultationVersions :exec
 DELETE FROM consultation_versions WHERE consultation_id = $1;
+
+-- name: DeleteOldConsultationVersions :exec
+DELETE FROM consultation_versions
+WHERE consultation_id = $1
+AND version_number NOT IN (
+    SELECT version_number
+    FROM consultation_versions
+    WHERE consultation_id = $1
+    ORDER BY version_number DESC
+    LIMIT $2
+);
+
+-- Complex queries for analytics and reporting
+
+-- name: GetConsultationStats :one
+SELECT
+    COUNT(*) as total_consultations,
+    COUNT(CASE WHEN status = 'draft' THEN 1 END) as draft_count,
+    COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_count,
+    COUNT(CASE WHEN status = 'archived' THEN 1 END) as archived_count,
+    AVG(completion_percentage) as avg_completion,
+    MAX(completion_percentage) as max_completion,
+    MIN(completion_percentage) as min_completion
+FROM consultations
+WHERE user_id = $1;
+
+-- name: GetConsultationsByPainPointsUrgency :many
+SELECT
+    pain_points->>'urgency_level' as urgency,
+    COUNT(*) as count
+FROM consultations
+WHERE user_id = $1
+AND pain_points->>'urgency_level' IS NOT NULL
+GROUP BY pain_points->>'urgency_level'
+ORDER BY count DESC;
+
+-- name: GetConsultationsByIndustry :many
+SELECT
+    business_context->>'industry' as industry,
+    COUNT(*) as count
+FROM consultations
+WHERE user_id = $1
+AND business_context->>'industry' IS NOT NULL
+GROUP BY business_context->>'industry'
+ORDER BY count DESC;
+
+-- name: GetRecentConsultationActivity :many
+SELECT
+    id,
+    contact_info->>'business_name' as business_name,
+    status,
+    completion_percentage,
+    created_at,
+    updated_at
+FROM consultations
+WHERE user_id = $1
+ORDER BY updated_at DESC
+LIMIT $2;
+
+-- name: GetConsultationsNeedingAttention :many
+SELECT * FROM consultations
+WHERE user_id = $1
+AND status = 'draft'
+AND completion_percentage < 50
+AND created_at < CURRENT_TIMESTAMP - INTERVAL '7 days'
+ORDER BY created_at ASC;
+
+-- Batch operations
+
+-- name: UpdateMultipleConsultationStatus :exec
+UPDATE consultations
+SET status = $2, updated_at = CURRENT_TIMESTAMP
+WHERE id = ANY($1::uuid[]);
+
+-- name: GetConsultationsByIds :many
+SELECT * FROM consultations
+WHERE id = ANY($1::uuid[])
+ORDER BY created_at DESC;

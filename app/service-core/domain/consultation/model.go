@@ -12,106 +12,109 @@ import (
 type ConsultationStatus string
 
 const (
-	StatusScheduled  ConsultationStatus = "scheduled"
-	StatusInProgress ConsultationStatus = "in_progress"
-	StatusCompleted  ConsultationStatus = "completed"
-	StatusCancelled  ConsultationStatus = "cancelled"
-	StatusFollowUp   ConsultationStatus = "follow_up"
+	StatusDraft     ConsultationStatus = "draft"
+	StatusCompleted ConsultationStatus = "completed"
+	StatusArchived  ConsultationStatus = "archived"
 )
 
-type PreferredContact string
+type UrgencyLevel string
 
 const (
-	ContactEmail PreferredContact = "email"
-	ContactPhone PreferredContact = "phone"
-	ContactBoth  PreferredContact = "both"
+	UrgencyLow      UrgencyLevel = "low"
+	UrgencyMedium   UrgencyLevel = "medium"
+	UrgencyHigh     UrgencyLevel = "high"
+	UrgencyCritical UrgencyLevel = "critical"
 )
 
-// Business data structures for JSONB fields
-type BusinessData struct {
-	Revenue             *int64                 `json:"revenue,omitempty"`
-	GrowthRate          *float64               `json:"growth_rate,omitempty"`
-	MarketSegment       string                 `json:"market_segment,omitempty"`
-	BusinessModel       string                 `json:"business_model,omitempty"`
-	Technologies        []string               `json:"technologies,omitempty"`
-	CompetitiveLandscape map[string]interface{} `json:"competitive_landscape,omitempty"`
-	CustomFields        map[string]interface{} `json:"custom_fields,omitempty"`
+// Business data structures for JSONB fields according to new specification
+
+// ContactInfo represents the contact information section
+type ContactInfo struct {
+	BusinessName  string                 `json:"business_name,omitempty"`
+	ContactPerson string                 `json:"contact_person,omitempty"`
+	Email         string                 `json:"email,omitempty"`
+	Phone         string                 `json:"phone,omitempty"`
+	Website       string                 `json:"website,omitempty"`
+	SocialMedia   map[string]interface{} `json:"social_media,omitempty"`
 }
 
-type Challenge struct {
-	Category     string `json:"category"`
-	Description  string `json:"description"`
-	Priority     int    `json:"priority"` // 1-5
-	Impact       string `json:"impact"`
-	CurrentState string `json:"current_state,omitempty"`
+// BusinessContext represents the business context section
+type BusinessContext struct {
+	Industry          string   `json:"industry,omitempty"`
+	BusinessType      string   `json:"business_type,omitempty"`
+	TeamSize          *int     `json:"team_size,omitempty"`
+	CurrentPlatform   string   `json:"current_platform,omitempty"`
+	DigitalPresence   []string `json:"digital_presence,omitempty"`
+	MarketingChannels []string `json:"marketing_channels,omitempty"`
 }
 
-type Challenges []Challenge
-
-type Goal struct {
-	Category    string    `json:"category"`
-	Description string    `json:"description"`
-	Priority    int       `json:"priority"` // 1-5
-	Timeline    string    `json:"timeline"`
-	Success     string    `json:"success_criteria"`
-	Deadline    *time.Time `json:"deadline,omitempty"`
+// PainPoints represents the pain points and challenges section
+type PainPoints struct {
+	PrimaryChallenges      []string     `json:"primary_challenges,omitempty"`
+	TechnicalIssues        []string     `json:"technical_issues,omitempty"`
+	UrgencyLevel          UrgencyLevel `json:"urgency_level,omitempty"`
+	ImpactAssessment      string       `json:"impact_assessment,omitempty"`
+	CurrentSolutionGaps   []string     `json:"current_solution_gaps,omitempty"`
 }
 
-type Goals []Goal
-
-type Budget struct {
-	MinBudget    *int64 `json:"min_budget,omitempty"`
-	MaxBudget    *int64 `json:"max_budget,omitempty"`
-	PreferredBudget *int64 `json:"preferred_budget,omitempty"`
-	Timeline     string `json:"timeline,omitempty"`
-	Flexibility  string `json:"flexibility,omitempty"` // rigid, flexible, very_flexible
-	Notes        string `json:"notes,omitempty"`
+// Timeline represents project timeline information
+type Timeline struct {
+	DesiredStart      string   `json:"desired_start,omitempty"`
+	TargetCompletion  string   `json:"target_completion,omitempty"`
+	Milestones        []string `json:"milestones,omitempty"`
 }
 
-type NextStep struct {
-	Task        string     `json:"task"`
-	Owner       string     `json:"owner"`
-	DueDate     *time.Time `json:"due_date,omitempty"`
-	Status      string     `json:"status"` // pending, in_progress, completed
-	Description string     `json:"description,omitempty"`
+// GoalsObjectives represents the goals and objectives section
+type GoalsObjectives struct {
+	PrimaryGoals       []string  `json:"primary_goals,omitempty"`
+	SecondaryGoals     []string  `json:"secondary_goals,omitempty"`
+	SuccessMetrics     []string  `json:"success_metrics,omitempty"`
+	KPIs               []string  `json:"kpis,omitempty"`
+	Timeline           *Timeline `json:"timeline,omitempty"`
+	BudgetRange        string    `json:"budget_range,omitempty"`
+	BudgetConstraints  []string  `json:"budget_constraints,omitempty"`
 }
-
-type NextSteps []NextStep
 
 // Domain models that extend the generated query models
 type Consultation struct {
 	query.Consultation
 	// Add computed fields and business logic helpers
-	ParsedBusinessData *BusinessData `json:"parsed_business_data,omitempty"`
-	ParsedChallenges   *Challenges   `json:"parsed_challenges,omitempty"`
-	ParsedGoals        *Goals        `json:"parsed_goals,omitempty"`
-	ParsedBudget       *Budget       `json:"parsed_budget,omitempty"`
-	ParsedNextSteps    *NextSteps    `json:"parsed_next_steps,omitempty"`
+	ParsedContactInfo      *ContactInfo      `json:"parsed_contact_info,omitempty"`
+	ParsedBusinessContext  *BusinessContext  `json:"parsed_business_context,omitempty"`
+	ParsedPainPoints       *PainPoints       `json:"parsed_pain_points,omitempty"`
+	ParsedGoalsObjectives  *GoalsObjectives  `json:"parsed_goals_objectives,omitempty"`
 }
 
 type ConsultationDraft struct {
 	query.ConsultationDraft
-	ParsedDraftData map[string]interface{} `json:"parsed_draft_data,omitempty"`
+	ParsedContactInfo      *ContactInfo      `json:"parsed_contact_info,omitempty"`
+	ParsedBusinessContext  *BusinessContext  `json:"parsed_business_context,omitempty"`
+	ParsedPainPoints       *PainPoints       `json:"parsed_pain_points,omitempty"`
+	ParsedGoalsObjectives  *GoalsObjectives  `json:"parsed_goals_objectives,omitempty"`
 }
 
 type ConsultationVersion struct {
 	query.ConsultationVersion
-	ParsedVersionData map[string]interface{} `json:"parsed_version_data,omitempty"`
+	ParsedContactInfo      *ContactInfo      `json:"parsed_contact_info,omitempty"`
+	ParsedBusinessContext  *BusinessContext  `json:"parsed_business_context,omitempty"`
+	ParsedPainPoints       *PainPoints       `json:"parsed_pain_points,omitempty"`
+	ParsedGoalsObjectives  *GoalsObjectives  `json:"parsed_goals_objectives,omitempty"`
+	ParsedChangedFields    []string          `json:"parsed_changed_fields,omitempty"`
 }
 
 // Business-focused response models
 type ConsultationSummary struct {
-	ID               uuid.UUID          `json:"id"`
-	BusinessName     string             `json:"business_name"`
-	ContactName      string             `json:"contact_name"`
-	Email            string             `json:"email"`
-	Industry         string             `json:"industry"`
-	Location         string             `json:"location"`
-	Status           ConsultationStatus `json:"status"`
-	ConsultationDate *time.Time         `json:"consultation_date,omitempty"`
-	CommitmentLevel  *int32             `json:"commitment_level,omitempty"`
-	Created          time.Time          `json:"created"`
-	Updated          time.Time          `json:"updated"`
+	ID                    uuid.UUID          `json:"id"`
+	UserID                uuid.UUID          `json:"user_id"`
+	BusinessName          string             `json:"business_name,omitempty"`
+	ContactPerson         string             `json:"contact_person,omitempty"`
+	Email                 string             `json:"email,omitempty"`
+	Industry              string             `json:"industry,omitempty"`
+	Status                ConsultationStatus `json:"status"`
+	CompletionPercentage  int32              `json:"completion_percentage"`
+	CreatedAt             time.Time          `json:"created_at"`
+	UpdatedAt             time.Time          `json:"updated_at"`
+	CompletedAt           *time.Time         `json:"completed_at,omitempty"`
 }
 
 type ConsultationWithUser struct {
@@ -120,156 +123,178 @@ type ConsultationWithUser struct {
 }
 
 // Helper methods for parsing JSONB fields
-func (c *Consultation) ParseBusinessData() error {
-	if c.ParsedBusinessData != nil {
+func (c *Consultation) ParseContactInfo() error {
+	if c.ParsedContactInfo != nil {
 		return nil
 	}
 
-	if len(c.BusinessData) == 0 {
-		c.ParsedBusinessData = &BusinessData{}
+	if len(c.ContactInfo) == 0 {
+		c.ParsedContactInfo = &ContactInfo{}
 		return nil
 	}
 
-	var data BusinessData
-	if err := json.Unmarshal(c.BusinessData, &data); err != nil {
+	var data ContactInfo
+	if err := json.Unmarshal(c.ContactInfo, &data); err != nil {
 		return err
 	}
-	c.ParsedBusinessData = &data
+	c.ParsedContactInfo = &data
 	return nil
 }
 
-func (c *Consultation) ParseChallenges() error {
-	if c.ParsedChallenges != nil {
+func (c *Consultation) ParseBusinessContext() error {
+	if c.ParsedBusinessContext != nil {
 		return nil
 	}
 
-	if len(c.Challenges) == 0 {
-		c.ParsedChallenges = &Challenges{}
+	if len(c.BusinessContext) == 0 {
+		c.ParsedBusinessContext = &BusinessContext{}
 		return nil
 	}
 
-	var challenges Challenges
-	if err := json.Unmarshal(c.Challenges, &challenges); err != nil {
+	var data BusinessContext
+	if err := json.Unmarshal(c.BusinessContext, &data); err != nil {
 		return err
 	}
-	c.ParsedChallenges = &challenges
+	c.ParsedBusinessContext = &data
 	return nil
 }
 
-func (c *Consultation) ParseGoals() error {
-	if c.ParsedGoals != nil {
+func (c *Consultation) ParsePainPoints() error {
+	if c.ParsedPainPoints != nil {
 		return nil
 	}
 
-	if len(c.Goals) == 0 {
-		c.ParsedGoals = &Goals{}
+	if len(c.PainPoints) == 0 {
+		c.ParsedPainPoints = &PainPoints{}
 		return nil
 	}
 
-	var goals Goals
-	if err := json.Unmarshal(c.Goals, &goals); err != nil {
+	var data PainPoints
+	if err := json.Unmarshal(c.PainPoints, &data); err != nil {
 		return err
 	}
-	c.ParsedGoals = &goals
+	c.ParsedPainPoints = &data
 	return nil
 }
 
-func (c *Consultation) ParseBudget() error {
-	if c.ParsedBudget != nil {
+func (c *Consultation) ParseGoalsObjectives() error {
+	if c.ParsedGoalsObjectives != nil {
 		return nil
 	}
 
-	if len(c.Budget) == 0 {
-		c.ParsedBudget = &Budget{}
+	if len(c.GoalsObjectives) == 0 {
+		c.ParsedGoalsObjectives = &GoalsObjectives{}
 		return nil
 	}
 
-	var budget Budget
-	if err := json.Unmarshal(c.Budget, &budget); err != nil {
+	var data GoalsObjectives
+	if err := json.Unmarshal(c.GoalsObjectives, &data); err != nil {
 		return err
 	}
-	c.ParsedBudget = &budget
-	return nil
-}
-
-func (c *Consultation) ParseNextSteps() error {
-	if c.ParsedNextSteps != nil {
-		return nil
-	}
-
-	if len(c.NextSteps) == 0 {
-		c.ParsedNextSteps = &NextSteps{}
-		return nil
-	}
-
-	var steps NextSteps
-	if err := json.Unmarshal(c.NextSteps, &steps); err != nil {
-		return err
-	}
-	c.ParsedNextSteps = &steps
+	c.ParsedGoalsObjectives = &data
 	return nil
 }
 
 // Parse all JSONB fields at once
 func (c *Consultation) ParseAllJSONFields() error {
-	if err := c.ParseBusinessData(); err != nil {
+	if err := c.ParseContactInfo(); err != nil {
 		return err
 	}
-	if err := c.ParseChallenges(); err != nil {
+	if err := c.ParseBusinessContext(); err != nil {
 		return err
 	}
-	if err := c.ParseGoals(); err != nil {
+	if err := c.ParsePainPoints(); err != nil {
 		return err
 	}
-	if err := c.ParseBudget(); err != nil {
-		return err
-	}
-	if err := c.ParseNextSteps(); err != nil {
+	if err := c.ParseGoalsObjectives(); err != nil {
 		return err
 	}
 	return nil
 }
 
-// Helper method to convert to summary
-func (c *Consultation) ToSummary() *ConsultationSummary {
-	var consultationDate *time.Time
-	if c.ConsultationDate.Valid {
-		consultationDate = &c.ConsultationDate.Time
+// CalculateCompletionPercentage calculates completion percentage based on filled sections
+func (c *Consultation) CalculateCompletionPercentage() int32 {
+	totalSections := int32(4)
+	completedSections := int32(0)
+
+	// Parse fields first
+	_ = c.ParseAllJSONFields()
+
+	// Check if contact_info has meaningful data
+	if c.ParsedContactInfo != nil && c.ParsedContactInfo.BusinessName != "" {
+		completedSections++
 	}
 
-	var commitmentLevel *int32
-	if c.CommitmentLevel.Valid {
-		commitmentLevel = &c.CommitmentLevel.Int32
+	// Check if business_context has meaningful data
+	if c.ParsedBusinessContext != nil && c.ParsedBusinessContext.Industry != "" {
+		completedSections++
+	}
+
+	// Check if pain_points has meaningful data
+	if c.ParsedPainPoints != nil && len(c.ParsedPainPoints.PrimaryChallenges) > 0 {
+		completedSections++
+	}
+
+	// Check if goals_objectives has meaningful data
+	if c.ParsedGoalsObjectives != nil && len(c.ParsedGoalsObjectives.PrimaryGoals) > 0 {
+		completedSections++
+	}
+
+	return (completedSections * 100) / totalSections
+}
+
+// Helper method to convert to summary
+func (c *Consultation) ToSummary() *ConsultationSummary {
+	// Parse contact info to get business name and contact person
+	_ = c.ParseContactInfo()
+
+	var businessName, contactPerson, email string
+	if c.ParsedContactInfo != nil {
+		businessName = c.ParsedContactInfo.BusinessName
+		contactPerson = c.ParsedContactInfo.ContactPerson
+		email = c.ParsedContactInfo.Email
+	}
+
+	// Parse business context to get industry
+	_ = c.ParseBusinessContext()
+	var industry string
+	if c.ParsedBusinessContext != nil {
+		industry = c.ParsedBusinessContext.Industry
+	}
+
+	var completedAt *time.Time
+	if c.CompletedAt.Valid {
+		completedAt = &c.CompletedAt.Time
 	}
 
 	return &ConsultationSummary{
-		ID:               c.ID,
-		BusinessName:     c.BusinessName,
-		ContactName:      c.ContactName,
-		Email:            c.Email,
-		Industry:         c.Industry,
-		Location:         c.Location,
-		Status:           ConsultationStatus(c.Status),
-		ConsultationDate: consultationDate,
-		CommitmentLevel:  commitmentLevel,
-		Created:          c.Created,
-		Updated:          c.Updated,
+		ID:                   c.ID,
+		UserID:              c.UserID,
+		BusinessName:         businessName,
+		ContactPerson:        contactPerson,
+		Email:               email,
+		Industry:            industry,
+		Status:              ConsultationStatus(c.Status),
+		CompletionPercentage: c.CompletionPercentage.Int32,
+		CreatedAt:           c.CreatedAt.Time,
+		UpdatedAt:           c.UpdatedAt.Time,
+		CompletedAt:         completedAt,
 	}
 }
 
 // Validation helpers
 func (s ConsultationStatus) IsValid() bool {
 	switch s {
-	case StatusScheduled, StatusInProgress, StatusCompleted, StatusCancelled, StatusFollowUp:
+	case StatusDraft, StatusCompleted, StatusArchived:
 		return true
 	default:
 		return false
 	}
 }
 
-func (p PreferredContact) IsValid() bool {
-	switch p {
-	case ContactEmail, ContactPhone, ContactBoth:
+func (u UrgencyLevel) IsValid() bool {
+	switch u {
+	case UrgencyLow, UrgencyMedium, UrgencyHigh, UrgencyCritical:
 		return true
 	default:
 		return false
@@ -277,37 +302,229 @@ func (p PreferredContact) IsValid() bool {
 }
 
 // Helper functions for creating JSON data
-func MarshalBusinessData(data *BusinessData) (json.RawMessage, error) {
+func MarshalContactInfo(data *ContactInfo) (json.RawMessage, error) {
 	if data == nil {
 		return json.RawMessage("{}"), nil
 	}
 	return json.Marshal(data)
 }
 
-func MarshalChallenges(challenges *Challenges) (json.RawMessage, error) {
-	if challenges == nil {
-		return json.RawMessage("[]"), nil
-	}
-	return json.Marshal(challenges)
-}
-
-func MarshalGoals(goals *Goals) (json.RawMessage, error) {
-	if goals == nil {
-		return json.RawMessage("[]"), nil
-	}
-	return json.Marshal(goals)
-}
-
-func MarshalBudget(budget *Budget) (json.RawMessage, error) {
-	if budget == nil {
+func MarshalBusinessContext(data *BusinessContext) (json.RawMessage, error) {
+	if data == nil {
 		return json.RawMessage("{}"), nil
 	}
-	return json.Marshal(budget)
+	return json.Marshal(data)
 }
 
-func MarshalNextSteps(steps *NextSteps) (json.RawMessage, error) {
-	if steps == nil {
-		return json.RawMessage("[]"), nil
+func MarshalPainPoints(data *PainPoints) (json.RawMessage, error) {
+	if data == nil {
+		return json.RawMessage("{}"), nil
 	}
-	return json.Marshal(steps)
+	return json.Marshal(data)
+}
+
+func MarshalGoalsObjectives(data *GoalsObjectives) (json.RawMessage, error) {
+	if data == nil {
+		return json.RawMessage("{}"), nil
+	}
+	return json.Marshal(data)
+}
+
+// Draft-specific helpers
+func (d *ConsultationDraft) ParseContactInfo() error {
+	if d.ParsedContactInfo != nil {
+		return nil
+	}
+
+	if len(d.ContactInfo) == 0 {
+		d.ParsedContactInfo = &ContactInfo{}
+		return nil
+	}
+
+	var data ContactInfo
+	if err := json.Unmarshal(d.ContactInfo, &data); err != nil {
+		return err
+	}
+	d.ParsedContactInfo = &data
+	return nil
+}
+
+func (d *ConsultationDraft) ParseBusinessContext() error {
+	if d.ParsedBusinessContext != nil {
+		return nil
+	}
+
+	if len(d.BusinessContext) == 0 {
+		d.ParsedBusinessContext = &BusinessContext{}
+		return nil
+	}
+
+	var data BusinessContext
+	if err := json.Unmarshal(d.BusinessContext, &data); err != nil {
+		return err
+	}
+	d.ParsedBusinessContext = &data
+	return nil
+}
+
+func (d *ConsultationDraft) ParsePainPoints() error {
+	if d.ParsedPainPoints != nil {
+		return nil
+	}
+
+	if len(d.PainPoints) == 0 {
+		d.ParsedPainPoints = &PainPoints{}
+		return nil
+	}
+
+	var data PainPoints
+	if err := json.Unmarshal(d.PainPoints, &data); err != nil {
+		return err
+	}
+	d.ParsedPainPoints = &data
+	return nil
+}
+
+func (d *ConsultationDraft) ParseGoalsObjectives() error {
+	if d.ParsedGoalsObjectives != nil {
+		return nil
+	}
+
+	if len(d.GoalsObjectives) == 0 {
+		d.ParsedGoalsObjectives = &GoalsObjectives{}
+		return nil
+	}
+
+	var data GoalsObjectives
+	if err := json.Unmarshal(d.GoalsObjectives, &data); err != nil {
+		return err
+	}
+	d.ParsedGoalsObjectives = &data
+	return nil
+}
+
+func (d *ConsultationDraft) ParseAllJSONFields() error {
+	if err := d.ParseContactInfo(); err != nil {
+		return err
+	}
+	if err := d.ParseBusinessContext(); err != nil {
+		return err
+	}
+	if err := d.ParsePainPoints(); err != nil {
+		return err
+	}
+	if err := d.ParseGoalsObjectives(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Version-specific helpers
+func (v *ConsultationVersion) ParseContactInfo() error {
+	if v.ParsedContactInfo != nil {
+		return nil
+	}
+
+	if len(v.ContactInfo) == 0 {
+		v.ParsedContactInfo = &ContactInfo{}
+		return nil
+	}
+
+	var data ContactInfo
+	if err := json.Unmarshal(v.ContactInfo, &data); err != nil {
+		return err
+	}
+	v.ParsedContactInfo = &data
+	return nil
+}
+
+func (v *ConsultationVersion) ParseBusinessContext() error {
+	if v.ParsedBusinessContext != nil {
+		return nil
+	}
+
+	if len(v.BusinessContext) == 0 {
+		v.ParsedBusinessContext = &BusinessContext{}
+		return nil
+	}
+
+	var data BusinessContext
+	if err := json.Unmarshal(v.BusinessContext, &data); err != nil {
+		return err
+	}
+	v.ParsedBusinessContext = &data
+	return nil
+}
+
+func (v *ConsultationVersion) ParsePainPoints() error {
+	if v.ParsedPainPoints != nil {
+		return nil
+	}
+
+	if len(v.PainPoints) == 0 {
+		v.ParsedPainPoints = &PainPoints{}
+		return nil
+	}
+
+	var data PainPoints
+	if err := json.Unmarshal(v.PainPoints, &data); err != nil {
+		return err
+	}
+	v.ParsedPainPoints = &data
+	return nil
+}
+
+func (v *ConsultationVersion) ParseGoalsObjectives() error {
+	if v.ParsedGoalsObjectives != nil {
+		return nil
+	}
+
+	if len(v.GoalsObjectives) == 0 {
+		v.ParsedGoalsObjectives = &GoalsObjectives{}
+		return nil
+	}
+
+	var data GoalsObjectives
+	if err := json.Unmarshal(v.GoalsObjectives, &data); err != nil {
+		return err
+	}
+	v.ParsedGoalsObjectives = &data
+	return nil
+}
+
+func (v *ConsultationVersion) ParseChangedFields() error {
+	if v.ParsedChangedFields != nil {
+		return nil
+	}
+
+	if len(v.ChangedFields) == 0 {
+		v.ParsedChangedFields = []string{}
+		return nil
+	}
+
+	var fields []string
+	if err := json.Unmarshal(v.ChangedFields, &fields); err != nil {
+		return err
+	}
+	v.ParsedChangedFields = fields
+	return nil
+}
+
+func (v *ConsultationVersion) ParseAllJSONFields() error {
+	if err := v.ParseContactInfo(); err != nil {
+		return err
+	}
+	if err := v.ParseBusinessContext(); err != nil {
+		return err
+	}
+	if err := v.ParsePainPoints(); err != nil {
+		return err
+	}
+	if err := v.ParseGoalsObjectives(); err != nil {
+		return err
+	}
+	if err := v.ParseChangedFields(); err != nil {
+		return err
+	}
+	return nil
 }

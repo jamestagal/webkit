@@ -67,80 +67,144 @@ CREATE TABLE IF NOT EXISTS notes (
     content TEXT NOT NULL
 );
 
--- create "consultations" table
+-- create "consultations" table with new structure (SQLite compatible)
 CREATE TABLE IF NOT EXISTS consultations (
-    id UUID PRIMARY KEY NOT NULL,
-    created DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    user_id UUID NOT NULL,
+    id TEXT PRIMARY KEY NOT NULL, -- UUID as TEXT in SQLite
+    user_id TEXT NOT NULL, -- UUID as TEXT, references users(id)
 
-    -- Client Information
-    business_name TEXT NOT NULL,
-    contact_name TEXT NOT NULL,
-    contact_title TEXT NOT NULL DEFAULT '',
-    email TEXT NOT NULL,
-    phone TEXT NOT NULL DEFAULT '',
-    website TEXT NOT NULL DEFAULT '',
-    preferred_contact TEXT NOT NULL DEFAULT 'email',
+    -- Contact Information (JSON as TEXT in SQLite)
+    contact_info TEXT NOT NULL DEFAULT '{}',
+    -- {
+    --   "business_name": "string",
+    --   "contact_person": "string",
+    --   "email": "string",
+    --   "phone": "string",
+    --   "website": "string",
+    --   "social_media": {
+    --     "linkedin": "string",
+    --     "facebook": "string",
+    --     "instagram": "string"
+    --   }
+    -- }
 
-    -- Business Context
-    industry TEXT NOT NULL,
-    location TEXT NOT NULL,
-    years_in_business INTEGER,
-    team_size INTEGER,
-    monthly_traffic INTEGER,
-    current_platform TEXT NOT NULL DEFAULT '',
+    -- Business Context (JSON as TEXT in SQLite)
+    business_context TEXT NOT NULL DEFAULT '{}',
+    -- {
+    --   "industry": "string",
+    --   "business_type": "string",
+    --   "team_size": "number",
+    --   "current_platform": "string",
+    --   "digital_presence": ["string"],
+    --   "marketing_channels": ["string"]
+    -- }
 
-    -- Consultation Data (JSON for flexibility)
-    business_data TEXT NOT NULL DEFAULT '{}',
-    challenges TEXT NOT NULL DEFAULT '{}',
-    goals TEXT NOT NULL DEFAULT '{}',
-    budget TEXT NOT NULL DEFAULT '{}',
+    -- Pain Points & Challenges (JSON as TEXT in SQLite)
+    pain_points TEXT NOT NULL DEFAULT '{}',
+    -- {
+    --   "primary_challenges": ["string"],
+    --   "technical_issues": ["string"],
+    --   "urgency_level": "string", // "low", "medium", "high", "critical"
+    --   "impact_assessment": "string",
+    --   "current_solution_gaps": ["string"]
+    -- }
+
+    -- Goals & Objectives (JSON as TEXT in SQLite)
+    goals_objectives TEXT NOT NULL DEFAULT '{}',
+    -- {
+    --   "primary_goals": ["string"],
+    --   "secondary_goals": ["string"],
+    --   "success_metrics": ["string"],
+    --   "kpis": ["string"],
+    --   "timeline": {
+    --     "desired_start": "string",
+    --     "target_completion": "string",
+    --     "milestones": ["string"]
+    --   },
+    --   "budget_range": "string",
+    --   "budget_constraints": ["string"]
+    -- }
 
     -- Metadata
-    consultation_date DATETIME,
-    duration_minutes INTEGER,
-    sales_rep TEXT NOT NULL DEFAULT '',
-    notes TEXT NOT NULL DEFAULT '',
-    next_steps TEXT NOT NULL DEFAULT '[]',
-    commitment_level INTEGER CHECK (commitment_level BETWEEN 1 AND 5),
-    status TEXT NOT NULL DEFAULT 'scheduled'
+    status TEXT NOT NULL DEFAULT 'draft',
+    completion_percentage INTEGER DEFAULT 0 CHECK (completion_percentage >= 0 AND completion_percentage <= 100),
+
+    -- Timestamps
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    completed_at DATETIME,
+
+    -- Constraints
+    CHECK (status IN ('draft', 'completed', 'archived')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- create "consultation_drafts" table
+-- create "consultation_drafts" table with new structure (SQLite compatible)
 CREATE TABLE IF NOT EXISTS consultation_drafts (
-    id UUID PRIMARY KEY NOT NULL,
-    consultation_id UUID NOT NULL,
-    user_id UUID NOT NULL,
-    draft_data TEXT NOT NULL,
-    created DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id TEXT PRIMARY KEY NOT NULL, -- UUID as TEXT in SQLite
+    consultation_id TEXT NOT NULL, -- UUID as TEXT
+    user_id TEXT NOT NULL, -- UUID as TEXT
+
+    -- Draft data (same structure as consultations, JSON as TEXT)
+    contact_info TEXT NOT NULL DEFAULT '{}',
+    business_context TEXT NOT NULL DEFAULT '{}',
+    pain_points TEXT NOT NULL DEFAULT '{}',
+    goals_objectives TEXT NOT NULL DEFAULT '{}',
+
+    -- Draft metadata
+    auto_saved BOOLEAN DEFAULT 1,
+    draft_notes TEXT,
+
+    -- Timestamps
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    -- Ensure one active draft per consultation
+    UNIQUE(consultation_id),
+    FOREIGN KEY (consultation_id) REFERENCES consultations(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- create "consultation_versions" table
+-- create "consultation_versions" table with new structure (SQLite compatible)
 CREATE TABLE IF NOT EXISTS consultation_versions (
-    id UUID PRIMARY KEY NOT NULL,
-    consultation_id UUID NOT NULL,
-    user_id UUID NOT NULL,
+    id TEXT PRIMARY KEY NOT NULL, -- UUID as TEXT in SQLite
+    consultation_id TEXT NOT NULL, -- UUID as TEXT
+    user_id TEXT NOT NULL, -- UUID as TEXT
     version_number INTEGER NOT NULL,
-    version_data TEXT NOT NULL,
-    change_description TEXT NOT NULL DEFAULT '',
-    created DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+
+    -- Snapshot of consultation data at this version (JSON as TEXT)
+    contact_info TEXT NOT NULL DEFAULT '{}',
+    business_context TEXT NOT NULL DEFAULT '{}',
+    pain_points TEXT NOT NULL DEFAULT '{}',
+    goals_objectives TEXT NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL,
+    completion_percentage INTEGER NOT NULL,
+
+    -- Version metadata
+    change_summary TEXT,
+    changed_fields TEXT, -- JSON array as TEXT
+
+    -- Timestamps
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    -- Ensure unique version numbers per consultation
+    UNIQUE(consultation_id, version_number),
+    FOREIGN KEY (consultation_id) REFERENCES consultations(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- create indexes for consultations
+-- Indexes for consultations
 CREATE INDEX IF NOT EXISTS idx_consultations_user_id ON consultations(user_id);
 CREATE INDEX IF NOT EXISTS idx_consultations_status ON consultations(status);
-CREATE INDEX IF NOT EXISTS idx_consultations_consultation_date ON consultations(consultation_date);
-CREATE INDEX IF NOT EXISTS idx_consultations_industry ON consultations(industry);
-CREATE INDEX IF NOT EXISTS idx_consultations_created ON consultations(created);
+CREATE INDEX IF NOT EXISTS idx_consultations_created_at ON consultations(created_at);
+CREATE INDEX IF NOT EXISTS idx_consultations_updated_at ON consultations(updated_at);
 
--- create indexes for consultation_drafts
+-- Indexes for consultation_drafts
 CREATE INDEX IF NOT EXISTS idx_consultation_drafts_consultation_id ON consultation_drafts(consultation_id);
 CREATE INDEX IF NOT EXISTS idx_consultation_drafts_user_id ON consultation_drafts(user_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_consultation_drafts_unique ON consultation_drafts(consultation_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_consultation_drafts_updated_at ON consultation_drafts(updated_at);
 
--- create indexes for consultation_versions
+-- Indexes for consultation_versions
 CREATE INDEX IF NOT EXISTS idx_consultation_versions_consultation_id ON consultation_versions(consultation_id);
 CREATE INDEX IF NOT EXISTS idx_consultation_versions_user_id ON consultation_versions(user_id);
-CREATE INDEX IF NOT EXISTS idx_consultation_versions_version ON consultation_versions(consultation_id, version_number);
+CREATE INDEX IF NOT EXISTS idx_consultation_versions_created_at ON consultation_versions(created_at);
+CREATE INDEX IF NOT EXISTS idx_consultation_versions_version_number ON consultation_versions(consultation_id, version_number);

@@ -6,38 +6,55 @@ package query
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 )
 
 type Querier interface {
-	// Consultation queries
-	CountConsultations(ctx context.Context, userID uuid.UUID) (int64, error)
+	CleanupOldDrafts(ctx context.Context, updatedAt sql.NullTime) error
+	CountConsultationVersions(ctx context.Context, consultationID uuid.UUID) (int64, error)
+	CountConsultationsByStatus(ctx context.Context, arg CountConsultationsByStatusParams) (int64, error)
+	CountConsultationsByUser(ctx context.Context, userID uuid.UUID) (int64, error)
 	CountNotes(ctx context.Context, userID uuid.UUID) (int64, error)
+	// Consultation queries (New Schema)
+	// Basic CRUD operations for consultations
+	CreateConsultation(ctx context.Context, arg CreateConsultationParams) (Consultation, error)
+	// Draft management queries
+	CreateConsultationDraft(ctx context.Context, arg CreateConsultationDraftParams) (ConsultationDraft, error)
+	// Version tracking queries
+	CreateConsultationVersion(ctx context.Context, arg CreateConsultationVersionParams) (ConsultationVersion, error)
 	DeleteConsultation(ctx context.Context, id uuid.UUID) error
-	DeleteConsultationDraft(ctx context.Context, arg DeleteConsultationDraftParams) error
+	DeleteConsultationDraft(ctx context.Context, consultationID uuid.UUID) error
+	DeleteConsultationDraftByUser(ctx context.Context, arg DeleteConsultationDraftByUserParams) error
 	DeleteConsultationVersions(ctx context.Context, consultationID uuid.UUID) error
 	DeleteFile(ctx context.Context, id uuid.UUID) error
 	DeleteNote(ctx context.Context, id uuid.UUID) error
 	DeleteTokens(ctx context.Context) error
-	GetLatestVersionNumber(ctx context.Context, consultationID uuid.UUID) (interface{}, error)
-	InsertConsultation(ctx context.Context, arg InsertConsultationParams) (Consultation, error)
-	InsertConsultationDraft(ctx context.Context, arg InsertConsultationDraftParams) (ConsultationDraft, error)
-	InsertConsultationVersion(ctx context.Context, arg InsertConsultationVersionParams) (ConsultationVersion, error)
+	GetConsultation(ctx context.Context, id uuid.UUID) (Consultation, error)
+	GetConsultationByUser(ctx context.Context, arg GetConsultationByUserParams) (Consultation, error)
+	GetConsultationDraft(ctx context.Context, consultationID uuid.UUID) (ConsultationDraft, error)
+	GetConsultationDraftByUser(ctx context.Context, arg GetConsultationDraftByUserParams) (ConsultationDraft, error)
+	GetConsultationVersion(ctx context.Context, arg GetConsultationVersionParams) (ConsultationVersion, error)
+	// JSONB field queries for advanced filtering
+	GetConsultationsByBusinessName(ctx context.Context, arg GetConsultationsByBusinessNameParams) ([]Consultation, error)
+	GetConsultationsByIndustry(ctx context.Context, arg GetConsultationsByIndustryParams) ([]Consultation, error)
+	GetConsultationsByUrgency(ctx context.Context, arg GetConsultationsByUrgencyParams) ([]Consultation, error)
+	GetLatestConsultationVersion(ctx context.Context, consultationID uuid.UUID) (ConsultationVersion, error)
+	GetNextVersionNumber(ctx context.Context, consultationID uuid.UUID) (int32, error)
 	InsertEmail(ctx context.Context, arg InsertEmailParams) (Email, error)
 	InsertEmailAttachment(ctx context.Context, arg InsertEmailAttachmentParams) (EmailAttachment, error)
 	InsertFile(ctx context.Context, arg InsertFileParams) (File, error)
 	InsertNote(ctx context.Context, arg InsertNoteParams) (Note, error)
 	InsertToken(ctx context.Context, arg InsertTokenParams) (Token, error)
 	InsertUser(ctx context.Context, arg InsertUserParams) (User, error)
-	SelectConsultation(ctx context.Context, id uuid.UUID) (Consultation, error)
-	// Consultation Draft queries
-	SelectConsultationDraft(ctx context.Context, arg SelectConsultationDraftParams) (ConsultationDraft, error)
-	SelectConsultationVersion(ctx context.Context, arg SelectConsultationVersionParams) (ConsultationVersion, error)
-	// Consultation Version queries
-	SelectConsultationVersions(ctx context.Context, consultationID uuid.UUID) ([]ConsultationVersion, error)
-	SelectConsultations(ctx context.Context, arg SelectConsultationsParams) ([]Consultation, error)
-	SelectConsultationsByStatus(ctx context.Context, arg SelectConsultationsByStatusParams) ([]Consultation, error)
+	ListConsultationVersions(ctx context.Context, arg ListConsultationVersionsParams) ([]ConsultationVersion, error)
+	ListConsultationsByCompletion(ctx context.Context, arg ListConsultationsByCompletionParams) ([]Consultation, error)
+	ListConsultationsByDateRange(ctx context.Context, arg ListConsultationsByDateRangeParams) ([]Consultation, error)
+	ListConsultationsByStatus(ctx context.Context, arg ListConsultationsByStatusParams) ([]Consultation, error)
+	// Consultation listing and filtering
+	ListConsultationsByUser(ctx context.Context, arg ListConsultationsByUserParams) ([]Consultation, error)
+	SearchConsultations(ctx context.Context, arg SearchConsultationsParams) ([]Consultation, error)
 	SelectEmailAttachments(ctx context.Context, emailID uuid.UUID) ([]EmailAttachment, error)
 	SelectEmails(ctx context.Context, userID uuid.UUID) ([]Email, error)
 	SelectFile(ctx context.Context, id uuid.UUID) (File, error)
