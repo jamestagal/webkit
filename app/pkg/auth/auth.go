@@ -45,6 +45,12 @@ const (
 	// Plan access
 	BasicPlan   int64 = 0x0000000000004000
 	PremiumPlan int64 = 0x0000000000008000
+
+	// Consultation access
+	GetConsultations    int64 = 0x0000000001000000
+	CreateConsultation  int64 = 0x0000000002000000
+	EditConsultation    int64 = 0x0000000004000000
+	DeleteConsultation  int64 = 0x0000000008000000
 )
 
 const UserAccess int64 = GetNotes |
@@ -58,7 +64,11 @@ const UserAccess int64 = GetNotes |
 	GetFiles |
 	UploadFile |
 	DownloadFile |
-	RemoveFile
+	RemoveFile |
+	GetConsultations |
+	CreateConsultation |
+	EditConsultation |
+	DeleteConsultation
 
 const AdminAccess int64 = UserAccess |
 	GetUsers |

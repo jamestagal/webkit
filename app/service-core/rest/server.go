@@ -32,6 +32,18 @@ func Run(apiHandler *Handler) {
 	// Notes
 	mux.HandleFunc("/notes", apiHandler.handleNotesCollection)
 	mux.HandleFunc("/notes/{id}", apiHandler.handleNoteResource)
+	// Consultations - Core CRUD operations
+	mux.HandleFunc("/consultations", apiHandler.handleConsultationsCollection)
+	mux.HandleFunc("/consultations/{id}", apiHandler.handleConsultationResource)
+	// Consultations - Draft management
+	mux.HandleFunc("/consultations/{id}/drafts", apiHandler.handleConsultationDrafts)
+	// Consultations - Version history
+	mux.HandleFunc("/consultations/{id}/versions", apiHandler.handleConsultationVersions)
+	mux.HandleFunc("/consultations/{id}/versions/{version}", apiHandler.handleConsultationVersions)
+	// Consultations - Lifecycle operations
+	mux.HandleFunc("/consultations/{id}/complete", apiHandler.handleConsultationComplete)
+	mux.HandleFunc("/consultations/{id}/archive", apiHandler.handleConsultationArchive)
+	mux.HandleFunc("/consultations/{id}/restore", apiHandler.handleConsultationRestore)
 	// Cron jobs
 	mux.HandleFunc("/tasks/delete-tokens", apiHandler.handleTasksDeleteTokens)
 	// Health checks

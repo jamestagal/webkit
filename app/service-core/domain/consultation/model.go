@@ -1,11 +1,13 @@
 package consultation
 
 import (
+	"database/sql"
 	"encoding/json"
 	"service-core/storage/query"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
 
 // Business-focused enums and constants
@@ -497,13 +499,14 @@ func (v *ConsultationVersion) ParseChangedFields() error {
 		return nil
 	}
 
-	if len(v.ChangedFields) == 0 {
+	// Handle pqtype.NullRawMessage correctly
+	if !v.ChangedFields.Valid || len(v.ChangedFields.RawMessage) == 0 {
 		v.ParsedChangedFields = []string{}
 		return nil
 	}
 
 	var fields []string
-	if err := json.Unmarshal(v.ChangedFields, &fields); err != nil {
+	if err := json.Unmarshal(v.ChangedFields.RawMessage, &fields); err != nil {
 		return err
 	}
 	v.ParsedChangedFields = fields
@@ -527,4 +530,42 @@ func (v *ConsultationVersion) ParseAllJSONFields() error {
 		return err
 	}
 	return nil
+}
+
+// MockConsultation creates a mock consultation for testing
+func MockConsultation(id, userID uuid.UUID) query.Consultation {
+	now := time.Now()
+	return query.Consultation{
+		ID:                   id,
+		UserID:              userID,
+		ContactInfo:          []byte(`{"business_name":"Test Business","contact_person":"John Doe","email":"john@test.com"}`),
+		BusinessContext:      []byte(`{"industry":"Technology","team_size":10}`),
+		PainPoints:           []byte(`{"primary_challenges":["Challenge 1"],"urgency_level":"medium"}`),
+		GoalsObjectives:      []byte(`{"primary_goals":["Goal 1"],"budget_range":"$10k-25k"}`),
+		Status:               "draft",
+		CompletionPercentage: sql.NullInt32{Int32: 75, Valid: true},
+		CreatedAt:            sql.NullTime{Time: now, Valid: true},
+		UpdatedAt:            sql.NullTime{Time: now, Valid: true},
+	}
+}
+
+// MockConsultationVersion creates a mock consultation version for testing
+func MockConsultationVersion(id, consultationID, userID uuid.UUID) query.ConsultationVersion {
+	now := time.Now()
+	changedFields, _ := json.Marshal([]string{"contactInfo", "businessContext"})
+	return query.ConsultationVersion{
+		ID:                   id,
+		ConsultationID:       consultationID,
+		UserID:              userID,
+		VersionNumber:        1,
+		ContactInfo:          []byte(`{"business_name":"Test Business","contact_person":"John Doe","email":"john@test.com"}`),
+		BusinessContext:      []byte(`{"industry":"Technology","team_size":10}`),
+		PainPoints:           []byte(`{"primary_challenges":["Challenge 1"],"urgency_level":"medium"}`),
+		GoalsObjectives:      []byte(`{"primary_goals":["Goal 1"],"budget_range":"$10k-25k"}`),
+		Status:               "draft",
+		CompletionPercentage: 75,
+		ChangeSummary:        sql.NullString{String: "Test version", Valid: true},
+		ChangedFields:        pqtype.NullRawMessage{RawMessage: changedFields, Valid: true},
+		CreatedAt:            sql.NullTime{Time: now, Valid: true},
+	}
 }

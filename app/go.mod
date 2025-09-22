@@ -9,3 +9,8 @@ require (
 	github.com/lmittmann/tint v1.1.2
 	github.com/mattn/go-sqlite3 v1.14.32
 )
+
+require (
+	github.com/sqlc-dev/pqtype v0.3.0 // indirect
+	github.com/stretchr/testify v1.11.1 // indirect
+)
