@@ -113,7 +113,23 @@ func (r *repositoryImpl) SelectConsultationVersion(ctx context.Context, params q
 }
 
 func (r *repositoryImpl) GetLatestVersionNumber(ctx context.Context, consultationID uuid.UUID) (int32, error) {
-	return r.querier.GetLatestVersionNumber(ctx, consultationID)
+	result, err := r.querier.GetLatestVersionNumber(ctx, consultationID)
+	if err != nil {
+		return 0, err
+	}
+	
+	// Type assertion - the query should return int32
+	if versionNum, ok := result.(int32); ok {
+		return versionNum, nil
+	}
+	
+	// Try int64 and convert
+	if versionNum, ok := result.(int64); ok {
+		return int32(versionNum), nil
+	}
+	
+	// Default to 0 if no version exists or type assertion fails
+	return 0, nil
 }
 
 func (r *repositoryImpl) InsertConsultationVersion(ctx context.Context, params query.InsertConsultationVersionParams) (query.ConsultationVersion, error) {
