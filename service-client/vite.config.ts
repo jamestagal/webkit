@@ -33,6 +33,7 @@ export default defineConfig({
 					environment: "node",
 					include: ["src/**/*.{test,spec}.{js,ts}"],
 					exclude: ["src/**/*.svelte.{test,spec}.{js,ts}"],
+					setupFiles: ["./src/lib/tests/setup.ts"],
 				},
 			},
 		],
