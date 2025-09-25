@@ -40,7 +40,7 @@ export class ConsultationApiService {
    */
   async listConsultations(
     token: string,
-    params: ListConsultationsParams = {}
+    params: Partial<ListConsultationsParams> = {}
   ): Promise<Safe<ListConsultationsResponse>> {
     try {
       // Validate parameters

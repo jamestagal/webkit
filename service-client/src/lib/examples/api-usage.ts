@@ -10,7 +10,7 @@ import { consultationApiService } from '../services/consultation.service';
 import { httpClient } from '../server/http';
 import { ConsultationSchema } from '../types/consultation';
 import { apiEndpoints } from '../config/api';
-import type { CreateConsultationInput, LoginCredentials } from '../types/consultation';
+import type { CreateConsultationInput } from '../types/consultation';
 
 /**
  * Example 1: Authentication Flow
@@ -66,14 +66,20 @@ export async function consultationCrudExample() {
 
     // Create a new consultation
     const consultationData: CreateConsultationInput = {
-      business_name: 'Acme Corp',
-      contact_email: 'contact@acme.com',
-      website_url: 'https://acme.com',
-      business_type: 'e-commerce',
-      primary_goals: ['increase_sales', 'improve_conversion'],
-      current_challenges: ['slow_website', 'poor_mobile_experience'],
-      project_timeline: '3-6 months',
-      budget_range: '$10000-25000',
+      contact_info: {
+        business_name: 'Acme Corp',
+        email: 'contact@acme.com',
+        website: 'https://acme.com',
+      },
+      business_context: {
+        business_type: 'e-commerce',
+      },
+      goals_objectives: {
+        primary_goals: ['increase_sales', 'improve_conversion'],
+      },
+      pain_points: {
+        primary_challenges: ['slow_website', 'poor_mobile_experience'],
+      },
     };
 
     console.log('Creating consultation...');
@@ -116,8 +122,12 @@ export async function consultationCrudExample() {
     // Update the consultation
     console.log('Updating consultation...');
     const updateResult = await consultationApiService.updateConsultation(token, consultationId, {
-      business_name: 'Acme Corporation Updated',
-      primary_goals: ['increase_sales', 'improve_seo', 'enhance_ux'],
+      contact_info: {
+        business_name: 'Acme Corporation Updated',
+      },
+      goals_objectives: {
+        primary_goals: ['increase_sales', 'improve_seo', 'enhance_ux'],
+      },
     });
 
     if (!updateResult.success) {
@@ -212,8 +222,12 @@ export async function draftManagementExample(consultationId: string) {
     console.log('Creating consultation draft...');
     const draftData = {
       data: {
-        business_name: 'Draft Business Name',
-        primary_goals: ['improve_seo'],
+        contact_info: {
+          business_name: 'Draft Business Name',
+        },
+        goals_objectives: {
+          primary_goals: ['improve_seo'],
+        },
         notes: 'This is a work in progress',
       },
     };
@@ -232,8 +246,13 @@ export async function draftManagementExample(consultationId: string) {
     const updatedDraftData = {
       data: {
         ...draftData.data,
-        business_name: 'Updated Draft Business Name',
-        current_challenges: ['slow_website'],
+        contact_info: {
+          ...draftData.data.contact_info,
+          business_name: 'Updated Draft Business Name',
+        },
+        pain_points: {
+          primary_challenges: ['slow_website'],
+        },
       },
     };
 

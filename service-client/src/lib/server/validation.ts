@@ -29,7 +29,7 @@ export function validateSchema<T>(
     };
   } catch (error) {
     const zodError = error as ZodError;
-    const errors = zodError.errors.map(err => {
+    const errors = zodError.errors.map((err: any) => {
       const path = err.path.length > 0 ? `${err.path.join('.')}: ` : '';
       return `${path}${err.message}`;
     });

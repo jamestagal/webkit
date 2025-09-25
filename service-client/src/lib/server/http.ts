@@ -1,5 +1,5 @@
 import { logger } from "./logger";
-import { safe, type Safe } from "./safe";
+import type { Safe } from "./safe";
 import { safeValidate, type ValidationChain } from "./validation";
 import type { ZodSchema } from "zod";
 
@@ -47,9 +47,10 @@ export class HttpClient {
     let attempt = 0;
 
     while (attempt <= retries) {
+      let timeoutId: NodeJS.Timeout | undefined;
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        timeoutId = setTimeout(() => controller.abort(), timeout);
 
         const headers = new Headers(customHeaders);
 
@@ -80,7 +81,7 @@ export class HttpClient {
           signal: controller.signal,
         });
 
-        clearTimeout(timeoutId);
+        if (timeoutId) clearTimeout(timeoutId);
 
         // Handle different response statuses
         if (response.ok) {
@@ -108,7 +109,7 @@ export class HttpClient {
         return errorResult;
 
       } catch (error) {
-        if (typeof timeoutId !== 'undefined') {
+        if (timeoutId) {
           clearTimeout(timeoutId);
         }
 

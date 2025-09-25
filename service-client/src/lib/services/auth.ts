@@ -2,7 +2,7 @@ import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
 import { logger } from '$lib/server/logger';
 import { api } from '$lib/server/http';
-import { safe, type Safe } from '$lib/server/safe';
+import type { Safe } from '$lib/server/safe';
 import { verifyJWT } from '$lib/server/jwt';
 import { apiEndpoints } from '$lib/config/api';
 
@@ -438,6 +438,3 @@ export class AuthService {
 
 // Default auth service instance
 export const authService = new AuthService();
-
-// Export types
-export type { AuthService };

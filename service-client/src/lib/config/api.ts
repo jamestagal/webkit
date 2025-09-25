@@ -30,9 +30,9 @@ export function getApiConfig(): ApiConfig {
 
   return {
     baseUrl: `${baseUrl}/api/v1`,
-    timeout: parseInt(env.API_TIMEOUT || '10000', 10),
-    retries: parseInt(env.API_RETRIES || '3', 10),
-    retryDelay: parseInt(env.API_RETRY_DELAY || '1000', 10),
+    timeout: parseInt(env['API_TIMEOUT'] || '10000', 10),
+    retries: parseInt(env['API_RETRIES'] || '3', 10),
+    retryDelay: parseInt(env['API_RETRY_DELAY'] || '1000', 10),
   };
 }
 
