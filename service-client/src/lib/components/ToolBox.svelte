@@ -1,181 +1,178 @@
 <script>
-    import { onMount } from 'svelte';
-    import { fade, scale, fly, slide } from 'svelte/transition';
+	import { onMount } from "svelte";
+	import { fade, scale, fly, slide } from "svelte/transition";
 
-    let {
-        closeOnClick = false,
-        openOnHover = false,
-        position = 'top',
-        children,
-        trigger
-    } = $props();
+	let { closeOnClick = false, openOnHover = false, position = "top", children, trigger } = $props();
 
-    let toolboxOpen = $state(false);
-    let triggerEl = $state();
-    let toolboxEl = $state();
-    let toolboxStyle = $state('');
-    let positioningTimeout;
+	let toolboxOpen = $state(false);
+	let triggerEl = $state();
+	let toolboxEl = $state();
+	let toolboxStyle = $state("");
+	let positioningTimeout;
 
-    function toggleToolbox(event) {
-        toolboxOpen = !toolboxOpen;
+	function toggleToolbox(event) {
+		toolboxOpen = !toolboxOpen;
 
-        if (positioningTimeout) {
-            clearTimeout(positioningTimeout);
-        }
+		if (positioningTimeout) {
+			clearTimeout(positioningTimeout);
+		}
 
-        // Get coordinates from click event
-        const x = event.clientX;
-        const y = event.clientY;
-        
-        if (toolboxOpen) {
-            // Set initial position off-screen to prevent flicker
-            toolboxStyle = 'position: fixed; visibility: hidden;';
-            setTimeout(() => {
-                const triggerRect = triggerEl.getBoundingClientRect();
-                const toolboxRect = toolboxEl.getBoundingClientRect();
-                const xAxis = triggerRect.left + (triggerRect.width);
-                const yAxis = triggerRect.bottom + 8;
-                positionToolbox(xAxis, yAxis);
-            }, 0);
-        }
-    }
+		// Get coordinates from click event
+		const x = event.clientX;
+		const y = event.clientY;
 
-    function close() {
-        toolboxOpen = false;
-    }
+		if (toolboxOpen) {
+			// Set initial position off-screen to prevent flicker
+			toolboxStyle = "position: fixed; visibility: hidden;";
+			setTimeout(() => {
+				const triggerRect = triggerEl.getBoundingClientRect();
+				const toolboxRect = toolboxEl.getBoundingClientRect();
+				const xAxis = triggerRect.left + triggerRect.width;
+				const yAxis = triggerRect.bottom + 8;
+				positionToolbox(xAxis, yAxis);
+			}, 0);
+		}
+	}
 
-    function positionToolbox(clickX, clickY) {
-        if (!toolboxEl || !triggerEl) return;
+	function close() {
+		toolboxOpen = false;
+	}
 
-        const toolboxRect = toolboxEl.getBoundingClientRect();
-        const triggerRect = triggerEl.getBoundingClientRect();
-        const viewportWidth = document.documentElement.clientWidth;
-        const viewportHeight = document.documentElement.clientHeight;
-        const padding = 10;
-        const spacing = 8;
+	function positionToolbox(clickX, clickY) {
+		if (!toolboxEl || !triggerEl) return;
 
-        let left, top;
+		const toolboxRect = toolboxEl.getBoundingClientRect();
+		const triggerRect = triggerEl.getBoundingClientRect();
+		const viewportWidth = document.documentElement.clientWidth;
+		const viewportHeight = document.documentElement.clientHeight;
+		const padding = 10;
+		const spacing = 8;
 
-        // Set initial position based on preference
-        switch (position) {
-            case 'right':
-                left = triggerRect.right + spacing;
-                // Vertically center align with trigger
-                top = triggerRect.top + (triggerRect.height - toolboxRect.height) / 2;
-                break;
-            case 'left':
-                left = triggerRect.left - toolboxRect.width - spacing;
-                // Vertically center align with trigger
-                top = triggerRect.top + (triggerRect.height - toolboxRect.height) / 2;
-                break;
-            case 'top':
-                // Horizontally center align with trigger
-                left = triggerRect.left + (triggerRect.width - toolboxRect.width) / 2;
-                top = triggerRect.top - toolboxRect.height - spacing;
-                break;
-            case 'bottom':
-                // Horizontally center align with trigger
-                left = triggerRect.left + (triggerRect.width - toolboxRect.width) / 2;
-                top = triggerRect.bottom + spacing;
-                break;
-        }
+		let left, top;
 
-        // Fallback positions if the preferred position doesn't fit
-        if (left + toolboxRect.width > viewportWidth - padding) {
-            // If going off right edge
-            if (position === 'top' || position === 'bottom') {
-                // For top/bottom positioning, try to keep it centered but within bounds
-                left = viewportWidth - toolboxRect.width - padding;
-            } else {
-                // For left/right positioning, switch sides
-                left = triggerRect.left - toolboxRect.width - spacing;
-            }
-        }
-        if (left < padding) {
-            // If going off left edge
-            if (position === 'top' || position === 'bottom') {
-                // For top/bottom positioning, align with left edge
-                left = padding;
-            } else {
-                // For left/right positioning, switch sides
-                left = triggerRect.right + spacing;
-            }
-        }
-        if (top + toolboxRect.height > viewportHeight - padding) {
-            // If going off bottom edge
-            if (position === 'left' || position === 'right') {
-                // For left/right positioning, try to keep it centered but within bounds
-                top = viewportHeight - toolboxRect.height - padding;
-            } else {
-                // For top/bottom positioning, switch sides
-                top = triggerRect.top - toolboxRect.height - spacing;
-            }
-        }
-        if (top < padding) {
-            // If going off top edge
-            if (position === 'left' || position === 'right') {
-                // For left/right positioning, align with top edge
-                top = padding;
-            } else {
-                // For top/bottom positioning, switch sides
-                top = triggerRect.bottom + spacing;
-            }
-        }
+		// Set initial position based on preference
+		switch (position) {
+			case "right":
+				left = triggerRect.right + spacing;
+				// Vertically center align with trigger
+				top = triggerRect.top + (triggerRect.height - toolboxRect.height) / 2;
+				break;
+			case "left":
+				left = triggerRect.left - toolboxRect.width - spacing;
+				// Vertically center align with trigger
+				top = triggerRect.top + (triggerRect.height - toolboxRect.height) / 2;
+				break;
+			case "top":
+				// Horizontally center align with trigger
+				left = triggerRect.left + (triggerRect.width - toolboxRect.width) / 2;
+				top = triggerRect.top - toolboxRect.height - spacing;
+				break;
+			case "bottom":
+				// Horizontally center align with trigger
+				left = triggerRect.left + (triggerRect.width - toolboxRect.width) / 2;
+				top = triggerRect.bottom + spacing;
+				break;
+		}
 
-        // Final viewport bounds check
-        left = Math.max(padding, Math.min(left, viewportWidth - toolboxRect.width - padding));
-        top = Math.max(padding, Math.min(top, viewportHeight - toolboxRect.height - padding));
+		// Fallback positions if the preferred position doesn't fit
+		if (left + toolboxRect.width > viewportWidth - padding) {
+			// If going off right edge
+			if (position === "top" || position === "bottom") {
+				// For top/bottom positioning, try to keep it centered but within bounds
+				left = viewportWidth - toolboxRect.width - padding;
+			} else {
+				// For left/right positioning, switch sides
+				left = triggerRect.left - toolboxRect.width - spacing;
+			}
+		}
+		if (left < padding) {
+			// If going off left edge
+			if (position === "top" || position === "bottom") {
+				// For top/bottom positioning, align with left edge
+				left = padding;
+			} else {
+				// For left/right positioning, switch sides
+				left = triggerRect.right + spacing;
+			}
+		}
+		if (top + toolboxRect.height > viewportHeight - padding) {
+			// If going off bottom edge
+			if (position === "left" || position === "right") {
+				// For left/right positioning, try to keep it centered but within bounds
+				top = viewportHeight - toolboxRect.height - padding;
+			} else {
+				// For top/bottom positioning, switch sides
+				top = triggerRect.top - toolboxRect.height - spacing;
+			}
+		}
+		if (top < padding) {
+			// If going off top edge
+			if (position === "left" || position === "right") {
+				// For left/right positioning, align with top edge
+				top = padding;
+			} else {
+				// For top/bottom positioning, switch sides
+				top = triggerRect.bottom + spacing;
+			}
+		}
 
-        const relativeLeft = left - triggerRect.left;
-        const relativeTop = top - triggerRect.top;
+		// Final viewport bounds check
+		left = Math.max(padding, Math.min(left, viewportWidth - toolboxRect.width - padding));
+		top = Math.max(padding, Math.min(top, viewportHeight - toolboxRect.height - padding));
 
-        // Position relative to the viewport using fixed positioning
-        toolboxStyle = `position: fixed; left: ${left}px; top: ${top}px;`;
-    }
+		const relativeLeft = left - triggerRect.left;
+		const relativeTop = top - triggerRect.top;
 
-    function handleClick(event) {
-        if (closeOnClick && toolboxEl.contains(event.target) && toolboxOpen) {
-            close();
-        }
-    }
+		// Position relative to the viewport using fixed positioning
+		toolboxStyle = `position: fixed; left: ${left}px; top: ${top}px;`;
+	}
 
-    onMount(() => {
-        const handleClickOutside = (event) => {
-            if (toolboxOpen && triggerEl && toolboxEl && !triggerEl.contains(event.target) && !toolboxEl.contains(event.target)) {
-                toolboxOpen = false;
-            }
-        };
+	function handleClick(event) {
+		if (closeOnClick && toolboxEl.contains(event.target) && toolboxOpen) {
+			close();
+		}
+	}
 
-        document.addEventListener('click', handleClickOutside);
+	onMount(() => {
+		const handleClickOutside = (event) => {
+			if (
+				toolboxOpen &&
+				triggerEl &&
+				toolboxEl &&
+				!triggerEl.contains(event.target) &&
+				!toolboxEl.contains(event.target)
+			) {
+				toolboxOpen = false;
+			}
+		};
 
-        return () => {
-            document.removeEventListener('click', handleClickOutside);
-            if (positioningTimeout) {
-                clearTimeout(positioningTimeout);
-            }
-        };
-    });
+		document.addEventListener("click", handleClickOutside);
+
+		return () => {
+			document.removeEventListener("click", handleClickOutside);
+			if (positioningTimeout) {
+				clearTimeout(positioningTimeout);
+			}
+		};
+	});
 </script>
 
-
-    <span class="inline-flex flex-shrink-1 items-center justify-center" bind:this={triggerEl}>
-        <button type="button" class="button inline-flex flex-shrink-1 w-fit" onclick={toggleToolbox}>
-            {@render trigger?.()}
-        </button>
-    </span>
+<span class="inline-flex flex-shrink-1 items-center justify-center" bind:this={triggerEl}>
+	<button type="button" class="button inline-flex w-fit flex-shrink-1" onclick={toggleToolbox}>
+		{@render trigger?.()}
+	</button>
+</span>
 
 {#if toolboxOpen}
-    <button type="button"
-        bind:this={toolboxEl}
-        style={toolboxStyle}
-        class="z-50 max-w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)] md:max-w-md overflow-auto bg-main border border-primary-2 rounded-xl shadow-lg"
-        onclick={handleClick}
-        in:fly={{ y: -5, duration: 200 }}
-        out:fade={{duration: 100}}>
-
-        {@render children?.({ close })}
-
-    </button>
+	<button
+		type="button"
+		bind:this={toolboxEl}
+		style={toolboxStyle}
+		class="bg-main border-primary-2 z-50 max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] overflow-auto rounded-xl border shadow-lg md:max-w-md"
+		onclick={handleClick}
+		in:fly={{ y: -5, duration: 200 }}
+		out:fade={{ duration: 100 }}
+	>
+		{@render children?.({ close })}
+	</button>
 {/if}
-
-

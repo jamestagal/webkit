@@ -1,0 +1,3 @@
+# Spec Summary (Lite)
+
+Connect the completed consultation domain backend APIs to the SvelteKit frontend to enable end-to-end consultation management functionality. This integration includes JWT authentication flow, a multi-step consultation form wizard, auto-save draft functionality, and a consultation management dashboard that transforms the robust backend infrastructure into a user-facing application for agencies.

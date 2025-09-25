@@ -5,15 +5,15 @@
  * @returns Debounced function
  */
 export function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  delay: number
+	func: T,
+	delay: number,
 ): (...args: Parameters<T>) => void {
-  let timeoutId: ReturnType<typeof setTimeout>;
+	let timeoutId: ReturnType<typeof setTimeout>;
 
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func(...args), delay);
-  };
+	return (...args: Parameters<T>) => {
+		clearTimeout(timeoutId);
+		timeoutId = setTimeout(() => func(...args), delay);
+	};
 }
 
 /**
@@ -23,18 +23,18 @@ export function debounce<T extends (...args: any[]) => any>(
  * @returns Throttled function
  */
 export function throttle<T extends (...args: any[]) => any>(
-  func: T,
-  delay: number
+	func: T,
+	delay: number,
 ): (...args: Parameters<T>) => void {
-  let lastCall = 0;
+	let lastCall = 0;
 
-  return (...args: Parameters<T>) => {
-    const now = Date.now();
-    if (now - lastCall >= delay) {
-      lastCall = now;
-      func(...args);
-    }
-  };
+	return (...args: Parameters<T>) => {
+		const now = Date.now();
+		if (now - lastCall >= delay) {
+			lastCall = now;
+			func(...args);
+		}
+	};
 }
 
 /**
@@ -45,40 +45,40 @@ export function throttle<T extends (...args: any[]) => any>(
  * @returns Debounced function with cancel method
  */
 export function advancedDebounce<T extends (...args: any[]) => any>(
-  func: T,
-  delay: number,
-  immediate = false
+	func: T,
+	delay: number,
+	immediate = false,
 ): {
-  (...args: Parameters<T>): void;
-  cancel: () => void;
+	(...args: Parameters<T>): void;
+	cancel: () => void;
 } {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+	let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-  const debounced = (...args: Parameters<T>) => {
-    const callNow = immediate && !timeoutId;
+	const debounced = (...args: Parameters<T>) => {
+		const callNow = immediate && !timeoutId;
 
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
+		if (timeoutId) {
+			clearTimeout(timeoutId);
+		}
 
-    timeoutId = setTimeout(() => {
-      timeoutId = null;
-      if (!immediate) {
-        func(...args);
-      }
-    }, delay);
+		timeoutId = setTimeout(() => {
+			timeoutId = null;
+			if (!immediate) {
+				func(...args);
+			}
+		}, delay);
 
-    if (callNow) {
-      func(...args);
-    }
-  };
+		if (callNow) {
+			func(...args);
+		}
+	};
 
-  debounced.cancel = () => {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      timeoutId = null;
-    }
-  };
+	debounced.cancel = () => {
+		if (timeoutId) {
+			clearTimeout(timeoutId);
+			timeoutId = null;
+		}
+	};
 
-  return debounced;
+	return debounced;
 }

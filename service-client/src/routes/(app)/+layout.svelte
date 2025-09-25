@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from "$app/state";
 	import type { Snippet } from "svelte";
-	import { House, BookOpen, DollarSign, Mail, File, LogOut } from "lucide-svelte";
+	import { House, BookOpen, DollarSign, Mail, File, LogOut, MessageCircle } from "lucide-svelte";
 	import { env } from "$env/dynamic/public";
 
 	let { children }: { children: Snippet } = $props();
@@ -10,6 +10,7 @@
 
 	const nav = [
 		{ label: "Dashboard", url: "/", icon: House },
+		{ label: "Consultation", url: "/consultation", icon: MessageCircle },
 		{ label: "Notes", url: "/notes", icon: BookOpen },
 		{ label: "Payments", url: "/payments", icon: DollarSign },
 		{ label: "Files", url: "/files", icon: File },

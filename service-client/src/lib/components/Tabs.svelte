@@ -1,32 +1,34 @@
 <script>
+	import Slider from "./Slider.svelte";
 
-    import Slider from './Slider.svelte';
+	let { children, items, activeIndex = $bindable(0), prevIndex = $bindable(0) } = $props();
 
-    let { children, items, activeIndex = $bindable(0), prevIndex = $bindable(0) } = $props();
-
-    function handleClick(index) {
-        prevIndex = activeIndex;
-        activeIndex = index;
-    }
-
+	function handleClick(index) {
+		prevIndex = activeIndex;
+		activeIndex = index;
+	}
 </script>
 
-
 <div class="flex flex-col gap-12">
+	<!-- Menu -->
+	<div
+		class="card card-ring mx-auto flex w-fit flex-row flex-wrap items-center justify-center gap-2 p-2"
+	>
+		{#each items as item, index}
+			<!-- Each child wrapping -->
+			<button
+				type="button"
+				class="button p-2 text-sm"
+				class:action={activeIndex === index}
+				onclick={() => handleClick(index)}
+			>
+				{item.name}
+			</button>
+		{/each}
+	</div>
 
-    <!-- Menu -->
-    <div class="card card-ring flex flex-row flex-wrap items-center justify-center w-fit mx-auto gap-2 p-2">
-        {#each items as item, index}
-            <!-- Each child wrapping -->
-            <button type="button" class="button p-2 text-sm" class:action={activeIndex === index} onclick={() => handleClick(index)}>
-                {item.name}
-            </button>
-        {/each}
-    </div>
-
-    {@render children?.({ activeIndex })}
+	{@render children?.({ activeIndex })}
 </div>
-
 
 <!-- @component 
 
