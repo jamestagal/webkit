@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { consultationStore } from '$lib/stores/consultation.svelte';
-  import BusinessContext from '$lib/components/consultation/BusinessContext.svelte';
+  import ClientInfoForm from '$lib/components/consultation/ClientInfoForm.svelte';
   import StepIndicator from '$lib/components/shared/StepIndicator.svelte';
   import ProgressBar from '$lib/components/shared/ProgressBar.svelte';
   import SaveDraft from '$lib/components/shared/SaveDraft.svelte';
@@ -10,16 +10,16 @@
   import { toast } from '$lib/components/shared/Toast.svelte';
 
   // Form data
-  let businessContextData = $derived.by(() => consultationStore.formState.data.business_context || {});
+  let contactInfoData = $derived.by(() => consultationStore.formState.data.contact_info || {});
 
   // Navigation state
   const currentStep = $derived(() => consultationStore.formState.currentStep);
   const canNavigateNext = $derived(() => consultationStore.canNavigateNext);
 
-  // Set current step to business context (step 1)
+  // Initialize consultation and set to first step
   onMount(async () => {
     await consultationStore.initialize();
-    consultationStore.goToStep(1);
+    consultationStore.goToStep(0);
   });
 
   // Navigation handlers
@@ -31,11 +31,7 @@
     }
 
     await consultationStore.save();
-    goto('/consultation/challenges');
-  }
-
-  function handlePrevious() {
-    goto('/consultation');
+    goto('/consultation/business');
   }
 </script>
 
@@ -44,8 +40,8 @@
   <div class="bg-white shadow-sm border-b">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="py-6">
-        <h1 class="text-3xl font-bold text-gray-900">Business Context</h1>
-        <p class="mt-2 text-gray-600">Tell us about your business and industry</p>
+        <h1 class="text-3xl font-bold text-gray-900">New Consultation</h1>
+        <p class="mt-2 text-gray-600">Let's start by collecting your contact information</p>
 
         <ProgressBar showPercentage={true} showStepCount={true} class="mt-4" />
       </div>
@@ -65,21 +61,18 @@
   <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="bg-white shadow-lg rounded-lg">
       <div class="p-6 sm:p-8">
-        <BusinessContext
-          bind:data={businessContextData}
-          errors={consultationStore.getSectionErrors('business_context')}
+        <ClientInfoForm
+          bind:data={contactInfoData}
+          errors={consultationStore.getSectionErrors('contact_info')}
         />
       </div>
 
       <!-- Navigation -->
-      <div class="border-t border-gray-200 px-6 sm:px-8 py-6">
+      <div class="border-t border-gray-200 px-6 sm:p-8 py-6">
         <div class="flex items-center justify-between">
-          <Button variant="secondary" onclick={handlePrevious}>
-            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-            </svg>
-            Previous
-          </Button>
+          <div>
+            <!-- No previous button on first step -->
+          </div>
 
           <div class="flex items-center space-x-3">
             <SaveDraft position="inline" showButton={false} showStatus={true} compact={true} />
@@ -89,7 +82,7 @@
               onclick={handleNext}
               disabled={!canNavigateNext()}
             >
-              Next
+              Get Started
               <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
               </svg>
