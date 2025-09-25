@@ -106,25 +106,15 @@ export class ConsultationApiService {
       const response = await api<Consultation>(`${this.baseUrl}/consultations`, {
         method: 'POST',
         token,
-        form: new FormData(),
+        json: validatedInput, // Send as JSON, not FormData
       });
 
-      // Convert to form data for proper submission
-      const formData = new FormData();
-      formData.append('data', JSON.stringify(validatedInput));
-
-      const createResponse = await api<Consultation>(`${this.baseUrl}/consultations`, {
-        method: 'POST',
-        token,
-        form: formData,
-      });
-
-      if (!createResponse.success) {
-        return createResponse;
+      if (!response.success) {
+        return response;
       }
 
       // Validate response
-      const validatedData = ConsultationSchema.parse(createResponse.data);
+      const validatedData = ConsultationSchema.parse(response.data);
 
       return {
         success: true,
@@ -194,14 +184,10 @@ export class ConsultationApiService {
 
       logger.debug('Updating consultation', { consultationId, input: validatedInput });
 
-      // Convert to form data for proper submission
-      const formData = new FormData();
-      formData.append('data', JSON.stringify(validatedInput));
-
       const response = await api<Consultation>(`${this.baseUrl}/consultations/${consultationId}`, {
         method: 'PUT',
         token,
-        form: formData,
+        json: validatedInput, // Send as JSON, not FormData
       });
 
       if (!response.success) {
@@ -302,16 +288,12 @@ export class ConsultationApiService {
     try {
       logger.debug('Saving consultation draft', { consultationId, payload });
 
-      // Convert to form data for proper submission
-      const formData = new FormData();
-      formData.append('data', JSON.stringify(payload.data));
-
       const response = await api<ConsultationDraft>(
         `${this.baseUrl}/consultations/${consultationId}/drafts`,
         {
           method: 'PUT',
           token,
-          form: formData,
+          json: payload.data, // Send draft data as JSON
         }
       );
 
@@ -348,16 +330,12 @@ export class ConsultationApiService {
     try {
       logger.debug('Creating consultation draft', { consultationId, payload });
 
-      // Convert to form data for proper submission
-      const formData = new FormData();
-      formData.append('data', JSON.stringify(payload.data));
-
       const response = await api<ConsultationDraft>(
         `${this.baseUrl}/consultations/${consultationId}/drafts`,
         {
           method: 'POST',
           token,
-          form: formData,
+          json: payload.data, // Send draft data as JSON
         }
       );
 
