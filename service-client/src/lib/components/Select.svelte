@@ -1,5 +1,12 @@
-<script>
+<script lang="ts">
 	import { fly } from "svelte/transition";
+
+	interface Option {
+		value: string;
+		label?: string;
+		name?: string;
+		note?: string;
+	}
 
 	let randomId = `dropdown-${Math.random().toString(36).substring(2, 15)}`;
 	let {
@@ -10,6 +17,20 @@
 		id = randomId,
 		label,
 		onSelect = () => {},
+		onchange = () => {},
+		required = false,
+		disabled = false,
+	}: {
+		placeholder?: string;
+		options: Option[];
+		value?: string;
+		name?: string;
+		id?: string;
+		label?: string;
+		onSelect?: (index: number) => void;
+		onchange?: () => void;
+		required?: boolean;
+		disabled?: boolean;
 	} = $props();
 
 	let isOpen = $state(false);
@@ -25,6 +46,7 @@
 		if (Array.isArray(options) && options[index]) {
 			value = options[index].value;
 			onSelect(index);
+			onchange();
 		}
 		isOpen = false;
 	}
@@ -56,11 +78,14 @@
 	<input {id} type="hidden" {name} value={value || ""} />
 	{#if label}
 		<div class="flex flex-row items-center gap-2">
-			<span class="text-secondary-3 text-sm">{label}</span>
+			<span class="text-gray-700 text-sm font-medium">
+				{label}
+				{#if required}<span class="text-red-500 ml-1">*</span>{/if}
+			</span>
 			{#if selected.value}
 				<button
 					type="button"
-					class="cursor-pointer"
+					class="cursor-pointer text-gray-400 hover:text-gray-600"
 					transition:fly={{ x: 10, duration: 120 }}
 					aria-label="Reset selection"
 					onclick={() => {
@@ -93,7 +118,7 @@
 			transition:fly={{ y: shouldOpenUp ? 10 : -10, duration: 80 }}
 			class="absolute z-50 w-full {shouldOpenUp
 				? 'bottom-full mb-2'
-				: 'top-full mt-2'} border-primary-3 bg-main rounded-xl border shadow-lg"
+				: 'top-full mt-2'} border-gray-200 bg-white rounded-xl border shadow-lg max-h-60 overflow-y-auto"
 		>
 			{#each options as option, index}
 				{@render optionSnippet(option, index)}
@@ -102,26 +127,28 @@
 	{/if}
 </div>
 
-{#snippet optionSnippet(option, index)}
+{#snippet optionSnippet(option: Option, index: number | null)}
 	{@const isSelector = !index && index !== 0}
 	{@const isSelectedOption = selected.value === option.value && option.value}
 	<button
 		type="button"
-		class="hover:bg-primary flex w-full cursor-pointer flex-row items-center justify-between overflow-hidden rounded-xl px-4 py-2 text-left text-nowrap"
+		class="hover:bg-gray-50 flex w-full cursor-pointer flex-row items-center justify-between overflow-hidden rounded-xl px-4 py-2 text-left text-nowrap text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
 		class:border={isSelector}
-		class:border-primary-3={isSelector}
-		class:bg-primary={isSelectedOption}
+		class:border-gray-300={isSelector}
+		class:bg-indigo-50={isSelectedOption}
+		class:text-indigo-700={isSelectedOption}
 		class:font-semibold={isSelectedOption}
 		onclick={() => (isSelector ? toggleDropdown() : handleSelect(index))}
+		{disabled}
 	>
 		{#if option.value}
-			<span class="capitalize">{option.name || option.value}</span>
+			<span class="capitalize">{option.label || option.name || option.value}</span>
 		{:else}
-			<span>{isSelector ? placeholder : "No value provided"}</span>
+			<span class="text-gray-500">{isSelector ? placeholder : "No value provided"}</span>
 		{/if}
 		<div class="flex flex-row items-center gap-2">
 			{#if option.note}
-				<span class="text-sm">{option.note}</span>
+				<span class="text-sm text-gray-500">{option.note}</span>
 			{/if}
 			{#if isSelector}
 				<!-- You can replace the chevron icon with any icon you want -->
@@ -135,7 +162,7 @@
 					stroke-width="2"
 					stroke-linecap="round"
 					stroke-linejoin="round"
-					class="lucide-icon lucide lucide-chevrons-up-down flex-shrink-0"
+					class="lucide-icon lucide lucide-chevrons-up-down flex-shrink-0 text-gray-400"
 				>
 					<path d="m7 15 5 5 5-5"></path>
 					<path d="m7 9 5-5 5 5"></path>

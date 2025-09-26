@@ -9,21 +9,36 @@
 	import MultiStepForm from "$lib/components/consultation/MultiStepForm.svelte";
 	import { toast } from "$lib/components/shared/Toast.svelte";
 
-	// Form data - simple state management
+	// Form data - initialize with empty objects to prevent reactive loops
 	let contactInfoData = $state({});
 	let businessContextData = $state({});
 	let painPointsData = $state({});
 	let goalsObjectivesData = $state({});
 
+	// Track if we're initializing to prevent reactive loops during setup
+	let isInitializing = $state(true);
+
 	// Initialize consultation
 	onMount(async () => {
 		await consultationStore.initialize();
 
-		// Initialize form data from store
-		contactInfoData = consultationStore.formState.data.contact_info || {};
-		businessContextData = consultationStore.formState.data.business_context || {};
-		painPointsData = consultationStore.formState.data.pain_points || {};
-		goalsObjectivesData = consultationStore.formState.data.goals_objectives || {};
+		// Only update if we have actual data from the store, and do it non-reactively
+		const storeData = consultationStore.formState.data;
+		if (storeData.contact_info && Object.keys(storeData.contact_info).length > 0) {
+			contactInfoData = { ...storeData.contact_info };
+		}
+		if (storeData.business_context && Object.keys(storeData.business_context).length > 0) {
+			businessContextData = { ...storeData.business_context };
+		}
+		if (storeData.pain_points && Object.keys(storeData.pain_points).length > 0) {
+			painPointsData = { ...storeData.pain_points };
+		}
+		if (storeData.goals_objectives && Object.keys(storeData.goals_objectives).length > 0) {
+			goalsObjectivesData = { ...storeData.goals_objectives };
+		}
+
+		// Mark initialization as complete
+		isInitializing = false;
 	});
 
 
@@ -48,6 +63,11 @@
 	];
 
 	function handleStepChange(newStepIndex: number, oldStepIndex: number) {
+		// Prevent execution during initialization to avoid reactive loops
+		if (isInitializing) {
+			return;
+		}
+
 		// Save data from the step we're leaving
 		const oldStep = steps[oldStepIndex];
 		if (oldStep?.id === 'contact_info') {
@@ -62,6 +82,11 @@
 	}
 
 	async function handleComplete() {
+		// Prevent execution during initialization
+		if (isInitializing) {
+			return;
+		}
+
 		try {
 			// Save all form data before completing
 			consultationStore.updateSectionData('contact_info', contactInfoData);

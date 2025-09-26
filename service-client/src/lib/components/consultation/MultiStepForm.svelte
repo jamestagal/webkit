@@ -65,23 +65,23 @@
 
 </script>
 
-<div class="min-h-screen bg-gray-50 flex flex-col">
+<div class="min-h-screen flex flex-col">
 	<!-- Header with Progress -->
 	{#if showProgress}
-		<div class="border-b bg-white shadow-sm">
+		<div class="border-b border-base-300">
 			<div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-6">
-				<h1 class="text-3xl font-bold text-gray-900">New Consultation</h1>
-				<p class="mt-2 text-gray-600">{currentStep?.title}</p>
+				<h1 class="text-3xl font-bold">New Consultation</h1>
+				<p class="mt-2 opacity-70">{currentStep?.title}</p>
 
 				<!-- Progress Bar -->
 				<div class="mt-4">
-					<div class="flex justify-between text-xs text-gray-500 mb-2">
+					<div class="flex justify-between text-xs opacity-60 mb-2">
 						<span>Step {currentStepIndex + 1} of {steps.length}</span>
 						<span>{Math.round(progress)}% Complete</span>
 					</div>
-					<div class="w-full bg-gray-200 rounded-full h-2">
+					<div class="w-full bg-base-200 rounded-full h-2">
 						<div
-							class="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+							class="bg-primary h-2 rounded-full transition-all duration-300"
 							style="width: {progress}%"
 						></div>
 					</div>
@@ -94,11 +94,12 @@
 							type="button"
 							onclick={() => goToStep(index)}
 							class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors duration-200"
-							class:bg-indigo-600={index === currentStepIndex}
-							class:bg-green-500={index < currentStepIndex}
-							class:text-white={index === currentStepIndex || index < currentStepIndex}
-							class:bg-gray-200={index > currentStepIndex}
-							class:text-gray-500={index > currentStepIndex}
+							class:bg-primary={index === currentStepIndex}
+							class:bg-success={index < currentStepIndex}
+							class:text-primary-content={index === currentStepIndex || index < currentStepIndex}
+							class:bg-base-300={index > currentStepIndex}
+							class:text-base-content={index > currentStepIndex}
+							class:opacity-50={index > currentStepIndex}
 						>
 							{#if index < currentStepIndex}
 								<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -117,7 +118,7 @@
 	<!-- Step Content -->
 	<div class="flex-1 py-8">
 		<div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-			<div class="bg-white rounded-lg shadow-lg">
+			<div class="bg-base-100 rounded-lg shadow-lg">
 				<div class="p-6 sm:p-8">
 					{#if currentStep?.id === 'contact_info' && contact_info}
 						{@render contact_info()}
@@ -128,12 +129,12 @@
 					{:else if currentStep?.id === 'goals_objectives' && goals_objectives}
 						{@render goals_objectives()}
 					{:else}
-						<p class="text-gray-500">Step content not found</p>
+						<p class="opacity-60">Step content not found</p>
 					{/if}
 				</div>
 
 				<!-- Navigation -->
-				<div class="border-t border-gray-200 px-6 py-6 sm:px-8 flex justify-between">
+				<div class="border-t border-base-200 px-6 py-6 sm:px-8 flex justify-between">
 					<div>
 						{#if canNavigatePrev}
 							<Button variant="secondary" onclick={prevStep}>

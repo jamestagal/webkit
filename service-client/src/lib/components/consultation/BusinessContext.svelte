@@ -188,8 +188,8 @@
 <div class="space-y-6">
 	<!-- Header -->
 	<div>
-		<h2 class="text-2xl font-bold text-gray-900">Business Context</h2>
-		<p class="mt-1 text-sm text-gray-600">
+		<h2 class="text-2xl font-bold">Business Context</h2>
+		<p class="mt-1 text-sm opacity-70">
 			Help us understand your business and current digital presence.
 		</p>
 	</div>
@@ -243,39 +243,46 @@
 
 		<!-- Team Size -->
 		<div>
-			<Input
-				bind:value={teamSize}
-				onblur={handleFieldUpdate}
-				type="number"
-				label="Team Size"
-				placeholder="Number of employees/team members"
-				min="1"
-				max="10000"
-				{disabled}
-				error={teamSizeError}
-				required={true}
-			/>
+			<label class="floating-label">
+				<span>Team Size *</span>
+				<input
+					bind:value={teamSize}
+					onblur={handleFieldUpdate}
+					type="number"
+					placeholder="Number of employees/team members"
+					min="1"
+					max="10000"
+					{disabled}
+					required={true}
+					class="input w-full"
+					class:input-error={teamSizeError}
+				/>
+				{#if teamSizeError}<div class="text-error text-sm mt-1">{teamSizeError}</div>{/if}
+			</label>
 		</div>
 
 		<!-- Current Platform -->
 		<div class="sm:col-span-2">
-			<Input
-				bind:value={currentPlatform}
-				onblur={handleFieldUpdate}
-				label="Current Platform/Website"
-				placeholder="e.g., WordPress, Shopify, Custom solution, None"
-				{disabled}
-			/>
+			<label class="floating-label">
+				<span>Current Platform/Website</span>
+				<input
+					bind:value={currentPlatform}
+					onblur={handleFieldUpdate}
+					placeholder="e.g., WordPress, Shopify, Custom solution, None"
+					{disabled}
+					class="input w-full"
+				/>
+			</label>
 		</div>
 	</div>
 
 	<!-- Digital Presence -->
 	<div>
-		<label class="mb-2 block text-sm font-medium text-gray-700">
+		<label class="mb-2 block text-sm font-medium">
 			Digital Presence
-			<span class="font-normal text-gray-500">(Optional)</span>
+			<span class="font-normal opacity-60">(Optional)</span>
 		</label>
-		<p class="mb-3 text-sm text-gray-600">
+		<p class="mb-3 text-sm opacity-70">
 			Where does your business currently have an online presence?
 		</p>
 
@@ -287,7 +294,7 @@
 						type="button"
 						onclick={() => addCommonDigitalPresence(presence)}
 						{disabled}
-						class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-sm leading-4 font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+						class="btn btn-outline btn-sm"
 					>
 						+ {presence}
 					</button>
@@ -297,36 +304,35 @@
 
 		<!-- Custom Input -->
 		<div class="mb-3 flex space-x-2">
-			<Input
+			<input
 				bind:value={newDigitalPresence}
 				onkeydown={handleDigitalPresenceKeydown}
 				placeholder="Add custom digital presence"
 				{disabled}
-				class="flex-1"
+				class="input flex-1"
 			/>
-			<Button
-				variant="primary"
+			<button
+				type="button"
+				class="btn btn-primary"
 				onclick={addDigitalPresence}
 				disabled={disabled || !newDigitalPresence.trim()}
 			>
 				<Plus class="mr-1 h-4 w-4" />
 				Add
-			</Button>
+			</button>
 		</div>
 
 		<!-- Selected Items -->
 		{#if digitalPresence.length > 0}
 			<div class="flex flex-wrap gap-2">
 				{#each digitalPresence as presence}
-					<span
-						class="inline-flex items-center rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-800"
-					>
+					<span class="badge badge-primary gap-2">
 						{presence}
 						<button
 							type="button"
 							onclick={() => removeDigitalPresence(presence)}
 							{disabled}
-							class="ml-2 inline-flex h-4 w-4 items-center justify-center rounded-full text-indigo-400 hover:text-indigo-600 disabled:opacity-50"
+							class="hover:text-primary-content disabled:opacity-50"
 						>
 							<X class="h-3 w-3" />
 						</button>
@@ -338,11 +344,11 @@
 
 	<!-- Marketing Channels -->
 	<div>
-		<label class="mb-2 block text-sm font-medium text-gray-700">
+		<label class="mb-2 block text-sm font-medium">
 			Current Marketing Channels
-			<span class="font-normal text-gray-500">(Optional)</span>
+			<span class="font-normal opacity-60">(Optional)</span>
 		</label>
-		<p class="mb-3 text-sm text-gray-600">How do you currently reach and acquire customers?</p>
+		<p class="mb-3 text-sm opacity-70">How do you currently reach and acquire customers?</p>
 
 		<!-- Quick Add Buttons -->
 		<div class="mb-3 flex flex-wrap gap-2">
@@ -404,22 +410,22 @@
 	<!-- Form Status Indicator -->
 	<div class="flex items-center space-x-2 text-sm">
 		{#if isFormValid}
-			<CheckCircle class="h-5 w-5 text-green-500" />
-			<span class="text-green-700">Business context is complete</span>
+			<CheckCircle class="h-5 w-5 text-success" />
+			<span class="text-success">Business context is complete</span>
 		{:else}
-			<AlertTriangle class="h-5 w-5 text-yellow-500" />
-			<span class="text-yellow-700">
+			<AlertTriangle class="h-5 w-5 text-warning" />
+			<span class="text-warning">
 				Please complete required fields (Industry & Business Type)
 			</span>
 		{/if}
 
 		{#if consultationStore.formState.isAutoSaving}
-			<div class="flex items-center space-x-1 text-blue-600">
+			<div class="flex items-center space-x-1 text-info">
 				<Spinner size={16} />
 				<span class="text-sm">Saving...</span>
 			</div>
 		{:else if consultationStore.formState.lastSaved}
-			<span class="text-gray-500">
+			<span class="opacity-60">
 				Saved {consultationStore.formState.lastSaved.toLocaleTimeString()}
 			</span>
 		{/if}

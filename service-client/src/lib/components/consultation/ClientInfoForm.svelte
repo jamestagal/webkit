@@ -144,8 +144,8 @@
 <div class="space-y-6">
 	<!-- Header -->
 	<div>
-		<h2 class="text-2xl font-bold text-gray-900">Contact Information</h2>
-		<p class="mt-1 text-sm text-gray-600">Tell us about your business and how we can reach you.</p>
+		<h2 class="text-2xl font-bold">Contact Information</h2>
+		<p class="mt-1 text-sm opacity-70">Tell us about your business and how we can reach you.</p>
 	</div>
 
 	<!-- Error Summary -->
@@ -173,106 +173,146 @@
 	<div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
 		<!-- Business Name -->
 		<div class="sm:col-span-2">
-			<Input
-				bind:ref={businessNameRef}
-				bind:value={businessName}
-				onblur={handleFieldUpdate}
-				label="Business Name"
-				placeholder="Your company or organization name"
-				{disabled}
-				autocomplete="organization"
-			/>
+			<label class="floating-label">
+				<span>Business Name</span>
+				<input
+					bind:this={businessNameRef}
+					bind:value={businessName}
+					onblur={handleFieldUpdate}
+					placeholder="Your company or organization name"
+					{disabled}
+					autocomplete="organization"
+					class="input w-full"
+				/>
+			</label>
 		</div>
 
 		<!-- Contact Person -->
 		<div class="sm:col-span-2">
-			<Input
-				bind:value={contactPerson}
-				onblur={handleFieldUpdate}
-				label="Contact Person"
-				placeholder="Primary contact person"
-				{disabled}
-				autocomplete="name"
-			/>
+			<label class="floating-label">
+				<span>Contact Person</span>
+				<input
+					bind:value={contactPerson}
+					onblur={handleFieldUpdate}
+					placeholder="Primary contact person"
+					{disabled}
+					autocomplete="name"
+					class="input w-full"
+				/>
+			</label>
 		</div>
 
 		<!-- Email -->
 		<div>
-			<Input
-				bind:value={email}
-				onblur={handleFieldUpdate}
-				type="email"
-				label="Email Address"
-				placeholder="contact@company.com"
-				{disabled}
-				required={true}
-				error={emailError}
-				autocomplete="email"
-			/>
+			<label class="floating-label">
+				<span>Email Address *</span>
+				<input
+					bind:value={email}
+					onblur={handleFieldUpdate}
+					type="email"
+					placeholder="contact@company.com"
+					{disabled}
+					required={true}
+					autocomplete="email"
+					class="input w-full"
+					class:input-error={emailError}
+				/>
+				{#if emailError}<div class="text-error text-sm mt-1">{emailError}</div>{/if}
+			</label>
 		</div>
 
 		<!-- Phone -->
 		<div>
-			<Input
-				value={phone}
-				oninput={handlePhoneInput}
-				onblur={handlePhoneBlur}
-				type="tel"
-				label="Phone Number"
-				placeholder="(555) 123-4567"
-				{disabled}
-				autocomplete="tel"
-			/>
+			<label class="floating-label">
+				<span>Phone Number</span>
+				<input
+					value={phone}
+					oninput={handlePhoneInput}
+					onblur={handlePhoneBlur}
+					type="tel"
+					placeholder="(555) 123-4567"
+					{disabled}
+					autocomplete="tel"
+					class="input w-full"
+				/>
+			</label>
 		</div>
 
 		<!-- Website -->
 		<div class="sm:col-span-2">
-			<Input
-				bind:value={website}
-				onblur={handleWebsiteBlur}
-				type="url"
-				label="Website"
-				placeholder="https://www.company.com"
-				{disabled}
-				error={websiteError}
-				autocomplete="url"
-			/>
+			<label class="floating-label">
+				<span>Website</span>
+				<input
+					bind:value={website}
+					onblur={handleWebsiteBlur}
+					type="url"
+					placeholder="https://www.company.com"
+					{disabled}
+					autocomplete="url"
+					class="input w-full"
+					class:input-error={websiteError}
+				/>
+				{#if websiteError}<div class="text-error text-sm mt-1">{websiteError}</div>{/if}
+			</label>
 		</div>
 
 		<!-- Social Media -->
 		<div class="sm:col-span-2">
-			<label class="mb-2 block text-sm font-medium text-gray-700">
+			<label class="mb-2 block text-sm font-medium">
 				Social Media Profiles
-				<span class="font-normal text-gray-500">(Optional)</span>
+				<span class="font-normal opacity-60">(Optional)</span>
 			</label>
 
 			<!-- Quick Add Buttons -->
 			<div class="mb-3 flex flex-wrap gap-2">
-				<Button variant="outline" onclick={() => addSocialMediaPlatform("linkedin")} {disabled}>
+				<button
+					type="button"
+					class="btn btn-outline btn-sm"
+					onclick={() => addSocialMediaPlatform("linkedin")}
+					{disabled}
+				>
 					LinkedIn
-				</Button>
-				<Button variant="outline" onclick={() => addSocialMediaPlatform("twitter")} {disabled}>
+				</button>
+				<button
+					type="button"
+					class="btn btn-outline btn-sm"
+					onclick={() => addSocialMediaPlatform("twitter")}
+					{disabled}
+				>
 					Twitter
-				</Button>
-				<Button variant="outline" onclick={() => addSocialMediaPlatform("facebook")} {disabled}>
+				</button>
+				<button
+					type="button"
+					class="btn btn-outline btn-sm"
+					onclick={() => addSocialMediaPlatform("facebook")}
+					{disabled}
+				>
 					Facebook
-				</Button>
-				<Button variant="outline" onclick={() => addSocialMediaPlatform("instagram")} {disabled}>
+				</button>
+				<button
+					type="button"
+					class="btn btn-outline btn-sm"
+					onclick={() => addSocialMediaPlatform("instagram")}
+					{disabled}
+				>
 					Instagram
-				</Button>
+				</button>
 			</div>
 
-			<Textarea
-				bind:value={socialMediaJson}
-				onblur={handleFieldUpdate}
-				label="Social Media JSON"
-				placeholder={'{\n  "linkedin": "https://linkedin.com/company/yourcompany",\n  "twitter": "https://twitter.com/yourcompany"\n}'}
-				rows={4}
-				{disabled}
-				error={socialMediaError}
-				class="font-mono text-sm"
-			/>
-			<p class="mt-1 text-sm text-gray-500">
+			<label class="floating-label">
+				<span>Social Media JSON</span>
+				<textarea
+					bind:value={socialMediaJson}
+					onblur={handleFieldUpdate}
+					placeholder={'{\n  "linkedin": "https://linkedin.com/company/yourcompany",\n  "twitter": "https://twitter.com/yourcompany"\n}'}
+					rows={4}
+					{disabled}
+					class="textarea w-full font-mono text-sm"
+					class:textarea-error={socialMediaError}
+				></textarea>
+				{#if socialMediaError}<div class="text-error text-sm mt-1">{socialMediaError}</div>{/if}
+			</label>
+			<p class="mt-1 text-sm opacity-60">
 				Add your social media profiles in JSON format. Use the buttons above for quick setup.
 			</p>
 		</div>
@@ -281,20 +321,20 @@
 	<!-- Form Status Indicator -->
 	<div class="flex items-center space-x-2 text-sm">
 		{#if isFormValid}
-			<CheckCircle class="h-5 w-5 text-green-500" />
-			<span class="text-green-700">Contact information is complete</span>
+			<CheckCircle class="h-5 w-5 text-success" />
+			<span class="text-success">Contact information is complete</span>
 		{:else}
-			<AlertTriangle class="h-5 w-5 text-yellow-500" />
-			<span class="text-yellow-700">Please review and complete the form</span>
+			<AlertTriangle class="h-5 w-5 text-warning" />
+			<span class="text-warning">Please review and complete the form</span>
 		{/if}
 
 		{#if consultationStore.formState.isAutoSaving}
-			<div class="flex items-center space-x-1 text-blue-600">
+			<div class="flex items-center space-x-1 text-info">
 				<Spinner size={16} />
 				<span class="text-sm">Saving...</span>
 			</div>
 		{:else if consultationStore.formState.lastSaved}
-			<span class="text-gray-500">
+			<span class="opacity-60">
 				Saved {consultationStore.formState.lastSaved.toLocaleTimeString()}
 			</span>
 		{/if}
