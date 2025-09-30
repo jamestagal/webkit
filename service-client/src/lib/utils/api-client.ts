@@ -6,21 +6,21 @@ export class ApiClient {
 	private baseUrl: string;
 
 	constructor(baseUrl?: string) {
-		this.baseUrl = baseUrl || import.meta.env.VITE_API_URL || '';
+		this.baseUrl = baseUrl || import.meta.env.VITE_API_URL || "";
 	}
 
 	async request<T>(
 		endpoint: string,
-		options?: RequestInit
+		options?: RequestInit,
 	): Promise<{ success: boolean; data?: T; message?: string }> {
 		try {
 			const response = await fetch(`${this.baseUrl}${endpoint}`, {
 				...options,
 				headers: {
-					'Content-Type': 'application/json',
+					"Content-Type": "application/json",
 					...options?.headers,
 				},
-				credentials: 'include', // for cookies
+				credentials: "include", // for cookies
 			});
 
 			const data = await response.json();
@@ -39,31 +39,31 @@ export class ApiClient {
 		} catch (error) {
 			return {
 				success: false,
-				message: error instanceof Error ? error.message : 'Network error',
+				message: error instanceof Error ? error.message : "Network error",
 			};
 		}
 	}
 
 	async get<T>(endpoint: string) {
-		return this.request<T>(endpoint, { method: 'GET' });
+		return this.request<T>(endpoint, { method: "GET" });
 	}
 
 	async post<T>(endpoint: string, body: any) {
 		return this.request<T>(endpoint, {
-			method: 'POST',
+			method: "POST",
 			body: JSON.stringify(body),
 		});
 	}
 
 	async put<T>(endpoint: string, body: any) {
 		return this.request<T>(endpoint, {
-			method: 'PUT',
+			method: "PUT",
 			body: JSON.stringify(body),
 		});
 	}
 
 	async delete<T>(endpoint: string) {
-		return this.request<T>(endpoint, { method: 'DELETE' });
+		return this.request<T>(endpoint, { method: "DELETE" });
 	}
 }
 

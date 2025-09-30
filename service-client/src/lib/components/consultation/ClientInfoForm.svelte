@@ -217,7 +217,7 @@
 					class="input w-full"
 					class:input-error={emailError}
 				/>
-				{#if emailError}<div class="text-error text-sm mt-1">{emailError}</div>{/if}
+				{#if emailError}<div class="text-error mt-1 text-sm">{emailError}</div>{/if}
 			</label>
 		</div>
 
@@ -252,7 +252,7 @@
 					class="input w-full"
 					class:input-error={websiteError}
 				/>
-				{#if websiteError}<div class="text-error text-sm mt-1">{websiteError}</div>{/if}
+				{#if websiteError}<div class="text-error mt-1 text-sm">{websiteError}</div>{/if}
 			</label>
 		</div>
 
@@ -310,7 +310,7 @@
 					class="textarea w-full font-mono text-sm"
 					class:textarea-error={socialMediaError}
 				></textarea>
-				{#if socialMediaError}<div class="text-error text-sm mt-1">{socialMediaError}</div>{/if}
+				{#if socialMediaError}<div class="text-error mt-1 text-sm">{socialMediaError}</div>{/if}
 			</label>
 			<p class="mt-1 text-sm opacity-60">
 				Add your social media profiles in JSON format. Use the buttons above for quick setup.
@@ -321,15 +321,15 @@
 	<!-- Form Status Indicator -->
 	<div class="flex items-center space-x-2 text-sm">
 		{#if isFormValid}
-			<CheckCircle class="h-5 w-5 text-success" />
+			<CheckCircle class="text-success h-5 w-5" />
 			<span class="text-success">Contact information is complete</span>
 		{:else}
-			<AlertTriangle class="h-5 w-5 text-warning" />
+			<AlertTriangle class="text-warning h-5 w-5" />
 			<span class="text-warning">Please review and complete the form</span>
 		{/if}
 
 		{#if consultationStore.formState.isAutoSaving}
-			<div class="flex items-center space-x-1 text-info">
+			<div class="text-info flex items-center space-x-1">
 				<Spinner size={16} />
 				<span class="text-sm">Saving...</span>
 			</div>

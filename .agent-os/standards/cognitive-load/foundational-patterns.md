@@ -305,6 +305,68 @@ func SetupDB(cfg DatabaseConfig) (*sql.DB, error) {
 }
 ```
 
+#### GOFAST-DTO-PATTERN (Load: 6)
+**Mistake:** Exposing database types (sql.Null*) directly in API responses
+```go
+// ❌ BAD - Domain model exposed to API with sql.Null types
+type Consultation struct {
+    ID                   string         `json:"id"`
+    CompletionPercentage sql.NullInt32  `json:"completion_percentage"`
+    CreatedAt           sql.NullTime   `json:"created_at"`
+}
+
+func (h *Handler) GetConsultation(w http.ResponseWriter, r *http.Request) {
+    consultation := h.service.GetConsultation(ctx, id)
+    json.NewEncoder(w).Encode(consultation) // sql.Null* types in JSON!
+}
+
+// ❌ BAD - MarshalJSON workaround (technical debt)
+func (c Consultation) MarshalJSON() ([]byte, error) {
+    // Custom marshaling for sql.Null types
+    // This is a workaround, not proper separation!
+}
+```
+
+**Correct:** Separate DTO layer for API responses
+```go
+// ✅ GOOD - Domain model (no JSON tags)
+type Consultation struct {
+    ID                   string
+    CompletionPercentage sql.NullInt32
+    CreatedAt           sql.NullTime
+}
+
+// ✅ GOOD - DTO for API (no sql.Null*)
+type ConsultationDTO struct {
+    ID                   string    `json:"id"`
+    CompletionPercentage *int32    `json:"completion_percentage,omitempty"`
+    CreatedAt           time.Time `json:"created_at"`
+}
+
+// ✅ GOOD - Conversion method
+func (c *Consultation) ToDTO() ConsultationDTO {
+    dto := ConsultationDTO{
+        ID:        c.ID,
+        CreatedAt: c.CreatedAt.Time,
+    }
+    if c.CompletionPercentage.Valid {
+        dto.CompletionPercentage = &c.CompletionPercentage.Int32
+    }
+    return dto
+}
+
+// ✅ GOOD - Handler uses DTO
+func (h *Handler) GetConsultation(w http.ResponseWriter, r *http.Request) {
+    consultation, err := h.service.GetConsultation(ctx, id)
+    if err != nil {
+        h.respondError(w, http.StatusNotFound, "not found")
+        return
+    }
+    dto := consultation.ToDTO() // Convert to DTO
+    json.NewEncoder(w).Encode(dto) // Clean JSON
+}
+```
+
 ### 3. Svelte/SvelteKit Patterns
 
 #### SVELTE-STORE-LOOP (Load: 8)

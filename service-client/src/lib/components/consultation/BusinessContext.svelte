@@ -188,8 +188,8 @@
 <div class="space-y-6">
 	<!-- Header -->
 	<div>
-		<h2 class="text-2xl font-bold">Business Context</h2>
-		<p class="mt-1 text-sm opacity-70">
+		<h2 class="text-base-content text-2xl font-bold">Business Context</h2>
+		<p class="text-base-content/70 mt-1 text-sm">
 			Help us understand your business and current digital presence.
 		</p>
 	</div>
@@ -257,7 +257,7 @@
 					class="input w-full"
 					class:input-error={teamSizeError}
 				/>
-				{#if teamSizeError}<div class="text-error text-sm mt-1">{teamSizeError}</div>{/if}
+				{#if teamSizeError}<div class="text-error mt-1 text-sm">{teamSizeError}</div>{/if}
 			</label>
 		</div>
 
@@ -278,11 +278,11 @@
 
 	<!-- Digital Presence -->
 	<div>
-		<label class="mb-2 block text-sm font-medium">
+		<label class="text-base-content mb-2 block text-sm font-medium">
 			Digital Presence
-			<span class="font-normal opacity-60">(Optional)</span>
+			<span class="text-base-content/60 font-normal">(Optional)</span>
 		</label>
-		<p class="mb-3 text-sm opacity-70">
+		<p class="text-base-content/70 mb-3 text-sm">
 			Where does your business currently have an online presence?
 		</p>
 
@@ -344,11 +344,13 @@
 
 	<!-- Marketing Channels -->
 	<div>
-		<label class="mb-2 block text-sm font-medium">
+		<label class="text-base-content mb-2 block text-sm font-medium">
 			Current Marketing Channels
-			<span class="font-normal opacity-60">(Optional)</span>
+			<span class="text-base-content/60 font-normal">(Optional)</span>
 		</label>
-		<p class="mb-3 text-sm opacity-70">How do you currently reach and acquire customers?</p>
+		<p class="text-base-content/70 mb-3 text-sm">
+			How do you currently reach and acquire customers?
+		</p>
 
 		<!-- Quick Add Buttons -->
 		<div class="mb-3 flex flex-wrap gap-2">
@@ -410,17 +412,15 @@
 	<!-- Form Status Indicator -->
 	<div class="flex items-center space-x-2 text-sm">
 		{#if isFormValid}
-			<CheckCircle class="h-5 w-5 text-success" />
+			<CheckCircle class="text-success h-5 w-5" />
 			<span class="text-success">Business context is complete</span>
 		{:else}
-			<AlertTriangle class="h-5 w-5 text-warning" />
-			<span class="text-warning">
-				Please complete required fields (Industry & Business Type)
-			</span>
+			<AlertTriangle class="text-warning h-5 w-5" />
+			<span class="text-warning">Please complete required fields (Industry & Business Type)</span>
 		{/if}
 
 		{#if consultationStore.formState.isAutoSaving}
-			<div class="flex items-center space-x-1 text-info">
+			<div class="text-info flex items-center space-x-1">
 				<Spinner size={16} />
 				<span class="text-sm">Saving...</span>
 			</div>

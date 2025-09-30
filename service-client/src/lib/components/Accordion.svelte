@@ -1,7 +1,6 @@
 <script>
 	import { ChevronDown, ChevronRight } from "lucide-svelte";
 	import { slide } from "svelte/transition";
-	
 
 	let { title = "", children } = $props();
 	let isOpen = $state(false);
@@ -9,6 +8,7 @@
 		isOpen = !isOpen;
 	}
 </script>
+
 <div class="card card-ring mb-2 flex flex-col">
 	<!-- Trigger section -->
 	<button

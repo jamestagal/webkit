@@ -51,6 +51,7 @@
 		hasInteracted = true; // Mark that user has manually toggled
 		isSideNavOpen = !isSideNavOpen;
 </script>
+
 <svelte:document
 	ontouchstart={handleTouchStart}
 	ontouchmove={handleTouchMove}

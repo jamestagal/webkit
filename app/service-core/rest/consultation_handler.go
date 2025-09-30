@@ -248,9 +248,9 @@ func (h *Handler) createConsultation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return 201 Created with the consultation
+	// Return 201 Created with the consultation DTO
 	w.WriteHeader(http.StatusCreated)
-	writeResponse(h.cfg, w, r, result, nil)
+	writeResponse(h.cfg, w, r, result.ToDTO(), nil)
 }
 
 // getConsultation handles GET /consultations/{id}
@@ -278,7 +278,7 @@ func (h *Handler) getConsultation(w http.ResponseWriter, r *http.Request, consul
 		return
 	}
 
-	writeResponse(h.cfg, w, r, consultation, nil)
+	writeResponse(h.cfg, w, r, consultation.ToDTO(), nil)
 }
 
 // updateConsultation handles PUT /consultations/{id}
@@ -316,7 +316,7 @@ func (h *Handler) updateConsultation(w http.ResponseWriter, r *http.Request, con
 		return
 	}
 
-	writeResponse(h.cfg, w, r, result, nil)
+	writeResponse(h.cfg, w, r, result.ToDTO(), nil)
 }
 
 // deleteConsultation handles DELETE /consultations/{id}
@@ -375,7 +375,7 @@ func (h *Handler) getDraft(w http.ResponseWriter, r *http.Request, consultationI
 		return
 	}
 
-	writeResponse(h.cfg, w, r, draft, nil)
+	writeResponse(h.cfg, w, r, draft.ToDTO(), nil)
 }
 
 // createDraft handles POST /consultations/{id}/drafts
@@ -413,9 +413,9 @@ func (h *Handler) createDraft(w http.ResponseWriter, r *http.Request, consultati
 		return
 	}
 
-	// Return 201 Created with the draft
+	// Return 201 Created with the draft DTO
 	w.WriteHeader(http.StatusCreated)
-	writeResponse(h.cfg, w, r, draft, nil)
+	writeResponse(h.cfg, w, r, draft.ToDTO(), nil)
 }
 
 // updateDraft handles PUT /consultations/{id}/drafts
@@ -453,7 +453,7 @@ func (h *Handler) updateDraft(w http.ResponseWriter, r *http.Request, consultati
 		return
 	}
 
-	writeResponse(h.cfg, w, r, draft, nil)
+	writeResponse(h.cfg, w, r, draft.ToDTO(), nil)
 }
 
 // deleteDraft handles DELETE /consultations/{id}/drafts
@@ -542,7 +542,7 @@ func (h *Handler) getVersionHistory(w http.ResponseWriter, r *http.Request, cons
 		return
 	}
 
-	writeResponse(h.cfg, w, r, response, nil)
+	writeResponse(h.cfg, w, r, response.ToDTO(), nil)
 }
 
 // getVersionDetail handles GET /consultations/{id}/versions/{versionNumber}
@@ -580,7 +580,7 @@ func (h *Handler) getVersionDetail(w http.ResponseWriter, r *http.Request, consu
 		return
 	}
 
-	writeResponse(h.cfg, w, r, consultation, nil)
+	writeResponse(h.cfg, w, r, consultation.ToDTO(), nil)
 }
 
 // Additional utility endpoints
@@ -620,7 +620,7 @@ func (h *Handler) handleConsultationComplete(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	writeResponse(h.cfg, w, r, consultation, nil)
+	writeResponse(h.cfg, w, r, consultation.ToDTO(), nil)
 }
 
 // handleConsultationArchive handles POST /consultations/{id}/archive
@@ -658,7 +658,7 @@ func (h *Handler) handleConsultationArchive(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	writeResponse(h.cfg, w, r, consultation, nil)
+	writeResponse(h.cfg, w, r, consultation.ToDTO(), nil)
 }
 
 // handleConsultationRestore handles POST /consultations/{id}/restore
@@ -696,5 +696,5 @@ func (h *Handler) handleConsultationRestore(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	writeResponse(h.cfg, w, r, consultation, nil)
+	writeResponse(h.cfg, w, r, consultation.ToDTO(), nil)
 }

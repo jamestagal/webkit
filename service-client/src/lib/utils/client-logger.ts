@@ -17,5 +17,5 @@ export const clientLogger = {
 	error: (msg: string, error?: any) => {
 		console.error(`[ERROR] ${msg}`, error);
 		// Could also send to error tracking service like Sentry
-	}
+	},
 };

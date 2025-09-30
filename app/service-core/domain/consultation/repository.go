@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sqlc-dev/pqtype"
 
 	"service-core/storage/query"
 )
@@ -271,7 +270,7 @@ func (d *draftRepositoryImpl) AutoSave(ctx context.Context, consultationID, user
 		BusinessContext: businessContext,
 		PainPoints:      painPoints,
 		GoalsObjectives: goalsObjectives,
-		AutoSaved:       sql.NullBool{Bool: true, Valid: true},
+		AutoSaved:       true,
 		DraftNotes:      sql.NullString{String: fmt.Sprintf("Auto-saved at %s", time.Now().Format("15:04:05")), Valid: true},
 	}
 
@@ -333,7 +332,7 @@ func (d *draftRepositoryImpl) PromoteDraftToConsultation(ctx context.Context, co
 			PainPoints:           draft.PainPoints,
 			GoalsObjectives:      draft.GoalsObjectives,
 			Status:               string(StatusDraft),
-			CompletionPercentage: sql.NullInt32{Int32: 0, Valid: true},
+			CompletionPercentage: 0,
 		}
 		consultation, err = d.querier.CreateConsultation(ctx, params)
 		if err != nil {
@@ -384,7 +383,7 @@ func (d *draftRepositoryImpl) HasConflictingDraft(ctx context.Context, consultat
 	}
 
 	// Check if draft was modified after the given time
-	if draft.UpdatedAt.Valid && draft.UpdatedAt.Time.After(lastModified) {
+	if draft.UpdatedAt.After(lastModified) {
 		return true, nil
 	}
 
@@ -392,8 +391,7 @@ func (d *draftRepositoryImpl) HasConflictingDraft(ctx context.Context, consultat
 }
 
 func (d *draftRepositoryImpl) CleanupAbandonedDrafts(ctx context.Context, olderThan time.Time) error {
-	params := sql.NullTime{Time: olderThan, Valid: true}
-	return d.querier.CleanupOldDrafts(ctx, params)
+	return d.querier.CleanupOldDrafts(ctx, olderThan)
 }
 
 func (d *draftRepositoryImpl) GetDraftsSummary(ctx context.Context, userID uuid.UUID) ([]DraftSummary, error) {
@@ -437,13 +435,13 @@ func (v *versionRepositoryImpl) CreateVersionFromConsultation(ctx context.Contex
 		PainPoints:           consultation.PainPoints,
 		GoalsObjectives:      consultation.GoalsObjectives,
 		Status:               consultation.Status,
-		CompletionPercentage: consultation.CompletionPercentage.Int32,
+		CompletionPercentage: consultation.CompletionPercentage,
 		ChangeSummary:        sql.NullString{String: changeSummary, Valid: changeSummary != ""},
 	}
 
 	// Set changed fields if provided
 	if len(changedFields) > 0 {
-		params.ChangedFields = pqtype.NullRawMessage{RawMessage: changedFieldsJSON, Valid: true}
+		params.ChangedFields = changedFieldsJSON
 	}
 
 	version, err := v.querier.CreateConsultationVersion(ctx, params)
@@ -602,7 +600,7 @@ func (v *versionRepositoryImpl) DetectChanges(ctx context.Context, current, prev
 	}
 
 	// Compare completion percentage
-	if current.CompletionPercentage.Int32 != previous.CompletionPercentage.Int32 {
+	if current.CompletionPercentage != previous.CompletionPercentage {
 		changedFields = append(changedFields, "completion_percentage")
 	}
 
@@ -626,5 +624,5 @@ type VersionComparison struct {
 
 // CleanupOldDraftsParams represents parameters for cleaning up old drafts
 type CleanupOldDraftsParams struct {
-	UpdatedAt sql.NullTime `json:"updated_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }

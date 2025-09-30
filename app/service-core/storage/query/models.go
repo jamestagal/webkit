@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sqlc-dev/pqtype"
 )
 
 type Consultation struct {
@@ -21,9 +20,9 @@ type Consultation struct {
 	PainPoints           json.RawMessage `json:"pain_points"`
 	GoalsObjectives      json.RawMessage `json:"goals_objectives"`
 	Status               string          `json:"status"`
-	CompletionPercentage sql.NullInt32   `json:"completion_percentage"`
-	CreatedAt            sql.NullTime    `json:"created_at"`
-	UpdatedAt            sql.NullTime    `json:"updated_at"`
+	CompletionPercentage int32           `json:"completion_percentage"`
+	CreatedAt            time.Time       `json:"created_at"`
+	UpdatedAt            time.Time       `json:"updated_at"`
 	CompletedAt          sql.NullTime    `json:"completed_at"`
 }
 
@@ -35,26 +34,26 @@ type ConsultationDraft struct {
 	BusinessContext json.RawMessage `json:"business_context"`
 	PainPoints      json.RawMessage `json:"pain_points"`
 	GoalsObjectives json.RawMessage `json:"goals_objectives"`
-	AutoSaved       sql.NullBool    `json:"auto_saved"`
+	AutoSaved       bool            `json:"auto_saved"`
 	DraftNotes      sql.NullString  `json:"draft_notes"`
-	CreatedAt       sql.NullTime    `json:"created_at"`
-	UpdatedAt       sql.NullTime    `json:"updated_at"`
+	CreatedAt       time.Time       `json:"created_at"`
+	UpdatedAt       time.Time       `json:"updated_at"`
 }
 
 type ConsultationVersion struct {
-	ID                   uuid.UUID             `json:"id"`
-	ConsultationID       uuid.UUID             `json:"consultation_id"`
-	UserID               uuid.UUID             `json:"user_id"`
-	VersionNumber        int32                 `json:"version_number"`
-	ContactInfo          json.RawMessage       `json:"contact_info"`
-	BusinessContext      json.RawMessage       `json:"business_context"`
-	PainPoints           json.RawMessage       `json:"pain_points"`
-	GoalsObjectives      json.RawMessage       `json:"goals_objectives"`
-	Status               string                `json:"status"`
-	CompletionPercentage int32                 `json:"completion_percentage"`
-	ChangeSummary        sql.NullString        `json:"change_summary"`
-	ChangedFields        pqtype.NullRawMessage `json:"changed_fields"`
-	CreatedAt            sql.NullTime          `json:"created_at"`
+	ID                   uuid.UUID       `json:"id"`
+	ConsultationID       uuid.UUID       `json:"consultation_id"`
+	UserID               uuid.UUID       `json:"user_id"`
+	VersionNumber        int32           `json:"version_number"`
+	ContactInfo          json.RawMessage `json:"contact_info"`
+	BusinessContext      json.RawMessage `json:"business_context"`
+	PainPoints           json.RawMessage `json:"pain_points"`
+	GoalsObjectives      json.RawMessage `json:"goals_objectives"`
+	Status               string          `json:"status"`
+	CompletionPercentage int32           `json:"completion_percentage"`
+	ChangeSummary        sql.NullString  `json:"change_summary"`
+	ChangedFields        json.RawMessage `json:"changed_fields"`
+	CreatedAt            time.Time       `json:"created_at"`
 }
 
 type Email struct {

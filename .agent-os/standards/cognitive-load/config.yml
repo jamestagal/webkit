@@ -21,11 +21,13 @@ frameworks:
       - GOFAST-ERROR-VALUES
       - GOFAST-MINIMAL-DEPS
       - GOFAST-EXPLICIT-CONFIG
+      - GOFAST-DTO-PATTERN
     autofix: true
     additional_checks:
       - magic_numbers
       - deep_nesting
       - missing_comments
+      - pattern_completeness
     
   svelte:
     enabled: true
@@ -76,3 +78,6 @@ pattern_overrides:
     
   GOFAST-EXPLICIT-CONFIG:
     severity: warning  # Configuration clarity
+    
+  GOFAST-DTO-PATTERN:
+    severity: error  # Critical - blocks API functionality

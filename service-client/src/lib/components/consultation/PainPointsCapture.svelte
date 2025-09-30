@@ -236,8 +236,8 @@
 <div class="space-y-6">
 	<!-- Header -->
 	<div>
-		<h2 class="text-2xl font-bold text-gray-900">Pain Points & Challenges</h2>
-		<p class="mt-1 text-sm text-gray-600">
+		<h2 class="text-base-content text-2xl font-bold">Pain Points & Challenges</h2>
+		<p class="text-base-content/70 mt-1 text-sm">
 			Help us understand the current challenges and issues you're facing.
 		</p>
 	</div>
@@ -271,8 +271,8 @@
 
 	<!-- Primary Challenges -->
 	<div>
-		<label class="mb-2 block text-sm font-medium text-gray-700">Primary Challenges *</label>
-		<p class="mb-3 text-sm text-gray-600">
+		<label class="text-base-content mb-2 block text-sm font-medium">Primary Challenges *</label>
+		<p class="text-base-content/70 mb-3 text-sm">
 			What are the main business challenges you're currently facing?
 		</p>
 
@@ -331,11 +331,11 @@
 
 	<!-- Technical Issues -->
 	<div>
-		<label class="mb-2 block text-sm font-medium text-gray-700">
+		<label class="text-base-content mb-2 block text-sm font-medium">
 			Technical Issues
-			<span class="font-normal text-gray-500">(Optional)</span>
+			<span class="text-base-content/60 font-normal">(Optional)</span>
 		</label>
-		<p class="mb-3 text-sm text-gray-600">
+		<p class="text-base-content/70 mb-3 text-sm">
 			Are there any specific technical problems you're experiencing?
 		</p>
 
@@ -440,11 +440,13 @@
 
 	<!-- Current Solution Gaps -->
 	<div>
-		<label class="mb-2 block text-sm font-medium text-gray-700">
+		<label class="text-base-content mb-2 block text-sm font-medium">
 			Current Solution Gaps
-			<span class="font-normal text-gray-500">(Optional)</span>
+			<span class="text-base-content/60 font-normal">(Optional)</span>
 		</label>
-		<p class="mb-3 text-sm text-gray-600">What's missing from your current solutions or systems?</p>
+		<p class="text-base-content/70 mb-3 text-sm">
+			What's missing from your current solutions or systems?
+		</p>
 
 		<!-- Quick Add Buttons -->
 		<div class="mb-3 flex max-h-32 flex-wrap gap-2 overflow-y-auto">

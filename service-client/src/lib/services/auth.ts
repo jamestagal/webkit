@@ -7,31 +7,31 @@ const logger = {
 	debug: (msg: string, data?: any) => console.debug(msg, data),
 	error: (msg: string, error?: any) => console.error(msg, error),
 	info: (msg: string, data?: any) => console.info(msg, data),
-	warn: (msg: string, data?: any) => console.warn(msg, data)
+	warn: (msg: string, data?: any) => console.warn(msg, data),
 };
 
 // Client-side HTTP client using fetch
 const api = {
-	async post<T>(url: string, data: any): Promise<{success: boolean, data?: T, message?: string}> {
+	async post<T>(url: string, data: any): Promise<{ success: boolean; data?: T; message?: string }> {
 		try {
 			const response = await fetch(url, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(data)
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(data),
 			});
 			return await response.json();
 		} catch (error) {
-			return { success: false, message: 'Network error' };
+			return { success: false, message: "Network error" };
 		}
 	},
-	async get<T>(url: string): Promise<{success: boolean, data?: T, message?: string}> {
+	async get<T>(url: string): Promise<{ success: boolean; data?: T; message?: string }> {
 		try {
 			const response = await fetch(url);
 			return await response.json();
 		} catch (error) {
-			return { success: false, message: 'Network error' };
+			return { success: false, message: "Network error" };
 		}
-	}
+	},
 };
 
 // Client-side JWT verification - simplified (should validate server-side in production)
@@ -39,12 +39,12 @@ const verifyJWT = async (token: string): Promise<any> => {
 	try {
 		// In a real implementation, this should call a server endpoint for validation
 		// For now, just decode the payload (this is NOT secure validation)
-		const parts = token.split('.');
-		if (parts.length !== 3) throw new Error('Invalid token format');
+		const parts = token.split(".");
+		if (parts.length !== 3) throw new Error("Invalid token format");
 		const payload = JSON.parse(atob(parts[1]));
 		return payload;
 	} catch (error) {
-		throw new Error('Invalid token');
+		throw new Error("Invalid token");
 	}
 };
 

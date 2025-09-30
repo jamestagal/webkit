@@ -41,7 +41,6 @@
 		isInitializing = false;
 	});
 
-
 	// Define the steps
 	const steps = [
 		{
@@ -59,7 +58,7 @@
 		{
 			id: "goals_objectives",
 			title: "Goals & Objectives",
-		}
+		},
 	];
 
 	function handleStepChange(newStepIndex: number, oldStepIndex: number) {
@@ -70,40 +69,55 @@
 
 		// Save data from the step we're leaving
 		const oldStep = steps[oldStepIndex];
-		if (oldStep?.id === 'contact_info') {
-			consultationStore.updateSectionData('contact_info', contactInfoData);
-		} else if (oldStep?.id === 'business_context') {
-			consultationStore.updateSectionData('business_context', businessContextData);
-		} else if (oldStep?.id === 'pain_points') {
-			consultationStore.updateSectionData('pain_points', painPointsData);
-		} else if (oldStep?.id === 'goals_objectives') {
-			consultationStore.updateSectionData('goals_objectives', goalsObjectivesData);
+		if (oldStep?.id === "contact_info") {
+			consultationStore.updateSectionData("contact_info", contactInfoData);
+		} else if (oldStep?.id === "business_context") {
+			consultationStore.updateSectionData("business_context", businessContextData);
+		} else if (oldStep?.id === "pain_points") {
+			consultationStore.updateSectionData("pain_points", painPointsData);
+		} else if (oldStep?.id === "goals_objectives") {
+			consultationStore.updateSectionData("goals_objectives", goalsObjectivesData);
 		}
 	}
 
 	async function handleComplete() {
+		console.log("[Page] handleComplete called", { isInitializing });
 		// Prevent execution during initialization
 		if (isInitializing) {
+			console.log("[Page] Blocked by isInitializing");
 			return;
 		}
 
 		try {
 			// Save all form data before completing
-			consultationStore.updateSectionData('contact_info', contactInfoData);
-			consultationStore.updateSectionData('business_context', businessContextData);
-			consultationStore.updateSectionData('pain_points', painPointsData);
-			consultationStore.updateSectionData('goals_objectives', goalsObjectivesData);
+			console.log("[Page] Updating section data");
+			consultationStore.updateSectionData("contact_info", contactInfoData);
+			consultationStore.updateSectionData("business_context", businessContextData);
+			consultationStore.updateSectionData("pain_points", painPointsData);
+			consultationStore.updateSectionData("goals_objectives", goalsObjectivesData);
 
-			await consultationStore.save();
+			console.log("[Page] Calling save()");
+			const success = await consultationStore.save();
+			console.log("[Page] Save result:", success);
+			if (!success) {
+				toast.error("Failed to save consultation. Please try again.");
+				return;
+			}
 			toast.success("Consultation completed successfully!");
 			goto("/consultation/success");
 		} catch (error) {
+			console.error("Error completing consultation:", error);
 			toast.error("Failed to save consultation. Please try again.");
 		}
 	}
 </script>
 
-<MultiStepForm {steps} onComplete={handleComplete} onStepChange={handleStepChange} showProgress={true}>
+<MultiStepForm
+	{steps}
+	onComplete={handleComplete}
+	onStepChange={handleStepChange}
+	showProgress={true}
+>
 	{#snippet contact_info()}
 		<ClientInfoForm bind:data={contactInfoData} />
 	{/snippet}

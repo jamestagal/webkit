@@ -81,6 +81,21 @@ type ConsultationVersionsResponse struct {
 	Versions []*ConsultationVersion `json:"versions"`
 }
 
+// ToDTO converts ConsultationVersionsResponse to ConsultationVersionsResponseDTO
+func (r *ConsultationVersionsResponse) ToDTO() *ConsultationVersionsResponseDTO {
+	dtoVersions := make([]*ConsultationVersionDTO, len(r.Versions))
+	for i, v := range r.Versions {
+		dtoVersions[i] = v.ToDTO()
+	}
+	return &ConsultationVersionsResponseDTO{
+		Versions:   dtoVersions,
+		Total:      int32(len(r.Versions)),
+		Page:       1,
+		Limit:      int32(len(r.Versions)),
+		TotalPages: 1,
+	}
+}
+
 // User simplified for responses (to avoid circular imports)
 type User struct {
 	ID     uuid.UUID `json:"id"`
@@ -144,7 +159,7 @@ func (input *CreateConsultationInput) ToCreateParams() (query.CreateConsultation
 		PainPoints:           painPointsJSON,
 		GoalsObjectives:      goalsObjectivesJSON,
 		Status:               string(input.Status),
-		CompletionPercentage: sql.NullInt32{Int32: completionPercentage, Valid: true},
+		CompletionPercentage: completionPercentage,
 	}, nil
 }
 
@@ -196,6 +211,22 @@ func (input *UpdateConsultationInput) ToUpdateParams(id uuid.UUID, current *Cons
 		params.Status = string(*input.Status)
 	}
 
+	// Calculate completion percentage based on updated data
+	tempConsultation := &Consultation{
+		Consultation: query.Consultation{
+			ID:              id,
+			ContactInfo:     params.ContactInfo,
+			BusinessContext: params.BusinessContext,
+			PainPoints:      params.PainPoints,
+			GoalsObjectives: params.GoalsObjectives,
+			Status:          params.Status,
+		},
+	}
+
+	_ = tempConsultation.ParseAllJSONFields()
+	completionPercentage := tempConsultation.CalculateCompletionPercentage()
+	params.CompletionPercentage = completionPercentage
+
 	return params, nil
 }
 
@@ -231,7 +262,7 @@ func (input *CreateConsultationDraftInput) ToCreateParams() (query.CreateConsult
 		BusinessContext: businessContextJSON,
 		PainPoints:      painPointsJSON,
 		GoalsObjectives: goalsObjectivesJSON,
-		AutoSaved:       sql.NullBool{Bool: input.AutoSaved, Valid: true},
+		AutoSaved:       input.AutoSaved,
 		DraftNotes:      sql.NullString{String: input.DraftNotes, Valid: input.DraftNotes != ""},
 	}, nil
 }
@@ -268,7 +299,7 @@ func (input *CreateConsultationDraftInput) ToUpsertParams() (query.UpsertConsult
 		BusinessContext: businessContextJSON,
 		PainPoints:      painPointsJSON,
 		GoalsObjectives: goalsObjectivesJSON,
-		AutoSaved:       sql.NullBool{Bool: input.AutoSaved, Valid: true},
+		AutoSaved:       input.AutoSaved,
 		DraftNotes:      sql.NullString{String: input.DraftNotes, Valid: input.DraftNotes != ""},
 	}, nil
 }

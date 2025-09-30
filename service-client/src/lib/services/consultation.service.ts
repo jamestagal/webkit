@@ -1,64 +1,189 @@
 import { apiEndpoints, buildUrl } from "$lib/config/api";
+import { goto } from "$app/navigation";
 
-// Client-side HTTP client using fetch
-const api = {
-	async get<T>(url: string): Promise<{success: boolean, data?: T, message?: string}> {
+// Track if we're currently refreshing to prevent concurrent refresh requests
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
+/**
+ * Refresh the access token using the refresh_token cookie
+ * Returns true if refresh succeeded, false otherwise
+ */
+async function refreshAccessToken(): Promise<boolean> {
+	// If already refreshing, wait for that request to complete
+	if (isRefreshing && refreshPromise) {
+		return refreshPromise;
+	}
+
+	isRefreshing = true;
+	refreshPromise = (async () => {
 		try {
-			const response = await fetch(url, {
-				credentials: 'include',
+			const refreshUrl = `${apiEndpoints.core}/refresh`;
+			const response = await fetch(refreshUrl, {
+				method: "POST",
+				credentials: "include", // Send cookies including refresh_token
 				headers: {
-					'Content-Type': 'application/json'
-				}
-			});
-			return await response.json();
-		} catch (error) {
-			return { success: false, message: 'Network error' };
-		}
-	},
-	async post<T>(url: string, data: any): Promise<{success: boolean, data?: T, message?: string}> {
-		try {
-			const response = await fetch(url, {
-				method: 'POST',
-				credentials: 'include',
-				headers: {
-					'Content-Type': 'application/json'
+					"Content-Type": "application/json",
 				},
-				body: JSON.stringify(data)
 			});
-			return await response.json();
-		} catch (error) {
-			return { success: false, message: 'Network error' };
-		}
-	},
-	async put<T>(url: string, data: any): Promise<{success: boolean, data?: T, message?: string}> {
-		try {
-			const response = await fetch(url, {
-				method: 'PUT',
-				credentials: 'include',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(data)
-			});
-			return await response.json();
-		} catch (error) {
-			return { success: false, message: 'Network error' };
-		}
-	},
-	async delete<T>(url: string): Promise<{success: boolean, data?: T, message?: string}> {
-		try {
-			const response = await fetch(url, {
-				method: 'DELETE',
-				credentials: 'include',
-				headers: {
-					'Content-Type': 'application/json'
+
+			if (response.ok) {
+				console.debug("Token refresh successful");
+				return true;
+			} else {
+				console.error("Token refresh failed:", response.status);
+				// Redirect to login on refresh failure
+				if (typeof window !== "undefined") {
+					await goto("/login");
 				}
-			});
-			return await response.json();
+				return false;
+			}
 		} catch (error) {
-			return { success: false, message: 'Network error' };
+			console.error("Token refresh error:", error);
+			return false;
+		} finally {
+			isRefreshing = false;
+			refreshPromise = null;
+		}
+	})();
+
+	return refreshPromise;
+}
+
+/**
+ * Enhanced fetch wrapper with automatic token refresh on 401
+ */
+async function fetchWithTokenRefresh(
+	url: string,
+	options: RequestInit,
+	isRetry = false,
+): Promise<Response> {
+	const response = await fetch(url, options);
+
+	// If we get a 401 and haven't retried yet, try to refresh the token
+	if (response.status === 401 && !isRetry) {
+		console.debug("Received 401, attempting token refresh");
+		const refreshSuccess = await refreshAccessToken();
+
+		if (refreshSuccess) {
+			// Retry the original request with the new token
+			console.debug("Retrying request after token refresh");
+			return fetch(url, options);
 		}
 	}
+
+	return response;
+}
+
+// Client-side HTTP client using fetch with automatic token refresh
+const api = {
+	async get<T>(
+		url: string,
+		token?: string,
+	): Promise<{ success: boolean; data?: T; message?: string }> {
+		try {
+			const headers: HeadersInit = {
+				"Content-Type": "application/json",
+			};
+			// Only add Authorization header if token is provided and not empty
+			if (token && token.trim() !== "") {
+				headers["Authorization"] = `Bearer ${token}`;
+			}
+			const response = await fetchWithTokenRefresh(url, {
+				credentials: "include", // This sends cookies automatically
+				headers,
+			});
+			return await response.json();
+		} catch (error) {
+			console.error("API GET error:", error);
+			return {
+				success: false,
+				message: "Network error: " + (error instanceof Error ? error.message : String(error)),
+			};
+		}
+	},
+	async post<T>(
+		url: string,
+		data: any,
+		token?: string,
+	): Promise<{ success: boolean; data?: T; message?: string }> {
+		try {
+			const headers: HeadersInit = {
+				"Content-Type": "application/json",
+			};
+			// Only add Authorization header if token is provided and not empty
+			if (token && token.trim() !== "") {
+				headers["Authorization"] = `Bearer ${token}`;
+			}
+			const response = await fetchWithTokenRefresh(url, {
+				method: "POST",
+				credentials: "include", // This sends cookies automatically
+				headers,
+				body: JSON.stringify(data),
+			});
+			return await response.json();
+		} catch (error) {
+			console.error("API POST error:", error);
+			return {
+				success: false,
+				message: "Network error: " + (error instanceof Error ? error.message : String(error)),
+			};
+		}
+	},
+	async put<T>(
+		url: string,
+		data: any,
+		token?: string,
+	): Promise<{ success: boolean; data?: T; message?: string }> {
+		try {
+			const headers: HeadersInit = {
+				"Content-Type": "application/json",
+			};
+			// Only add Authorization header if token is provided and not empty
+			if (token && token.trim() !== "") {
+				headers["Authorization"] = `Bearer ${token}`;
+			}
+			const response = await fetchWithTokenRefresh(url, {
+				method: "PUT",
+				credentials: "include", // This sends cookies automatically
+				headers,
+				body: JSON.stringify(data),
+			});
+			return await response.json();
+		} catch (error) {
+			console.error("API PUT error:", error);
+			return {
+				success: false,
+				message: "Network error: " + (error instanceof Error ? error.message : String(error)),
+			};
+		}
+	},
+	async delete<T>(
+		url: string,
+		token?: string,
+	): Promise<{ success: boolean; data?: T; message?: string }> {
+		try {
+			const headers: HeadersInit = {
+				"Content-Type": "application/json",
+			};
+			// Only add Authorization header if token is provided and not empty
+			if (token && token.trim() !== "") {
+				headers["Authorization"] = `Bearer ${token}`;
+			}
+			const response = await fetchWithTokenRefresh(url, {
+				method: "DELETE",
+				credentials: "include", // This sends cookies automatically
+				headers,
+			});
+			return await response.json();
+		} catch (error) {
+			console.error("API DELETE error:", error);
+			return {
+				success: false,
+				message: "Network error: " + (error instanceof Error ? error.message : String(error)),
+			};
+		}
+	},
 };
 import type {
 	Consultation,
@@ -90,7 +215,7 @@ const logger = {
 	debug: (msg: string, data?: any) => console.debug(msg, data),
 	error: (msg: string, error?: any) => console.error(msg, error),
 	info: (msg: string, data?: any) => console.info(msg, data),
-	warn: (msg: string, data?: any) => console.warn(msg, data)
+	warn: (msg: string, data?: any) => console.warn(msg, data),
 };
 // Client-side Safe type (simplified version)
 type Safe<T> = {
@@ -135,7 +260,7 @@ export class ConsultationApiService {
 
 			logger.debug("Fetching consultations list", { url, params: validatedParams });
 
-			const response = await api.get<ListConsultationsResponse>(url);
+			const response = await api.get<ListConsultationsResponse>(url, token);
 
 			if (!response.success) {
 				return response;
@@ -172,7 +297,11 @@ export class ConsultationApiService {
 
 			logger.debug("Creating consultation", { input: validatedInput });
 
-			const response = await api.post<Consultation>(`${this.baseUrl}/consultations`, validatedInput);
+			const response = await api.post<Consultation>(
+				`${this.baseUrl}/consultations`,
+				validatedInput,
+				token,
+			);
 
 			if (!response.success) {
 				return response;
@@ -205,7 +334,7 @@ export class ConsultationApiService {
 
 			logger.debug("Fetching consultation", { consultationId });
 
-			const response = await api.get<Consultation>(url);
+			const response = await api.get<Consultation>(url, token);
 
 			if (!response.success) {
 				return response;
@@ -243,7 +372,11 @@ export class ConsultationApiService {
 
 			logger.debug("Updating consultation", { consultationId, input: validatedInput });
 
-			const response = await api.put<Consultation>(`${this.baseUrl}/consultations/${consultationId}`, validatedInput);
+			const response = await api.put<Consultation>(
+				`${this.baseUrl}/consultations/${consultationId}`,
+				validatedInput,
+				token,
+			);
 
 			if (!response.success) {
 				return response;
@@ -274,7 +407,10 @@ export class ConsultationApiService {
 		try {
 			logger.debug("Deleting consultation", { consultationId });
 
-			const response = await api.delete<void>(`${this.baseUrl}/consultations/${consultationId}`);
+			const response = await api.delete<void>(
+				`${this.baseUrl}/consultations/${consultationId}`,
+				token,
+			);
 
 			return response;
 		} catch (error) {
@@ -296,7 +432,7 @@ export class ConsultationApiService {
 
 			logger.debug("Fetching consultation draft", { consultationId });
 
-			const response = await api.get<ConsultationDraft>(url);
+			const response = await api.get<ConsultationDraft>(url, token);
 
 			if (!response.success) {
 				return response;
@@ -333,7 +469,8 @@ export class ConsultationApiService {
 
 			const response = await api.put<ConsultationDraft>(
 				`${this.baseUrl}/consultations/${consultationId}/drafts`,
-				payload.data
+				payload.data,
+				token,
 			);
 
 			if (!response.success) {
@@ -371,7 +508,8 @@ export class ConsultationApiService {
 
 			const response = await api.post<ConsultationDraft>(
 				`${this.baseUrl}/consultations/${consultationId}/drafts`,
-				payload.data
+				payload.data,
+				token,
 			);
 
 			if (!response.success) {
@@ -403,7 +541,10 @@ export class ConsultationApiService {
 		try {
 			logger.debug("Deleting consultation draft", { consultationId });
 
-			const response = await api.delete<void>(`${this.baseUrl}/consultations/${consultationId}/drafts`);
+			const response = await api.delete<void>(
+				`${this.baseUrl}/consultations/${consultationId}/drafts`,
+				token,
+			);
 
 			return response;
 		} catch (error) {
@@ -435,7 +576,7 @@ export class ConsultationApiService {
 
 			logger.debug("Fetching version history", { consultationId, page, limit });
 
-			const response = await api.get<VersionHistoryResponse>(url);
+			const response = await api.get<VersionHistoryResponse>(url, token);
 
 			if (!response.success) {
 				return response;
@@ -472,7 +613,7 @@ export class ConsultationApiService {
 
 			logger.debug("Fetching consultation version", { consultationId, versionNumber });
 
-			const response = await api.get<Consultation>(url);
+			const response = await api.get<Consultation>(url, token);
 
 			if (!response.success) {
 				return response;
@@ -505,7 +646,8 @@ export class ConsultationApiService {
 
 			const response = await api.post<Consultation>(
 				`${this.baseUrl}/consultations/${consultationId}/complete`,
-				{}
+				{},
+				token,
 			);
 
 			if (!response.success) {
@@ -539,7 +681,8 @@ export class ConsultationApiService {
 
 			const response = await api.post<Consultation>(
 				`${this.baseUrl}/consultations/${consultationId}/archive`,
-				{}
+				{},
+				token,
 			);
 
 			if (!response.success) {
@@ -573,7 +716,8 @@ export class ConsultationApiService {
 
 			const response = await api.post<Consultation>(
 				`${this.baseUrl}/consultations/${consultationId}/restore`,
-				{}
+				{},
+				token,
 			);
 
 			if (!response.success) {

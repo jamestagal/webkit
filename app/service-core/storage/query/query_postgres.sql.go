@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sqlc-dev/pqtype"
 )
 
 const cleanupOldDrafts = `-- name: CleanupOldDrafts :exec
@@ -21,7 +20,7 @@ WHERE auto_saved = true
 AND updated_at < $1
 `
 
-func (q *Queries) CleanupOldDrafts(ctx context.Context, updatedAt sql.NullTime) error {
+func (q *Queries) CleanupOldDrafts(ctx context.Context, updatedAt time.Time) error {
 	_, err := q.db.ExecContext(ctx, cleanupOldDrafts, updatedAt)
 	return err
 }
@@ -93,7 +92,7 @@ type CreateConsultationParams struct {
 	PainPoints           json.RawMessage `json:"pain_points"`
 	GoalsObjectives      json.RawMessage `json:"goals_objectives"`
 	Status               string          `json:"status"`
-	CompletionPercentage sql.NullInt32   `json:"completion_percentage"`
+	CompletionPercentage int32           `json:"completion_percentage"`
 }
 
 // Consultation queries (New Schema)
@@ -143,7 +142,7 @@ type CreateConsultationDraftParams struct {
 	BusinessContext json.RawMessage `json:"business_context"`
 	PainPoints      json.RawMessage `json:"pain_points"`
 	GoalsObjectives json.RawMessage `json:"goals_objectives"`
-	AutoSaved       sql.NullBool    `json:"auto_saved"`
+	AutoSaved       bool            `json:"auto_saved"`
 	DraftNotes      sql.NullString  `json:"draft_notes"`
 }
 
@@ -188,18 +187,18 @@ INSERT INTO consultation_versions (
 `
 
 type CreateConsultationVersionParams struct {
-	ID                   uuid.UUID             `json:"id"`
-	ConsultationID       uuid.UUID             `json:"consultation_id"`
-	UserID               uuid.UUID             `json:"user_id"`
-	VersionNumber        int32                 `json:"version_number"`
-	ContactInfo          json.RawMessage       `json:"contact_info"`
-	BusinessContext      json.RawMessage       `json:"business_context"`
-	PainPoints           json.RawMessage       `json:"pain_points"`
-	GoalsObjectives      json.RawMessage       `json:"goals_objectives"`
-	Status               string                `json:"status"`
-	CompletionPercentage int32                 `json:"completion_percentage"`
-	ChangeSummary        sql.NullString        `json:"change_summary"`
-	ChangedFields        pqtype.NullRawMessage `json:"changed_fields"`
+	ID                   uuid.UUID       `json:"id"`
+	ConsultationID       uuid.UUID       `json:"consultation_id"`
+	UserID               uuid.UUID       `json:"user_id"`
+	VersionNumber        int32           `json:"version_number"`
+	ContactInfo          json.RawMessage `json:"contact_info"`
+	BusinessContext      json.RawMessage `json:"business_context"`
+	PainPoints           json.RawMessage `json:"pain_points"`
+	GoalsObjectives      json.RawMessage `json:"goals_objectives"`
+	Status               string          `json:"status"`
+	CompletionPercentage int32           `json:"completion_percentage"`
+	ChangeSummary        sql.NullString  `json:"change_summary"`
+	ChangedFields        json.RawMessage `json:"changed_fields"`
 }
 
 // Version tracking queries
@@ -907,11 +906,11 @@ LIMIT $4 OFFSET $5
 `
 
 type ListConsultationsByCompletionParams struct {
-	UserID                 uuid.UUID     `json:"user_id"`
-	CompletionPercentage   sql.NullInt32 `json:"completion_percentage"`
-	CompletionPercentage_2 sql.NullInt32 `json:"completion_percentage_2"`
-	Limit                  int32         `json:"limit"`
-	Offset                 int32         `json:"offset"`
+	UserID                 uuid.UUID `json:"user_id"`
+	CompletionPercentage   int32     `json:"completion_percentage"`
+	CompletionPercentage_2 int32     `json:"completion_percentage_2"`
+	Limit                  int32     `json:"limit"`
+	Offset                 int32     `json:"offset"`
 }
 
 func (q *Queries) ListConsultationsByCompletion(ctx context.Context, arg ListConsultationsByCompletionParams) ([]Consultation, error) {
@@ -964,11 +963,11 @@ LIMIT $4 OFFSET $5
 `
 
 type ListConsultationsByDateRangeParams struct {
-	UserID      uuid.UUID    `json:"user_id"`
-	CreatedAt   sql.NullTime `json:"created_at"`
-	CreatedAt_2 sql.NullTime `json:"created_at_2"`
-	Limit       int32        `json:"limit"`
-	Offset      int32        `json:"offset"`
+	UserID      uuid.UUID `json:"user_id"`
+	CreatedAt   time.Time `json:"created_at"`
+	CreatedAt_2 time.Time `json:"created_at_2"`
+	Limit       int32     `json:"limit"`
+	Offset      int32     `json:"offset"`
 }
 
 func (q *Queries) ListConsultationsByDateRange(ctx context.Context, arg ListConsultationsByDateRangeParams) ([]Consultation, error) {
@@ -1513,7 +1512,7 @@ type UpdateConsultationParams struct {
 	PainPoints           json.RawMessage `json:"pain_points"`
 	GoalsObjectives      json.RawMessage `json:"goals_objectives"`
 	Status               string          `json:"status"`
-	CompletionPercentage sql.NullInt32   `json:"completion_percentage"`
+	CompletionPercentage int32           `json:"completion_percentage"`
 }
 
 func (q *Queries) UpdateConsultation(ctx context.Context, arg UpdateConsultationParams) (Consultation, error) {
@@ -1562,7 +1561,7 @@ type UpdateConsultationDraftParams struct {
 	BusinessContext json.RawMessage `json:"business_context"`
 	PainPoints      json.RawMessage `json:"pain_points"`
 	GoalsObjectives json.RawMessage `json:"goals_objectives"`
-	AutoSaved       sql.NullBool    `json:"auto_saved"`
+	AutoSaved       bool            `json:"auto_saved"`
 	DraftNotes      sql.NullString  `json:"draft_notes"`
 }
 
@@ -1837,7 +1836,7 @@ type UpsertConsultationDraftParams struct {
 	BusinessContext json.RawMessage `json:"business_context"`
 	PainPoints      json.RawMessage `json:"pain_points"`
 	GoalsObjectives json.RawMessage `json:"goals_objectives"`
-	AutoSaved       sql.NullBool    `json:"auto_saved"`
+	AutoSaved       bool            `json:"auto_saved"`
 	DraftNotes      sql.NullString  `json:"draft_notes"`
 }
 

@@ -362,8 +362,8 @@
 <div class="space-y-6">
 	<!-- Header -->
 	<div>
-		<h2 class="text-2xl font-bold text-gray-900">Goals & Objectives</h2>
-		<p class="mt-1 text-sm text-gray-600">
+		<h2 class="text-base-content text-2xl font-bold">Goals & Objectives</h2>
+		<p class="text-base-content/70 mt-1 text-sm">
 			Define what you want to achieve and how you'll measure success.
 		</p>
 	</div>
@@ -397,8 +397,10 @@
 
 	<!-- Primary Goals -->
 	<div>
-		<label class="mb-2 block text-sm font-medium text-gray-700">Primary Goals *</label>
-		<p class="mb-3 text-sm text-gray-600">What are the main objectives you want to achieve?</p>
+		<label class="text-base-content mb-2 block text-sm font-medium">Primary Goals *</label>
+		<p class="text-base-content/70 mb-3 text-sm">
+			What are the main objectives you want to achieve?
+		</p>
 
 		<!-- Quick Add Buttons -->
 		<div class="mb-3 flex max-h-32 flex-wrap gap-2 overflow-y-auto">
@@ -459,11 +461,13 @@
 
 	<!-- Secondary Goals -->
 	<div>
-		<label class="mb-2 block text-sm font-medium text-gray-700">
+		<label class="text-base-content mb-2 block text-sm font-medium">
 			Secondary Goals
-			<span class="font-normal text-gray-500">(Optional)</span>
+			<span class="text-base-content/60 font-normal">(Optional)</span>
 		</label>
-		<p class="mb-3 text-sm text-gray-600">Additional objectives that would be nice to achieve.</p>
+		<p class="text-base-content/70 mb-3 text-sm">
+			Additional objectives that would be nice to achieve.
+		</p>
 
 		<!-- Quick Add Buttons -->
 		<div class="mb-3 flex max-h-32 flex-wrap gap-2 overflow-y-auto">
@@ -524,7 +528,7 @@
 
 	<!-- Timeline -->
 	<div class="border-t pt-6">
-		<h3 class="mb-4 text-lg font-medium text-gray-900">Project Timeline</h3>
+		<h3 class="text-base-content mb-4 text-lg font-medium">Project Timeline</h3>
 
 		<div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
 			<!-- Desired Start Date -->
@@ -552,11 +556,11 @@
 
 		<!-- Milestones -->
 		<div class="mt-6">
-			<label class="mb-2 block text-sm font-medium text-gray-700">
+			<label class="text-base-content mb-2 block text-sm font-medium">
 				Key Milestones
-				<span class="font-normal text-gray-500">(Optional)</span>
+				<span class="text-base-content/60 font-normal">(Optional)</span>
 			</label>
-			<p class="mb-3 text-sm text-gray-600">
+			<p class="text-base-content/70 mb-3 text-sm">
 				Important checkpoints or deliverables throughout the project.
 			</p>
 
@@ -590,7 +594,7 @@
 								>
 									{index + 1}
 								</span>
-								<span class="text-sm text-gray-900">{milestone}</span>
+								<span class="text-base-content text-sm">{milestone}</span>
 							</div>
 							<button
 								type="button"
@@ -609,7 +613,7 @@
 
 	<!-- Budget Section -->
 	<div class="border-t pt-6">
-		<h3 class="mb-4 text-lg font-medium text-gray-900">Budget Information</h3>
+		<h3 class="text-base-content mb-4 text-lg font-medium">Budget Information</h3>
 
 		<!-- Budget Range -->
 		<div class="mb-6">
@@ -625,11 +629,11 @@
 
 		<!-- Budget Constraints -->
 		<div>
-			<label class="mb-2 block text-sm font-medium text-gray-700">
+			<label class="text-base-content mb-2 block text-sm font-medium">
 				Budget Constraints
-				<span class="font-normal text-gray-500">(Optional)</span>
+				<span class="text-base-content/60 font-normal">(Optional)</span>
 			</label>
-			<p class="mb-3 text-sm text-gray-600">
+			<p class="text-base-content/70 mb-3 text-sm">
 				Any specific requirements or limitations regarding budget and payments.
 			</p>
 
@@ -693,15 +697,17 @@
 
 	<!-- Success Metrics Section -->
 	<div class="border-t pt-6">
-		<h3 class="mb-4 text-lg font-medium text-gray-900">Success Measurement</h3>
+		<h3 class="text-base-content mb-4 text-lg font-medium">Success Measurement</h3>
 
 		<!-- Success Metrics -->
 		<div class="mb-6">
-			<label class="mb-2 block text-sm font-medium text-gray-700">
+			<label class="text-base-content mb-2 block text-sm font-medium">
 				Success Metrics
-				<span class="font-normal text-gray-500">(Optional)</span>
+				<span class="text-base-content/60 font-normal">(Optional)</span>
 			</label>
-			<p class="mb-3 text-sm text-gray-600">How will you measure the success of this project?</p>
+			<p class="text-base-content/70 mb-3 text-sm">
+				How will you measure the success of this project?
+			</p>
 
 			<!-- Quick Add Buttons -->
 			<div class="mb-3 flex max-h-32 flex-wrap gap-2 overflow-y-auto">
@@ -762,11 +768,11 @@
 
 		<!-- KPIs -->
 		<div>
-			<label class="mb-2 block text-sm font-medium text-gray-700">
+			<label class="text-base-content mb-2 block text-sm font-medium">
 				Key Performance Indicators (KPIs)
-				<span class="font-normal text-gray-500">(Optional)</span>
+				<span class="text-base-content/60 font-normal">(Optional)</span>
 			</label>
-			<p class="mb-3 text-sm text-gray-600">
+			<p class="text-base-content/70 mb-3 text-sm">
 				Specific metrics you'll track regularly to monitor progress.
 			</p>
 
@@ -842,7 +848,7 @@
 				<span class="text-sm">Saving...</span>
 			</div>
 		{:else if consultationStore.formState.lastSaved}
-			<span class="text-gray-500">
+			<span class="text-base-content/60">
 				Saved {consultationStore.formState.lastSaved.toLocaleTimeString()}
 			</span>
 		{/if}

@@ -269,7 +269,10 @@ export async function errorHandlingExample() {
 		}
 
 		// This will likely fail and demonstrate error handling
-		const result = await consultationApiService.getConsultation(token, "non-existent-consultation-id");
+		const result = await consultationApiService.getConsultation(
+			token,
+			"non-existent-consultation-id",
+		);
 
 		if (!result.success) {
 			console.log("Expected error occurred:", result.message, "Code:", result.code);

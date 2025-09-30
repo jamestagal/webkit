@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/mail"
 	"net/url"
 	"regexp"
@@ -353,9 +354,11 @@ func (s *consultationServiceImpl) ValidateContactInfo(contactInfo *ContactInfo) 
 	}
 
 	// Validate phone format if provided (basic validation)
+	// Allow international format (+) and local formats (including those starting with 0)
 	if contactInfo.Phone != "" {
-		phoneRegex := regexp.MustCompile(`^[\+]?[1-9][\d\-\s\(\)]{7,15}$`)
+		phoneRegex := regexp.MustCompile(`^[\+]?[\d\-\s\(\)]{7,20}$`)
 		if !phoneRegex.MatchString(contactInfo.Phone) {
+			slog.Error("Phone validation failed", "phone", contactInfo.Phone, "length", len(contactInfo.Phone))
 			return errors.New("invalid phone number format")
 		}
 	}
@@ -627,7 +630,7 @@ func (s *consultationServiceImpl) RestoreConsultation(ctx context.Context, id uu
 
 	// Determine appropriate status based on completion
 	newStatus := StatusDraft
-	if consultation.CompletionPercentage.Valid && consultation.CompletionPercentage.Int32 == 100 {
+	if consultation.CompletionPercentage == 100 {
 		newStatus = StatusCompleted
 	}
 
@@ -735,7 +738,7 @@ func (s *consultationServiceImpl) GetConsultationProgress(ctx context.Context, i
 		ConsultationID:       id,
 		CompletionPercentage: s.CalculateCompletionPercentage(consultation),
 		CompletedSections:    make(map[string]bool),
-		LastUpdated:          consultation.UpdatedAt.Time,
+		LastUpdated:          consultation.UpdatedAt,
 	}
 
 	// Check section completion

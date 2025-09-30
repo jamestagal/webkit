@@ -178,6 +178,96 @@ func (r *PostgresRepository) GetUser(ctx context.Context, id string) (*User, err
 }
 ```
 
+#### DTO Pattern (Data Transfer Objects) [Load: 6]
+**MANDATORY**: Never expose sql.Null* types or domain internals to API
+```go
+// internal/consultation/dto.go
+package consultation
+
+import "time"
+
+// DTO for API responses - NO sql.Null* types allowed
+type ConsultationDTO struct {
+    ID                   string    `json:"id"`
+    Status              string    `json:"status"`
+    CompletionPercentage *int32    `json:"completion_percentage,omitempty"`
+    CreatedAt           time.Time `json:"created_at"`
+    UpdatedAt           time.Time `json:"updated_at"`
+    CompletedAt         *time.Time `json:"completed_at,omitempty"`
+}
+
+// Domain model - can use sql.Null* for database
+type Consultation struct {
+    ID                   string
+    Status              string
+    CompletionPercentage sql.NullInt32
+    CreatedAt           sql.NullTime
+    UpdatedAt           sql.NullTime
+    CompletedAt         sql.NullTime
+}
+
+// MANDATORY: ToDTO conversion method
+func (c *Consultation) ToDTO() ConsultationDTO {
+    dto := ConsultationDTO{
+        ID:        c.ID,
+        Status:    c.Status,
+        CreatedAt: c.CreatedAt.Time,
+        UpdatedAt: c.UpdatedAt.Time,
+    }
+    
+    if c.CompletionPercentage.Valid {
+        dto.CompletionPercentage = &c.CompletionPercentage.Int32
+    }
+    if c.CompletedAt.Valid {
+        dto.CompletedAt = &c.CompletedAt.Time
+    }
+    
+    return dto
+}
+```
+
+#### Handler Pattern with DTO Usage [Load: 5]
+**MANDATORY**: Handlers must NEVER return domain models directly
+```go
+// internal/api/consultation_handler.go
+
+// ❌ NEVER: Return domain model directly
+func (h *Handler) GetConsultation(w http.ResponseWriter, r *http.Request) {
+    consultation := h.service.GetConsultation(ctx, id)
+    h.respondJSON(w, http.StatusOK, consultation) // WRONG!
+}
+
+// ✅ ALWAYS: Convert to DTO first
+func (h *Handler) GetConsultation(w http.ResponseWriter, r *http.Request) {
+    consultation, err := h.service.GetConsultation(ctx, id)
+    if err != nil {
+        h.respondError(w, http.StatusNotFound, "consultation not found")
+        return
+    }
+    
+    // MANDATORY: Convert to DTO before response
+    dto := consultation.ToDTO()
+    h.respondJSON(w, http.StatusOK, dto)
+}
+
+// For lists, convert each item
+func (h *Handler) ListConsultations(w http.ResponseWriter, r *http.Request) {
+    consultations, err := h.service.ListConsultations(ctx)
+    if err != nil {
+        h.respondError(w, http.StatusInternalServerError, "failed to list")
+        return
+    }
+    
+    // Convert slice to DTOs
+    dtos := make([]ConsultationDTO, len(consultations))
+    for i, c := range consultations {
+        dtos[i] = c.ToDTO()
+    }
+    
+    h.respondJSON(w, http.StatusOK, dtos)
+}
+```
+
 #### REST Endpoint Pattern with Proper Error Context [Load: 6]
 When task says "Create login endpoint":
 ```go
@@ -940,6 +1030,60 @@ Before committing any Go code, verify:
 - [ ] No security vulnerabilities in dependencies
 - [ ] Performance benchmarks pass
 
+## Pattern Completion Validation
+
+### Repository Pattern Completeness [MANDATORY]
+When implementing repository pattern, ALL components required:
+```markdown
+□ Domain model defined (without JSON/SQL tags)
+□ DTO model created (with JSON tags, no sql.Null*)
+□ ToDTO() method implemented on domain model
+□ Repository interface defined
+□ Repository implementation complete
+□ Service layer uses repository (returns domain models)
+□ Handler layer uses DTOs (never exposes domain models)
+□ Tests for DTO conversion logic
+```
+**IF ANY COMPONENT MISSING**: Confidence Score -60% = BLOCKED
+
+### API Pattern Completeness [MANDATORY]
+For any API endpoint:
+```markdown
+□ Handler receives request
+□ Service returns domain model
+□ Handler converts to DTO via ToDTO()
+□ Handler returns DTO (never domain model)
+□ Error responses use proper HTTP codes
+□ CORS middleware configured (if cross-origin)
+```
+**VIOLATION**: Returning domain models with sql.Null* = IMMEDIATE BLOCK
+
+### Pattern Violation Examples
+```go
+// ❌ BLOCKED: Missing DTO conversion
+func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
+    user := h.service.GetUser(ctx, id) // Domain model with sql.Null*
+    h.respondJSON(w, http.StatusOK, user) // VIOLATION!
+}
+
+// ❌ BLOCKED: Custom MarshalJSON workaround
+func (c Consultation) MarshalJSON() ([]byte, error) {
+    // Custom marshaling for sql.Null types
+    // This is a WORKAROUND, not proper pattern!
+}
+
+// ✅ CORRECT: Proper DTO pattern
+func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
+    user, err := h.service.GetUser(ctx, id)
+    if err != nil {
+        h.respondError(w, http.StatusNotFound, "not found")
+        return
+    }
+    dto := user.ToDTO() // Proper conversion
+    h.respondJSON(w, http.StatusOK, dto)
+}
+```
+
 ## Type Export for Frontend
 After creating any API structures, ALWAYS export TypeScript types:
 ```bash
@@ -989,6 +1133,7 @@ PRE-WRITE VALIDATION:
 □ Score < 30 confirmed
 □ GoFast patterns checked
 □ No anti-patterns detected
+□ Pattern completeness verified (DTO, Repository, etc.)
 ```
 
 ### 2. AFTER Generating Code
@@ -999,6 +1144,8 @@ POST-GENERATION AUDIT:
 □ Dependencies minimized
 □ Config explicit
 □ Tests would pass
+□ No sql.Null* types in API responses
+□ All DTOs properly implemented
 ```
 
 ### 3. IF Score > 30
@@ -1024,20 +1171,32 @@ When implementing any pattern, calculate and report confidence:
 
 ### Scoring Guidelines
 
-#### Central Validation (40%)
+#### Central Validation (30%)
 - ✓ All patterns from `.agent-os/standards/cognitive-load/foundational-patterns.md` followed
 - ✓ No violations of GO-* or GOFAST-* patterns
 - ✓ Cognitive load < 30
 
-#### Agent Patterns (40%)
+#### Pattern Completeness (30%)
+- ✓ ALL components of selected pattern implemented
+- ✓ No missing DTO conversions
+- ✓ No sql.Null* types exposed to API
+- ✓ Repository → Service → DTO → Handler chain complete
+
+#### Agent Patterns (25%)
 - ✓ Correct pattern selected for use case
 - ✓ Implementation matches pattern examples
 - ✓ All COGNITIVE LOAD RULE comments applied
 
-#### Test Coverage (20%)
+#### Test Coverage (15%)
 - ✓ Unit tests would pass with this implementation
 - ✓ Integration points properly mocked
 - ✓ Error cases handled
+
+### Pattern Completion Penalties
+- Missing DTO implementation: **-60% (BLOCKS MERGE)**
+- Exposing sql.Null* to API: **-60% (BLOCKS MERGE)**
+- Incomplete pattern (any component missing): **-40%**
+- MarshalJSON workaround instead of DTO: **-30%**
 
 ### Example Implementation Report
 

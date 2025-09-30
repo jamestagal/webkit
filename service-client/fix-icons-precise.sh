@@ -131,7 +131,7 @@ fi
 # Run TypeScript check
 echo ""
 echo "🔬 Running TypeScript check..."
-cd /Users/benjaminwaller/Projects/GoFast/prop-gen/service-client
+cd /Users/benjaminwaller/Projects/GoFast/webkit/service-client
 npm run check 2>&1 | head -20
 
 echo ""

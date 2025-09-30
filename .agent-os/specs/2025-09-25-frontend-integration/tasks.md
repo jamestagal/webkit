@@ -215,6 +215,25 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
 - ✅ GoFast CLI v2.7.1-beta integrated with script renaming and new utilities
 - ✅ Data persistence verified across all consultation form steps with auto-save and final submission
 
+**Task 3+ : Fix Consultation API Serialization Root Cause**
+
+### Current State (Workaround)
+- Custom MarshalJSON methods added to domain models
+- SQL types leaking into JSON serialization
+- Violates clean architecture principles
+
+### Target State (Proper Pattern)
+- Domain models remain clean (no JSON tags)
+- DTOs handle API serialization
+- Clear separation of concerns
+
+### Implementation Steps:
+1. Create ConsultationDTO struct with proper JSON types
+2. Add ToDTO() method to Consultation domain model
+3. Update handlers to use DTOs
+4. Remove MarshalJSON workarounds
+5. Test API responses
+
 ### Task 4: Consultation Management Dashboard Implementation 🚧 READY TO START
 
 **Objective:** Build comprehensive consultation management interface using existing UI components with backend data integration.

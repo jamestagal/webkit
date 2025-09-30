@@ -1,7 +1,7 @@
 ---
 name: api-integration
 description: Use this agent proactively when working with API integrations in the Proposal Generator system, including PageSpeed Insights API, PDF generation, file storage (R2/S3), email services, or when implementing REST/gRPC endpoints for consultations, audits, and proposals. Examples: <example>Context: User is implementing the website audit feature. user: 'I need to integrate the PageSpeed API for website audits' assistant: 'I'll use the api-integration agent to implement the PageSpeed API integration with proper caching, rate limiting, and error handling following our audit service patterns.' <commentary>Since the user is working with PageSpeed API for website audits, use the api-integration agent to handle the integration.</commentary></example> <example>Context: User wants to add PDF generation. user: 'How should we generate PDF proposals from the consultation data?' assistant: 'Let me use the api-integration agent to design the PDF generation service using our provider pattern and integrate it with the proposal domain.' <commentary>The user needs PDF generation API integration, so the api-integration agent should handle the implementation strategy.</commentary></example>
-model: sonnet
+model: Sonnet 4.5
 color: purple
 ---
 

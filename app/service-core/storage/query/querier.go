@@ -6,13 +6,13 @@ package query
 
 import (
 	"context"
-	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 type Querier interface {
-	CleanupOldDrafts(ctx context.Context, updatedAt sql.NullTime) error
+	CleanupOldDrafts(ctx context.Context, updatedAt time.Time) error
 	CountConsultationVersions(ctx context.Context, consultationID uuid.UUID) (int64, error)
 	CountConsultationsByStatus(ctx context.Context, arg CountConsultationsByStatusParams) (int64, error)
 	CountConsultationsByUser(ctx context.Context, userID uuid.UUID) (int64, error)

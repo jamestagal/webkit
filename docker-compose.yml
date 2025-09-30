@@ -1,7 +1,7 @@
 services:
 
   core:
-    container_name: prop-gen-core
+    container_name: webkit-core
     build:
       context: ./app
       dockerfile: ./service-core/Dockerfile
@@ -77,7 +77,7 @@ services:
       AZBLOB_ACCOUNT_KEY: ${AZBLOB_ACCOUNT_KEY}
 
   admin:
-    container_name: prop-gen-admin
+    container_name: webkit-admin
     build:
       context: ./app
       dockerfile: ./service-admin/Dockerfile
@@ -100,7 +100,7 @@ services:
       CORE_URI: core:4002
 
   client:
-    container_name: prop-gen-client
+    container_name: webkit-client
     working_dir: /service
     build:
       context: ./service-client
@@ -119,19 +119,23 @@ services:
       PUBLIC_CORE_URL: http://localhost:4001
 
   postgres:
-    container_name: prop-gen-postgres
+    container_name: webkit-postgres
     image: postgres
     ports:
       - 5432:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
 
   nats:
-    container_name: prop-gen-nats
+    container_name: webkit-nats
     image: nats
     ports:
       - 8222:8222
     command: "--cluster_name NATS --cluster nats://0.0.0.0:6222 --http_port 8222"
 
+volumes:
+  postgres_data:

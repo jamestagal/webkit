@@ -12,14 +12,13 @@ import type {
 	GoalsObjectives,
 } from "$lib/types/consultation";
 import { consultationApiService } from "$lib/services/consultation.service";
-import { authService } from "$lib/services/auth";
 import { debounce } from "$lib/utils/debounce";
 
 const logger = {
 	debug: (msg: string, data?: any) => console.debug(msg, data),
 	error: (msg: string, error?: any) => console.error(msg, error),
 	info: (msg: string, data?: any) => console.info(msg, data),
-	warn: (msg: string, data?: any) => console.warn(msg, data)
+	warn: (msg: string, data?: any) => console.warn(msg, data),
 };
 
 /**
@@ -60,7 +59,7 @@ class ConsultationStore {
 		{
 			id: "pain_points",
 			title: "Pain Points",
-			section: "pain_points" as ConsultationFormSection
+			section: "pain_points" as ConsultationFormSection,
 		},
 		{
 			id: "goals_objectives",
@@ -140,13 +139,8 @@ class ConsultationStore {
 	 * Create new consultation
 	 */
 	private async createNewConsultation(): Promise<void> {
-		const token = authService.getAccessToken();
-		if (!token) {
-			logger.warn("No authentication token available");
-			this.consultation = null;
-			this.resetFormState();
-			return;
-		}
+		// Use cookie-based auth - don't pass token explicitly
+		const token = "";
 
 		const response = await consultationApiService.createConsultation(token, {});
 
@@ -166,8 +160,8 @@ class ConsultationStore {
 	 * Load existing consultation
 	 */
 	private async loadConsultation(consultationId: string): Promise<void> {
-		const token = authService.getAccessToken();
-		if (!token) throw new Error("No authentication token");
+		// Use cookie-based auth - don't pass token explicitly
+		const token = "";
 
 		const response = await consultationApiService.getConsultation(token, consultationId);
 
@@ -188,8 +182,8 @@ class ConsultationStore {
 	private async loadDraft(): Promise<void> {
 		if (!this.consultation) return;
 
-		const token = authService.getAccessToken();
-		if (!token) return;
+		// Use cookie-based auth - don't pass token explicitly
+		const token = "";
 
 		const response = await consultationApiService.getDraft(token, this.consultation.id);
 
@@ -321,8 +315,9 @@ class ConsultationStore {
 	private async performAutoSave(): Promise<void> {
 		if (!this.consultation || !this.formState.isDirty) return;
 
-		const token = authService.getAccessToken();
-		if (!token) return;
+		// Don't pass token - let cookie-based auth handle it automatically
+		// This ensures the refreshed token cookie is used on retry
+		const token = "";
 
 		this.formState.isAutoSaving = true;
 
@@ -361,8 +356,8 @@ class ConsultationStore {
 	async save(): Promise<boolean> {
 		if (!this.consultation) return false;
 
-		const token = authService.getAccessToken();
-		if (!token) return false;
+		// Don't pass token - let cookie-based auth handle it automatically
+		const token = "";
 
 		this.saving = true;
 

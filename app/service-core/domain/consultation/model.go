@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sqlc-dev/pqtype"
 )
 
 // Business-focused enums and constants
@@ -277,10 +276,39 @@ func (c *Consultation) ToSummary() *ConsultationSummary {
 		Email:               email,
 		Industry:            industry,
 		Status:              ConsultationStatus(c.Status),
-		CompletionPercentage: c.CompletionPercentage.Int32,
-		CreatedAt:           c.CreatedAt.Time,
-		UpdatedAt:           c.UpdatedAt.Time,
+		CompletionPercentage: c.CompletionPercentage,
+		CreatedAt:           c.CreatedAt,
+		UpdatedAt:           c.UpdatedAt,
 		CompletedAt:         completedAt,
+	}
+}
+
+// ToDTO converts Consultation to ConsultationDTO for clean JSON serialization
+func (c *Consultation) ToDTO() *ConsultationDTO {
+	// Parse all JSON fields
+	_ = c.ParseAllJSONFields()
+
+	var completedAt *time.Time
+	if c.CompletedAt.Valid {
+		completedAt = &c.CompletedAt.Time
+	}
+
+	return &ConsultationDTO{
+		ID:                    c.ID,
+		UserID:                c.UserID,
+		ContactInfo:           c.ContactInfo,
+		BusinessContext:       c.BusinessContext,
+		PainPoints:            c.PainPoints,
+		GoalsObjectives:       c.GoalsObjectives,
+		Status:                c.Status,
+		CompletionPercentage:  c.CompletionPercentage,
+		CreatedAt:             c.CreatedAt,
+		UpdatedAt:             c.UpdatedAt,
+		CompletedAt:           completedAt,
+		ParsedContactInfo:     c.ParsedContactInfo,
+		ParsedBusinessContext: c.ParsedBusinessContext,
+		ParsedPainPoints:      c.ParsedPainPoints,
+		ParsedGoalsObjectives: c.ParsedGoalsObjectives,
 	}
 }
 
@@ -421,6 +449,35 @@ func (d *ConsultationDraft) ParseAllJSONFields() error {
 	return nil
 }
 
+// ToDTO converts ConsultationDraft to ConsultationDraftDTO for clean JSON serialization
+func (d *ConsultationDraft) ToDTO() *ConsultationDraftDTO {
+	// Parse all JSON fields
+	_ = d.ParseAllJSONFields()
+
+	draftNotes := ""
+	if d.DraftNotes.Valid {
+		draftNotes = d.DraftNotes.String
+	}
+
+	return &ConsultationDraftDTO{
+		ID:                    d.ID,
+		ConsultationID:        d.ConsultationID,
+		UserID:                d.UserID,
+		ContactInfo:           d.ContactInfo,
+		BusinessContext:       d.BusinessContext,
+		PainPoints:            d.PainPoints,
+		GoalsObjectives:       d.GoalsObjectives,
+		AutoSaved:             d.AutoSaved,
+		DraftNotes:            draftNotes,
+		CreatedAt:             d.CreatedAt,
+		UpdatedAt:             d.UpdatedAt,
+		ParsedContactInfo:     d.ParsedContactInfo,
+		ParsedBusinessContext: d.ParsedBusinessContext,
+		ParsedPainPoints:      d.ParsedPainPoints,
+		ParsedGoalsObjectives: d.ParsedGoalsObjectives,
+	}
+}
+
 // Version-specific helpers
 func (v *ConsultationVersion) ParseContactInfo() error {
 	if v.ParsedContactInfo != nil {
@@ -499,14 +556,14 @@ func (v *ConsultationVersion) ParseChangedFields() error {
 		return nil
 	}
 
-	// Handle pqtype.NullRawMessage correctly
-	if !v.ChangedFields.Valid || len(v.ChangedFields.RawMessage) == 0 {
+	// ChangedFields is now json.RawMessage (not nullable)
+	if len(v.ChangedFields) == 0 {
 		v.ParsedChangedFields = []string{}
 		return nil
 	}
 
 	var fields []string
-	if err := json.Unmarshal(v.ChangedFields.RawMessage, &fields); err != nil {
+	if err := json.Unmarshal(v.ChangedFields, &fields); err != nil {
 		return err
 	}
 	v.ParsedChangedFields = fields
@@ -532,6 +589,38 @@ func (v *ConsultationVersion) ParseAllJSONFields() error {
 	return nil
 }
 
+// ToDTO converts ConsultationVersion to ConsultationVersionDTO for clean JSON serialization
+func (v *ConsultationVersion) ToDTO() *ConsultationVersionDTO {
+	// Parse all JSON fields
+	_ = v.ParseAllJSONFields()
+
+	changeSummary := ""
+	if v.ChangeSummary.Valid {
+		changeSummary = v.ChangeSummary.String
+	}
+
+	return &ConsultationVersionDTO{
+		ID:                    v.ID,
+		ConsultationID:        v.ConsultationID,
+		UserID:                v.UserID,
+		VersionNumber:         v.VersionNumber,
+		ContactInfo:           v.ContactInfo,
+		BusinessContext:       v.BusinessContext,
+		PainPoints:            v.PainPoints,
+		GoalsObjectives:       v.GoalsObjectives,
+		Status:                v.Status,
+		CompletionPercentage:  v.CompletionPercentage,
+		ChangeSummary:         changeSummary,
+		ChangedFields:         v.ChangedFields,
+		CreatedAt:             v.CreatedAt,
+		ParsedContactInfo:     v.ParsedContactInfo,
+		ParsedBusinessContext: v.ParsedBusinessContext,
+		ParsedPainPoints:      v.ParsedPainPoints,
+		ParsedGoalsObjectives: v.ParsedGoalsObjectives,
+		ParsedChangedFields:   v.ParsedChangedFields,
+	}
+}
+
 // MockConsultation creates a mock consultation for testing
 func MockConsultation(id, userID uuid.UUID) query.Consultation {
 	now := time.Now()
@@ -543,9 +632,9 @@ func MockConsultation(id, userID uuid.UUID) query.Consultation {
 		PainPoints:           []byte(`{"primary_challenges":["Challenge 1"],"urgency_level":"medium"}`),
 		GoalsObjectives:      []byte(`{"primary_goals":["Goal 1"],"budget_range":"$10k-25k"}`),
 		Status:               "draft",
-		CompletionPercentage: sql.NullInt32{Int32: 75, Valid: true},
-		CreatedAt:            sql.NullTime{Time: now, Valid: true},
-		UpdatedAt:            sql.NullTime{Time: now, Valid: true},
+		CompletionPercentage: 75,
+		CreatedAt:            now,
+		UpdatedAt:            now,
 	}
 }
 
@@ -565,7 +654,7 @@ func MockConsultationVersion(id, consultationID, userID uuid.UUID) query.Consult
 		Status:               "draft",
 		CompletionPercentage: 75,
 		ChangeSummary:        sql.NullString{String: "Test version", Valid: true},
-		ChangedFields:        pqtype.NullRawMessage{RawMessage: changedFields, Valid: true},
-		CreatedAt:            sql.NullTime{Time: now, Valid: true},
+		ChangedFields:        changedFields,
+		CreatedAt:            now,
 	}
 }

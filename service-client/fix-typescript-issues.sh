@@ -22,7 +22,7 @@ fi
 
 echo ""
 echo "🔍 Running TypeScript check..."
-cd /Users/benjaminwaller/Projects/GoFast/prop-gen/service-client
+cd /Users/benjaminwaller/Projects/GoFast/webkit/service-client
 npm run check 2>&1 | tail -10
 
 echo ""

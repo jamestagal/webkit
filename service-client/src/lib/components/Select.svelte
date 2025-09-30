@@ -74,13 +74,13 @@
 
 <svelte:window onresize={checkSpace} onmouseup={handleClickOutside} />
 
-<div class="relative z-40 flex w-full flex-col gap-2" bind:this={dropdownRef}>
+<div class="relative z-50 flex w-full flex-col gap-2" bind:this={dropdownRef}>
 	<input {id} type="hidden" {name} value={value || ""} />
 	{#if label}
 		<div class="flex flex-row items-center gap-2">
-			<span class="text-gray-700 text-sm font-medium">
+			<span class="text-base-content text-sm font-medium">
 				{label}
-				{#if required}<span class="text-red-500 ml-1">*</span>{/if}
+				{#if required}<span class="text-error ml-1">*</span>{/if}
 			</span>
 			{#if selected.value}
 				<button
@@ -116,9 +116,9 @@
 	{#if isOpen}
 		<div
 			transition:fly={{ y: shouldOpenUp ? 10 : -10, duration: 80 }}
-			class="absolute z-50 w-full {shouldOpenUp
+			class="absolute w-full {shouldOpenUp
 				? 'bottom-full mb-2'
-				: 'top-full mt-2'} border-gray-200 bg-white rounded-xl border shadow-lg max-h-60 overflow-y-auto"
+				: 'top-full mt-2'} border-base-300 bg-base-100 z-[9999] max-h-60 overflow-y-auto rounded-xl border shadow-xl"
 		>
 			{#each options as option, index}
 				{@render optionSnippet(option, index)}
@@ -132,11 +132,11 @@
 	{@const isSelectedOption = selected.value === option.value && option.value}
 	<button
 		type="button"
-		class="hover:bg-gray-50 flex w-full cursor-pointer flex-row items-center justify-between overflow-hidden rounded-xl px-4 py-2 text-left text-nowrap text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+		class="hover:bg-base-200 text-base-content flex w-full cursor-pointer flex-row items-center justify-between overflow-hidden rounded-xl px-4 py-2 text-left text-nowrap disabled:cursor-not-allowed disabled:opacity-50"
 		class:border={isSelector}
-		class:border-gray-300={isSelector}
-		class:bg-indigo-50={isSelectedOption}
-		class:text-indigo-700={isSelectedOption}
+		class:border-base-300={isSelector}
+		class:bg-primary={isSelectedOption}
+		class:text-primary-content={isSelectedOption}
 		class:font-semibold={isSelectedOption}
 		onclick={() => (isSelector ? toggleDropdown() : handleSelect(index))}
 		{disabled}
@@ -144,7 +144,7 @@
 		{#if option.value}
 			<span class="capitalize">{option.label || option.name || option.value}</span>
 		{:else}
-			<span class="text-gray-500">{isSelector ? placeholder : "No value provided"}</span>
+			<span class="text-base-content/50">{isSelector ? placeholder : "No value provided"}</span>
 		{/if}
 		<div class="flex flex-row items-center gap-2">
 			{#if option.note}

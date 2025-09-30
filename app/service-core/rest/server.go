@@ -115,7 +115,10 @@ func Run(apiHandler *Handler) {
 		}
 	})
 
-	handler := loggingMiddleware(mux)
+	// Apply CORS middleware globally
+	corsHandler := corsMiddleware(cfg, mux)
+	handler := loggingMiddleware(corsHandler)
+
 	go func() {
 		slog.Info("HTTP server listening on", "port", cfg.HTTPPort)
 		server := &http.Server{Addr: ":" + cfg.HTTPPort, Handler: handler, ReadHeaderTimeout: cfg.HTTPTimeout, WriteTimeout: cfg.HTTPTimeout}
@@ -125,6 +128,26 @@ func Run(apiHandler *Handler) {
 			panic(err)
 		}
 	}()
+}
+
+// corsMiddleware handles CORS headers globally
+func corsMiddleware(cfg *config.Config, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers for all requests
+		w.Header().Set("Access-Control-Allow-Origin", cfg.ClientURL)
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+		w.Header().Set("Access-Control-Max-Age", "86400")
+
+		// Handle preflight requests
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func extractAccessToken(r *http.Request) string {

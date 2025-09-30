@@ -1,3 +1,6 @@
+-- Enable required extensions
+create extension if not exists pg_trgm;
+
 -- create "tokens" table
 create table if not exists tokens (
     id text primary key not null,
@@ -126,11 +129,11 @@ create table if not exists consultations (
 
     -- Metadata
     status varchar(50) not null default 'draft',
-    completion_percentage integer default 0 check (completion_percentage >= 0 and completion_percentage <= 100),
+    completion_percentage integer not null default 0 check (completion_percentage >= 0 and completion_percentage <= 100),
 
-    -- Timestamps
-    created_at timestamptz default current_timestamp,
-    updated_at timestamptz default current_timestamp,
+    -- Timestamps (NOT NULL with defaults for created/updated, nullable for completed)
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
     completed_at timestamptz,
 
     -- Constraints
@@ -149,13 +152,13 @@ create table if not exists consultation_drafts (
     pain_points jsonb not null default '{}',
     goals_objectives jsonb not null default '{}',
 
-    -- Draft metadata
-    auto_saved boolean default true,
+    -- Draft metadata (NOT NULL with defaults)
+    auto_saved boolean not null default false,
     draft_notes text,
 
-    -- Timestamps
-    created_at timestamptz default current_timestamp,
-    updated_at timestamptz default current_timestamp,
+    -- Timestamps (NOT NULL with defaults)
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
 
     -- Ensure one active draft per consultation
     unique(consultation_id)
@@ -178,10 +181,10 @@ create table if not exists consultation_versions (
 
     -- Version metadata
     change_summary text,
-    changed_fields jsonb, -- Array of field names that changed
+    changed_fields jsonb not null default '[]',
 
-    -- Timestamps
-    created_at timestamptz default current_timestamp,
+    -- Timestamps (NOT NULL with default)
+    created_at timestamptz not null default current_timestamp,
 
     -- Ensure unique version numbers per consultation
     unique(consultation_id, version_number)
@@ -193,10 +196,10 @@ create index if not exists idx_consultations_status on consultations(status);
 create index if not exists idx_consultations_created_at on consultations(created_at);
 create index if not exists idx_consultations_updated_at on consultations(updated_at);
 
--- JSONB indexes for efficient querying
-create index if not exists idx_consultations_contact_business_name on consultations using gin ((contact_info->>'business_name'));
-create index if not exists idx_consultations_business_industry on consultations using gin ((business_context->>'industry'));
-create index if not exists idx_consultations_urgency on consultations using gin ((pain_points->>'urgency_level'));
+-- JSONB indexes for efficient querying (using btree for text values)
+create index if not exists idx_consultations_contact_business_name on consultations ((contact_info->>'business_name'));
+create index if not exists idx_consultations_business_industry on consultations ((business_context->>'industry'));
+create index if not exists idx_consultations_urgency on consultations ((pain_points->>'urgency_level'));
 
 -- Indexes for consultation_drafts
 create index if not exists idx_consultation_drafts_consultation_id on consultation_drafts(consultation_id);

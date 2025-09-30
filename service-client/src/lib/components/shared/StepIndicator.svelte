@@ -73,7 +73,7 @@
 			<div class="flex items-center" class:flex-1={index < steps.length - 1}>
 				<!-- Step circle -->
 				<div
-					class="flex h-10 w-10 items-center justify-center rounded-full border-2 transition-colors duration-200 cursor-pointer"
+					class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border-2 transition-colors duration-200"
 					class:bg-green-500={state === "completed"}
 					class:border-green-500={state === "completed"}
 					class:text-white={state === "completed" || state === "current"}
@@ -118,7 +118,7 @@
 				<!-- Connector line -->
 				{#if index < steps.length - 1}
 					<div
-						class="flex-1 h-0.5 mx-4 transition-colors duration-200"
+						class="mx-4 h-0.5 flex-1 transition-colors duration-200"
 						class:bg-green-500={consultationStore.getCompletedSteps().includes(index)}
 						class:bg-gray-300={!consultationStore.getCompletedSteps().includes(index)}
 					></div>
@@ -138,11 +138,14 @@
 		<div class="mt-2 h-2 w-full rounded-full bg-gray-200">
 			<div
 				class="h-2 rounded-full bg-indigo-600 transition-all duration-500"
-				style="width: {(consultationStore.getCompletedSteps().length / consultationStore.getTotalSteps()) * 100}%"
+				style="width: {(consultationStore.getCompletedSteps().length /
+					consultationStore.getTotalSteps()) *
+					100}%"
 			></div>
 		</div>
 		<p class="mt-1 text-xs text-gray-500">
-			{consultationStore.getCompletedSteps().length} of {consultationStore.getTotalSteps()} steps completed ({Math.round(
+			{consultationStore.getCompletedSteps().length} of {consultationStore.getTotalSteps()} steps completed
+			({Math.round(
 				(consultationStore.getCompletedSteps().length / consultationStore.getTotalSteps()) * 100,
 			)}%)
 		</p>

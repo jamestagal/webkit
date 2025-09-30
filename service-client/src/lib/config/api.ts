@@ -43,7 +43,7 @@ export function getApiEndpoints(): ApiEndpoints {
 	return {
 		core: baseUrl,
 		auth: `${baseUrl}/auth`,
-		consultation: `${baseUrl}/consultations`,
+		consultation: baseUrl, // Don't add /consultations here - the service adds it
 		audit: `${baseUrl}/audits`,
 		proposal: `${baseUrl}/proposals`,
 		pdf: `${baseUrl}/pdf`,
@@ -102,9 +102,10 @@ export function validateApiUrl(url: string): boolean {
  */
 export function getEnvironmentConfig() {
 	// Safe client-side environment detection
-	const isDevelopment = browser && typeof window !== "undefined" && window.location.hostname === "localhost";
+	const isDevelopment =
+		browser && typeof window !== "undefined" && window.location.hostname === "localhost";
 	const isProduction = !isDevelopment;
-	const isTest = typeof process !== "undefined" && process.env['NODE_ENV'] === "test";
+	const isTest = typeof process !== "undefined" && process.env["NODE_ENV"] === "test";
 
 	return {
 		isDevelopment,

@@ -95,6 +95,18 @@ The application uses SQLC for type-safe SQL queries and Atlas for schema migrati
 - Query files: `app/service-core/storage/sql/*.sql`
 - Generated code: `app/service-core/storage/query/`
 
+### Database Development Workflow
+
+When making database changes, follow this workflow:
+
+1. **Start services**: `docker compose up`
+2. **Edit schema**: Modify `app/service-core/storage/schema_postgres.sql`
+3. **Apply migrations**: `sh scripts/atlas.sh [postgres|sqlite|turso]`
+4. **Edit queries**: Modify files in `app/service-core/storage/sql/*.sql`
+5. **Generate Go code**: `sh scripts/run_queries.sh [postgres|sqlite]`
+
+**Note**: Use `run_migrations.sh` only for initial setup or fresh databases. For schema changes during development, use `atlas.sh`.
+
 ## Key Environment Variables
 
 Authentication, payment providers, email providers, and file storage providers are configurable via environment variables. See `docker-compose.yml` for the complete list of supported providers and configuration options.

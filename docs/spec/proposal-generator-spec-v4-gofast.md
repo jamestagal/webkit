@@ -50,7 +50,7 @@ A professional proposal generation system for web design agencies, built on the 
 ## Detailed Project Structure
 
 ```
-proposal-generator/
+webkit/
 ├── app/
 │   ├── pkg/                              # Shared packages
 │   │   ├── auth/
@@ -1138,7 +1138,7 @@ func (h *ConsultationHandler) Update(w http.ResponseWriter, r *http.Request) {
 ```bash
 # 1. Clone repository and setup
 git clone <repository>
-cd prop-gen
+cd webkit
 
 # 2. Generate JWT keys
 sh scripts/keys.sh
@@ -1173,7 +1173,7 @@ sh setup.sh
 kubectl apply -f config/
 
 # Monitor deployment
-kubectl get pods -n prop-gen
+kubectl get pods -n webkit
 ```
 
 #### Option 2: Docker with Cloud Run
@@ -1356,8 +1356,8 @@ export class AuthService {
         token,
         this.publicKey,
         {
-          issuer: 'prop-gen',
-          audience: 'prop-gen-client'
+          issuer: 'webkit',
+          audience: 'webkit-client'
         }
       );
       

@@ -9,6 +9,8 @@
 - Browser APIs in +page.server.ts files
 - Complex DI containers (GoFast violation)
 - Over-abstracted patterns (GoFast violation)
+- sql.Null* types in API responses (DTO violation)
+- Missing ToDTO() conversions
 
 ### 🟡 Fix Immediately (Score 4-6)
 - Naked error returns without context
@@ -17,6 +19,7 @@
 - Missing initialization guards
 - External deps for simple tasks (GoFast)
 - Hidden configuration values (GoFast)
+- Incomplete pattern implementation
 
 ### 🟢 Best Practices (Score 1-3)
 - Use fmt.Errorf for error wrapping
@@ -25,6 +28,7 @@
 - Use load functions for data
 - Errors as values (GoFast philosophy)
 - Simple constructor DI (GoFast philosophy)
+- Proper DTO layer for APIs
 
 ## Go Quick Fixes
 

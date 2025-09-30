@@ -10,7 +10,7 @@
 			countdown--;
 			if (countdown <= 0) {
 				clearInterval(timer);
-				goto("/dashboard");
+				goto("/");
 			}
 		}, 1000);
 
@@ -18,7 +18,7 @@
 	});
 
 	function goToDashboard() {
-		goto("/dashboard");
+		goto("/");
 	}
 </script>
 
