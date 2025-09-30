@@ -19,13 +19,13 @@ The services communicate via gRPC (internal) and REST APIs (external), with prot
 ### Initial Setup
 ```bash
 # Generate JWT keys for authentication
-sh scripts/keys.sh
+sh scripts/run_keys.sh
 
 # Compile SQL queries using sqlc (postgres or sqlite)
-sh scripts/sqlc.sh [postgres|sqlite]
+sh scripts/run_queries.sh [postgres|sqlite]
 
 # Generate protobuf code for gRPC
-sh scripts/proto.sh
+sh scripts/run_grpc.sh
 ```
 
 ### Running the Application
@@ -34,13 +34,22 @@ sh scripts/proto.sh
 docker compose up --build
 
 # Run database migrations
-sh scripts/atlas.sh [postgres|sqlite|turso]
+sh scripts/run_migrations.sh [postgres|sqlite|turso]
 ```
 
 ### Development Tools
 ```bash
 # Format all frontend code
 sh scripts/format.sh
+
+# Update user permissions (requires user ID)
+sh scripts/update_permissions.sh <user-id> [access-level]
+
+# Create development user with admin access
+sh scripts/seed_dev_user.sh
+
+# Configure Stripe webhooks (if using Stripe)
+sh scripts/run_stripe.sh
 
 # Client-specific commands (in service-client/)
 npm run dev          # Development server
