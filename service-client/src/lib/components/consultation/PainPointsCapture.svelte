@@ -31,6 +31,11 @@
 	let newTechnicalIssue = $state("");
 	let newSolutionGap = $state("");
 
+
+	// Derived state for button disabled logic (ensures reactivity)
+	let canAddChallenge = $derived(newChallenge.trim().length > 0);
+	let canAddTechnicalIssue = $derived(newTechnicalIssue.trim().length > 0);
+	let canAddSolutionGap = $derived(newSolutionGap.trim().length > 0);
 	// Predefined options
 	const urgencyOptions = [
 		{ value: "", label: "Select urgency level" },
@@ -301,7 +306,7 @@
 				{disabled}
 				class="flex-1"
 			/>
-			<Button variant="primary" onclick={addChallenge} disabled={disabled || !newChallenge.trim()}>
+			<Button variant="primary" onclick={addChallenge} disabled={disabled || !canAddChallenge}>
 				<Plus class="mr-1 h-4 w-4" />
 				Add
 			</Button>
@@ -367,7 +372,7 @@
 			<Button
 				variant="primary"
 				onclick={addTechnicalIssue}
-				disabled={disabled || !newTechnicalIssue.trim()}
+				disabled={disabled || !canAddTechnicalIssue}
 			>
 				<Plus class="mr-1 h-4 w-4" />
 				Add
@@ -476,7 +481,7 @@
 			<Button
 				variant="primary"
 				onclick={addSolutionGap}
-				disabled={disabled || !newSolutionGap.trim()}
+				disabled={disabled || !canAddSolutionGap}
 			>
 				<Plus class="mr-1 h-4 w-4" />
 				Add

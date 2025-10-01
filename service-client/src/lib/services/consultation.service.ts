@@ -12,13 +12,16 @@ let refreshPromise: Promise<boolean> | null = null;
 async function refreshAccessToken(): Promise<boolean> {
 	// If already refreshing, wait for that request to complete
 	if (isRefreshing && refreshPromise) {
+		console.log("⏳ Already refreshing token, waiting...");
 		return refreshPromise;
 	}
 
+	console.log("🔑 Starting token refresh...");
 	isRefreshing = true;
 	refreshPromise = (async () => {
 		try {
 			const refreshUrl = `${apiEndpoints.core}/refresh`;
+			console.log("📡 Calling refresh endpoint:", refreshUrl);
 			const response = await fetch(refreshUrl, {
 				method: "POST",
 				credentials: "include", // Send cookies including refresh_token
@@ -28,22 +31,26 @@ async function refreshAccessToken(): Promise<boolean> {
 			});
 
 			if (response.ok) {
-				console.debug("Token refresh successful");
+				console.log("✅ Token refresh successful");
 				return true;
 			} else {
-				console.error("Token refresh failed:", response.status);
+				console.error("❌ Token refresh failed with status:", response.status);
+				const text = await response.text();
+				console.error("Response body:", text);
 				// Redirect to login on refresh failure
 				if (typeof window !== "undefined") {
+					console.log("↩️ Redirecting to /login");
 					await goto("/login");
 				}
 				return false;
 			}
 		} catch (error) {
-			console.error("Token refresh error:", error);
+			console.error("❌ Token refresh error:", error);
 			return false;
 		} finally {
 			isRefreshing = false;
 			refreshPromise = null;
+			console.log("🏁 Token refresh finished");
 		}
 	})();
 
@@ -62,13 +69,15 @@ async function fetchWithTokenRefresh(
 
 	// If we get a 401 and haven't retried yet, try to refresh the token
 	if (response.status === 401 && !isRetry) {
-		console.debug("Received 401, attempting token refresh");
+		console.log("🔄 Received 401, attempting token refresh for:", url);
 		const refreshSuccess = await refreshAccessToken();
 
 		if (refreshSuccess) {
 			// Retry the original request with the new token
-			console.debug("Retrying request after token refresh");
+			console.log("✅ Retrying request after successful token refresh");
 			return fetch(url, options);
+		} else {
+			console.error("❌ Token refresh failed, returning 401 response");
 		}
 	}
 

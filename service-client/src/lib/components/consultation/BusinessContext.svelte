@@ -30,6 +30,10 @@
 	let newDigitalPresence = $state("");
 	let newMarketingChannel = $state("");
 
+	// Derived state for button disabled logic (ensures reactivity)
+	let canAddDigitalPresence = $derived(newDigitalPresence.trim().length > 0);
+	let canAddMarketingChannel = $derived(newMarketingChannel.trim().length > 0);
+
 	// Predefined options
 	const industryOptions = [
 		{ value: "", label: "Select an industry" },
@@ -314,7 +318,7 @@
 			<Button
 				variant="primary"
 				onclick={addDigitalPresence}
-				disabled={disabled || !newDigitalPresence.trim()}
+				disabled={disabled || !canAddDigitalPresence}
 			>
 				<Plus class="mr-1 h-4 w-4" />
 				Add
@@ -381,7 +385,7 @@
 			<Button
 				variant="primary"
 				onclick={addMarketingChannel}
-				disabled={disabled || !newMarketingChannel.trim()}
+				disabled={disabled || !canAddMarketingChannel}
 			>
 				<Plus class="mr-1 h-4 w-4" />
 				Add

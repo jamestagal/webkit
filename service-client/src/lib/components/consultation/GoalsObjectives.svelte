@@ -41,6 +41,14 @@
 	let milestones = $state<string[]>(timeline.milestones || []);
 	let newMilestone = $state("");
 
+
+	// Derived state for button disabled logic (ensures reactivity)
+	let canAddPrimaryGoal = $derived(newPrimaryGoal.trim().length > 0);
+	let canAddSecondaryGoal = $derived(newSecondaryGoal.trim().length > 0);
+	let canAddSuccessMetric = $derived(newSuccessMetric.trim().length > 0);
+	let canAddKpi = $derived(newKpi.trim().length > 0);
+	let canAddBudgetConstraint = $derived(newBudgetConstraint.trim().length > 0);
+	let canAddMilestone = $derived(newMilestone.trim().length > 0);
 	// Predefined options
 	const budgetRangeOptions = [
 		{ value: "", label: "Select budget range" },
@@ -430,7 +438,7 @@
 			<Button
 				variant="primary"
 				onclick={addPrimaryGoal}
-				disabled={disabled || !newPrimaryGoal.trim()}
+				disabled={disabled || !canAddPrimaryGoal}
 			>
 				<Plus class="mr-1 h-4 w-4" />
 				Add
@@ -497,7 +505,7 @@
 			<Button
 				variant="primary"
 				onclick={addSecondaryGoal}
-				disabled={disabled || !newSecondaryGoal.trim()}
+				disabled={disabled || !canAddSecondaryGoal}
 			>
 				<Plus class="mr-1 h-4 w-4" />
 				Add
@@ -576,7 +584,7 @@
 				<Button
 					variant="primary"
 					onclick={addMilestone}
-					disabled={disabled || !newMilestone.trim()}
+					disabled={disabled || !canAddMilestone}
 				>
 					<Plus class="mr-1 h-4 w-4" />
 					Add
@@ -665,7 +673,7 @@
 				<Button
 					variant="primary"
 					onclick={addBudgetConstraint}
-					disabled={disabled || !newBudgetConstraint.trim()}
+					disabled={disabled || !canAddBudgetConstraint}
 				>
 					<Plus class="mr-1 h-4 w-4" />
 					Add
@@ -737,7 +745,7 @@
 				<Button
 					variant="primary"
 					onclick={addSuccessMetric}
-					disabled={disabled || !newSuccessMetric.trim()}
+					disabled={disabled || !canAddSuccessMetric}
 				>
 					<Plus class="mr-1 h-4 w-4" />
 					Add
@@ -801,7 +809,7 @@
 					{disabled}
 					class="flex-1"
 				/>
-				<Button variant="primary" onclick={addKpi} disabled={disabled || !newKpi.trim()}>
+				<Button variant="primary" onclick={addKpi} disabled={disabled || !canAddKpi}>
 					<Plus class="mr-1 h-4 w-4" />
 					Add
 				</Button>
