@@ -1,4 +1,19 @@
-<script>
+<script lang="ts">
+	import type { Snippet } from "svelte";
+
+	interface Props {
+		type?: "button" | "submit" | "reset";
+		size?: "xs" | "sm" | "md";
+		isLoading?: boolean;
+		disabled?: boolean;
+		variant?: "action" | "outline" | "danger" | "success" | "warning" | "primary" | "secondary";
+		href?: string | null;
+		full?: boolean;
+		onclick?: (event: MouseEvent) => void;
+		children: Snippet;
+		class?: string;
+	}
+
 	let {
 		type = "button",
 		size = "sm",
@@ -7,9 +22,10 @@
 		variant,
 		href = null,
 		full = false,
+		onclick,
 		children,
-		...restProps
-	} = $props();
+		class: customClass = "",
+	}: Props = $props();
 
 	const sizeStyles = {
 		xs: { button: "text-xs py-1 px-2", loader: 16 },
@@ -31,11 +47,14 @@
 
 	const fullWidth = full ? "w-full" : "";
 	const variantStyles = variant ? buttonStyles[variant] || "" : "";
-	const styles = `${commonStyles} ${sizeStyles[size]?.button} ${variantStyles} ${fullWidth} ${disabled ? "opacity-50 pointer-events-none" : ""}`;
+	const styles = `${commonStyles} ${sizeStyles[size]?.button} ${variantStyles} ${fullWidth} ${customClass}`;
+
+	// Only apply disabled opacity once in the disabled state
+	const isDisabled = disabled || isLoading;
 </script>
 
 {#if href}
-	<a {href} class={styles} {...restProps}>
+	<a {href} class={styles} class:opacity-50={isDisabled} class:pointer-events-none={isDisabled}>
 		<span class="relative flex flex-row items-center justify-center">
 			{#if isLoading}
 				<svg
@@ -59,7 +78,13 @@
 		</span>
 	</a>
 {:else}
-	<button {type} class={styles} {disabled} {...restProps}>
+	<button
+		{type}
+		class={styles}
+		disabled={isDisabled}
+		onclick={onclick}
+		class:opacity-50={isDisabled}
+	>
 		<span class="relative flex flex-row items-center justify-center">
 			{#if isLoading}
 				<svg

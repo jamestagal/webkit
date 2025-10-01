@@ -443,9 +443,11 @@ func (s *consultationServiceImpl) ValidateGoalsObjectives(goalsObjectives *Goals
 	}
 
 	// Validate budget range format if provided
+	// Accept both frontend value format (under-5k, 5k-10k, over-500k, tbd) and label format ($5,000 - $10,000)
 	if goalsObjectives.BudgetRange != "" {
-		budgetRegex := regexp.MustCompile(`^\$[\d,]+ - \$[\d,]+$|^Under \$[\d,]+$|^Over \$[\d,]+$|^To be determined$`)
+		budgetRegex := regexp.MustCompile(`^(under-\d+k|\d+k-\d+k|over-\d+k|tbd)$|^\$[\d,]+ - \$[\d,]+$|^Under \$[\d,]+$|^Over \$[\d,]+$|^To be determined$`)
 		if !budgetRegex.MatchString(goalsObjectives.BudgetRange) {
+			slog.Error("Budget validation failed", "budget", goalsObjectives.BudgetRange, "length", len(goalsObjectives.BudgetRange))
 			return errors.New("invalid budget range format")
 		}
 	}

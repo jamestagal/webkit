@@ -294,7 +294,7 @@
 						type="button"
 						onclick={() => addCommonDigitalPresence(presence)}
 						{disabled}
-						class="btn btn-outline btn-sm"
+						class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-sm leading-4 font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						+ {presence}
 					</button>
@@ -304,35 +304,36 @@
 
 		<!-- Custom Input -->
 		<div class="mb-3 flex space-x-2">
-			<input
+			<Input
 				bind:value={newDigitalPresence}
 				onkeydown={handleDigitalPresenceKeydown}
 				placeholder="Add custom digital presence"
 				{disabled}
-				class="input flex-1"
+				class="flex-1"
 			/>
-			<button
-				type="button"
-				class="btn btn-primary"
+			<Button
+				variant="primary"
 				onclick={addDigitalPresence}
 				disabled={disabled || !newDigitalPresence.trim()}
 			>
 				<Plus class="mr-1 h-4 w-4" />
 				Add
-			</button>
+			</Button>
 		</div>
 
 		<!-- Selected Items -->
 		{#if digitalPresence.length > 0}
 			<div class="flex flex-wrap gap-2">
 				{#each digitalPresence as presence}
-					<span class="badge badge-primary gap-2">
+					<span
+						class="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800"
+					>
 						{presence}
 						<button
 							type="button"
 							onclick={() => removeDigitalPresence(presence)}
 							{disabled}
-							class="hover:text-primary-content disabled:opacity-50"
+							class="ml-2 inline-flex h-4 w-4 items-center justify-center rounded-full text-blue-400 hover:text-blue-600 disabled:opacity-50"
 						>
 							<X class="h-3 w-3" />
 						</button>
