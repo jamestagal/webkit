@@ -1,509 +1,502 @@
 /**
- * Remote Functions API Layer for Consultation Management
+ * Consultation Remote Functions
  *
- * This module provides type-safe, server-side API integration using SvelteKit remote functions.
- * All functions use cookie-based authentication (credentials: 'include').
- *
- * Pattern: Remote Functions API Layer
- * Cognitive Load: ~50 (11 functions × 4-5 average)
- *
- * Architecture:
- * - Query functions: Read operations with automatic caching
- * - Command functions: Write operations with manual invalidation
- * - Form functions: Multi-step form submissions with validation
- * - All fetch calls include credentials for cookie-based auth
- * - Proper error handling for all HTTP status codes
+ * Direct PostgreSQL access using drizzle-orm.
+ * Follows the remote functions guide:
+ * - Uses query() for read operations
+ * - Uses form() for mutations
+ * - Uses Valibot for validation (NOT Zod)
+ * - Uses getRequestEvent() for auth context
  */
 
+import { query, form } from '@sveltejs/kit';
 import { redirect } from '@sveltejs/kit';
-import { query, command, form, getRequestEvent } from '$app/server';
-import { z } from 'zod';
+import * as v from 'valibot';
+import { db } from '$lib/server/db';
+import { consultations, consultationDrafts, consultationVersions } from '$lib/server/schema';
+import { getUserId } from '$lib/server/auth';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import {
-  ConsultationSchema,
-  ConsultationDraftSchema,
-  ContactInfoSchema,
-  BusinessContextSchema,
-  PainPointsSchema,
-  GoalsObjectivesSchema,
-  type Consultation,
-  type ConsultationDraft
-} from '$lib/types/consultation';
+	ContactInfoSchema,
+	BusinessContextSchema,
+	PainPointsSchema,
+	GoalsObjectivesSchema,
+	CompleteConsultationSchema,
+	AutoSaveDraftSchema
+} from '$lib/schema/consultation';
+import type {
+	ContactInfo,
+	BusinessContext,
+	PainPoints,
+	GoalsObjectives
+} from '$lib/server/schema';
 
-// API Configuration
-// Use Docker service name when running in server context, localhost for browser
-const API_BASE_URL = typeof window === 'undefined'
-  ? 'http://webkit-core:4001'  // Server-side (Docker network)
-  : 'http://localhost:4001';    // Client-side (browser)
+// =============================================================================
+// Helper Functions
+// =============================================================================
 
 /**
- * Helper function to handle API responses with proper error handling
- *
- * Cognitive Load: 4
- * - Fetch execution: 1
- * - Status check: 1
- * - Error parsing: 1
- * - JSON parsing: 1
+ * Calculate completion percentage based on filled form sections.
+ * Each section contributes 25% to the total.
  */
-async function fetchAPI<T>(
-  url: string,
-  options: RequestInit = {}
-): Promise<T> {
-  // CRITICAL: credentials: 'include' for cookie-based auth
-  const response = await fetch(url, {
-    ...options,
-    credentials: 'include'
-  });
+function calculateCompletionPercentage(data: {
+	contactInfo: unknown;
+	businessContext: unknown;
+	painPoints: unknown;
+	goalsObjectives: unknown;
+}): number {
+	let percentage = 0;
 
-  // Handle HTTP errors
-  if (!response.ok) {
-    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+	const hasContent = (obj: unknown): boolean => {
+		if (!obj || typeof obj !== 'object') return false;
+		return Object.values(obj as Record<string, unknown>).some((v) => {
+			if (Array.isArray(v)) return v.length > 0;
+			if (typeof v === 'string') return v.trim().length > 0;
+			if (typeof v === 'number') return true;
+			if (typeof v === 'object' && v !== null) return hasContent(v);
+			return Boolean(v);
+		});
+	};
 
-    try {
-      const errorData = await response.json();
-      errorMessage = errorData.message || errorMessage;
-    } catch {
-      // If error response is not JSON, use status text
-    }
+	if (hasContent(data.contactInfo)) percentage += 25;
+	if (hasContent(data.businessContext)) percentage += 25;
+	if (hasContent(data.painPoints)) percentage += 25;
+	if (hasContent(data.goalsObjectives)) percentage += 25;
 
-    throw new Error(errorMessage);
-  }
-
-  return await response.json();
+	return percentage;
 }
 
 /**
- * Query: Get or Create Consultation
- *
- * Creates a new consultation if user doesn't have an active draft.
- * Uses POST /consultations with empty body to create draft consultation.
- *
- * Cognitive Load: 4
- * - Query definition: 1
- * - API call: 2 (via fetchAPI)
- * - Validation: 1
- *
- * @returns Consultation object with draft status
- * @throws Error on API failure or validation error
+ * Extract form data fields, excluding the consultationId.
+ */
+function extractFormData<T extends { consultationId: string }>(
+	data: T
+): Omit<T, 'consultationId'> {
+	const { consultationId, ...rest } = data;
+	return rest;
+}
+
+// =============================================================================
+// Query Functions (Read Operations)
+// =============================================================================
+
+/**
+ * Get or create a consultation for the current user.
+ * Returns the most recent draft consultation, or creates a new one.
  */
 export const getOrCreateConsultation = query(async () => {
-  const consultation = await fetchAPI<Consultation>(
-    `${API_BASE_URL}/consultations`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}) // Empty body creates draft
-    }
-  );
+	const userId = getUserId();
 
-  // Validate response against schema
-  const validatedConsultation = ConsultationSchema.parse(consultation);
+	// Try to find existing draft consultation
+	const [existing] = await db
+		.select()
+		.from(consultations)
+		.where(and(eq(consultations.userId, userId), eq(consultations.status, 'draft')))
+		.orderBy(desc(consultations.updatedAt))
+		.limit(1);
 
-  return validatedConsultation;
+	if (existing) {
+		return existing;
+	}
+
+	// Create new consultation
+	const [created] = await db
+		.insert(consultations)
+		.values({
+			userId,
+			status: 'draft',
+			completionPercentage: 0
+		})
+		.returning();
+
+	return created;
 });
 
 /**
- * Query: Get Consultation by ID
- *
- * Retrieves a specific consultation with all parsed fields.
- *
- * Cognitive Load: 4
- * - Query with parameter: 1
- * - API call: 2 (via fetchAPI)
- * - Validation: 1
- *
- * @param id - UUID of the consultation
- * @returns Consultation object
- * @throws Error if consultation not found (404) or other API errors
+ * Get a specific consultation by ID.
+ * Verifies ownership before returning.
  */
-export const getConsultation = query(z.string().uuid(), async (id) => {
-  const consultation = await fetchAPI<Consultation>(
-    `${API_BASE_URL}/consultations/${id}`
-  );
+export const getConsultation = query(
+	v.pipe(v.string(), v.uuid()),
+	async (id: string) => {
+		const userId = getUserId();
 
-  // Validate response
-  const validatedConsultation = ConsultationSchema.parse(consultation);
+		const [consultation] = await db
+			.select()
+			.from(consultations)
+			.where(and(eq(consultations.id, id), eq(consultations.userId, userId)))
+			.limit(1);
 
-  return validatedConsultation;
-});
+		if (!consultation) {
+			throw new Error('Consultation not found');
+		}
 
-/**
- * Query: Get Draft for Consultation
- *
- * Retrieves auto-saved draft data for a consultation.
- * Returns null if no draft exists (404 is expected behavior).
- *
- * Cognitive Load: 5
- * - Query with parameter: 1
- * - API call with try-catch: 3
- * - Validation: 1
- *
- * @param consultationId - UUID of the consultation
- * @returns ConsultationDraft object or null if not found
- * @throws Error on unexpected API errors (not 404)
- */
-export const getDraft = query(z.string().uuid(), async (consultationId) => {
-  try {
-    const draft = await fetchAPI<ConsultationDraft>(
-      `${API_BASE_URL}/consultations/${consultationId}/drafts`
-    );
-
-    // Validate and return draft
-    const validatedDraft = ConsultationDraftSchema.parse(draft);
-    return validatedDraft;
-
-  } catch (error) {
-    // 404 is expected if no draft exists yet
-    if (error instanceof Error && error.message.includes('404')) {
-      return null;
-    }
-
-    // Re-throw unexpected errors
-    throw error;
-  }
-});
-
-/**
- * Command: Auto-Save Draft
- *
- * Saves draft data for a consultation. Creates new draft or updates existing.
- * Uses POST /consultations/{id}/drafts which handles upsert logic.
- *
- * Cognitive Load: 5
- * - Command with validation: 1
- * - Destructure params: 1
- * - API call: 2 (via fetchAPI)
- * - Validation: 1
- *
- * @param params.consultationId - UUID of the consultation
- * @param params.data - Draft data to save (arbitrary JSON structure)
- * @returns Saved ConsultationDraft object
- * @throws Error on API failure
- */
-export const autoSaveDraft = command(
-  z.object({
-    consultationId: z.string().uuid(),
-    data: z.record(z.string(), z.any()) // Accept any JSON-serializable draft data
-  }),
-  async ({ consultationId, data }) => {
-    const draft = await fetchAPI<ConsultationDraft>(
-      `${API_BASE_URL}/consultations/${consultationId}/drafts`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      }
-    );
-
-    // Validate response
-    const validatedDraft = ConsultationDraftSchema.parse(draft);
-
-    // Note: Caller should manually invalidate getDraft query if needed
-    // Example: await getDraft(consultationId).refresh();
-
-    return validatedDraft;
-  }
+		return consultation;
+	}
 );
 
 /**
- * Command: Complete Consultation
- *
- * CRITICAL: This is the missing endpoint call that fixes the bug.
- * Marks consultation as "completed" and changes status from "draft" to "completed".
- *
- * Cognitive Load: 4
- * - Command with validation: 1
- * - API call: 2 (via fetchAPI)
- * - Validation: 1
- *
- * @param consultationId - UUID of the consultation to complete
- * @returns Updated Consultation object with "completed" status
- * @throws Error on API failure
+ * Get the draft for a specific consultation.
+ * Returns null if no draft exists.
  */
-export const completeConsultation = command(
-  z.object({ consultationId: z.string().uuid() }),
-  async ({ consultationId }) => {
-    const consultation = await fetchAPI<Consultation>(
-      `${API_BASE_URL}/consultations/${consultationId}/complete`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}) // Empty body
-      }
-    );
+export const getDraft = query(
+	v.pipe(v.string(), v.uuid()),
+	async (consultationId: string) => {
+		const userId = getUserId();
 
-    // Validate response
-    const validatedConsultation = ConsultationSchema.parse(consultation);
+		const [draft] = await db
+			.select()
+			.from(consultationDrafts)
+			.where(
+				and(
+					eq(consultationDrafts.consultationId, consultationId),
+					eq(consultationDrafts.userId, userId)
+				)
+			)
+			.limit(1);
 
-    // Caller should redirect to success page after this completes
-    // Example: redirect(303, '/consultation/success');
-
-    return validatedConsultation;
-  }
+		return draft || null;
+	}
 );
 
 /**
- * Query: List Consultations
- *
- * Retrieves paginated list of consultations for current user.
- * Optional filters: status, search query.
- *
- * Cognitive Load: 5
- * - Query with params: 1
- * - URL building: 1
- * - API call: 2 (via fetchAPI)
- * - Validation: 1
- *
- * @param params - Optional pagination and filter parameters
- * @returns Paginated consultation list with metadata
- * @throws Error on API failure
+ * Get all consultations for the current user.
  */
-export const listConsultations = query(
-  z.object({
-    page: z.number().int().min(1).default(1),
-    limit: z.number().int().min(1).max(100).default(20),
-    status: z.enum(['draft', 'completed', 'archived']).optional(),
-    search: z.string().optional()
-  }).optional(),
-  async (params) => {
-    // Build query string
-    const searchParams = new URLSearchParams();
+export const getUserConsultations = query(async () => {
+	const userId = getUserId();
 
-    if (params?.page) searchParams.set('page', params.page.toString());
-    if (params?.limit) searchParams.set('limit', params.limit.toString());
-    if (params?.status) searchParams.set('status', params.status);
-    if (params?.search) searchParams.set('search', params.search);
+	return await db
+		.select()
+		.from(consultations)
+		.where(eq(consultations.userId, userId))
+		.orderBy(desc(consultations.updatedAt));
+});
 
-    const queryString = searchParams.toString();
-    const url = `${API_BASE_URL}/consultations${queryString ? `?${queryString}` : ''}`;
-
-    const response = await fetchAPI<{
-      consultations: Consultation[];
-      total: number;
-      page: number;
-      limit: number;
-      has_more: boolean;
-    }>(url);
-
-    return response;
-  }
-);
-
-// ========================================
-// TASK 3: FORM STEP REMOTE FUNCTIONS
-// ========================================
+// =============================================================================
+// Form Functions (Mutations)
+// =============================================================================
 
 /**
- * Command: Save Contact Information (Step 1)
- *
- * Saves contact information for a consultation using PUT /consultations/{id}.
- * Validates data with ContactInfoSchema before sending to API.
- *
- * Pattern: Command with Zod validation
- * Cognitive Load: 5
- * - Command with schema validation: 1
- * - Cookie retrieval: 1
- * - API call with payload wrapping: 2
- * - Response validation: 1
- *
- * @param data - Contact information data validated by ContactInfoSchema
- * @returns Updated Consultation object with contact_info saved
- * @throws Error on API failure or validation error
+ * Save contact information for a consultation.
  */
-export const saveContactInfo = command(ContactInfoSchema, async (data) => {
-  const { cookies } = getRequestEvent();
-  const consultationId = cookies.get('current_consultation_id');
+export const saveContactInfo = form(ContactInfoSchema, async (data) => {
+	const userId = getUserId();
+	const formData = extractFormData(data);
 
-  if (!consultationId) {
-    throw new Error('No active consultation. Please start a new consultation.');
-  }
+	// Verify ownership
+	const [existing] = await db
+		.select()
+		.from(consultations)
+		.where(and(eq(consultations.id, data.consultationId), eq(consultations.userId, userId)))
+		.limit(1);
 
-  // PUT /consultations/{id} with contact_info field
-  const consultation = await fetchAPI<Consultation>(
-    `${API_BASE_URL}/consultations/${consultationId}`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contact_info: data })
-    }
-  );
+	if (!existing) {
+		throw new Error('Consultation not found');
+	}
 
-  // Validate response
-  const validatedConsultation = ConsultationSchema.parse(consultation);
+	// Build contact info object
+	const contactInfo: ContactInfo = {
+		business_name: formData.business_name,
+		contact_person: formData.contact_person,
+		email: formData.email,
+		phone: formData.phone,
+		website: formData.website,
+		social_media: formData.social_media
+	};
 
-  return validatedConsultation;
+	// Calculate new completion percentage
+	const completionPercentage = calculateCompletionPercentage({
+		contactInfo,
+		businessContext: existing.businessContext,
+		painPoints: existing.painPoints,
+		goalsObjectives: existing.goalsObjectives
+	});
+
+	// Update the consultation
+	await db
+		.update(consultations)
+		.set({
+			contactInfo,
+			completionPercentage,
+			updatedAt: new Date()
+		})
+		.where(eq(consultations.id, data.consultationId));
+
+	// Refresh the consultation query
+	getConsultation(data.consultationId).refresh();
 });
 
 /**
- * Command: Save Business Context (Step 2)
- *
- * Saves business context for a consultation using PUT /consultations/{id}.
- * Validates data with BusinessContextSchema before sending to API.
- *
- * Pattern: Command with Zod validation
- * Cognitive Load: 5
- * - Command with schema validation: 1
- * - Cookie retrieval: 1
- * - API call with payload wrapping: 2
- * - Response validation: 1
- *
- * @param data - Business context data validated by BusinessContextSchema
- * @returns Updated Consultation object with business_context saved
- * @throws Error on API failure or validation error
+ * Save business context for a consultation.
  */
-export const saveBusinessContext = command(BusinessContextSchema, async (data) => {
-  const { cookies } = getRequestEvent();
-  const consultationId = cookies.get('current_consultation_id');
+export const saveBusinessContext = form(BusinessContextSchema, async (data) => {
+	const userId = getUserId();
+	const formData = extractFormData(data);
 
-  if (!consultationId) {
-    throw new Error('No active consultation. Please start a new consultation.');
-  }
+	// Verify ownership
+	const [existing] = await db
+		.select()
+		.from(consultations)
+		.where(and(eq(consultations.id, data.consultationId), eq(consultations.userId, userId)))
+		.limit(1);
 
-  // PUT /consultations/{id} with business_context field
-  const consultation = await fetchAPI<Consultation>(
-    `${API_BASE_URL}/consultations/${consultationId}`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ business_context: data })
-    }
-  );
+	if (!existing) {
+		throw new Error('Consultation not found');
+	}
 
-  // Validate response
-  const validatedConsultation = ConsultationSchema.parse(consultation);
+	// Build business context object
+	const businessContext: BusinessContext = {
+		industry: formData.industry,
+		business_type: formData.business_type,
+		team_size: formData.team_size,
+		current_platform: formData.current_platform,
+		digital_presence: formData.digital_presence,
+		marketing_channels: formData.marketing_channels
+	};
 
-  return validatedConsultation;
+	// Calculate new completion percentage
+	const completionPercentage = calculateCompletionPercentage({
+		contactInfo: existing.contactInfo,
+		businessContext,
+		painPoints: existing.painPoints,
+		goalsObjectives: existing.goalsObjectives
+	});
+
+	// Update the consultation
+	await db
+		.update(consultations)
+		.set({
+			businessContext,
+			completionPercentage,
+			updatedAt: new Date()
+		})
+		.where(eq(consultations.id, data.consultationId));
+
+	// Refresh the consultation query
+	getConsultation(data.consultationId).refresh();
 });
 
 /**
- * Command: Save Pain Points (Step 3)
- *
- * Saves pain points for a consultation using PUT /consultations/{id}.
- * Validates data with PainPointsSchema before sending to API.
- *
- * Pattern: Command with Zod validation
- * Cognitive Load: 5
- * - Command with schema validation: 1
- * - Cookie retrieval: 1
- * - API call with payload wrapping: 2
- * - Response validation: 1
- *
- * @param data - Pain points data validated by PainPointsSchema
- * @returns Updated Consultation object with pain_points saved
- * @throws Error on API failure or validation error
+ * Save pain points for a consultation.
  */
-export const savePainPoints = command(PainPointsSchema, async (data) => {
-  const { cookies } = getRequestEvent();
-  const consultationId = cookies.get('current_consultation_id');
+export const savePainPoints = form(PainPointsSchema, async (data) => {
+	const userId = getUserId();
+	const formData = extractFormData(data);
 
-  if (!consultationId) {
-    throw new Error('No active consultation. Please start a new consultation.');
-  }
+	// Verify ownership
+	const [existing] = await db
+		.select()
+		.from(consultations)
+		.where(and(eq(consultations.id, data.consultationId), eq(consultations.userId, userId)))
+		.limit(1);
 
-  // PUT /consultations/{id} with pain_points field
-  const consultation = await fetchAPI<Consultation>(
-    `${API_BASE_URL}/consultations/${consultationId}`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pain_points: data })
-    }
-  );
+	if (!existing) {
+		throw new Error('Consultation not found');
+	}
 
-  // Validate response
-  const validatedConsultation = ConsultationSchema.parse(consultation);
+	// Build pain points object
+	const painPoints: PainPoints = {
+		primary_challenges: formData.primary_challenges,
+		technical_issues: formData.technical_issues,
+		urgency_level: formData.urgency_level,
+		impact_assessment: formData.impact_assessment,
+		current_solution_gaps: formData.current_solution_gaps
+	};
 
-  return validatedConsultation;
+	// Calculate new completion percentage
+	const completionPercentage = calculateCompletionPercentage({
+		contactInfo: existing.contactInfo,
+		businessContext: existing.businessContext,
+		painPoints,
+		goalsObjectives: existing.goalsObjectives
+	});
+
+	// Update the consultation
+	await db
+		.update(consultations)
+		.set({
+			painPoints,
+			completionPercentage,
+			updatedAt: new Date()
+		})
+		.where(eq(consultations.id, data.consultationId));
+
+	// Refresh the consultation query
+	getConsultation(data.consultationId).refresh();
 });
 
 /**
- * Command: Save Goals and Objectives (Step 4)
- *
- * Saves goals and objectives for a consultation using PUT /consultations/{id}.
- * Validates data with GoalsObjectivesSchema before sending to API.
- *
- * Pattern: Command with Zod validation
- * Cognitive Load: 5
- * - Command with schema validation: 1
- * - Cookie retrieval: 1
- * - API call with payload wrapping: 2
- * - Response validation: 1
- *
- * @param data - Goals and objectives data validated by GoalsObjectivesSchema
- * @returns Updated Consultation object with goals_objectives saved
- * @throws Error on API failure or validation error
+ * Save goals and objectives for a consultation.
  */
-export const saveGoalsObjectives = command(GoalsObjectivesSchema, async (data) => {
-  const { cookies } = getRequestEvent();
-  const consultationId = cookies.get('current_consultation_id');
+export const saveGoalsObjectives = form(GoalsObjectivesSchema, async (data) => {
+	const userId = getUserId();
+	const formData = extractFormData(data);
 
-  if (!consultationId) {
-    throw new Error('No active consultation. Please start a new consultation.');
-  }
+	// Verify ownership
+	const [existing] = await db
+		.select()
+		.from(consultations)
+		.where(and(eq(consultations.id, data.consultationId), eq(consultations.userId, userId)))
+		.limit(1);
 
-  // PUT /consultations/{id} with goals_objectives field
-  const consultation = await fetchAPI<Consultation>(
-    `${API_BASE_URL}/consultations/${consultationId}`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ goals_objectives: data })
-    }
-  );
+	if (!existing) {
+		throw new Error('Consultation not found');
+	}
 
-  // Validate response
-  const validatedConsultation = ConsultationSchema.parse(consultation);
+	// Build goals objectives object
+	const goalsObjectives: GoalsObjectives = {
+		primary_goals: formData.primary_goals,
+		secondary_goals: formData.secondary_goals,
+		success_metrics: formData.success_metrics,
+		kpis: formData.kpis,
+		timeline: formData.timeline,
+		budget_range: formData.budget_range,
+		budget_constraints: formData.budget_constraints
+	};
 
-  return validatedConsultation;
+	// Calculate new completion percentage
+	const completionPercentage = calculateCompletionPercentage({
+		contactInfo: existing.contactInfo,
+		businessContext: existing.businessContext,
+		painPoints: existing.painPoints,
+		goalsObjectives
+	});
+
+	// Update the consultation
+	await db
+		.update(consultations)
+		.set({
+			goalsObjectives,
+			completionPercentage,
+			updatedAt: new Date()
+		})
+		.where(eq(consultations.id, data.consultationId));
+
+	// Refresh the consultation query
+	getConsultation(data.consultationId).refresh();
 });
 
 /**
- * Form: Complete Consultation with Redirect
- *
- * CRITICAL BUG FIX: Calls POST /consultations/{id}/complete to change status.
- * This form function is used for the final step submission and redirects to success page.
- *
- * Pattern: Form completion with redirect
- * Cognitive Load: 5
- * - Form with validation: 1
- * - Cookie retrieval: 1
- * - API call via completeConsultation: 2
- * - Redirect: 1
- *
- * @param data - Consultation ID to complete
- * @throws Redirect to /consultation/success on success
- * @throws Error on API failure
+ * Complete a consultation.
+ * Creates a version snapshot and marks as completed.
  */
-export const completeConsultationWithRedirect = form(
-  z.object({ consultationId: z.string().uuid() }),
-  async ({ consultationId }) => {
-    // Call the completion endpoint
-    const consultation = await fetchAPI<Consultation>(
-      `${API_BASE_URL}/consultations/${consultationId}/complete`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}) // Empty body
-      }
-    );
+export const completeConsultation = form(CompleteConsultationSchema, async (data) => {
+	const userId = getUserId();
 
-    // Validate response
-    ConsultationSchema.parse(consultation);
+	// Get the consultation
+	const [existing] = await db
+		.select()
+		.from(consultations)
+		.where(and(eq(consultations.id, data.consultationId), eq(consultations.userId, userId)))
+		.limit(1);
 
-    // Redirect to success page
-    redirect(303, '/consultation/success');
-  }
-);
+	if (!existing) {
+		throw new Error('Consultation not found');
+	}
 
-// Export type helpers for use in components
-export type GetOrCreateConsultationResult = Awaited<ReturnType<typeof getOrCreateConsultation>>;
-export type GetConsultationResult = Awaited<ReturnType<typeof getConsultation>>;
-export type GetDraftResult = Awaited<ReturnType<typeof getDraft>>;
-export type AutoSaveDraftResult = Awaited<ReturnType<typeof autoSaveDraft>>;
-export type CompleteConsultationResult = Awaited<ReturnType<typeof completeConsultation>>;
-export type ListConsultationsResult = Awaited<ReturnType<typeof listConsultations>>;
+	// Get the next version number
+	const [maxVersion] = await db
+		.select({ max: sql<number>`COALESCE(MAX(version_number), 0)` })
+		.from(consultationVersions)
+		.where(eq(consultationVersions.consultationId, data.consultationId));
 
-// Command result types for form steps
-export type SaveContactInfoResult = Awaited<ReturnType<typeof saveContactInfo>>;
-export type SaveBusinessContextResult = Awaited<ReturnType<typeof saveBusinessContext>>;
-export type SavePainPointsResult = Awaited<ReturnType<typeof savePainPoints>>;
-export type SaveGoalsObjectivesResult = Awaited<ReturnType<typeof saveGoalsObjectives>>;
+	const nextVersion = (maxVersion?.max || 0) + 1;
+
+	// Create version snapshot
+	await db.insert(consultationVersions).values({
+		consultationId: data.consultationId,
+		userId,
+		versionNumber: nextVersion,
+		contactInfo: existing.contactInfo,
+		businessContext: existing.businessContext,
+		painPoints: existing.painPoints,
+		goalsObjectives: existing.goalsObjectives,
+		status: 'completed',
+		completionPercentage: 100,
+		changeSummary: 'Consultation completed',
+		changedFields: ['status', 'completedAt']
+	});
+
+	// Update consultation status
+	await db
+		.update(consultations)
+		.set({
+			status: 'completed',
+			completionPercentage: 100,
+			completedAt: new Date(),
+			updatedAt: new Date()
+		})
+		.where(eq(consultations.id, data.consultationId));
+
+	// Delete any draft
+	await db
+		.delete(consultationDrafts)
+		.where(eq(consultationDrafts.consultationId, data.consultationId));
+
+	// Redirect to success page
+	redirect(303, '/consultation/success');
+});
+
+/**
+ * Auto-save draft data.
+ * Uses UPSERT pattern to create or update draft.
+ */
+export const autoSaveDraft = form(AutoSaveDraftSchema, async (data) => {
+	const userId = getUserId();
+
+	// Verify consultation ownership
+	const [existing] = await db
+		.select()
+		.from(consultations)
+		.where(and(eq(consultations.id, data.consultationId), eq(consultations.userId, userId)))
+		.limit(1);
+
+	if (!existing) {
+		throw new Error('Consultation not found');
+	}
+
+	// Check if draft exists
+	const [existingDraft] = await db
+		.select()
+		.from(consultationDrafts)
+		.where(eq(consultationDrafts.consultationId, data.consultationId))
+		.limit(1);
+
+	if (existingDraft) {
+		// Update existing draft
+		await db
+			.update(consultationDrafts)
+			.set({
+				contactInfo: data.contact_info || existingDraft.contactInfo,
+				businessContext: data.business_context || existingDraft.businessContext,
+				painPoints: data.pain_points || existingDraft.painPoints,
+				goalsObjectives: data.goals_objectives || existingDraft.goalsObjectives,
+				draftNotes: data.draft_notes,
+				autoSaved: true,
+				updatedAt: new Date()
+			})
+			.where(eq(consultationDrafts.id, existingDraft.id));
+	} else {
+		// Create new draft
+		await db.insert(consultationDrafts).values({
+			consultationId: data.consultationId,
+			userId,
+			contactInfo: data.contact_info || {},
+			businessContext: data.business_context || {},
+			painPoints: data.pain_points || {},
+			goalsObjectives: data.goals_objectives || {},
+			draftNotes: data.draft_notes,
+			autoSaved: true
+		});
+	}
+
+	// Refresh draft query
+	getDraft(data.consultationId).refresh();
+});
+
+// =============================================================================
+// Type Exports
+// =============================================================================
+
+export type Consultation = Awaited<ReturnType<typeof getOrCreateConsultation>>;
+export type ConsultationDraft = NonNullable<Awaited<ReturnType<typeof getDraft>>>;

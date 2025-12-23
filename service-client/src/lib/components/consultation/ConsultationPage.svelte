@@ -16,12 +16,20 @@
 	 */
 
 	import { goto } from '$app/navigation';
-	import ClientInfoFormRemote from '$lib/components/consultation/ClientInfoForm.remote.svelte';
-	import BusinessContextRemote from '$lib/components/consultation/BusinessContext.remote.svelte';
-	import PainPointsCaptureRemote from '$lib/components/consultation/PainPointsCapture.remote.svelte';
-	import GoalsObjectivesRemote from '$lib/components/consultation/GoalsObjectives.remote.svelte';
+	import ClientInfoForm from '$lib/components/consultation/ClientInfoForm.svelte';
+	import BusinessContext from '$lib/components/consultation/BusinessContext.svelte';
+	import PainPointsCapture from '$lib/components/consultation/PainPointsCapture.svelte';
+	import GoalsObjectives from '$lib/components/consultation/GoalsObjectives.svelte';
 	import { toast } from '$lib/components/shared/Toast.svelte';
-	import type { Consultation, ConsultationDraft } from '$lib/types/consultation';
+	import {
+		saveContactInfo,
+		saveBusinessContext,
+		savePainPoints,
+		saveGoalsObjectives,
+		completeConsultation
+	} from '$lib/api/consultation.remote';
+	import type { Consultation } from '$lib/server/schema';
+	import type { ConsultationDraft } from '$lib/api/consultation.remote';
 
 	// Props from server
 	let { consultation, draft }: { consultation: Consultation; draft: ConsultationDraft | null } =
@@ -32,6 +40,12 @@
 	let consultationId = $state<string>(consultation.id);
 	let loading = $state(false);
 	let isInitializing = $state(false);
+
+	// Form data state - will be bound to child components
+	let contactInfoData = $state(consultation.contactInfo || {});
+	let businessContextData = $state(consultation.businessContext || {});
+	let painPointsData = $state(consultation.painPoints || {});
+	let goalsObjectivesData = $state(consultation.goalsObjectives || {});
 
 	// Step configuration
 	const steps = [
@@ -55,9 +69,35 @@
 	}
 
 	// Navigation handlers
-	function handleNext(): void {
-		if (!isLastStep) {
+	async function handleNext(): Promise<void> {
+		if (isLastStep) return;
+
+		loading = true;
+		try {
+			// Save current step data before moving to next
+			if (currentStep === 0) {
+				await saveContactInfo({
+					consultationId,
+					...contactInfoData
+				});
+			} else if (currentStep === 1) {
+				await saveBusinessContext({
+					consultationId,
+					...businessContextData
+				});
+			} else if (currentStep === 2) {
+				await savePainPoints({
+					consultationId,
+					...painPointsData
+				});
+			}
+
 			currentStep++;
+		} catch (error) {
+			console.error('Error saving step:', error);
+			toast.error('Failed to save. Please try again.');
+		} finally {
+			loading = false;
 		}
 	}
 
@@ -67,10 +107,22 @@
 		}
 	}
 
-	function handleComplete(): void {
-		// Completion is handled by GoalsObjectivesRemote component
-		// which calls completeConsultationWithRedirect
-		console.log('Consultation completed');
+	async function handleComplete(): Promise<void> {
+		loading = true;
+		try {
+			// Save goals objectives first
+			await saveGoalsObjectives({
+				consultationId,
+				...goalsObjectivesData
+			});
+
+			// Then complete the consultation (this will redirect)
+			await completeConsultation({ consultationId });
+		} catch (error) {
+			console.error('Error completing consultation:', error);
+			toast.error('Failed to complete. Please try again.');
+			loading = false;
+		}
 	}
 
 	// Handle browser navigation/close
@@ -187,76 +239,109 @@
 				<!-- Current Form Step -->
 				<div class="p-6 sm:p-8">
 					{#if currentStep === 0}
-						<ClientInfoFormRemote {consultation} onNext={handleNext} />
+						<ClientInfoForm data={contactInfoData} disabled={loading} />
 					{:else if currentStep === 1}
-						<BusinessContextRemote {consultation} onNext={handleNext} />
+						<BusinessContext data={businessContextData} disabled={loading} />
 					{:else if currentStep === 2}
-						<PainPointsCaptureRemote {consultation} onNext={handleNext} />
+						<PainPointsCapture data={painPointsData} disabled={loading} />
 					{:else if currentStep === 3}
-						<GoalsObjectivesRemote {consultation} {consultationId} onComplete={handleComplete} />
+						<GoalsObjectives data={goalsObjectivesData} disabled={loading} />
 					{/if}
 				</div>
 
 				<!-- Form Navigation -->
-				{#if currentStep < 3}
-					<div class="border-t border-gray-200 px-6 py-6 sm:px-8">
-						<div class="flex items-center justify-between">
-							<!-- Previous Button -->
-							<div>
-								{#if !isFirstStep}
-									<button
-										type="button"
-										class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-										onclick={handlePrevious}
-										disabled={loading}
-									>
-										<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<div class="border-t border-gray-200 px-6 py-6 sm:px-8">
+					<div class="flex items-center justify-between">
+						<!-- Previous Button -->
+						<div>
+							{#if !isFirstStep}
+								<button
+									type="button"
+									class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+									onclick={handlePrevious}
+									disabled={loading}
+								>
+									<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M15 19l-7-7 7-7"
+										/>
+									</svg>
+									Previous
+								</button>
+							{/if}
+						</div>
+
+						<!-- Step Info -->
+						<div class="hidden items-center space-x-4 text-sm text-gray-500 sm:flex">
+							<span>Step {currentStep + 1} of {totalSteps}</span>
+							<span>•</span>
+							<span>{currentStepInfo.title}</span>
+						</div>
+
+						<!-- Next/Complete Button -->
+						<div>
+							{#if isLastStep}
+								<button
+									type="button"
+									class="inline-flex items-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+									onclick={handleComplete}
+									disabled={loading}
+								>
+									{#if loading}
+										<svg class="mr-2 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+											<path class="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+										</svg>
+										Completing...
+									{:else}
+										Complete Consultation
+										<svg class="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path
 												stroke-linecap="round"
 												stroke-linejoin="round"
 												stroke-width="2"
-												d="M15 19l-7-7 7-7"
+												d="M5 13l4 4L19 7"
 											/>
 										</svg>
-										Previous
-									</button>
-								{/if}
-							</div>
-
-							<!-- Step Info -->
-							<div class="hidden items-center space-x-4 text-sm text-gray-500 sm:flex">
-								<span>Step {currentStep + 1} of {totalSteps}</span>
-								<span>•</span>
-								<span>{currentStepInfo.title}</span>
-							</div>
-
-							<!-- Next Button -->
-							<div>
+									{/if}
+								</button>
+							{:else}
 								<button
 									type="button"
 									class="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
 									onclick={handleNext}
 									disabled={loading}
 								>
-									Next
-									<svg class="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M9 5l7 7-7 7"
-										/>
-									</svg>
+									{#if loading}
+										<svg class="mr-2 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+											<path class="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+										</svg>
+										Saving...
+									{:else}
+										Next
+										<svg class="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M9 5l7 7-7 7"
+											/>
+										</svg>
+									{/if}
 								</button>
-							</div>
-						</div>
-
-						<!-- Keyboard Shortcuts Hint -->
-						<div class="mt-4 text-center text-xs text-gray-400">
-							<p>Use arrow keys or click step numbers to navigate</p>
+							{/if}
 						</div>
 					</div>
-				{/if}
+
+					<!-- Keyboard Shortcuts Hint -->
+					<div class="mt-4 text-center text-xs text-gray-400">
+						<p>Use arrow keys or click step numbers to navigate</p>
+					</div>
+				</div>
 			{/if}
 		</div>
 	</div>

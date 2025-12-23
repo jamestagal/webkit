@@ -105,6 +105,9 @@ services:
     build:
       context: ./service-client
       target: dev
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
       - ./service-client/src:/service/src
       - ./service-client/.svelte-kit:/service/.svelte-kit
@@ -117,8 +120,12 @@ services:
       PUBLIC_CLIENT_URL: http://localhost:3000
       CORE_URL: http://core:4001
       PUBLIC_CORE_URL: http://localhost:4001
-      # Feature flag for remote functions migration
-      VITE_USE_REMOTE_FUNCTIONS: "true"
+      # PostgreSQL direct access for remote functions
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
 
   postgres:
     container_name: webkit-postgres
@@ -131,6 +138,11 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   nats:
     container_name: webkit-nats
