@@ -30,6 +30,7 @@ type Querier interface {
 	DeleteConsultationVersions(ctx context.Context, consultationID uuid.UUID) error
 	DeleteFile(ctx context.Context, id uuid.UUID) error
 	DeleteNote(ctx context.Context, id uuid.UUID) error
+	DeleteSubscription(ctx context.Context, stripeSubscriptionID string) error
 	DeleteTokens(ctx context.Context) error
 	GetConsultation(ctx context.Context, id uuid.UUID) (Consultation, error)
 	GetConsultationByUser(ctx context.Context, arg GetConsultationByUserParams) (Consultation, error)
@@ -61,6 +62,10 @@ type Querier interface {
 	SelectFiles(ctx context.Context, userID uuid.UUID) ([]File, error)
 	SelectNote(ctx context.Context, id uuid.UUID) (Note, error)
 	SelectNotes(ctx context.Context, arg SelectNotesParams) ([]Note, error)
+	SelectSubscriptionByStripeID(ctx context.Context, stripeSubscriptionID string) (Subscription, error)
+	// Subscription queries
+	SelectSubscriptionByUserID(ctx context.Context, userID uuid.UUID) (Subscription, error)
+	SelectSubscriptionsByCustomerID(ctx context.Context, stripeCustomerID string) ([]Subscription, error)
 	SelectToken(ctx context.Context, id string) (Token, error)
 	SelectUser(ctx context.Context, id uuid.UUID) (User, error)
 	SelectUserByCustomerID(ctx context.Context, customerID string) (User, error)
@@ -70,6 +75,7 @@ type Querier interface {
 	UpdateConsultationDraft(ctx context.Context, arg UpdateConsultationDraftParams) (ConsultationDraft, error)
 	UpdateConsultationStatus(ctx context.Context, arg UpdateConsultationStatusParams) (Consultation, error)
 	UpdateNote(ctx context.Context, arg UpdateNoteParams) (Note, error)
+	UpdateSubscriptionStatus(ctx context.Context, arg UpdateSubscriptionStatusParams) (Subscription, error)
 	UpdateToken(ctx context.Context, arg UpdateTokenParams) error
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	UpdateUserAccess(ctx context.Context, arg UpdateUserAccessParams) (User, error)
@@ -78,6 +84,7 @@ type Querier interface {
 	UpdateUserPhone(ctx context.Context, arg UpdateUserPhoneParams) error
 	UpdateUserSubscription(ctx context.Context, arg UpdateUserSubscriptionParams) error
 	UpsertConsultationDraft(ctx context.Context, arg UpsertConsultationDraftParams) (ConsultationDraft, error)
+	UpsertSubscription(ctx context.Context, arg UpsertSubscriptionParams) (Subscription, error)
 }
 
 var _ Querier = (*Queries)(nil)

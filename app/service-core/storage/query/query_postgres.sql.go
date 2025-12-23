@@ -295,6 +295,15 @@ func (q *Queries) DeleteNote(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const deleteSubscription = `-- name: DeleteSubscription :exec
+DELETE FROM subscriptions WHERE stripe_subscription_id = $1
+`
+
+func (q *Queries) DeleteSubscription(ctx context.Context, stripeSubscriptionID string) error {
+	_, err := q.db.ExecContext(ctx, deleteSubscription, stripeSubscriptionID)
+	return err
+}
+
 const deleteTokens = `-- name: DeleteTokens :exec
 delete from tokens where expires < current_timestamp
 `
@@ -1359,6 +1368,93 @@ func (q *Queries) SelectNotes(ctx context.Context, arg SelectNotesParams) ([]Not
 	return items, nil
 }
 
+const selectSubscriptionByStripeID = `-- name: SelectSubscriptionByStripeID :one
+SELECT id, created, updated, user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, status, current_period_start, current_period_end, canceled_at FROM subscriptions WHERE stripe_subscription_id = $1
+`
+
+func (q *Queries) SelectSubscriptionByStripeID(ctx context.Context, stripeSubscriptionID string) (Subscription, error) {
+	row := q.db.QueryRowContext(ctx, selectSubscriptionByStripeID, stripeSubscriptionID)
+	var i Subscription
+	err := row.Scan(
+		&i.ID,
+		&i.Created,
+		&i.Updated,
+		&i.UserID,
+		&i.StripeCustomerID,
+		&i.StripeSubscriptionID,
+		&i.StripePriceID,
+		&i.Status,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CanceledAt,
+	)
+	return i, err
+}
+
+const selectSubscriptionByUserID = `-- name: SelectSubscriptionByUserID :one
+
+SELECT id, created, updated, user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, status, current_period_start, current_period_end, canceled_at FROM subscriptions WHERE user_id = $1 AND status = 'active' ORDER BY created DESC LIMIT 1
+`
+
+// Subscription queries
+func (q *Queries) SelectSubscriptionByUserID(ctx context.Context, userID uuid.UUID) (Subscription, error) {
+	row := q.db.QueryRowContext(ctx, selectSubscriptionByUserID, userID)
+	var i Subscription
+	err := row.Scan(
+		&i.ID,
+		&i.Created,
+		&i.Updated,
+		&i.UserID,
+		&i.StripeCustomerID,
+		&i.StripeSubscriptionID,
+		&i.StripePriceID,
+		&i.Status,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CanceledAt,
+	)
+	return i, err
+}
+
+const selectSubscriptionsByCustomerID = `-- name: SelectSubscriptionsByCustomerID :many
+SELECT id, created, updated, user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, status, current_period_start, current_period_end, canceled_at FROM subscriptions WHERE stripe_customer_id = $1 ORDER BY created DESC
+`
+
+func (q *Queries) SelectSubscriptionsByCustomerID(ctx context.Context, stripeCustomerID string) ([]Subscription, error) {
+	rows, err := q.db.QueryContext(ctx, selectSubscriptionsByCustomerID, stripeCustomerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Subscription
+	for rows.Next() {
+		var i Subscription
+		if err := rows.Scan(
+			&i.ID,
+			&i.Created,
+			&i.Updated,
+			&i.UserID,
+			&i.StripeCustomerID,
+			&i.StripeSubscriptionID,
+			&i.StripePriceID,
+			&i.Status,
+			&i.CurrentPeriodStart,
+			&i.CurrentPeriodEnd,
+			&i.CanceledAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const selectToken = `-- name: SelectToken :one
 select id, expires, target, callback from tokens where id = $1
 `
@@ -1656,6 +1752,39 @@ func (q *Queries) UpdateNote(ctx context.Context, arg UpdateNoteParams) (Note, e
 	return i, err
 }
 
+const updateSubscriptionStatus = `-- name: UpdateSubscriptionStatus :one
+UPDATE subscriptions SET
+    status = $2,
+    canceled_at = CASE WHEN $2 = 'canceled' THEN CURRENT_TIMESTAMP ELSE canceled_at END,
+    updated = CURRENT_TIMESTAMP
+WHERE stripe_subscription_id = $1
+RETURNING id, created, updated, user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, status, current_period_start, current_period_end, canceled_at
+`
+
+type UpdateSubscriptionStatusParams struct {
+	StripeSubscriptionID string `json:"stripe_subscription_id"`
+	Status               string `json:"status"`
+}
+
+func (q *Queries) UpdateSubscriptionStatus(ctx context.Context, arg UpdateSubscriptionStatusParams) (Subscription, error) {
+	row := q.db.QueryRowContext(ctx, updateSubscriptionStatus, arg.StripeSubscriptionID, arg.Status)
+	var i Subscription
+	err := row.Scan(
+		&i.ID,
+		&i.Created,
+		&i.Updated,
+		&i.UserID,
+		&i.StripeCustomerID,
+		&i.StripeSubscriptionID,
+		&i.StripePriceID,
+		&i.Status,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CanceledAt,
+	)
+	return i, err
+}
+
 const updateToken = `-- name: UpdateToken :exec
 update tokens set expires = $1 where id = $2 returning id, expires, target, callback
 `
@@ -1865,6 +1994,58 @@ func (q *Queries) UpsertConsultationDraft(ctx context.Context, arg UpsertConsult
 		&i.DraftNotes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertSubscription = `-- name: UpsertSubscription :one
+INSERT INTO subscriptions (
+    user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id,
+    status, current_period_start, current_period_end
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (stripe_subscription_id)
+DO UPDATE SET
+    stripe_price_id = EXCLUDED.stripe_price_id,
+    status = EXCLUDED.status,
+    current_period_start = EXCLUDED.current_period_start,
+    current_period_end = EXCLUDED.current_period_end,
+    updated = CURRENT_TIMESTAMP
+RETURNING id, created, updated, user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, status, current_period_start, current_period_end, canceled_at
+`
+
+type UpsertSubscriptionParams struct {
+	UserID               uuid.UUID `json:"user_id"`
+	StripeCustomerID     string    `json:"stripe_customer_id"`
+	StripeSubscriptionID string    `json:"stripe_subscription_id"`
+	StripePriceID        string    `json:"stripe_price_id"`
+	Status               string    `json:"status"`
+	CurrentPeriodStart   time.Time `json:"current_period_start"`
+	CurrentPeriodEnd     time.Time `json:"current_period_end"`
+}
+
+func (q *Queries) UpsertSubscription(ctx context.Context, arg UpsertSubscriptionParams) (Subscription, error) {
+	row := q.db.QueryRowContext(ctx, upsertSubscription,
+		arg.UserID,
+		arg.StripeCustomerID,
+		arg.StripeSubscriptionID,
+		arg.StripePriceID,
+		arg.Status,
+		arg.CurrentPeriodStart,
+		arg.CurrentPeriodEnd,
+	)
+	var i Subscription
+	err := row.Scan(
+		&i.ID,
+		&i.Created,
+		&i.Updated,
+		&i.UserID,
+		&i.StripeCustomerID,
+		&i.StripeSubscriptionID,
+		&i.StripePriceID,
+		&i.Status,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CanceledAt,
 	)
 	return i, err
 }

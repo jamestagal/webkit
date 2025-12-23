@@ -293,3 +293,39 @@ WHERE consultation_id = $1;
 
 -- name: DeleteConsultationVersions :exec
 DELETE FROM consultation_versions WHERE consultation_id = $1;
+
+-- Subscription queries
+
+-- name: SelectSubscriptionByUserID :one
+SELECT * FROM subscriptions WHERE user_id = $1 AND status = 'active' ORDER BY created DESC LIMIT 1;
+
+-- name: SelectSubscriptionByStripeID :one
+SELECT * FROM subscriptions WHERE stripe_subscription_id = $1;
+
+-- name: SelectSubscriptionsByCustomerID :many
+SELECT * FROM subscriptions WHERE stripe_customer_id = $1 ORDER BY created DESC;
+
+-- name: UpsertSubscription :one
+INSERT INTO subscriptions (
+    user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id,
+    status, current_period_start, current_period_end
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (stripe_subscription_id)
+DO UPDATE SET
+    stripe_price_id = EXCLUDED.stripe_price_id,
+    status = EXCLUDED.status,
+    current_period_start = EXCLUDED.current_period_start,
+    current_period_end = EXCLUDED.current_period_end,
+    updated = CURRENT_TIMESTAMP
+RETURNING *;
+
+-- name: UpdateSubscriptionStatus :one
+UPDATE subscriptions SET
+    status = $2,
+    canceled_at = CASE WHEN $2 = 'canceled' THEN CURRENT_TIMESTAMP ELSE canceled_at END,
+    updated = CURRENT_TIMESTAMP
+WHERE stripe_subscription_id = $1
+RETURNING *;
+
+-- name: DeleteSubscription :exec
+DELETE FROM subscriptions WHERE stripe_subscription_id = $1;

@@ -11,6 +11,7 @@ You are a SvelteKit specialist that executes frontend-specific tasks from tasks.
 ## Contents
 - [Execution Protocol](#execution-protocol)
 - [Cognitive Load Rules](#cognitive-load-rules)
+- [Remote Functions (SvelteKit 2.27+)](#remote-functions)
 - [Basic Patterns (<10)](#basic-patterns)
 - [Advanced Patterns (10-20)](#advanced-patterns)
 - [Testing Patterns](#testing-patterns)
@@ -86,6 +87,690 @@ You are a SvelteKit specialist that executes frontend-specific tasks from tasks.
     // safe to update
   }
 </script>
+```
+
+## Remote Functions (SvelteKit 2.27+)
+
+**IMPORTANT**: Remote Functions are the PREFERRED method for client-server communication in modern SvelteKit. They provide type-safe, efficient data flow with built-in caching and reactivity.
+
+### When to Use Remote Functions vs Traditional Patterns
+
+✅ **Use Remote Functions** (Preferred):
+- Type-safe client-server communication
+- Real-time data fetching with automatic caching
+- Form submissions with progressive enhancement
+- Command patterns for mutations
+- Optimistic UI updates
+- Single-flight mutations
+
+❌ **Use Traditional Patterns** (Legacy):
+- Only when Remote Functions are not available
+- When working with SvelteKit < 2.27
+- When Progressive Enhancement without JS is critical
+
+### Configuration Required
+
+Remote Functions must be enabled in `svelte.config.js`:
+
+```javascript
+// svelte.config.js
+export default {
+  kit: {
+    experimental: {
+      remoteFunctions: true
+    }
+  },
+  compilerOptions: {
+    experimental: {
+      async: true  // For await expressions in components
+    }
+  }
+};
+```
+
+### Core Remote Function Types
+
+#### 1. query - Read Dynamic Data [Load: 4]
+
+**Use for**: Fetching data that changes frequently
+
+```typescript
+// src/lib/api/posts.remote.ts
+import { query } from '$app/server';
+import { z } from 'zod';
+import * as db from '$lib/server/database';
+
+// Simple query - no arguments
+export const getPosts = query(async () => {
+  const posts = await db.sql`
+    SELECT title, slug FROM post
+    ORDER BY published_at DESC
+  `;
+  return posts;
+});
+
+// Query with validated argument
+export const getPost = query(z.string(), async (slug) => {
+  const [post] = await db.sql`
+    SELECT * FROM post WHERE slug = ${slug}
+  `;
+  if (!post) error(404, 'Not found');
+  return post;
+});
+
+// Query using getRequestEvent for auth
+export const getAuthorPosts = query(async () => {
+  const { locals } = getRequestEvent();
+  if (!locals.user) redirect(307, '/auth/login');
+
+  const posts = await db.select()
+    .from(table.posts)
+    .where(eq(table.posts.authorId, locals.user.id));
+  return posts;
+});
+```
+
+**Component usage with await** (Recommended):
+
+```svelte
+<script lang="ts">
+  import { getPosts, getPost } from '$lib/api/posts.remote';
+
+  let { params } = $props();
+
+  // Using await in template (requires compilerOptions.experimental.async)
+  const post = $derived(await getPost(params.slug));
+</script>
+
+<h1>{post.title}</h1>
+<div>{@html post.content}</div>
+
+<!-- List all posts -->
+<ul>
+  {#each await getPosts() as { title, slug }}
+    <li><a href="/blog/{slug}">{title}</a></li>
+  {/each}
+</ul>
+```
+
+**Alternative: loading/error/current properties**:
+
+```svelte
+<script lang="ts">
+  import { getPosts } from '$lib/api/posts.remote';
+
+  const query = getPosts();
+</script>
+
+{#if query.error}
+  <p>Error loading posts</p>
+{:else if query.loading}
+  <p>Loading...</p>
+{:else}
+  <ul>
+    {#each query.current as { title, slug }}
+      <li><a href="/blog/{slug}">{title}</a></li>
+    {/each}
+  </ul>
+{/if}
+```
+
+**Refreshing queries**:
+
+```svelte
+<button onclick={() => getPosts().refresh()}>
+  Check for new posts
+</button>
+```
+
+#### 2. query.batch - Batch Multiple Requests [Load: 8]
+
+**Use for**: Solving n+1 query problems
+
+```typescript
+// weather.remote.ts
+import { query } from '$app/server';
+import { z } from 'zod';
+import * as db from '$lib/server/database';
+
+export const getWeather = query.batch(z.string(), async (cities) => {
+  // Receive array of all cities requested in the same macrotask
+  const weather = await db.sql`
+    SELECT * FROM weather WHERE city = ANY(${cities})
+  `;
+
+  const lookup = new Map(weather.map(w => [w.city, w]));
+
+  // Return function to resolve individual queries
+  return (city) => lookup.get(city);
+});
+```
+
+```svelte
+<script lang="ts">
+  import { getWeather } from './weather.remote';
+
+  let { cities } = $props();
+</script>
+
+<!-- All queries batched into single database call -->
+{#each cities as city}
+  <h3>{city.name}</h3>
+  <div>{await getWeather(city.id)}</div>
+{/each}
+```
+
+#### 3. form - Form Submissions with Progressive Enhancement [Load: 6]
+
+**Use for**: Data mutations via forms (works without JavaScript)
+
+```typescript
+// posts.remote.ts
+import { form } from '$app/server';
+import { z } from 'zod';
+import { redirect } from '@sveltejs/kit';
+import * as db from '$lib/server/database';
+import { getRequestEvent } from '$app/server';
+
+const createPostSchema = z.object({
+  title: z.string().min(1),
+  slug: z.string().regex(/^[a-z0-9-]+$/),
+  content: z.string().min(1)
+});
+
+export const createPost = form(createPostSchema, async ({ title, slug, content }) => {
+  // Auth check using getRequestEvent
+  const { locals } = getRequestEvent();
+  if (!locals.user) error(401, 'Unauthorized');
+
+  // Insert into database
+  await db.insert(table.posts).values({
+    title,
+    slug,
+    content,
+    authorId: locals.user.id
+  });
+
+  // Redirect to the new post
+  redirect(303, `/blog/${slug}`);
+});
+
+// Update form with multiple submit actions
+export const updatePost = form(updatePostSchema, async ({ id, title, slug, content }) => {
+  await db.update(table.posts)
+    .set({ title, slug, content })
+    .where(eq(table.posts.id, id));
+});
+
+export const removePost = form(updatePostSchema, async ({ id }) => {
+  await db.delete(table.posts).where(eq(table.posts.id, id));
+  redirect(303, '/admin');
+});
+```
+
+**Basic form usage**:
+
+```svelte
+<script lang="ts">
+  import { createPost } from '$lib/api/posts.remote';
+</script>
+
+<h1>Create Post</h1>
+
+<form {...createPost}>
+  <label>
+    Title
+    <input {...createPost.fields.title.as('text')} />
+    {#each createPost.fields.title.issues() as issue}
+      <p class="error">{issue.message}</p>
+    {/each}
+  </label>
+
+  <label>
+    Slug
+    <input {...createPost.fields.slug.as('text')} />
+    {#each createPost.fields.slug.issues() as issue}
+      <p class="error">{issue.message}</p>
+    {/each}
+  </label>
+
+  <label>
+    Content
+    <textarea {...createPost.fields.content.as('text')}></textarea>
+    {#each createPost.fields.content.issues() as issue}
+      <p class="error">{issue.message}</p>
+    {/each}
+  </label>
+
+  <button type="submit" aria-busy={!!createPost.pending}>
+    Publish
+  </button>
+</form>
+```
+
+**Form with hidden fields**:
+
+```svelte
+<script lang="ts">
+  import { updatePost } from '$lib/api/posts.remote';
+
+  let { params } = $props();
+  const post = $derived(await getPost(params.slug));
+</script>
+
+<form {...updatePost}>
+  <input {...updatePost.fields.title.as('text')} value={post.title} />
+  <input {...updatePost.fields.slug.as('text')} value={post.slug} />
+  <textarea {...updatePost.fields.content.as('text')} value={post.content}></textarea>
+
+  <!-- Hidden field for ID -->
+  <input {...updatePost.fields.id.as('hidden', post.id.toString())} />
+
+  <button type="submit" aria-busy={!!updatePost.pending}>Update</button>
+</form>
+```
+
+**Multiple buttons (buttonProps)**:
+
+```svelte
+<form {...updatePost}>
+  <!-- Form fields -->
+
+  <button type="submit">Update</button>
+  <button {...removePost.buttonProps} aria-busy={!!removePost.pending}>
+    Delete
+  </button>
+</form>
+```
+
+**Form validation patterns**:
+
+```svelte
+<script lang="ts">
+  import { createPost } from '$lib/api/posts.remote';
+  import { z } from 'zod';
+
+  // Client-side preflight validation
+  const schema = z.object({
+    title: z.string().min(1),
+    slug: z.string().regex(/^[a-z0-9-]+$/),
+    content: z.string().min(1)
+  });
+</script>
+
+<!-- Preflight prevents submission if invalid -->
+<form {...createPost.preflight(schema)}>
+  <!-- Fields -->
+</form>
+
+<!-- Programmatic validation on input -->
+<form {...createPost} oninput={() => createPost.validate()}>
+  <!-- Fields -->
+</form>
+
+<!-- Get all issues across fields -->
+{#each createPost.fields.allIssues() as issue}
+  <p class="error">{issue.message}</p>
+{/each}
+```
+
+**Form enhance for custom behavior**:
+
+```svelte
+<script lang="ts">
+  import { createPost } from '$lib/api/posts.remote';
+  import { showToast } from '$lib/toast';
+</script>
+
+<form {...createPost.enhance(async ({ form, data, submit }) => {
+  try {
+    await submit();
+    form.reset();  // Clear form on success
+    showToast('Post created successfully!');
+  } catch (error) {
+    showToast('Failed to create post');
+  }
+})}>
+  <!-- Form fields -->
+</form>
+```
+
+**Getting/setting field values**:
+
+```svelte
+<script lang="ts">
+  import { createPost } from '$lib/api/posts.remote';
+
+  // Get individual field value
+  let titleValue = createPost.fields.title.value();
+
+  // Get all field values
+  let formValues = createPost.fields.value();
+
+  // Set field value
+  createPost.fields.title.set('New Title');
+
+  // Set multiple fields
+  createPost.fields.set({
+    title: 'My Post',
+    slug: 'my-post',
+    content: 'Content here...'
+  });
+</script>
+
+<!-- Live preview using field values -->
+<div class="preview">
+  <h2>{createPost.fields.title.value()}</h2>
+  <div>{createPost.fields.content.value()}</div>
+</div>
+```
+
+**Multiple form instances**:
+
+```svelte
+<script lang="ts">
+  import { getTodos, modifyTodo } from '$lib/api/todos.remote';
+</script>
+
+{#each await getTodos() as todo}
+  {@const modify = modifyTodo.for(todo.id)}
+
+  <form {...modify}>
+    <input {...modify.fields.title.as('text')} value={todo.title} />
+    <button disabled={!!modify.pending}>Save</button>
+  </form>
+{/each}
+```
+
+#### 4. command - Imperative Mutations [Load: 5]
+
+**Use for**: Programmatic mutations (not form-based)
+
+```typescript
+// likes.remote.ts
+import { command, query } from '$app/server';
+import { z } from 'zod';
+import { sql } from 'drizzle-orm';
+import * as db from '$lib/server/database';
+
+export const getLikes = query(z.number(), async (postId) => {
+  const [{ likes }] = await db.select({ likes: table.posts.likes })
+    .from(table.posts)
+    .where(eq(table.posts.id, postId));
+  return likes ?? 0;
+});
+
+export const likePost = command(z.number(), async (postId) => {
+  await db.update(table.posts)
+    .set({ likes: sql`${table.posts.likes} + 1` })
+    .where(eq(table.posts.id, postId));
+
+  // Refresh the query so UI updates
+  getLikes(postId).refresh();
+});
+```
+
+```svelte
+<script lang="ts">
+  import { getLikes, likePost } from '$lib/api/likes.remote';
+  import { showToast } from '$lib/toast';
+
+  let { post } = $props();
+</script>
+
+<button
+  onclick={async () => {
+    try {
+      // With optimistic update
+      await likePost(post.id).updates(
+        getLikes(post.id).withOverride((n) => n + 1)
+      );
+    } catch (error) {
+      showToast('Failed to like post');
+    }
+  }}
+>
+  ❤️ {await getLikes(post.id)}
+</button>
+```
+
+#### 5. prerender - Static Data (Build-Time) [Load: 3]
+
+**Use for**: Data that rarely changes
+
+```typescript
+// posts.remote.ts
+import { prerender } from '$app/server';
+import { z } from 'zod';
+import * as db from '$lib/server/database';
+
+// Prerendered at build time
+export const getPosts = prerender(async () => {
+  const posts = await db.sql`
+    SELECT title, slug FROM post
+    ORDER BY published_at DESC
+  `;
+  return posts;
+});
+
+// With inputs specification
+export const getPost = prerender(
+  z.string(),
+  async (slug) => {
+    const [post] = await db.sql`
+      SELECT * FROM post WHERE slug = ${slug}
+    `;
+    if (!post) error(404, 'Not found');
+    return post;
+  },
+  {
+    inputs: () => ['first-post', 'second-post', 'third-post'],
+    dynamic: true  // Allow runtime calls with non-prerendered inputs
+  }
+);
+```
+
+### Single-Flight Mutations
+
+**Server-side refresh**:
+
+```typescript
+export const createPost = form(createPostSchema, async (data) => {
+  // Create post...
+
+  // Refresh queries so they update automatically
+  await getPosts().refresh();
+
+  redirect(303, `/blog/${slug}`);
+});
+```
+
+**Client-side with enhance**:
+
+```svelte
+<script lang="ts">
+  import { createPost, getPosts } from '$lib/api/posts.remote';
+</script>
+
+<form {...createPost.enhance(async ({ submit }) => {
+  // Refresh specific query after submission
+  await submit().updates(getPosts());
+})}>
+  <!-- Form fields -->
+</form>
+```
+
+**Optimistic updates**:
+
+```svelte
+<script lang="ts">
+  import { createPost, getPosts } from '$lib/api/posts.remote';
+
+  let newPost = { title: 'New Post', slug: 'new-post', content: '...' };
+</script>
+
+<form {...createPost.enhance(async ({ submit }) => {
+  // Optimistically add to list
+  await submit().updates(
+    getPosts().withOverride((posts) => [newPost, ...posts])
+  );
+})}>
+  <!-- Form fields -->
+</form>
+```
+
+### Schema Validation Patterns
+
+**Zod schemas for Remote Functions**:
+
+```typescript
+// src/lib/schema/posts.ts
+import { z } from 'zod/mini';  // Use zod/mini for smaller bundle
+
+const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export const createPostSchema = z.object({
+  title: z.string(),
+  slug: z.string().check(z.regex(slugRegex)),
+  content: z.string()
+});
+
+export const updatePostSchema = z.object({
+  id: z.pipe(
+    z.string(),
+    z.transform((id) => Number(id))
+  ),
+  title: z.string(),
+  slug: z.string().check(z.regex(slugRegex)),
+  content: z.string()
+});
+
+export const postCommentSchema = z.object({
+  postId: z.pipe(
+    z.string(),
+    z.transform((id) => Number(id))
+  ),
+  author: z.string(),
+  comment: z.string().check(z.minLength(2))
+});
+```
+
+**Using schemas in Remote Functions**:
+
+```typescript
+import { createPostSchema } from '$lib/schema/posts';
+import { form } from '$app/server';
+
+export const createPost = form(createPostSchema, async (data) => {
+  // data is typed and validated
+  const { title, slug, content } = data;
+  // ...
+});
+```
+
+### Auth Helper Pattern
+
+```typescript
+// posts.remote.ts
+import { getRequestEvent } from '$app/server';
+import { redirect } from '@sveltejs/kit';
+
+function requireAuth() {
+  const { locals } = getRequestEvent();
+
+  if (!locals.user) {
+    redirect(307, '/auth/login');
+  }
+
+  return locals.user;
+}
+
+export const getAuthorPosts = query(async () => {
+  const user = requireAuth();
+  // user is guaranteed to exist here
+  return await db.select()
+    .from(table.posts)
+    .where(eq(table.posts.authorId, user.id));
+});
+```
+
+### Remote Functions File Organization
+
+```
+src/lib/
+├── api/                    # Remote function files
+│   ├── posts.remote.ts    # Post-related functions
+│   ├── auth.remote.ts     # Auth functions
+│   └── comments.remote.ts # Comment functions
+├── schema/                 # Validation schemas
+│   ├── posts.ts
+│   └── auth.ts
+└── server/                 # Server-only utilities
+    ├── database.ts
+    └── auth.ts
+```
+
+### Remote Functions Best Practices
+
+1. **Always validate inputs** with Standard Schema (Zod/Valibot)
+2. **Use getRequestEvent()** for accessing cookies, headers, locals
+3. **Break cache references** when updating queries
+4. **Prefer query over command** when possible (better DX)
+5. **Use form for mutations** that need progressive enhancement
+6. **Batch related queries** to avoid n+1 problems
+7. **Prerender static data** for CDN caching
+8. **Handle errors gracefully** with try/catch
+9. **Return typed data** for full type safety
+10. **Use single-flight mutations** to avoid extra round trips
+
+### Cognitive Load Guidelines for Remote Functions
+
+- Simple query: Load 3-4
+- Query with validation: Load 4-5
+- Form with fields: Load 6-8
+- Command with updates: Load 5-6
+- Batch query: Load 8-10
+- Complex form with enhance: Load 12-15
+
+### Migration from Traditional Patterns
+
+**❌ Old Pattern (Form Actions)**:
+```typescript
+// +page.server.ts
+export const actions = {
+  create: async ({ request }) => {
+    const data = await request.formData();
+    // ...
+  }
+};
+```
+
+**✅ New Pattern (Remote Functions)**:
+```typescript
+// posts.remote.ts
+export const createPost = form(schema, async (data) => {
+  // ...
+});
+```
+
+**❌ Old Pattern (Load Functions)**:
+```typescript
+// +page.ts
+export const load = async ({ fetch }) => {
+  const posts = await fetch('/api/posts').then(r => r.json());
+  return { posts };
+};
+```
+
+**✅ New Pattern (Remote Functions)**:
+```typescript
+// posts.remote.ts
+export const getPosts = query(async () => {
+  return await db.select().from(table.posts);
+});
+
+// Component
+const posts = await getPosts();
 ```
 
 ## Pattern Library

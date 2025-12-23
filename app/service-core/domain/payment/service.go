@@ -1,172 +1,250 @@
 package payment
 
 import (
-	"app/pkg"
-	"app/pkg/auth"
 	"context"
+	"encoding/json"
+	"errors"
+	"gofast/pkg"
+	"gofast/pkg/auth"
+	ot "gofast/pkg/otel"
+	"gofast/service-core/config"
+	"gofast/service-core/storage/query"
 	"log/slog"
-	"service-core/config"
-	"service-core/storage/query"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/stripe/stripe-go/v84"
+	portal_session "github.com/stripe/stripe-go/v84/billingportal/session"
+	checkout_session "github.com/stripe/stripe-go/v84/checkout/session"
+	"github.com/stripe/stripe-go/v84/customer"
+	"github.com/stripe/stripe-go/v84/webhook"
+	"go.opentelemetry.io/otel/trace"
 )
 
-type store interface {
-	SelectUser(ctx context.Context, id uuid.UUID) (query.User, error)
-	SelectUserByCustomerID(ctx context.Context, customerID string) (query.User, error)
-	UpdateUserCustomerID(ctx context.Context, params query.UpdateUserCustomerIDParams) error
-	UpdateUserSubscription(ctx context.Context, params query.UpdateUserSubscriptionParams) error
-}
-
-type provider interface {
-	CreateCustomer(ctx context.Context, userEmail string) (customerID string, err error)
-	CreatePaymentPortal(ctx context.Context, customerID string) (url string, err error)
-	CreatePaymentCheckout(ctx context.Context, customerID string, plan string) (url string, err error)
-	UpdateSubscription(ctx context.Context, subscriptionID string, priceID string) (err error)
-	HandleWebhook(ctx context.Context, payload []byte, signature string) (customerID string, subscriptionID string, subEndDate *time.Time, priceID string, err error)
-}
-
-type Service struct {
-	cfg      *config.Config
-	store    store
-	provider provider
-}
-
-func NewService(
-	cfg *config.Config,
-	store store,
-	provider provider,
-) *Service {
-	return &Service{
-		cfg:      cfg,
-		store:    store,
-		provider: provider,
-	}
+type Deps struct {
+	Cfg   *config.Config
+	Store *query.Queries
 }
 
 type URLResponse struct {
 	URL string `json:"url"`
 }
 
-func (s *Service) CreatePaymentPortal(
-	ctx context.Context,
-	userID uuid.UUID,
-) (*URLResponse, error) {
-	u, err := s.store.SelectUser(ctx, userID)
-	if err != nil {
-		return nil, pkg.InternalError{Message: "Error selecting user by ID", Err: err}
+func authorize(ctx context.Context, span trace.Span, requiredAccess int64) (*auth.AccessTokenClaims, error) {
+	claims, ok := auth.UserFromContext(ctx)
+	if !ok {
+		return nil, pkg.UnauthorizedError{Message: "No claims found in context", Err: errors.New("no claims found in context")}
 	}
-	url, err := s.provider.CreatePaymentPortal(ctx, u.CustomerID)
-	if err != nil {
-		return nil, pkg.InternalError{Message: "Error creating payment portal", Err: err}
+	if !auth.HasAccess(requiredAccess, claims.Access) {
+		return nil, pkg.ForbiddenError{Message: "Insufficient permissions", Err: errors.New("forbidden")}
 	}
-	return &URLResponse{URL: url}, nil
+	span.AddEvent("Authorization successful")
+	return claims, nil
 }
 
-func (s *Service) CreatePaymentCheckout(
-	ctx context.Context,
-	userID uuid.UUID,
-	userEmail string,
-	plan string,
-) (*URLResponse, error) {
-	u, err := s.store.SelectUser(ctx, userID)
+func CreatePaymentCheckout(ctx context.Context, d *Deps, plan, successURL, cancelURL string) (url *URLResponse, err error) {
+	ctx, span, done := ot.StartSpan(ctx, "payment.service.CreatePaymentCheckout")
+	defer func() { done(err) }()
+
+	claims, err := authorize(ctx, span, auth.EditSkeleton)
+	if err != nil {
+		return nil, err
+	}
+	user, err := d.Store.SelectUserByID(ctx, claims.ID)
 	if err != nil {
 		return nil, pkg.InternalError{Message: "Error selecting user by ID", Err: err}
 	}
 
-	if u.CustomerID == "" {
-		customerID, err := s.provider.CreateCustomer(ctx, userEmail)
+	if user.CustomerID == "" {
+		customerID, err := createCustomer(ctx, d, user.Email)
 		if err != nil {
 			return nil, pkg.InternalError{Message: "Error creating customer", Err: err}
 		}
 		params := query.UpdateUserCustomerIDParams{
-			ID:         userID,
+			ID:         user.ID,
 			CustomerID: customerID,
 		}
-		err = s.store.UpdateUserCustomerID(ctx, params)
-		u.CustomerID = customerID
+		err = d.Store.UpdateUserCustomerID(ctx, params)
+		user.CustomerID = customerID
 		if err != nil {
 			return nil, pkg.InternalError{Message: "Error updating customer ID", Err: err}
 		}
 	}
 
 	var priceID string
-	if plan == "premium" {
-		priceID = s.cfg.StripePriceIDPremium
+	if plan == "pro" {
+		priceID = d.Cfg.StripePriceIDPro
 	} else {
-		priceID = s.cfg.StripePriceIDBasic
+		priceID = d.Cfg.StripePriceIDBasic
 	}
 
-	url, err := s.provider.CreatePaymentCheckout(ctx, u.CustomerID, priceID)
+	stripe.Key = d.Cfg.StripeAPIKey
+
+	params := &stripe.CheckoutSessionParams{
+		Params: stripe.Params{
+			Context: ctx,
+		},
+		SuccessURL: stripe.String(successURL),
+		CancelURL:  stripe.String(cancelURL),
+		PaymentMethodTypes: stripe.StringSlice([]string{
+			"card",
+		}),
+		// For subscription
+		Mode: stripe.String("subscription"),
+		// For one-time payment
+		// Mode: stripe.String("payment"),
+		LineItems: []*stripe.CheckoutSessionLineItemParams{
+			{
+				Price:    stripe.String(priceID),
+				Quantity: stripe.Int64(1),
+			},
+		},
+		Customer: stripe.String(user.CustomerID),
+		// For one-time payment
+		// InvoiceCreation: &stripe.CheckoutSessionInvoiceCreationParams{
+		//     Enabled: stripe.Bool(true),
+		// },
+		AllowPromotionCodes: stripe.Bool(true),
+	}
+
+	session, err := checkout_session.New(params)
 	if err != nil {
 		return nil, pkg.InternalError{Message: "Error creating payment checkout", Err: err}
 	}
-	return &URLResponse{URL: url}, nil
+	return &URLResponse{URL: session.URL}, nil
 }
 
-func (s *Service) UpdateSubscription(
-	ctx context.Context,
-	userID uuid.UUID,
-	plan string,
-) error {
-	u, err := s.store.SelectUser(ctx, userID)
+func CreatePaymentPortal(ctx context.Context, d *Deps, returnURL string) (url *URLResponse, err error) {
+	ctx, span, done := ot.StartSpan(ctx, "payment.service.CreatePaymentPortal")
+	defer func() { done(err) }()
+
+	claims, err := authorize(ctx, span, auth.EditSkeleton)
 	if err != nil {
-		return pkg.InternalError{Message: "Error selecting user by ID", Err: err}
+		return nil, err
 	}
-	if u.SubscriptionID == "" {
-		return pkg.InternalError{Message: "User does not have a subscription", Err: err}
+
+	user, err := d.Store.SelectUserByID(ctx, claims.ID)
+	if err != nil {
+		return nil, pkg.InternalError{Message: "Error selecting user by ID", Err: err}
 	}
-	var priceID string
-	switch plan {
-	case "premium":
-		priceID = s.cfg.StripePriceIDPremium
+	span.AddEvent("User selected from store")
+
+	stripe.Key = d.Cfg.StripeAPIKey
+	params := &stripe.BillingPortalSessionParams{
+		Params: stripe.Params{
+			Context: ctx,
+		},
+		Customer:  stripe.String(user.CustomerID),
+		ReturnURL: stripe.String(returnURL),
+	}
+	session, err := portal_session.New(params)
+	if err != nil {
+		return nil, pkg.InternalError{Message: "Error creating payment portal session", Err: err}
+	}
+	span.AddEvent("Portal session created")
+
+	return &URLResponse{URL: session.URL}, nil
+}
+
+func Webhook(ctx context.Context, d *Deps, signature string, payload []byte) (err error) {
+	ctx, span, done := ot.StartSpan(ctx, "payment.service.Webhook")
+	defer func() { done(err) }()
+
+	endpointSecret := d.Cfg.StripeWebhookSecret
+	event, err := webhook.ConstructEvent(payload, signature, endpointSecret)
+	if err != nil {
+		return pkg.InternalError{Message: "Error verifying webhook signature", Err: err}
+	}
+	span.AddEvent("Webhook signature verified")
+
+	switch event.Type {
+	case stripe.EventTypeInvoicePaid:
+		return handleInvoicePaid(ctx, d, event)
 	default:
-		priceID = s.cfg.StripePriceIDBasic
-	}
-	err = s.provider.UpdateSubscription(ctx, u.SubscriptionID, priceID)
-	if err != nil {
-		return pkg.InternalError{Message: "Error updating subscription", Err: err}
-	}
-	return nil
-}
-
-func (s *Service) Webhook(
-	ctx context.Context,
-	signature string,
-	payload []byte,
-) error {
-	customerID, subscriptionID, subEndDate, priceID, err := s.provider.HandleWebhook(ctx, payload, signature)
-	if err != nil {
-		return pkg.InternalError{Message: "Error handling webhook", Err: err}
-	}
-	if subEndDate == nil {
+		slog.Info("Unhandled event type", "type", event.Type)
 		return nil
 	}
-	user, err := s.store.SelectUserByCustomerID(ctx, customerID)
-	switch priceID {
-	case s.cfg.StripePriceIDBasic:
-		user.Access |= auth.BasicPlan
-		user.Access &^= auth.PremiumPlan
-	case s.cfg.StripePriceIDPremium:
-		user.Access |= auth.PremiumPlan
-		user.Access &^= auth.BasicPlan
-	case "local_price_id":
-		user.Access |= auth.BasicPlan
-		user.Access &^= auth.PremiumPlan
-	default:
-		return pkg.InternalError{Message: "Unknown price ID", Err: err}
-	}
-	params := query.UpdateUserSubscriptionParams{
-		CustomerID:      customerID,
-		Access:          user.Access,
-		SubscriptionID:  subscriptionID,
-		SubscriptionEnd: *subEndDate,
-	}
-	err = s.store.UpdateUserSubscription(ctx, params)
+}
+
+func handleInvoicePaid(ctx context.Context, d *Deps, event stripe.Event) (err error) {
+	ctx, span, done := ot.StartSpan(ctx, "payment.service.handleInvoicePaid")
+	defer func() { done(err) }()
+
+	var invoice stripe.Invoice
+	err = json.Unmarshal(event.Data.Raw, &invoice)
 	if err != nil {
-		return pkg.InternalError{Message: "Error updating subscription end date", Err: err}
+		return pkg.InternalError{Message: "Error parsing invoice JSON", Err: err}
 	}
-	slog.Info("------ Subscription updated ------", "customerID", customerID, "subscriptionID", subscriptionID, "subEndDate", subEndDate)
+	if len(invoice.Lines.Data) == 0 {
+		return pkg.InternalError{Message: "No invoice lines", Err: errors.New("no invoice lines")}
+	}
+	span.AddEvent("Invoice parsed")
+
+	// Look for positive amount line item
+	var line *stripe.InvoiceLineItem
+	for _, l := range invoice.Lines.Data {
+		if l.Amount > 0 {
+			line = l
+			break
+		}
+	}
+	if line == nil {
+		slog.Info("No positive amount line item found")
+		span.AddEvent("No positive amount line item")
+		return nil
+	}
+
+	customerID := invoice.Customer.ID
+	subscriptionID := line.Parent.SubscriptionItemDetails.Subscription
+	priceID := line.Pricing.PriceDetails.Price
+	periodStart := time.Unix(line.Period.Start, 0)
+	periodEnd := time.Unix(line.Period.End, 0).AddDate(0, 0, d.Cfg.SubscriptionSafePeriodDays)
+
+	if subscriptionID == "" || priceID == "" {
+		return pkg.InternalError{Message: "Subscription ID or price ID is empty", Err: errors.New("subscription ID or price ID is empty")}
+	}
+
+	// Find user by customer ID
+	user, err := d.Store.SelectUserByCustomerID(ctx, customerID)
+	if err != nil {
+		return pkg.InternalError{Message: "Error selecting user by customer ID", Err: err}
+	}
+	span.AddEvent("User selected by customer ID")
+
+	// Upsert subscription record
+	_, err = d.Store.UpsertSubscription(ctx, query.UpsertSubscriptionParams{
+		UserID:               user.ID,
+		StripeCustomerID:     customerID,
+		StripeSubscriptionID: subscriptionID,
+		StripePriceID:        priceID,
+		Status:               "active",
+		CurrentPeriodStart:   periodStart,
+		CurrentPeriodEnd:     periodEnd,
+	})
+	if err != nil {
+		return pkg.InternalError{Message: "Error upserting subscription", Err: err}
+	}
+	span.AddEvent("Subscription upserted")
+
+	slog.Info("Subscription upserted", "customerID", customerID, "subscriptionID", subscriptionID, "priceID", priceID, "periodEnd", periodEnd)
 	return nil
+}
+
+func createCustomer(ctx context.Context, d *Deps, userEmail string) (customerID string, err error) {
+	ctx, span, done := ot.StartSpan(ctx, "payment.service.createCustomer")
+	defer func() { done(err) }()
+
+	stripe.Key = d.Cfg.StripeAPIKey
+	params := &stripe.CustomerParams{
+		Params: stripe.Params{
+			Context: ctx,
+		},
+		Email: stripe.String(userEmail),
+	}
+	c, err := customer.New(params)
+	if err != nil {
+		return "", pkg.InternalError{Message: "Error creating customer", Err: err}
+	}
+	span.AddEvent("Customer created in Stripe")
+
+	return c.ID, nil
 }

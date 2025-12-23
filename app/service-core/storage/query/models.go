@@ -96,6 +96,20 @@ type Note struct {
 	Content  string    `json:"content"`
 }
 
+type Subscription struct {
+	ID                   uuid.UUID    `json:"id"`
+	Created              time.Time    `json:"created"`
+	Updated              time.Time    `json:"updated"`
+	UserID               uuid.UUID    `json:"user_id"`
+	StripeCustomerID     string       `json:"stripe_customer_id"`
+	StripeSubscriptionID string       `json:"stripe_subscription_id"`
+	StripePriceID        string       `json:"stripe_price_id"`
+	Status               string       `json:"status"`
+	CurrentPeriodStart   time.Time    `json:"current_period_start"`
+	CurrentPeriodEnd     time.Time    `json:"current_period_end"`
+	CanceledAt           sql.NullTime `json:"canceled_at"`
+}
+
 type Token struct {
 	ID       string    `json:"id"`
 	Expires  time.Time `json:"expires"`

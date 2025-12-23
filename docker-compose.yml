@@ -117,6 +117,8 @@ services:
       PUBLIC_CLIENT_URL: http://localhost:3000
       CORE_URL: http://core:4001
       PUBLIC_CORE_URL: http://localhost:4001
+      # Feature flag for remote functions migration
+      VITE_USE_REMOTE_FUNCTIONS: "true"
 
   postgres:
     container_name: webkit-postgres

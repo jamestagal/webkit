@@ -375,6 +375,15 @@ func (h *Handler) getDraft(w http.ResponseWriter, r *http.Request, consultationI
 		return
 	}
 
+	// Handle nil draft (no draft exists yet)
+	if draft == nil {
+		writeResponse(h.cfg, w, r, nil, pkg.NotFoundError{
+			Message: "Draft not found",
+			Err:     fmt.Errorf("draft does not exist for consultation %s", consultationID),
+		})
+		return
+	}
+
 	writeResponse(h.cfg, w, r, draft.ToDTO(), nil)
 }
 

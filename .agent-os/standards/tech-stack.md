@@ -23,6 +23,8 @@ Global tech stack defaults for Agent OS projects, overridable in project-specifi
 - **Framework:** SvelteKit 5 with Svelte 5 runes
 - **Language:** TypeScript for type safety
 - **State Management:** Svelte 5 native reactivity system
+- **Client-Server Communication:** Remote Functions (SvelteKit 2.27+) with type-safe query/form/command patterns
+- **Validation:** Zod for schema validation (zod/mini for smaller bundles)
 - **HTTP Client:** Native fetch with typed API clients
 
 ## CSS Framework
@@ -78,3 +80,11 @@ Global tech stack defaults for Agent OS projects, overridable in project-specifi
 - **Linting:** ESLint for JavaScript/TypeScript, golangci-lint for Go
 - **Formatting:** Prettier for frontend, gofmt for Go
 - **Package Management:** npm for frontend, Go modules for backend
+
+## SvelteKit-Specific Patterns
+
+- **Remote Functions:** Enabled via `kit.experimental.remoteFunctions: true`
+- **Async Components:** Enabled via `compilerOptions.experimental.async: true`
+- **Data Fetching:** query/query.batch for reads, form/command for mutations
+- **Progressive Enhancement:** Forms work without JavaScript via form actions
+- **Type Safety:** End-to-end type safety with Zod schemas and inferred types

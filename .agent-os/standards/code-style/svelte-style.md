@@ -372,11 +372,56 @@ let { prop = 'default' } = $props();   // ✅ Svelte 5
 {/each}
 ```
 
+## Client-Server Communication
+
+### Remote Functions (Preferred - SvelteKit 2.27+)
+
+For detailed Remote Functions patterns, see `.agent-os/standards/remote-functions.md`
+
+**Quick Reference:**
+```typescript
+// In *.remote.ts files
+import { query, form, command } from '$app/server';
+
+// Read data
+export const getPosts = query(async () => { /* ... */ });
+
+// Form submission
+export const createPost = form(schema, async (data) => { /* ... */ });
+
+// Imperative mutation
+export const likePost = command(z.number(), async (id) => { /* ... */ });
+```
+
+```svelte
+<!-- In components -->
+<script lang="ts">
+  import { getPosts, createPost } from '$lib/api/posts.remote';
+
+  // Use with await
+  const posts = await getPosts();
+</script>
+
+<!-- Forms with progressive enhancement -->
+<form {...createPost}>
+  <input {...createPost.fields.title.as('text')} />
+  <button aria-busy={!!createPost.pending}>Submit</button>
+</form>
+```
+
+### Traditional Patterns (Legacy)
+
+Only use when Remote Functions are unavailable:
+- Form actions in `+page.server.ts`
+- API routes in `+server.ts`
+- Load functions in `+page.ts`
+
 ## Quality Checklist
 
 Before committing Svelte code, verify:
 
 - [ ] Uses Svelte 5 runes (no Svelte 4 patterns)
+- [ ] Uses Remote Functions for client-server communication (when available)
 - [ ] Checked for existing components before creating new ones
 - [ ] Follows consistent naming conventions
 - [ ] Implements proper error handling
@@ -385,3 +430,4 @@ Before committing Svelte code, verify:
 - [ ] Maintains responsive design
 - [ ] Includes proper TypeScript types (if applicable)
 - [ ] Follows project's TailwindCSS patterns
+- [ ] Validates all remote function inputs with Zod schemas

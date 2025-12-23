@@ -14,7 +14,7 @@ export const ContactInfoSchema = z.object({
 	email: z.string().email().optional(),
 	phone: z.string().optional(),
 	website: z.string().url().optional(),
-	social_media: z.record(z.any()).optional(),
+	social_media: z.record(z.string(), z.any()).optional(),
 });
 export type ContactInfo = z.infer<typeof ContactInfoSchema>;
 
