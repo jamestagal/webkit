@@ -1,138 +1,102 @@
 package main
 
 import (
+	"app/pkg"
+	"app/pkg/auth"
 	"context"
-	"gofast/gen/proto/v1/v1connect"
-	"gofast/pkg/logger"
-	"gofast/pkg/otel"
-	"gofast/service-core/config"
-	loginSvc "gofast/service-core/domain/login"
-	// GF_STRIPE_START
-	"gofast/service-core/domain/payment"
-	// GF_STRIPE_END
-	"gofast/service-core/storage"
-	"gofast/service-core/storage/query"
-	"gofast/service-core/transport"
-	loginRoute "gofast/service-core/transport/login"
-	// GF_STRIPE_START
-	paymentRoute "gofast/service-core/transport/payment"
-	// GF_STRIPE_END
 	"log/slog"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-
-	// GF_MAIN_IMPORT_SERVICES_START
-	skeletonSvc "gofast/service-core/domain/skeleton"
-	// GF_MAIN_IMPORT_SERVICES_END
-	// GF_MAIN_IMPORT_ROUTES_START
-	skeletonRoute "gofast/service-core/transport/skeleton"
-	// GF_MAIN_IMPORT_ROUTES_END
+	"service-core/config"
+	"service-core/domain/consultation"
+	"service-core/domain/email"
+	"service-core/domain/file"
+	"service-core/domain/login"
+	"service-core/domain/note"
+	"service-core/domain/payment"
+	"service-core/domain/user"
+	"service-core/grpc"
+	"service-core/rest"
+	"service-core/storage"
+	"service-core/storage/query"
 )
 
 func main() {
-	ctx := context.Background()
 	// Load the configuration
 	cfg := config.LoadConfig()
 
 	// Set up the logger
-	logger.InitLogger(cfg.LogLevel, cfg.ServiceName)
-
-	// Set up OpenTelemetry
-	shutdown, err := otel.SetupOTelSDK(ctx, cfg.AlloyURL, cfg.ServiceName)
-	if err != nil {
-		slog.ErrorContext(ctx, "Error setting up OpenTelemetry", "error", err)
-		panic(err)
-	}
-	defer func() {
-		err := shutdown(ctx)
-		if err != nil {
-			slog.ErrorContext(ctx, "Error shutting down OpenTelemetry", "error", err)
-		}
-	}()
+	pkg.InitLogger(cfg.LogLevel)
 
 	// Connect to the database
 	s, clean, err := storage.NewStorage(cfg)
+	defer clean()
 	if err != nil {
-		slog.ErrorContext(ctx, "Error opening database", "error", err)
+		slog.Error("Error opening database", "error", err)
 		panic(err)
 	}
-	defer clean()
-
 	err = s.Conn.PingContext(context.Background())
 	if err != nil {
-		slog.ErrorContext(ctx, "Error connecting to database", "error", err)
+		slog.Error("Error connecting to database", "error", err)
 		panic(err)
 	}
-	slog.InfoContext(ctx, "Database connected")
+	slog.Info("Database connected")
 
-	// Set up the store
-	store := query.New(s.Conn)
+	// Set up the REST handlers
+	restHandler := setupRESTHandlers(cfg, s)
+	// Run the REST server
+	rest.Run(restHandler)
 
-	// Initialize login deps
-	loginDeps := loginSvc.Deps{
-		Cfg:    cfg,
-		Store:  store,
-		OAuth:  loginSvc.OAuth{},
-		Twilio: loginSvc.NewTwilioClient(),
-	}
-	// GF_STRIPE_START
-	// Initialize payment deps
-	paymentDeps := payment.Deps{
-		Cfg:   cfg,
-		Store: store,
-	}
-	// GF_STRIPE_END
-	// GF_MAIN_INIT_SERVICES_START
-	skeletonDeps := skeletonSvc.Deps{Store: store}
-	// GF_MAIN_INIT_SERVICES_END
+	// Set up the gRPC handlers
+	grpcHandler := setupGRPCHandlers(cfg, s)
+	// Run the gRPC server
+	grpc.Run(grpcHandler)
 
-	// Create transport server
-	server := transport.NewServer(cfg, store, loginDeps)
+	select {}
+}
 
-	// Mount login routes
-	loginServer := loginRoute.NewLoginServer(loginDeps)
-	path, handler := v1connect.NewLoginServiceHandler(loginServer, server.Interceptors())
-	server.Mount(path, handler)
-	server.MountFunc("/login-callback", loginServer.LoginCallback)
-	// GF_STRIPE_START
-	// Mount payment routes
-	paymentServer := paymentRoute.NewPaymentServer(paymentDeps)
-	path, handler = v1connect.NewPaymentServiceHandler(paymentServer, server.Interceptors())
-	server.Mount(path, handler)
-	server.MountFunc("/payments-webhook", paymentServer.Webhook)
-	// GF_STRIPE_END
-	// Mount model routes
-	// GF_MAIN_MOUNT_ROUTES_START
-	skeletonServer := skeletonRoute.NewSkeletonServer(skeletonDeps)
-	path, handler = v1connect.NewSkeletonServiceHandler(skeletonServer, server.Interceptors())
-	server.Mount(path, handler)
-	// GF_MAIN_MOUNT_ROUTES_END
+func setupRESTHandlers(cfg *config.Config, storage *storage.Storage) *rest.Handler {
+	store := query.New(storage.Conn)
+	authService := auth.NewService()
+	fileProvider := file.NewProvider(cfg)
+	fileService := file.NewService(cfg, store, fileProvider)
+	emailProvider := email.NewProvider(cfg)
+	emailService := email.NewService(cfg, store, emailProvider, fileService)
+	loginService := login.NewService(cfg, store, authService, emailService)
+	paymentProvider := payment.NewProvider(cfg)
+	paymentService := payment.NewService(cfg, store, paymentProvider)
+	noteService := note.NewService(store)
 
-	// Run the server
-	shutdown, errCh := server.Run()
+	// Initialize consultation domain services
+	consultationRepo := consultation.NewRepository(store)
+	draftRepo := consultation.NewDraftRepository(store)
+	versionRepo := consultation.NewVersionRepository(store)
+	consultationService := consultation.NewConsultationService(consultationRepo, draftRepo, versionRepo)
 
-	// Wait for interrupt signal or server error
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	apiHandler := rest.NewHandler(
+		cfg,
+		storage,
+		authService,
+		loginService,
+		paymentService,
+		emailService,
+		fileService,
+		noteService,
+		consultationService,
+	)
+	return apiHandler
+}
 
-	select {
-	case err = <-errCh:
-		slog.ErrorContext(ctx, "Server error", "error", err)
-		panic(err)
-	case sig := <-sigCh:
-		slog.InfoContext(ctx, "Received signal, shutting down", "signal", sig)
-	}
-
-	// Graceful shutdown with timeout
-	shutdownCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-
-	err = shutdown(shutdownCtx)
-	if err != nil {
-		slog.ErrorContext(ctx, "Error during shutdown", "error", err)
-	}
-
-	slog.InfoContext(ctx, "Server shutdown complete")
+func setupGRPCHandlers(cfg *config.Config, storage *storage.Storage) *grpc.Handler {
+	store := query.New(storage.Conn)
+	authService := auth.NewService()
+	loginService := login.NewService(cfg, store, authService, nil) // Email service is not used in gRPC
+	userService := user.NewService(cfg, store)
+	noteService := note.NewService(store)
+	grpcHandler := grpc.NewHandler(
+		cfg,
+		authService,
+		loginService,
+		userService,
+		noteService,
+	)
+	return grpcHandler
 }

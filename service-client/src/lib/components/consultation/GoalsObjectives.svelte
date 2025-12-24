@@ -154,9 +154,7 @@
 	];
 
 	// Derived validation
-	let isFormValid = $derived(() => {
-		return primaryGoals.length > 0 && budgetRange.length > 0;
-	});
+	let isFormValid = $derived(primaryGoals.length > 0 && budgetRange.length > 0);
 
 	// Update parent data manually
 	function updateParentData() {

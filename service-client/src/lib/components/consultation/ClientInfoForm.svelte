@@ -32,13 +32,11 @@
 	let socialMediaError = $state("");
 
 	// Derived validation
-	let isEmailValid = $derived(() => {
-		if (!email) return true; // Optional field
-		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-		return emailRegex.test(email);
-	});
+	let isEmailValid = $derived(
+		!email ? true : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+	);
 
-	let isWebsiteValid = $derived(() => {
+	let isWebsiteValid = $derived.by(() => {
 		if (!website) return true; // Optional field
 		try {
 			new URL(website);
@@ -48,7 +46,7 @@
 		}
 	});
 
-	let parsedSocialMedia = $derived(() => {
+	let parsedSocialMedia = $derived.by(() => {
 		if (!socialMediaJson.trim()) return {};
 		try {
 			return JSON.parse(socialMediaJson);
@@ -57,9 +55,9 @@
 		}
 	});
 
-	let isSocialMediaValid = $derived(() => parsedSocialMedia !== null);
+	let isSocialMediaValid = $derived(parsedSocialMedia !== null);
 
-	let isFormValid = $derived(() => isEmailValid && isWebsiteValid && isSocialMediaValid);
+	let isFormValid = $derived(isEmailValid && isWebsiteValid && isSocialMediaValid);
 
 	// Update parent data immediately but without triggering effects
 	function updateParentData() {

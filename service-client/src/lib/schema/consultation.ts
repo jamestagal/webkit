@@ -90,6 +90,33 @@ export const CompleteConsultationSchema = v.object({
 	consultationId: ConsultationIdSchema
 });
 
+// Create Consultation with Contact Info Schema (for lazy creation)
+// Used when creating a NEW consultation - no consultationId yet
+export const CreateConsultationWithContactInfoSchema = v.object({
+	business_name: v.optional(v.pipe(v.string(), v.maxLength(255))),
+	contact_person: v.optional(v.pipe(v.string(), v.maxLength(255))),
+	email: v.optional(v.pipe(v.string(), v.email())),
+	phone: v.optional(v.pipe(v.string(), v.maxLength(50))),
+	website: v.optional(
+		v.pipe(
+			v.string(),
+			v.transform((val) => {
+				// Auto-add https if missing
+				if (val && !val.match(/^https?:\/\//)) {
+					return 'https://' + val;
+				}
+				return val;
+			}),
+			v.url()
+		)
+	),
+	social_media: v.optional(v.record(v.string(), v.string()))
+});
+
+export type CreateConsultationWithContactInfoInput = v.InferInput<
+	typeof CreateConsultationWithContactInfoSchema
+>;
+
 // Draft Auto-save Schema
 export const AutoSaveDraftSchema = v.object({
 	consultationId: ConsultationIdSchema,

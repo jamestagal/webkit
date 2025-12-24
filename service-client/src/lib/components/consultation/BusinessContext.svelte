@@ -1,11 +1,10 @@
 <script lang="ts">
 	import type { BusinessContext } from "$lib/types/consultation";
 	import { consultationStore } from "$lib/stores/consultation.svelte";
-	import Input from "$lib/components/Input.svelte";
 	import Select from "$lib/components/Select.svelte";
-	import Button from "$lib/components/Button.svelte";
 	import Spinner from "$lib/components/Spinner.svelte";
 	import { X, AlertCircle, CheckCircle, AlertTriangle, Plus } from "lucide-svelte";
+	import Button from "$lib/components/Button.svelte";
 
 	// Props
 	let {
@@ -30,9 +29,6 @@
 	let newDigitalPresence = $state("");
 	let newMarketingChannel = $state("");
 
-	// Derived state for button disabled logic (ensures reactivity)
-	let canAddDigitalPresence = $derived(newDigitalPresence.trim().length > 0);
-	let canAddMarketingChannel = $derived(newMarketingChannel.trim().length > 0);
 
 	// Predefined options
 	const industryOptions = [
@@ -103,13 +99,9 @@
 	let teamSizeError = $state("");
 
 	// Derived validation
-	let isTeamSizeValid = $derived(() => {
-		return teamSize >= 1 && teamSize <= 10000;
-	});
+	let isTeamSizeValid = $derived(teamSize >= 1 && teamSize <= 10000);
 
-	let isFormValid = $derived(() => {
-		return industry.length > 0 && businessType.length > 0 && isTeamSizeValid;
-	});
+	let isFormValid = $derived(industry.length > 0 && businessType.length > 0 && isTeamSizeValid);
 
 	// Update parent data manually when fields change
 	function updateParentData() {
@@ -307,20 +299,21 @@
 		</div>
 
 		<!-- Custom Input -->
-		<div class="mb-3 flex space-x-2">
-			<Input
+		<div class="mb-3 flex gap-2">
+			<input
+				type="text"
 				bind:value={newDigitalPresence}
 				onkeydown={handleDigitalPresenceKeydown}
 				placeholder="Add custom digital presence"
 				{disabled}
-				class="flex-1"
+				class="flex-1 rounded-xl border border-base-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
 			/>
 			<Button
 				variant="primary"
 				onclick={addDigitalPresence}
-				disabled={disabled || !canAddDigitalPresence}
+				disabled={disabled || newDigitalPresence.trim().length === 0}
 			>
-				<Plus class="mr-1 h-4 w-4" />
+				<Plus class="h-4 w-4" />
 				Add
 			</Button>
 		</div>
@@ -374,20 +367,21 @@
 		</div>
 
 		<!-- Custom Input -->
-		<div class="mb-3 flex space-x-2">
-			<Input
+		<div class="mb-3 flex gap-2">
+			<input
+				type="text"
 				bind:value={newMarketingChannel}
 				onkeydown={handleMarketingChannelKeydown}
 				placeholder="Add custom marketing channel"
 				{disabled}
-				class="flex-1"
+				class="flex-1 rounded-xl border border-base-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
 			/>
 			<Button
 				variant="primary"
 				onclick={addMarketingChannel}
-				disabled={disabled || !canAddMarketingChannel}
+				disabled={disabled || newMarketingChannel.trim().length === 0}
 			>
-				<Plus class="mr-1 h-4 w-4" />
+				<Plus class="h-4 w-4" />
 				Add
 			</Button>
 		</div>

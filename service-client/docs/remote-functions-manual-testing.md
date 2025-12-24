@@ -1,34 +1,35 @@
 # Manual Testing Guide for Remote Functions
 
-This guide provides step-by-step instructions for manually testing the consultation remote functions (Task 2.7-2.8).
+This guide provides step-by-step instructions for manually testing the consultation remote functions.
+
+## Architecture Overview
+
+The remote functions use **direct PostgreSQL access** via drizzle-orm from the SvelteKit server. This means:
+- No REST API calls to the Go backend (localhost:4001) for consultation data
+- Database queries run server-side in SvelteKit
+- Authentication uses `getRequestEvent()` to access `locals.user` from hooks.server.ts
+- Network requests go to SvelteKit's internal remote function endpoints (`/_rf/...`)
 
 ## Prerequisites
 
-1. **Start Backend Services**
+1. **Start All Services**
    ```bash
    docker compose up
    ```
-   - Core service should be running on http://localhost:4001
-   - PostgreSQL should be accessible
-   - Ensure you have a test user account
+   - PostgreSQL must be accessible (the client connects directly)
+   - Frontend runs on http://localhost:3000
+   - Core service (localhost:4001) is still needed for authentication/login
 
-2. **Start Frontend Dev Server**
-   ```bash
-   cd service-client
-   npm run dev
-   ```
-   - Frontend should be running on http://localhost:3000
-
-3. **Login to Test Account**
+2. **Login to Test Account**
    - Navigate to http://localhost:3000/login
-   - Login with test credentials
+   - Login with test credentials (or use magic link from core service logs)
    - Verify `access_token` cookie is set (check DevTools > Application > Cookies)
 
 ## Testing Checklist
 
-### Subtask 2.7: Cookie-Based Authentication Verification
+### Subtask 2.7: Remote Functions Verification
 
-Open browser DevTools (F12) and navigate to the **Network** tab. Keep it open during all tests.
+Open browser DevTools (F12) and navigate to the **Network** tab. Keep it open during all tests to observe `/_rf/...` requests.
 
 #### Test 1: getOrCreateConsultation()
 
@@ -44,27 +45,26 @@ console.log('Created consultation:', consultation);
 
 **Expected Network Request:**
 - Method: POST
-- URL: http://localhost:4001/consultations
-- Headers should include: `Cookie: access_token=...`
-- Request Credentials: include
-- Status: 201 Created
+- URL: `http://localhost:3000/_rf/getOrCreateConsultation`
+- Content-Type: application/json
+- Status: 200 OK
 
 **Expected Response:**
 ```json
 {
   "id": "uuid",
-  "user_id": "uuid",
+  "userId": "uuid",
   "status": "draft",
-  "completion_percentage": 0,
-  "created_at": "2025-10-24T...",
-  "updated_at": "2025-10-24T..."
+  "completionPercentage": 0,
+  "createdAt": "2025-10-24T...",
+  "updatedAt": "2025-10-24T..."
 }
 ```
 
 **Verification:**
 - ✅ Response contains valid consultation object
 - ✅ Status is "draft"
-- ✅ Cookie was sent with request
+- ✅ Authentication handled server-side via `getRequestEvent()`
 - ✅ No errors thrown
 
 ---
@@ -82,14 +82,14 @@ console.log('Retrieved consultation:', consultation);
 ```
 
 **Expected Network Request:**
-- Method: GET
-- URL: http://localhost:4001/consultations/{id}
-- Headers should include: `Cookie: access_token=...`
+- Method: POST
+- URL: `http://localhost:3000/_rf/getConsultation`
+- Content-Type: application/json
 - Status: 200 OK
 
 **Verification:**
 - ✅ Response matches consultation from Test 1
-- ✅ Cookie was sent with request
+- ✅ Authentication handled server-side
 - ✅ All fields properly parsed
 
 ---
@@ -106,14 +106,15 @@ console.log('Retrieved draft:', draft);
 ```
 
 **Expected Network Request:**
-- Method: GET
-- URL: http://localhost:4001/consultations/{id}/drafts
-- Status: 404 Not Found (expected - no draft exists yet)
+- Method: POST
+- URL: `http://localhost:3000/_rf/getDraft`
+- Content-Type: application/json
+- Status: 200 OK
 
 **Verification:**
-- ✅ Returns null (not an error)
-- ✅ Cookie was sent with request
-- ✅ 404 handled gracefully
+- ✅ Returns null (no draft exists yet)
+- ✅ Authentication handled server-side
+- ✅ Null handled gracefully (not an error)
 
 ---
 
@@ -140,28 +141,17 @@ console.log('Saved draft:', savedDraft);
 
 **Expected Network Request:**
 - Method: POST
-- URL: http://localhost:4001/consultations/{id}/drafts
-- Headers: `Content-Type: application/json`, `Cookie: access_token=...`
-- Status: 201 Created
+- URL: `http://localhost:3000/_rf/autoSaveDraft`
+- Content-Type: application/json
+- Status: 200 OK
 
-**Expected Response:**
-```json
-{
-  "id": "uuid",
-  "consultation_id": "uuid",
-  "user_id": "uuid",
-  "parsed_contact_info": {
-    "business_name": "Test Corporation",
-    "email": "test@example.com"
-  },
-  "created_at": "2025-10-24T...",
-  "updated_at": "2025-10-24T..."
-}
-```
+**Expected Result:**
+- Command completes without error
+- Draft is saved to database
 
 **Verification:**
 - ✅ Draft created successfully
-- ✅ Cookie was sent with request
+- ✅ Authentication handled server-side
 - ✅ Data properly saved
 
 ---
@@ -178,14 +168,15 @@ console.log('Retrieved draft:', draft);
 ```
 
 **Expected Network Request:**
-- Method: GET
-- URL: http://localhost:4001/consultations/{id}/drafts
+- Method: POST
+- URL: `http://localhost:3000/_rf/getDraft`
+- Content-Type: application/json
 - Status: 200 OK
 
 **Verification:**
 - ✅ Returns draft object (not null)
 - ✅ Contains data from Test 4
-- ✅ Cookie was sent with request
+- ✅ Authentication handled server-side
 
 ---
 
@@ -196,104 +187,95 @@ console.log('Retrieved draft:', draft);
 const { completeConsultation } = await import('/src/lib/api/consultation.remote.ts');
 
 const consultationId = 'YOUR_CONSULTATION_ID_HERE';
-const completedConsultation = await completeConsultation({ consultationId });
-console.log('Completed consultation:', completedConsultation);
+await completeConsultation({ consultationId });
+// Note: This redirects to /consultation/success on completion
 ```
 
 **Expected Network Request:**
 - Method: POST
-- URL: http://localhost:4001/consultations/{id}/complete
-- Headers: `Content-Type: application/json`, `Cookie: access_token=...`
-- Status: 200 OK
+- URL: `http://localhost:3000/_rf/completeConsultation`
+- Content-Type: application/json
+- Status: 200 OK (then redirects)
 
-**Expected Response:**
-```json
-{
-  "id": "uuid",
-  "status": "completed",
-  "completion_percentage": 100,
-  "completed_at": "2025-10-24T...",
-  ...
-}
-```
+**Expected Behavior:**
+- Consultation status updated to "completed" in database
+- Version snapshot created in `consultation_versions` table
+- Any existing draft deleted
+- Browser redirects to `/consultation/success`
 
 **Verification:**
-- ✅ Status changed to "completed"
+- ✅ Status changed to "completed" in database
 - ✅ Completion percentage is 100
-- ✅ completed_at timestamp set
-- ✅ Cookie was sent with request
-- ✅ **THIS IS THE CRITICAL BUG FIX** - endpoint is called
+- ✅ completedAt timestamp set
+- ✅ Version snapshot created
+- ✅ **THIS IS THE CRITICAL BUG FIX** - completion logic executes
 
 ---
 
-#### Test 7: listConsultations()
+#### Test 7: getUserConsultations()
 
 **Browser Console:**
 ```javascript
-const { listConsultations } = await import('/src/lib/api/consultation.remote.ts');
+const { getUserConsultations } = await import('/src/lib/api/consultation.remote.ts');
 
-const result = await listConsultations({
-  page: 1,
-  limit: 20,
-  status: 'completed'
-});
-console.log('Consultation list:', result);
+const consultations = await getUserConsultations();
+console.log('User consultations:', consultations);
 ```
 
 **Expected Network Request:**
-- Method: GET
-- URL: http://localhost:4001/consultations?page=1&limit=20&status=completed
-- Headers should include: `Cookie: access_token=...`
+- Method: POST
+- URL: `http://localhost:3000/_rf/getUserConsultations`
+- Content-Type: application/json
 - Status: 200 OK
 
 **Expected Response:**
 ```json
-{
-  "consultations": [
-    { "id": "uuid", "status": "completed", ... }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 20,
-  "has_more": false
-}
+[
+  {
+    "id": "uuid",
+    "userId": "uuid",
+    "status": "completed",
+    "completionPercentage": 100,
+    "createdAt": "2025-10-24T...",
+    "updatedAt": "2025-10-24T...",
+    "completedAt": "2025-10-24T..."
+  }
+]
 ```
 
 **Verification:**
-- ✅ Returns paginated list
-- ✅ Query parameters properly serialized
-- ✅ Cookie was sent with request
+- ✅ Returns array of consultations
+- ✅ Ordered by updatedAt descending
+- ✅ Authentication handled server-side
 
 ---
 
 ### Subtask 2.8: Error Response Verification
 
-#### Test 8: 401 Unauthorized (Expired Token)
+#### Test 8: Unauthorized (No Session)
 
 **Browser Console:**
 ```javascript
-// Delete the access_token cookie
-document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-
+// Open an incognito window (no session) and try:
 const { getConsultation } = await import('/src/lib/api/consultation.remote.ts');
 
 try {
   await getConsultation('123e4567-e89b-12d3-a456-426614174000');
 } catch (error) {
-  console.log('401 Error handled:', error.message);
+  console.log('Auth Error handled:', error.message);
 }
 ```
 
 **Expected:**
-- ❌ Request fails with 401 status
+- ❌ Request fails (redirect to login or error)
 - ✅ Error thrown with message
-- ✅ Error message indicates authentication failure
+- ✅ Error indicates authentication required (from `getUserId()` throwing)
 
-**Re-login after this test!**
+**Note:** Authentication is handled server-side via `getRequestEvent().locals.user`
 
 ---
 
-#### Test 9: 404 Not Found (Invalid ID)
+#### Test 9: Not Found (Invalid ID)
 
 **Browser Console:**
 ```javascript
@@ -302,18 +284,18 @@ const { getConsultation } = await import('/src/lib/api/consultation.remote.ts');
 try {
   await getConsultation('00000000-0000-0000-0000-000000000000');
 } catch (error) {
-  console.log('404 Error handled:', error.message);
+  console.log('Not Found Error handled:', error.message);
 }
 ```
 
 **Expected:**
-- ❌ Request fails with 404 status
-- ✅ Error thrown with message
-- ✅ Error message indicates resource not found
+- ❌ Request fails
+- ✅ Error thrown with message: "Consultation not found"
+- ✅ Error properly propagated to caller
 
 ---
 
-#### Test 10: 400 Bad Request (Invalid UUID)
+#### Test 10: Validation Error (Invalid UUID)
 
 **Browser Console:**
 ```javascript
@@ -327,18 +309,18 @@ try {
 ```
 
 **Expected:**
-- ❌ Zod validation fails before API call
+- ❌ Valibot validation fails before database query
 - ✅ Error thrown with validation message
-- ✅ No network request made (pre-validation)
+- ✅ No database query executed (pre-validation)
 
 ---
 
-#### Test 11: 500 Internal Server Error (Simulated)
+#### Test 11: Database Error (Simulated)
 
-This test requires backend simulation. Skip if backend doesn't have error injection.
+This test requires stopping PostgreSQL or simulating a database error.
 
 **Expected:**
-- ❌ Request fails with 500 status
+- ❌ Request fails with database error
 - ✅ Error thrown with message
 - ✅ Error properly propagated to caller
 
@@ -356,51 +338,133 @@ WHERE user_id = 'YOUR_USER_ID'
 ORDER BY created_at DESC
 LIMIT 5;
 
--- Check draft
-SELECT id, consultation_id, parsed_contact_info, updated_at
+-- Check draft (note: draft is deleted on completion)
+SELECT id, consultation_id, contact_info, updated_at
 FROM consultation_drafts
+WHERE consultation_id = 'YOUR_CONSULTATION_ID';
+
+-- Check version snapshot
+SELECT id, consultation_id, version_number, status, change_summary
+FROM consultation_versions
 WHERE consultation_id = 'YOUR_CONSULTATION_ID';
 ```
 
 **Expected:**
 - ✅ Consultation exists with status "completed"
 - ✅ completed_at timestamp is set
-- ✅ Draft exists with saved contact_info data
+- ✅ Version snapshot exists with status "completed"
+- ✅ Draft deleted after completion (no results)
 
 ---
 
 ## Success Criteria
 
 All tests should pass with:
-- ✅ All API calls include `credentials: 'include'`
-- ✅ All cookies properly sent with requests
-- ✅ All successful responses properly validated with Zod
+- ✅ All remote functions execute server-side via `/_rf/...` endpoints
+- ✅ Authentication handled via `getRequestEvent().locals.user`
+- ✅ All inputs validated with Valibot schemas
 - ✅ All error responses properly handled
-- ✅ Critical bug fix verified: completeConsultation() calls completion endpoint
+- ✅ Critical bug fix verified: completeConsultation() executes completion logic
 - ✅ Database reflects expected state changes
+
+## Important Implementation Notes
+
+### Correct Import Path
+
+Remote functions must be imported from `$app/server`, NOT `@sveltejs/kit`:
+
+```ts
+// ✅ CORRECT
+import { query, command, form } from '$app/server';
+
+// ❌ WRONG - will cause "does not provide an export" error
+import { query, form } from '@sveltejs/kit';
+```
+
+### Choosing Between `query()`, `command()`, and `form()`
+
+| Function | Use Case | How to Call |
+|----------|----------|-------------|
+| `query()` | Read operations (fetching data) | `await getConsultation(id)` |
+| `command()` | Programmatic mutations (button clicks, JS calls) | `await saveContactInfo({...data})` |
+| `form()` | HTML form submissions | `<form {...formFunction.enhance()}>` |
+
+**Key Distinction:**
+- Use `command()` when calling mutations from JavaScript (e.g., button `onclick` handlers)
+- Use `form()` only when the mutation is triggered by an actual HTML `<form>` submission
+- `form()` returns an object with `.enhance()`, `.fields`, `.pending` - NOT a callable function!
+- `command()` returns a callable async function
+
+### Example Patterns
+
+**Command (programmatic call):**
+```ts
+// In .remote.ts
+export const saveContactInfo = command(ContactInfoSchema, async (data) => {
+  // ... mutation logic
+  getConsultation(data.consultationId).refresh(); // Refresh related query
+});
+
+// In component
+await saveContactInfo({ consultationId, ...formData });
+```
+
+**Form (HTML form submission):**
+```ts
+// In .remote.ts
+export const createPost = form(CreatePostSchema, async (data) => {
+  // ... mutation logic
+});
+
+// In component
+<form {...createPost.enhance()}>
+  <input {...createPost.fields.title.as('text')} />
+  <button type="submit">Create</button>
+</form>
+```
+
+### Refreshing Queries After Mutations
+
+Inside a `command()` or `form()`, you can refresh queries to update cached data:
+
+```ts
+export const likePost = command(z.number(), async (id) => {
+  await db.update(posts).set({ likes: sql`likes + 1` }).where(eq(posts.id, id));
+  getPostLikes(id).refresh(); // ← Refresh the query
+});
+```
+
+---
 
 ## Troubleshooting
 
-### Cookie Not Sent
-**Symptom:** 401 Unauthorized despite being logged in
+### Authentication Failure
+**Symptom:** Error thrown about missing user/authentication
 **Solution:**
-- Check SameSite cookie settings in backend
-- Verify CORS configuration allows credentials
-- Ensure frontend and backend on same domain or proper CORS setup
+- Verify you're logged in (check for session in DevTools > Application > Cookies)
+- Check `hooks.server.ts` is properly populating `locals.user`
+- Verify `getUserId()` in `$lib/server/auth` is correctly reading from `getRequestEvent()`
 
-### CORS Error
-**Symptom:** Network request blocked by CORS policy
+### Database Connection Error
+**Symptom:** Error about database connection or query failure
 **Solution:**
-- Verify backend CORS allows http://localhost:3000
-- Check `Access-Control-Allow-Credentials: true` header
-- Confirm OPTIONS preflight requests succeed
+- Verify PostgreSQL is running: `docker compose ps`
+- Check database credentials in environment variables
+- Ensure `$lib/server/db` is properly configured with drizzle-orm
 
 ### Import Error
-**Symptom:** Cannot find module in browser console
+**Symptom:** "does not provide an export named 'form'" or similar
 **Solution:**
-- Use DevTools Sources tab to verify file path
-- Check if TypeScript compilation succeeded
-- Try refreshing page to clear module cache
+- Ensure importing from `$app/server`, NOT `@sveltejs/kit`
+- Check if using correct function: `command()` for programmatic calls, `form()` for HTML forms
+- Verify the `.remote.ts` file is in correct location
+
+### TypeError: X is not a function
+**Symptom:** Calling a remote function throws "is not a function"
+**Solution:**
+- If using HTML forms, use `form()` which returns an object with `.enhance()`
+- If calling programmatically (e.g., button onclick), use `command()` which returns a callable function
+- See the "Choosing Between query(), command(), and form()" section above
 
 ---
 

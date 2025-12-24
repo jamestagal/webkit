@@ -118,9 +118,7 @@
 	let impactAssessmentError = $state("");
 
 	// Derived validation
-	let isFormValid = $derived(() => {
-		return primaryChallenges.length > 0 && urgencyLevel !== undefined;
-	});
+	let isFormValid = $derived(primaryChallenges.length > 0 && urgencyLevel !== undefined);
 
 	// Update parent data manually
 	function updateParentData() {

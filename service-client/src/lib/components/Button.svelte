@@ -49,8 +49,8 @@
 	const variantStyles = variant ? buttonStyles[variant] || "" : "";
 	const styles = `${commonStyles} ${sizeStyles[size]?.button} ${variantStyles} ${fullWidth} ${customClass}`;
 
-	// Only apply disabled opacity once in the disabled state
-	const isDisabled = disabled || isLoading;
+	// Only apply disabled opacity once in the disabled state (must be $derived for reactivity)
+	let isDisabled = $derived(disabled || isLoading);
 </script>
 
 {#if href}

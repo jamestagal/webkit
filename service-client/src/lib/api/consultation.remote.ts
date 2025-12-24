@@ -4,13 +4,12 @@
  * Direct PostgreSQL access using drizzle-orm.
  * Follows the remote functions guide:
  * - Uses query() for read operations
- * - Uses form() for mutations
+ * - Uses command() for programmatic mutations (callable functions)
  * - Uses Valibot for validation (NOT Zod)
  * - Uses getRequestEvent() for auth context
  */
 
-import { query, form } from '@sveltejs/kit';
-import { redirect } from '@sveltejs/kit';
+import { query, command } from '$app/server';
 import * as v from 'valibot';
 import { db } from '$lib/server/db';
 import { consultations, consultationDrafts, consultationVersions } from '$lib/server/schema';
@@ -22,7 +21,8 @@ import {
 	PainPointsSchema,
 	GoalsObjectivesSchema,
 	CompleteConsultationSchema,
-	AutoSaveDraftSchema
+	AutoSaveDraftSchema,
+	CreateConsultationWithContactInfoSchema
 } from '$lib/schema/consultation';
 import type {
 	ContactInfo,
@@ -81,6 +81,26 @@ function extractFormData<T extends { consultationId: string }>(
 // =============================================================================
 
 /**
+ * Get existing draft consultation for the current user (READ-ONLY).
+ * Returns null if no draft exists - does NOT create a new one.
+ * Use this for the consultation page to implement lazy creation.
+ */
+export const getExistingDraftConsultation = query(async () => {
+	const userId = getUserId();
+
+	// Only return existing draft, never create
+	const [existing] = await db
+		.select()
+		.from(consultations)
+		.where(and(eq(consultations.userId, userId), eq(consultations.status, 'draft')))
+		.orderBy(desc(consultations.updatedAt))
+		.limit(1);
+
+	return existing || null;
+});
+
+/**
+ * @deprecated Use getExistingDraftConsultation instead for lazy creation pattern.
  * Get or create a consultation for the current user.
  * Returns the most recent draft consultation, or creates a new one.
  */
@@ -173,13 +193,60 @@ export const getUserConsultations = query(async () => {
 });
 
 // =============================================================================
-// Form Functions (Mutations)
+// Command Functions (Programmatic Mutations)
 // =============================================================================
+
+/**
+ * Create a new consultation with contact information (lazy creation).
+ * Used when user clicks "Next" on the first step for the first time.
+ * Returns the new consultation ID.
+ */
+export const createConsultationWithContactInfo = command(
+	CreateConsultationWithContactInfoSchema,
+	async (data) => {
+		const userId = getUserId();
+
+		// Build contact info object (only include defined fields)
+		const contactInfo: ContactInfo = {
+			business_name: data.business_name ?? '',
+			contact_person: data.contact_person ?? '',
+			email: data.email ?? '',
+			phone: data.phone ?? '',
+			website: data.website ?? '',
+			social_media: data.social_media ?? {}
+		};
+
+		// Calculate completion percentage (25% for contact info)
+		const completionPercentage = calculateCompletionPercentage({
+			contactInfo,
+			businessContext: null,
+			painPoints: null,
+			goalsObjectives: null
+		});
+
+		// Create consultation with contact info in one operation
+		const [created] = await db
+			.insert(consultations)
+			.values({
+				userId,
+				status: 'draft',
+				contactInfo,
+				completionPercentage
+			})
+			.returning();
+
+		if (!created) {
+			throw new Error('Failed to create consultation');
+		}
+
+		return { consultationId: created.id };
+	}
+);
 
 /**
  * Save contact information for a consultation.
  */
-export const saveContactInfo = form(ContactInfoSchema, async (data) => {
+export const saveContactInfo = command(ContactInfoSchema, async (data) => {
 	const userId = getUserId();
 	const formData = extractFormData(data);
 
@@ -194,14 +261,14 @@ export const saveContactInfo = form(ContactInfoSchema, async (data) => {
 		throw new Error('Consultation not found');
 	}
 
-	// Build contact info object
+	// Build contact info object (use nullish coalescing for strict types)
 	const contactInfo: ContactInfo = {
-		business_name: formData.business_name,
-		contact_person: formData.contact_person,
-		email: formData.email,
-		phone: formData.phone,
-		website: formData.website,
-		social_media: formData.social_media
+		business_name: formData.business_name ?? '',
+		contact_person: formData.contact_person ?? '',
+		email: formData.email ?? '',
+		phone: formData.phone ?? '',
+		website: formData.website ?? '',
+		social_media: formData.social_media ?? {}
 	};
 
 	// Calculate new completion percentage
@@ -229,7 +296,7 @@ export const saveContactInfo = form(ContactInfoSchema, async (data) => {
 /**
  * Save business context for a consultation.
  */
-export const saveBusinessContext = form(BusinessContextSchema, async (data) => {
+export const saveBusinessContext = command(BusinessContextSchema, async (data) => {
 	const userId = getUserId();
 	const formData = extractFormData(data);
 
@@ -244,14 +311,14 @@ export const saveBusinessContext = form(BusinessContextSchema, async (data) => {
 		throw new Error('Consultation not found');
 	}
 
-	// Build business context object
+	// Build business context object (use nullish coalescing for strict types)
 	const businessContext: BusinessContext = {
-		industry: formData.industry,
-		business_type: formData.business_type,
-		team_size: formData.team_size,
-		current_platform: formData.current_platform,
-		digital_presence: formData.digital_presence,
-		marketing_channels: formData.marketing_channels
+		industry: formData.industry ?? '',
+		business_type: formData.business_type ?? '',
+		team_size: formData.team_size ?? 0,
+		current_platform: formData.current_platform ?? '',
+		digital_presence: formData.digital_presence ?? [],
+		marketing_channels: formData.marketing_channels ?? []
 	};
 
 	// Calculate new completion percentage
@@ -279,7 +346,7 @@ export const saveBusinessContext = form(BusinessContextSchema, async (data) => {
 /**
  * Save pain points for a consultation.
  */
-export const savePainPoints = form(PainPointsSchema, async (data) => {
+export const savePainPoints = command(PainPointsSchema, async (data) => {
 	const userId = getUserId();
 	const formData = extractFormData(data);
 
@@ -294,13 +361,13 @@ export const savePainPoints = form(PainPointsSchema, async (data) => {
 		throw new Error('Consultation not found');
 	}
 
-	// Build pain points object
+	// Build pain points object (use nullish coalescing for strict types)
 	const painPoints: PainPoints = {
-		primary_challenges: formData.primary_challenges,
-		technical_issues: formData.technical_issues,
-		urgency_level: formData.urgency_level,
-		impact_assessment: formData.impact_assessment,
-		current_solution_gaps: formData.current_solution_gaps
+		primary_challenges: formData.primary_challenges ?? [],
+		technical_issues: formData.technical_issues ?? [],
+		urgency_level: formData.urgency_level ?? 'medium',
+		impact_assessment: formData.impact_assessment ?? '',
+		current_solution_gaps: formData.current_solution_gaps ?? []
 	};
 
 	// Calculate new completion percentage
@@ -328,7 +395,7 @@ export const savePainPoints = form(PainPointsSchema, async (data) => {
 /**
  * Save goals and objectives for a consultation.
  */
-export const saveGoalsObjectives = form(GoalsObjectivesSchema, async (data) => {
+export const saveGoalsObjectives = command(GoalsObjectivesSchema, async (data) => {
 	const userId = getUserId();
 	const formData = extractFormData(data);
 
@@ -344,15 +411,23 @@ export const saveGoalsObjectives = form(GoalsObjectivesSchema, async (data) => {
 	}
 
 	// Build goals objectives object
-	const goalsObjectives: GoalsObjectives = {
-		primary_goals: formData.primary_goals,
-		secondary_goals: formData.secondary_goals,
-		success_metrics: formData.success_metrics,
-		kpis: formData.kpis,
-		timeline: formData.timeline,
-		budget_range: formData.budget_range,
-		budget_constraints: formData.budget_constraints
-	};
+	// Using explicit build to handle exactOptionalPropertyTypes
+	const goalsObjectives: GoalsObjectives = {};
+	if (formData.primary_goals) goalsObjectives.primary_goals = formData.primary_goals;
+	if (formData.secondary_goals) goalsObjectives.secondary_goals = formData.secondary_goals;
+	if (formData.success_metrics) goalsObjectives.success_metrics = formData.success_metrics;
+	if (formData.kpis) goalsObjectives.kpis = formData.kpis;
+	if (formData.budget_range) goalsObjectives.budget_range = formData.budget_range;
+	if (formData.budget_constraints) goalsObjectives.budget_constraints = formData.budget_constraints;
+	if (formData.timeline) {
+		goalsObjectives.timeline = {};
+		if (formData.timeline.desired_start)
+			goalsObjectives.timeline.desired_start = formData.timeline.desired_start;
+		if (formData.timeline.target_completion)
+			goalsObjectives.timeline.target_completion = formData.timeline.target_completion;
+		if (formData.timeline.milestones)
+			goalsObjectives.timeline.milestones = formData.timeline.milestones;
+	}
 
 	// Calculate new completion percentage
 	const completionPercentage = calculateCompletionPercentage({
@@ -380,7 +455,7 @@ export const saveGoalsObjectives = form(GoalsObjectivesSchema, async (data) => {
  * Complete a consultation.
  * Creates a version snapshot and marks as completed.
  */
-export const completeConsultation = form(CompleteConsultationSchema, async (data) => {
+export const completeConsultation = command(CompleteConsultationSchema, async (data) => {
 	const userId = getUserId();
 
 	// Get the consultation
@@ -433,15 +508,15 @@ export const completeConsultation = form(CompleteConsultationSchema, async (data
 		.delete(consultationDrafts)
 		.where(eq(consultationDrafts.consultationId, data.consultationId));
 
-	// Redirect to success page
-	redirect(303, '/consultation/success');
+	// Return success - client will handle the redirect
+	return { success: true, consultationId: data.consultationId };
 });
 
 /**
  * Auto-save draft data.
  * Uses UPSERT pattern to create or update draft.
  */
-export const autoSaveDraft = form(AutoSaveDraftSchema, async (data) => {
+export const autoSaveDraft = command(AutoSaveDraftSchema, async (data) => {
 	const userId = getUserId();
 
 	// Verify consultation ownership

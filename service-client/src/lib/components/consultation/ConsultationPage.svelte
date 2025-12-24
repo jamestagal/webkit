@@ -16,6 +16,7 @@
 	 */
 
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import ClientInfoForm from '$lib/components/consultation/ClientInfoForm.svelte';
 	import BusinessContext from '$lib/components/consultation/BusinessContext.svelte';
 	import PainPointsCapture from '$lib/components/consultation/PainPointsCapture.svelte';
@@ -26,26 +27,41 @@
 		saveBusinessContext,
 		savePainPoints,
 		saveGoalsObjectives,
-		completeConsultation
+		completeConsultation,
+		createConsultationWithContactInfo
 	} from '$lib/api/consultation.remote';
 	import type { Consultation } from '$lib/server/schema';
 	import type { ConsultationDraft } from '$lib/api/consultation.remote';
 
-	// Props from server
-	let { consultation, draft }: { consultation: Consultation; draft: ConsultationDraft | null } =
-		$props();
+	// Props from server - consultation can be null (lazy creation pattern)
+	let {
+		consultation,
+		draft
+	}: { consultation: Consultation | null; draft: ConsultationDraft | null } = $props();
+
+	// Debug: Log loaded consultation data
+	console.log('ConsultationPage loaded:', {
+		id: consultation?.id ?? 'NEW (not created yet)',
+		contactInfo: consultation?.contactInfo,
+		businessContext: consultation?.businessContext,
+		painPoints: consultation?.painPoints,
+		goalsObjectives: consultation?.goalsObjectives
+	});
 
 	// State
 	let currentStep = $state(0);
-	let consultationId = $state<string>(consultation.id);
+	// consultationId is null until the consultation is created (lazy creation)
+	let consultationId = $state<string | null>(consultation?.id ?? null);
 	let loading = $state(false);
 	let isInitializing = $state(false);
+	let isSaving = $state(false);
+	let autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Form data state - will be bound to child components
-	let contactInfoData = $state(consultation.contactInfo || {});
-	let businessContextData = $state(consultation.businessContext || {});
-	let painPointsData = $state(consultation.painPoints || {});
-	let goalsObjectivesData = $state(consultation.goalsObjectives || {});
+	let contactInfoData = $state(consultation?.contactInfo || {});
+	let businessContextData = $state(consultation?.businessContext || {});
+	let painPointsData = $state(consultation?.painPoints || {});
+	let goalsObjectivesData = $state(consultation?.goalsObjectives || {});
 
 	// Step configuration
 	const steps = [
@@ -68,6 +84,105 @@
 		console.log('Draft loaded:', draft);
 	}
 
+	// Save current step data to database
+	// Returns the consultationId (important for lazy creation on step 0)
+	async function saveCurrentStep(): Promise<string> {
+		console.log('Saving step', currentStep, 'with data:', {
+			step: currentStep,
+			consultationId,
+			contactInfoData,
+			businessContextData,
+			painPointsData,
+			goalsObjectivesData
+		});
+
+		try {
+			if (currentStep === 0) {
+				// LAZY CREATION: If no consultationId, create the consultation now
+				if (!consultationId) {
+					console.log('Creating new consultation with contact info (lazy creation)');
+					const result = await createConsultationWithContactInfo(contactInfoData);
+					consultationId = result.consultationId;
+					console.log('Consultation created with ID:', consultationId);
+					return consultationId;
+				}
+
+				// Update existing consultation
+				console.log('Calling saveContactInfo with:', { consultationId, ...contactInfoData });
+				await saveContactInfo({
+					consultationId,
+					...contactInfoData
+				});
+				console.log('saveContactInfo completed');
+			} else if (currentStep === 1) {
+				if (!consultationId) throw new Error('No consultation ID - cannot save step 1');
+				console.log('Calling saveBusinessContext with:', { consultationId, ...businessContextData });
+				await saveBusinessContext({
+					consultationId,
+					...businessContextData
+				});
+				console.log('saveBusinessContext completed');
+			} else if (currentStep === 2) {
+				if (!consultationId) throw new Error('No consultation ID - cannot save step 2');
+				console.log('Calling savePainPoints with:', { consultationId, ...painPointsData });
+				await savePainPoints({
+					consultationId,
+					...painPointsData
+				});
+				console.log('savePainPoints completed');
+			} else if (currentStep === 3) {
+				if (!consultationId) throw new Error('No consultation ID - cannot save step 3');
+				console.log('Calling saveGoalsObjectives with:', { consultationId, ...goalsObjectivesData });
+				await saveGoalsObjectives({
+					consultationId,
+					...goalsObjectivesData
+				});
+				console.log('saveGoalsObjectives completed');
+			}
+			return consultationId!;
+		} catch (error) {
+			console.error('Error in saveCurrentStep:', error);
+			throw error;
+		}
+	}
+
+	// Auto-save with debounce (saves 2 seconds after last change)
+	function triggerAutoSave(): void {
+		if (autoSaveTimeout) {
+			clearTimeout(autoSaveTimeout);
+		}
+		autoSaveTimeout = setTimeout(async () => {
+			if (!isSaving && !loading) {
+				isSaving = true;
+				try {
+					await saveCurrentStep();
+					console.log('Auto-save completed for step', currentStep);
+				} catch (error) {
+					console.error('Auto-save failed:', error);
+				} finally {
+					isSaving = false;
+				}
+			}
+		}, 2000);
+	}
+
+	// Watch for form data changes and trigger auto-save
+	// Only auto-save if we have a consultationId (not for new forms)
+	$effect(() => {
+		// Track all form data
+		const _ = JSON.stringify({
+			contactInfoData,
+			businessContextData,
+			painPointsData,
+			goalsObjectivesData
+		});
+		// Only auto-save when we have a consultationId (after lazy creation)
+		// New forms should only be saved when user clicks "Next"
+		if (consultationId) {
+			triggerAutoSave();
+		}
+	});
+
 	// Navigation handlers
 	async function handleNext(): Promise<void> {
 		if (isLastStep) return;
@@ -75,23 +190,7 @@
 		loading = true;
 		try {
 			// Save current step data before moving to next
-			if (currentStep === 0) {
-				await saveContactInfo({
-					consultationId,
-					...contactInfoData
-				});
-			} else if (currentStep === 1) {
-				await saveBusinessContext({
-					consultationId,
-					...businessContextData
-				});
-			} else if (currentStep === 2) {
-				await savePainPoints({
-					consultationId,
-					...painPointsData
-				});
-			}
-
+			await saveCurrentStep();
 			currentStep++;
 		} catch (error) {
 			console.error('Error saving step:', error);
@@ -101,13 +200,29 @@
 		}
 	}
 
-	function handlePrevious(): void {
+	async function handlePrevious(): Promise<void> {
 		if (!isFirstStep) {
+			// Save current step before going back (only if we have a consultation)
+			if (consultationId) {
+				loading = true;
+				try {
+					await saveCurrentStep();
+				} catch (error) {
+					console.error('Error saving before previous:', error);
+				} finally {
+					loading = false;
+				}
+			}
 			currentStep--;
 		}
 	}
 
 	async function handleComplete(): Promise<void> {
+		if (!consultationId) {
+			toast.error('No consultation to complete. Please fill out the form first.');
+			return;
+		}
+
 		loading = true;
 		try {
 			// Save goals objectives first
@@ -116,8 +231,13 @@
 				...goalsObjectivesData
 			});
 
-			// Then complete the consultation (this will redirect)
-			await completeConsultation({ consultationId });
+			// Complete the consultation
+			const result = await completeConsultation({ consultationId });
+
+			// Handle redirect on client side (commands can't redirect)
+			if (result?.success) {
+				goto('/consultation/success');
+			}
 		} catch (error) {
 			console.error('Error completing consultation:', error);
 			toast.error('Failed to complete. Please try again.');
@@ -126,8 +246,9 @@
 	}
 
 	// Handle browser navigation/close
+	// Only warn if user has created a consultation and not completed it
 	function handleBeforeUnload(event: BeforeUnloadEvent): void {
-		if (!isLastStep) {
+		if (consultationId && !isLastStep) {
 			event.preventDefault();
 			event.returnValue = 'You have not completed the consultation. Are you sure you want to leave?';
 			return event.returnValue;
@@ -239,13 +360,13 @@
 				<!-- Current Form Step -->
 				<div class="p-6 sm:p-8">
 					{#if currentStep === 0}
-						<ClientInfoForm data={contactInfoData} disabled={loading} />
+						<ClientInfoForm bind:data={contactInfoData} disabled={loading} />
 					{:else if currentStep === 1}
-						<BusinessContext data={businessContextData} disabled={loading} />
+						<BusinessContext bind:data={businessContextData} disabled={loading} />
 					{:else if currentStep === 2}
-						<PainPointsCapture data={painPointsData} disabled={loading} />
+						<PainPointsCapture bind:data={painPointsData} disabled={loading} />
 					{:else if currentStep === 3}
-						<GoalsObjectives data={goalsObjectivesData} disabled={loading} />
+						<GoalsObjectives bind:data={goalsObjectivesData} disabled={loading} />
 					{/if}
 				</div>
 

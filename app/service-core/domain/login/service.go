@@ -1,31 +1,80 @@
 package login
 
 import (
+	"app/pkg"
+	"app/pkg/auth"
+	"app/pkg/str"
 	"context"
 	"errors"
 	"fmt"
-	"gofast/pkg"
-	"gofast/pkg/auth"
-	ot "gofast/pkg/otel"
-	"gofast/pkg/str"
-	"gofast/service-core/config"
-	"gofast/service-core/storage/query"
-	"io"
 	"log/slog"
-	"net/http"
-	"regexp"
+	"net/mail"
+	"service-core/config"
+	"service-core/storage/query"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/twilio/twilio-go"
 	verify "github.com/twilio/twilio-go/rest/verify/v2"
 	"golang.org/x/oauth2"
 )
 
-type Deps struct {
-	Cfg    *config.Config
-	Store  *query.Queries
-	OAuth  OAuthClient
-	Twilio TwilioClient
+type store interface {
+	SelectToken(ctx context.Context, ID string) (query.Token, error)
+	InsertToken(ctx context.Context, params query.InsertTokenParams) (query.Token, error)
+	UpdateToken(ctx context.Context, params query.UpdateTokenParams) error
+	SelectUser(ctx context.Context, ID uuid.UUID) (query.User, error)
+	SelectUserByEmailAndSub(ctx context.Context, params query.SelectUserByEmailAndSubParams) (query.User, error)
+	InsertUser(ctx context.Context, params query.InsertUserParams) (query.User, error)
+	UpdateUserActivity(ctx context.Context, ID uuid.UUID) error
+	UpdateUserAccess(ctx context.Context, params query.UpdateUserAccessParams) (query.User, error)
+	UpdateUserPhone(ctx context.Context, params query.UpdateUserPhoneParams) error
+}
+
+type provider interface {
+	GetOAuthConfig() *oauth2.Config
+	GetUserInfo(ctx context.Context, accessToken string) (*Info, error)
+}
+
+type authService interface {
+	GenerateSessionToken(userID string, phone string) (string, error)
+	ValidateSessionToken(token string) (*auth.SessionTokenClaims, error)
+
+	GenerateTokens(refreshTokenID string, userID string, access int64, avatar string, email string, subscriptionActive bool) (string, string, error)
+	ValidateAccessToken(token string) (*auth.AccessTokenClaims, error)
+	ValidateRefreshToken(token string) (*auth.RefreshTokenClaims, error)
+}
+
+type emailService interface {
+	SendEmail(
+		ctx context.Context,
+		userID uuid.UUID,
+		emailTo string,
+		emailSubject string,
+		emailBody string,
+		attachmentIDs []uuid.UUID,
+	) (*query.Email, error)
+}
+
+type Service struct {
+	cfg          *config.Config
+	store        store
+	authService  authService
+	emailService emailService
+}
+
+func NewService(
+	cfg *config.Config,
+	store store,
+	authService authService,
+	emailService emailService,
+) *Service {
+	return &Service{
+		cfg:          cfg,
+		store:        store,
+		authService:  authService,
+		emailService: emailService,
+	}
 }
 
 type AuthUser struct {
@@ -41,7 +90,6 @@ type AuthResponse struct {
 	RefreshToken string    `json:"refresh_token"`
 	ReturnURL    string    `json:"return_url"`
 	User         *AuthUser `json:"user"`
-	Fresh        bool      `json:"fresh"`
 	// used for 2FA
 	SessionToken string `json:"session_token"`
 	HasPhone     bool   `json:"has_phone"`
@@ -51,27 +99,21 @@ type URLResponse struct {
 	URL string `json:"url"`
 }
 
-func Refresh(ctx context.Context, deps Deps, accessToken string, refreshToken string) (result *AuthResponse, err error) {
-	ctx, span, done := ot.StartSpan(ctx, "login.service.Refresh")
-	defer func() { done(err) }()
-
+func (s *Service) Refresh(ctx context.Context, accessToken string, refreshToken string) (*AuthResponse, error) {
 	// Validate token
-	claims, err := auth.ValidateAccessToken(accessToken)
-	// If access token is valid, return user info
+	claims, err := s.authService.ValidateAccessToken(accessToken)
+
 	if err == nil {
-		span.AddEvent("Access token is valid")
 		// Get user from database
-		user, err := deps.Store.SelectUserByID(ctx, claims.ID)
+		user, err := s.store.SelectUser(ctx, claims.ID)
 		if err != nil {
 			return nil, pkg.NotFoundError{Message: "Error selecting user by ID", Err: err}
 		}
-		span.AddEvent("User selected from store")
 		// Check if user has an active subscription
-		subscriptionActive, access, err := CheckUserAccess(ctx, deps, user)
+		subscriptionActive, access, err := s.checkUserAccess(ctx, user)
 		if err != nil {
-			return nil, pkg.UnauthorizedError{Message: "Error checking user access", Err: err}
+			return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error checking user access: %w", err)}
 		}
-		span.AddEvent("User access checked")
 		return &AuthResponse{
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
@@ -83,91 +125,82 @@ func Refresh(ctx context.Context, deps Deps, accessToken string, refreshToken st
 				Email:              user.Email,
 				SubscriptionActive: subscriptionActive,
 			},
-			Fresh:        false,
 			HasPhone:     false,
 			SessionToken: "",
 		}, nil
 	}
 	// Validate refresh token
-	span.AddEvent("Validating refresh token")
-	refreshTokenClaims, err := auth.ValidateRefreshToken(refreshToken)
+	refreshTokenClaims, err := s.authService.ValidateRefreshToken(refreshToken)
 	if err != nil {
-		return nil, pkg.UnauthorizedError{Message: "Error validating refresh token", Err: err}
+		return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error validating refresh token: %w", err)}
 	}
 	// Extract token from database
-	refreshTokenStore, err := deps.Store.SelectAuthTokenByID(ctx, refreshTokenClaims.ID.String())
+	refreshTokenStore, err := s.store.SelectToken(ctx, refreshTokenClaims.ID.String())
 	if err != nil {
 		return nil, pkg.NotFoundError{Message: "Error selecting token by ID", Err: err}
 	}
-	span.AddEvent("Refresh token selected from store")
 	// Check if token has a user Id, if not it means the token have been revoked
-	if !refreshTokenStore.UserID.Valid {
-		return nil, pkg.UnauthorizedError{Message: "Token revoked", Err: errors.New("token revoked")}
+	if refreshTokenStore.Target == "" {
+		return nil, pkg.UnauthorizedError{Err: errors.New("token have been revoked")}
 	}
 	// Check if token is expired
 	if time.Now().After(refreshTokenStore.Expires) {
-		return nil, pkg.UnauthorizedError{Message: "Token expired", Err: errors.New("token expired")}
+		return nil, pkg.UnauthorizedError{Err: fmt.Errorf("token expired: %w", err)}
 	}
 	// Get user from database
-	user, err := deps.Store.SelectUserByID(ctx, refreshTokenClaims.UserID)
+	user, err := s.store.SelectUser(ctx, refreshTokenClaims.UserID)
 	if err != nil {
 		return nil, pkg.NotFoundError{Message: "Error selecting user by ID", Err: err}
 	}
-	span.AddEvent("User selected from store")
 	// Create refresh token (valid for 30 days)
 	id, err := uuid.NewV7()
 	if err != nil {
-		return nil, pkg.UnauthorizedError{Message: "Error generating UUID", Err: err}
+		return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error generating UUID: %w", err)}
 	}
-	params := query.InsertAuthTokenParams{
-		ID:        id.String(),
-		Expires:   time.Now().Add(deps.Cfg.RefreshTokenExp),
-		UserID:    uuid.NullUUID{UUID: refreshTokenClaims.UserID, Valid: true},
-		Provider:  "",
-		Verifier:  "",
-		ReturnUrl: "",
+	params := query.InsertTokenParams{
+		ID:       id.String(),
+		Expires:  time.Now().Add(s.cfg.RefreshTokenExp),
+		Target:   refreshTokenClaims.UserID.String(),
+		Callback: "",
 	}
-	newRefreshTokenStore, err := deps.Store.InsertAuthToken(ctx, params)
+	refreshTokenStore, err = s.store.InsertToken(ctx, params)
 	if err != nil {
-		return nil, pkg.UnauthorizedError{Message: "Error inserting refresh token", Err: err}
+		return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error inserting refresh token: %w", err)}
 	}
-	span.AddEvent("New refresh token inserted into store")
 	// Check if user has an active subscription
-	subscriptionActive, access, err := CheckUserAccess(ctx, deps, user)
+	subscriptionActive, access, err := s.checkUserAccess(ctx, user)
 	if err != nil {
-		return nil, pkg.UnauthorizedError{Message: "Error checking user access", Err: err}
+		return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error checking user access: %w", err)}
 	}
-	span.AddEvent("User access checked")
+
 	// Generate JWT tokens
-	newAccessToken, newRefreshToken, err := auth.GenerateTokens(
-		newRefreshTokenStore.ID,
+	newAccessToken, newRefreshToken, err := s.authService.GenerateTokens(
+		refreshTokenStore.ID,
 		user.ID.String(),
 		access,
 		user.Avatar,
 		user.Email,
 		subscriptionActive,
-		deps.Cfg.AccessTokenExp,
-		deps.Cfg.RefreshTokenExp,
 	)
 	if err != nil {
-		return nil, pkg.UnauthorizedError{Message: "Error generating JWT token", Err: err}
+		return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error generating JWT token: %w", err)}
 	}
-	span.AddEvent("JWT tokens generated")
 
 	// Update user activity and update old refresh token expiration to 1 minute
 	// This is to prevent the refresh token from being used again
+	//nolint: contextcheck
 	go func() {
-		ctx, cancel := context.WithTimeout(ctx, deps.Cfg.ContextTimeout)
+		newCtx, cancel := context.WithTimeout(context.Background(), s.cfg.ContextTimeout)
 		defer cancel()
-		params := query.UpdateAuthTokenParams{
+		params := query.UpdateTokenParams{
 			ID:      refreshTokenClaims.ID.String(),
 			Expires: time.Now().Add(time.Minute),
 		}
-		err := deps.Store.UpdateAuthToken(ctx, params)
+		err = s.store.UpdateToken(newCtx, params)
 		if err != nil {
 			slog.Error("Error updating token", "error", err)
 		}
-		err = deps.Store.UpdateUserActivity(ctx, user.ID)
+		err = s.store.UpdateUserActivity(newCtx, user.ID)
 		if err != nil {
 			slog.Error("Error updating user", "error", err)
 		}
@@ -184,311 +217,280 @@ func Refresh(ctx context.Context, deps Deps, accessToken string, refreshToken st
 			Email:              user.Email,
 			SubscriptionActive: subscriptionActive,
 		},
-		Fresh:        true,
 		SessionToken: "",
 		HasPhone:     false,
 	}, nil
 }
 
-func extractPRIdentifier(deps Deps) string {
-	// Extract PR identifier from CLIENT_URL (e.g., "pr-87" from "https://pr-87-context.workers.dev")
-	re := regexp.MustCompile(`pr-\d+`)
-	match := re.FindString(deps.Cfg.ClientURL)
-	return match
-}
-
-func Login(
+func (s *Service) Login(
 	ctx context.Context,
-	deps Deps,
+	userEmail string,
 	returnURL string,
 	provider Provider,
-) (result *URLResponse, err error) {
-	ctx, span, done := ot.StartSpan(ctx, "login.service.Login")
-	defer func() { done(err) }()
+) (*URLResponse, error) {
+	if returnURL != s.cfg.AdminURL && returnURL != s.cfg.ClientURL {
+		return nil, pkg.UnauthorizedError{Err: errors.New("invalid return URL")}
+	}
 
-	ctx, cancel := context.WithTimeout(ctx, deps.Cfg.ContextTimeout)
+	ctx, cancel := context.WithTimeout(ctx, s.cfg.ContextTimeout)
 	defer cancel()
 
-	// Generate random state
-	randomState, err := str.GenerateRandomBase64String()
+	// Generate random state and verifier
+	state, err := str.GenerateRandomBase64String()
 	if err != nil {
-		return nil, pkg.UnauthorizedError{Message: "Error generating state", Err: err}
+		return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error generating random string: %w", err)}
 	}
-
-	// Prefix state with PR identifier for PR environments (proxy will route based on this)
-	state := randomState
-	if prID := extractPRIdentifier(deps); prID != "" {
-		state = prID + "-" + randomState
-		span.AddEvent("Prefixed state with PR identifier: " + prID)
-	}
-
-	// Generate code verifier
 	verifier := oauth2.GenerateVerifier()
-	span.AddEvent("State and verifier generated")
-
 	// Store state and verifier in database
-	params := query.InsertAuthTokenParams{
-		ID:        state,
-		Expires:   time.Now().Add(deps.Cfg.AccessTokenExp),
-		Provider:  string(provider),
-		Verifier:  verifier,
-		ReturnUrl: returnURL,
-		UserID:    uuid.NullUUID{UUID: uuid.Nil, Valid: false},
+	params := query.InsertTokenParams{
+		ID:       state,
+		Expires:  time.Now().Add(s.cfg.AccessTokenExp),
+		Target:   verifier,
+		Callback: returnURL,
 	}
-	_, err = deps.Store.InsertAuthToken(ctx, params)
+	_, err = s.store.InsertToken(ctx, params)
 	if err != nil {
-		return nil, pkg.UnauthorizedError{Message: "Error inserting token", Err: err}
+		return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error inserting token: %w", err)}
 	}
-	span.AddEvent("Auth token inserted into store")
-
+	// Send magic link to user
+	if provider == Email {
+		// Validate email
+		v := pkg.ValidationErrors{}
+		_, err := mail.ParseAddress(userEmail)
+		if err != nil {
+			validationError := pkg.ValidationError{
+				Field:   "email",
+				Tag:     "email",
+				Message: "Invalid email address",
+			}
+			v = append(v, validationError)
+			return nil, v
+		}
+		subject := "Magic link"
+		body := `<!DOCTYPE html>
+        <html>
+        <head>
+            <title>Magic Link</title>
+        </head>
+        <body>
+            Click <a href='` + s.cfg.CoreURL + `/login-callback/email?state=` + state + `&email=` + userEmail + `'>here</a> to login
+        </body>
+        </html>`
+		_, err = s.emailService.SendEmail(ctx, uuid.Nil, userEmail, subject, body, nil)
+		if err != nil {
+			return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error sending email: %w", err)}
+		}
+		return &URLResponse{URL: s.cfg.ClientURL + "/login?send=true"}, nil
+	}
 	// Redirect user to consent page to ask for permission
-	url, err := deps.OAuth.AuthCodeURL(deps.Cfg, provider, state, oauth2.AccessTypeOffline, oauth2.S256ChallengeOption(verifier))
-	if err != nil {
-		return nil, pkg.BadRequestError{Message: "Provider not found", Err: err}
-	}
+	p := newProvider(s.cfg, provider)
+	url := p.GetOAuthConfig().AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.S256ChallengeOption(verifier))
 	return &URLResponse{URL: url}, nil
 }
 
-func Callback(
+func (s *Service) LoginCallback(
 	ctx context.Context,
-	deps Deps,
 	state string,
 	code string,
-) (result *AuthResponse, err error) {
-	ctx, span, done := ot.StartSpan(ctx, "login.service.Callback")
-	defer func() { done(err) }()
-
+	email string,
+	provider Provider,
+) (*AuthResponse, error) {
 	// Get verifier from state
-	token, err := deps.Store.SelectAuthTokenByID(ctx, state)
+	token, err := s.store.SelectToken(ctx, state)
 	if err != nil {
-		return nil, pkg.InternalError{Message: "Error selecting token by ID", Err: err}
+		return nil, pkg.InternalError{Message: "Error selecting token by ID", Err: fmt.Errorf("error selecting token by ID: %w", err)}
 	}
 	if time.Now().After(token.Expires) {
-		return nil, pkg.InternalError{Message: "Token expired", Err: errors.New("token expired")}
+		return nil, pkg.InternalError{Message: "Token expired", Err: fmt.Errorf("token expired: %w", err)}
 	}
-	span.AddEvent("Auth token selected from store")
 
-	// Verify code and exchange for token
-	provider := Provider(token.Provider)
-	oauthToken, err := deps.OAuth.Exchange(ctx, deps.Cfg, provider, code, oauth2.VerifierOption(token.Verifier))
-	if err != nil {
-		return nil, pkg.InternalError{Message: "Error exchanging code for token", Err: err}
+	// Get user from database
+	var user query.User
+	var userEmail string
+	var userSub string
+	var userAvatar string
+	if provider == Email {
+		userEmail = email
+		userSub = "email:" + email
+		userAvatar = ""
+	} else {
+		// Verify code and exchange for token
+		p := newProvider(s.cfg, provider)
+		config := p.GetOAuthConfig()
+		oauthToken, err := config.Exchange(ctx, code, oauth2.VerifierOption(token.Target))
+		if err != nil {
+			return nil, pkg.InternalError{Message: "Error exchanging code for token", Err: fmt.Errorf("error exchanging code for token: %w", err)}
+		}
+
+		// Fetch user info from github
+		userInfo, err := p.GetUserInfo(ctx, oauthToken.AccessToken)
+		if err != nil {
+			return nil, pkg.InternalError{Message: "Error fetching user info", Err: fmt.Errorf("error fetching user info: %w", err)}
+		}
+
+		// Get user, create if not exists
+		userEmail = userInfo.Email
+		userSub = fmt.Sprintf("%s:%s", provider, userInfo.Sub)
+		userAvatar = userInfo.Avatar
 	}
-	span.AddEvent("OAuth code exchanged for token")
-
-	// Fetch user info from provider
-	userInfo, err := deps.OAuth.GetUserInfo(ctx, provider, oauthToken.AccessToken)
-	if err != nil {
-		return nil, pkg.InternalError{Message: "Error fetching user info", Err: err}
-	}
-	span.AddEvent("User info fetched from provider")
-
-	// Get user, create if not exists
-	userEmail := userInfo.Email
-	userSub := fmt.Sprintf("%s:%s", token.Provider, userInfo.Sub)
-	userAvatar := userInfo.Avatar
-	user, err := deps.Store.SelectUserByEmailAndSub(ctx, query.SelectUserByEmailAndSubParams{
+	params := query.SelectUserByEmailAndSubParams{
 		Email: userEmail,
 		Sub:   userSub,
-	})
+	}
+	user, err = s.store.SelectUserByEmailAndSub(ctx, params)
 
 	// Create new user if not found
 	if err != nil {
-		span.AddEvent("User not found, creating new user")
+		id, err := uuid.NewV7()
+		if err != nil {
+			return nil, pkg.InternalError{Message: "Error generating UUID", Err: fmt.Errorf("error generating UUID: %w", err)}
+		}
+		
+		// Generate API key for new user
 		apiKey, err := str.GenerateRandomHexString()
 		if err != nil {
-			return nil, pkg.InternalError{Message: "Error generating API key", Err: err}
+			return nil, pkg.InternalError{Message: "Error generating API key", Err: fmt.Errorf("error generating API key: %w", err)}
 		}
-		user, err = deps.Store.InsertUser(ctx, query.InsertUserParams{
+		
+		params := query.InsertUserParams{
+			ID:     id,
 			Email:  userEmail,
-			Access: auth.UserAccess,
+			Access: auth.NewUserAccess,
 			Sub:    userSub,
 			Avatar: userAvatar,
 			ApiKey: apiKey,
-		})
-		if err != nil {
-			return nil, pkg.InternalError{Message: "Error inserting user", Err: err}
 		}
-		span.AddEvent("New user inserted into store")
-	} else {
-		span.AddEvent("User found in store")
+		user, err = s.store.InsertUser(ctx, params)
+		if err != nil {
+			return nil, pkg.InternalError{Message: "Error inserting user", Err: fmt.Errorf("error inserting user: %w", err)}
+		}
 	}
 
 	// If Twilio is not configured, skip 2FA
-	if deps.Cfg.TwilioServiceSID == "" {
-		span.AddEvent("Twilio not configured, skipping 2FA")
-		authResponse, err := createAuthTokens(ctx, deps, user)
+	if s.cfg.TwilioServiceSID == "" {
+		authResponse, err := s.createAuthTokens(ctx, user)
 		if err != nil {
-			return nil, pkg.InternalError{Message: "Error creating auth tokens", Err: err}
+			return nil, pkg.InternalError{Message: "Error creating auth tokens", Err: fmt.Errorf("error creating auth tokens: %w", err)}
 		}
-		authResponse.ReturnURL = token.ReturnUrl
+		authResponse.ReturnURL = token.Callback
 		return authResponse, nil
 	}
 
 	// If user has a phone number, send a 2FA code
 	if user.Phone != "" {
-		span.AddEvent("User has phone, sending 2FA code")
-		sessionToken, err := Phone(ctx, deps, user.ID, user.Phone)
+		sessionToken, err := s.LoginPhone(ctx, user.ID, user.Phone)
 		if err != nil {
-			return nil, pkg.InternalError{Message: "Error sending SMS", Err: err}
+			return nil, pkg.InternalError{Message: "Error sending SMS", Err: fmt.Errorf("error sending SMS: %w", err)}
 		}
 		return &AuthResponse{
-			ReturnURL:    token.ReturnUrl,
+			ReturnURL:    token.Callback,
 			SessionToken: sessionToken,
 			HasPhone:     true,
 			AccessToken:  "",
 			RefreshToken: "",
 			User:         nil,
-			Fresh:        false,
 		}, nil
 	}
-
 	// Generate session token
-	span.AddEvent("User has no phone, generating session token")
-	sessionToken, err := auth.GenerateSessionToken(user.ID.String(), "", deps.Cfg.AccessTokenExp)
+	sessionToken, err := s.authService.GenerateSessionToken(user.ID.String(), "")
 	if err != nil {
-		return nil, pkg.InternalError{Message: "Error generating session token", Err: err}
+		return nil, pkg.InternalError{Message: "Error generating session token", Err: fmt.Errorf("error generating session token: %w", err)}
 	}
 	return &AuthResponse{
-		ReturnURL:    token.ReturnUrl,
+		ReturnURL:    token.Callback,
 		SessionToken: sessionToken,
 		HasPhone:     false,
 		AccessToken:  "",
 		RefreshToken: "",
 		User:         nil,
-		Fresh:        false,
 	}, nil
 }
 
-func Phone(
-	ctx context.Context,
-	deps Deps,
+func (s *Service) LoginPhone(
+	_ context.Context,
 	userID uuid.UUID,
 	phone string,
-) (result string, err error) {
-	_, span, done := ot.StartSpan(ctx, "login.service.Phone")
-	defer func() { done(err) }()
-
+) (string, error) {
 	if phone == "" {
-		return "", pkg.UnauthorizedError{Message: "Phone number is required", Err: errors.New("phone number is required")}
+		return "", pkg.UnauthorizedError{Err: errors.New("phone number is empty")}
 	}
-
 	// Send SMS
+	client := twilio.NewRestClient()
 	params := &verify.CreateVerificationParams{}
 	params.SetTo(phone)
 	params.SetChannel("sms")
-	_, err = deps.Twilio.CreateVerification(deps.Cfg.TwilioServiceSID, params)
+	_, err := client.VerifyV2.CreateVerification(s.cfg.TwilioServiceSID, params)
 	if err != nil {
-		return "", pkg.UnauthorizedError{Message: "Error sending SMS", Err: err}
+		return "", pkg.UnauthorizedError{Err: fmt.Errorf("error sending SMS: %w", err)}
 	}
-	span.AddEvent("SMS verification sent")
-
 	// Generate session token
-	sessionToken, err := auth.GenerateSessionToken(userID.String(), phone, deps.Cfg.AccessTokenExp)
+	sessionToken, err := s.authService.GenerateSessionToken(userID.String(), phone)
 	if err != nil {
-		return "", pkg.UnauthorizedError{Message: "Error generating session token", Err: err}
+		return "", pkg.UnauthorizedError{Err: fmt.Errorf("error generating session token: %w", err)}
 	}
-	span.AddEvent("Session token generated")
 	return sessionToken, nil
 }
 
-func Verify(
+func (s *Service) LoginVerify(
 	ctx context.Context,
-	deps Deps,
 	userID uuid.UUID,
 	phone string,
 	code string,
-) (result *AuthResponse, err error) {
-	ctx, span, done := ot.StartSpan(ctx, "login.service.Verify")
-	defer func() { done(err) }()
-
-	user, err := deps.Store.SelectUserByID(ctx, userID)
+) (*AuthResponse, error) {
+	user, err := s.store.SelectUser(ctx, userID)
 	if err != nil {
-		return nil, pkg.NotFoundError{Message: "Error selecting user by ID", Err: err}
+		return nil, pkg.NotFoundError{Message: "Error selecting user by ID", Err: fmt.Errorf("error selecting user by ID: %w", err)}
 	}
-	span.AddEvent("User selected from store")
 
+	client := twilio.NewRestClient()
 	params := &verify.CreateVerificationCheckParams{}
 	params.SetTo(phone)
 	params.SetCode(code)
 
-	r, err := deps.Twilio.CreateVerificationCheck(deps.Cfg.TwilioServiceSID, params)
+	r, err := client.VerifyV2.CreateVerificationCheck(s.cfg.TwilioServiceSID, params)
 	if err != nil {
-		return nil, pkg.UnauthorizedError{Message: "Error verifying code", Err: err}
+		return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error verifying code: %w", err)}
 	}
 	if *r.Status != "approved" {
-		return nil, pkg.UnauthorizedError{Message: "Invalid code", Err: errors.New("invalid code")}
+		return nil, pkg.UnauthorizedError{Err: errors.New("invalid code")}
 	}
-	span.AddEvent("SMS verification code verified")
 
-	err = deps.Store.UpdateUserPhone(ctx, query.UpdateUserPhoneParams{
+	params2 := query.UpdateUserPhoneParams{
 		ID:    userID,
 		Phone: phone,
-	})
-	if err != nil {
-		return nil, pkg.UnauthorizedError{Message: "Error updating user phone", Err: err}
 	}
-	span.AddEvent("User phone updated in store")
-
-	authResponse, err := createAuthTokens(ctx, deps, user)
+	err = s.store.UpdateUserPhone(ctx, params2)
 	if err != nil {
-		return nil, pkg.UnauthorizedError{Message: "Error creating auth tokens", Err: err}
+		return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error updating user phone: %w", err)}
+	}
+
+	authResponse, err := s.createAuthTokens(ctx, user)
+	if err != nil {
+		return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error creating auth tokens: %w", err)}
 	}
 	return authResponse, nil
 }
 
-// CheckUserAccess checks the user's subscription status and returns the appropriate access level.
-// GF_STRIPE_START
-func CheckUserAccess(ctx context.Context, deps Deps, user query.User) (subscriptionActive bool, access int64, err error) {
-	ctx, span, done := ot.StartSpan(ctx, "login.service.CheckUserAccess")
-	defer func() { done(err) }()
-
-	// Start with base access (no plan bits)
-	access = user.Access
-	access &^= auth.ProPlan
-	access &^= auth.BasicPlan
-
-	// Check for active subscription
-	sub, err := deps.Store.SelectActiveSubscription(ctx, user.ID)
-	if err != nil {
-		// No active subscription found
-		span.AddEvent("No active subscription")
-		return false, access, nil
+func (s *Service) checkUserAccess(ctx context.Context, user query.User) (bool, int64, error) {
+	subEnd, _ := time.Parse(time.RFC3339, user.SubscriptionEnd.Format(time.RFC3339))
+	subscriptionActive := subEnd.After(time.Now())
+	if !subscriptionActive {
+		user.Access &^= auth.PremiumPlan
+		user.Access &^= auth.BasicPlan
+		_, err := s.store.UpdateUserAccess(ctx, query.UpdateUserAccessParams{
+			ID:     user.ID,
+			Access: user.Access,
+		})
+		if err != nil {
+			return false, user.Access, fmt.Errorf("error updating user access: %w", err)
+		}
 	}
-
-	// Derive plan bits from subscription
-	span.AddEvent("Active subscription found")
-	switch sub.StripePriceID {
-	case deps.Cfg.StripePriceIDBasic:
-		access |= auth.BasicPlan
-	case deps.Cfg.StripePriceIDPro:
-		access |= auth.ProPlan
-	}
-
-	return true, access, nil
+	return subscriptionActive, user.Access, nil
 }
 
-// GF_STRIPE_END
-
-func ForceRefresh(ctx context.Context, deps Deps, userID uuid.UUID) (result *AuthResponse, err error) {
-	ctx, span, done := ot.StartSpan(ctx, "login.service.ForceRefresh")
-	defer func() { done(err) }()
-
-	user, err := deps.Store.SelectUserByID(ctx, userID)
-	if err != nil {
-		return nil, pkg.NotFoundError{Message: "Error selecting user by ID", Err: err}
-	}
-	span.AddEvent("User selected from store")
-
-	return createAuthTokens(ctx, deps, user)
-}
-
-func createAuthTokens(ctx context.Context, deps Deps, user query.User) (result *AuthResponse, err error) {
-	ctx, span, done := ot.StartSpan(ctx, "login.service.createAuthTokens")
-	defer func() { done(err) }()
-
+func (s *Service) createAuthTokens(ctx context.Context, user query.User) (*AuthResponse, error) {
 	// Check if user has an active subscription
-	subscriptionActive, access, err := CheckUserAccess(ctx, deps, user)
+	subscriptionActive, access, err := s.checkUserAccess(ctx, user)
 	if err != nil {
 		return nil, fmt.Errorf("error checking user access: %w", err)
 	}
@@ -498,35 +500,29 @@ func createAuthTokens(ctx context.Context, deps Deps, user query.User) (result *
 	if err != nil {
 		return nil, fmt.Errorf("error generating UUID: %w", err)
 	}
-	params := query.InsertAuthTokenParams{
-		ID:        id.String(),
-		Expires:   time.Now().Add(deps.Cfg.RefreshTokenExp),
-		UserID:    uuid.NullUUID{UUID: user.ID, Valid: true},
-		Provider:  "",
-		Verifier:  "",
-		ReturnUrl: "",
+	params2 := query.InsertTokenParams{
+		ID:       id.String(),
+		Expires:  time.Now().Add(s.cfg.RefreshTokenExp),
+		Target:   user.ID.String(),
+		Callback: "",
 	}
-	refreshToken, err := deps.Store.InsertAuthToken(ctx, params)
+	refreshToken, err := s.store.InsertToken(ctx, params2)
 	if err != nil {
 		return nil, fmt.Errorf("error inserting refresh token: %w", err)
 	}
-	span.AddEvent("Refresh token inserted into store")
 
 	// Generate JWT tokens
-	jwtToken, jwtRefreshToken, err := auth.GenerateTokens(
+	jwtToken, jwtRefreshToken, err := s.authService.GenerateTokens(
 		refreshToken.ID,
 		user.ID.String(),
 		access,
 		user.Avatar,
 		user.Email,
 		subscriptionActive,
-		deps.Cfg.AccessTokenExp,
-		deps.Cfg.RefreshTokenExp,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error generating JWT token: %w", err)
 	}
-	span.AddEvent("JWT tokens generated")
 	return &AuthResponse{
 		AccessToken:  jwtToken,
 		RefreshToken: jwtRefreshToken,
@@ -538,34 +534,7 @@ func createAuthTokens(ctx context.Context, deps Deps, user query.User) (result *
 			Email:              user.Email,
 			SubscriptionActive: subscriptionActive,
 		},
-		Fresh:        true,
 		SessionToken: "",
 		HasPhone:     false,
 	}, nil
-}
-
-func HTTPCall(ctx context.Context, url string, accessToken string) (result []byte, err error) {
-	ctx, span, done := ot.StartSpan(ctx, "login.service.HTTPCall")
-	defer func() { done(err) }()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("http.NewRequest: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("http.DefaultClient.Do: %w", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			slog.Error("Error closing response body", "error", err)
-		}
-	}()
-	span.AddEvent("HTTP response received")
-	userInfoB, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("io.ReadAll: %w", err)
-	}
-	return userInfoB, nil
 }

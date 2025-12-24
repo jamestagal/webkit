@@ -1,24 +1,13 @@
 <script lang="ts">
-	import { onMount } from "svelte";
 	import { goto } from "$app/navigation";
 	import Button from "$lib/components/Button.svelte";
 
-	let countdown = 10;
-
-	onMount(() => {
-		const timer = setInterval(() => {
-			countdown--;
-			if (countdown <= 0) {
-				clearInterval(timer);
-				goto("/");
-			}
-		}, 1000);
-
-		return () => clearInterval(timer);
-	});
-
 	function goToDashboard() {
 		goto("/");
+	}
+
+	function viewConsultations() {
+		goto("/consultation/history");
 	}
 </script>
 
@@ -64,12 +53,9 @@
 				</ul>
 			</div>
 
-			<div class="space-y-4">
-				<Button variant="primary" onclick={goToDashboard} class="w-full">Go to Dashboard</Button>
-
-				<p class="text-sm text-gray-500">
-					Redirecting automatically in {countdown} seconds...
-				</p>
+			<div class="space-y-3">
+				<Button variant="primary" onclick={goToDashboard} full>Go to Dashboard</Button>
+				<Button variant="outline" onclick={viewConsultations} full>View My Consultations</Button>
 			</div>
 		</div>
 
