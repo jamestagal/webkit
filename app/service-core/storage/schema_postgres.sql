@@ -23,8 +23,201 @@ create table if not exists users (
     subscription_id text not null default '',
     subscription_end timestamptz not null default '2000-01-01 00:00:00',
     api_key text not null default '',
+    default_agency_id uuid,  -- Added for multi-tenancy
     unique (email, sub)
 );
+
+-- =============================================================================
+-- AGENCY / MULTI-TENANCY TABLES
+-- =============================================================================
+
+-- create "agencies" table - Core tenant table
+create table if not exists agencies (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    -- Basic Information
+    name text not null,
+    slug text not null unique,  -- URL-friendly identifier (e.g., "acme-agency")
+
+    -- Branding
+    logo_url text not null default '',
+    primary_color text not null default '#4F46E5',  -- Indigo-600
+    secondary_color text not null default '#1E40AF',  -- Blue-800
+    accent_color text not null default '#F59E0B',  -- Amber-500
+
+    -- Contact
+    email text not null default '',
+    phone text not null default '',
+    website text not null default '',
+
+    -- Status & Billing
+    status varchar(50) not null default 'active',
+    subscription_tier varchar(50) not null default 'free',  -- free, starter, pro, enterprise
+    subscription_id text not null default '',  -- Stripe subscription ID
+    subscription_end timestamptz,
+
+    constraint valid_agency_status check (status in ('active', 'suspended', 'cancelled'))
+);
+
+-- create "agency_memberships" table - User-Agency relationships
+create table if not exists agency_memberships (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    user_id uuid not null references users(id) on delete cascade,
+    agency_id uuid not null references agencies(id) on delete cascade,
+
+    -- Role within agency
+    role varchar(50) not null default 'member',
+
+    -- User-specific settings within agency
+    display_name text not null default '',  -- Optional override for proposals
+
+    -- Status
+    status varchar(50) not null default 'active',
+    invited_at timestamptz,
+    invited_by uuid references users(id) on delete set null,
+    accepted_at timestamptz,
+
+    unique(user_id, agency_id),
+
+    constraint valid_membership_role check (role in ('owner', 'admin', 'member')),
+    constraint valid_membership_status check (status in ('active', 'invited', 'suspended'))
+);
+
+-- create "agency_form_options" table - Configurable form presets per agency
+create table if not exists agency_form_options (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    agency_id uuid not null references agencies(id) on delete cascade,
+
+    -- Option category (maps to form components)
+    -- Examples: 'budget_range', 'industry', 'business_type', 'digital_presence',
+    --           'marketing_channels', 'challenges', 'technical_issues',
+    --           'solution_gaps', 'primary_goals', 'secondary_goals',
+    --           'success_metrics', 'kpis', 'budget_constraints', 'urgency'
+    category varchar(100) not null,
+
+    -- Option details
+    value text not null,          -- Internal value (e.g., "under-5k")
+    label text not null,          -- Display label (e.g., "Under $5,000")
+    sort_order integer not null default 0,
+    is_default boolean not null default false,  -- Show by default in quick-add
+    is_active boolean not null default true,
+
+    -- Optional metadata
+    metadata jsonb not null default '{}',  -- For extra data like color coding
+
+    unique(agency_id, category, value)
+);
+
+-- create "agency_proposal_templates" table - Proposal customization per agency
+create table if not exists agency_proposal_templates (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    agency_id uuid not null references agencies(id) on delete cascade,
+
+    name text not null,
+    is_default boolean not null default false,
+
+    -- Template sections (JSONB for flexibility)
+    sections jsonb not null default '[]',
+    -- Example structure:
+    -- [
+    --   { "id": "cover", "title": "Cover Page", "enabled": true, "content": "..." },
+    --   { "id": "executive_summary", "title": "Executive Summary", "enabled": true },
+    --   { "id": "scope", "title": "Project Scope", "enabled": true },
+    --   { "id": "pricing", "title": "Pricing", "enabled": true },
+    --   { "id": "terms", "title": "Terms & Conditions", "enabled": true, "content": "..." }
+    -- ]
+
+    -- Footer/Header content
+    header_content text not null default '',
+    footer_content text not null default '',
+
+    -- PDF/Document settings
+    settings jsonb not null default '{}'
+    -- { "font_family": "Inter", "font_size": 12, "margin": "1in" }
+);
+
+-- =============================================================================
+-- AUDIT TRAIL & COMPLIANCE
+-- =============================================================================
+
+-- create "agency_activity_log" table - Audit trail for compliance
+create table if not exists agency_activity_log (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+
+    agency_id uuid not null references agencies(id) on delete cascade,
+    user_id uuid references users(id) on delete set null,  -- Nullable for system actions
+
+    -- Action details
+    action varchar(100) not null,  -- e.g., 'member.invited', 'settings.updated', 'consultation.created'
+    entity_type varchar(50) not null,  -- e.g., 'member', 'consultation', 'agency', 'proposal'
+    entity_id uuid,  -- ID of the affected entity
+
+    -- Change details (for auditing)
+    old_values jsonb,  -- Previous values (for updates)
+    new_values jsonb,  -- New values (for creates/updates)
+
+    -- Request context (for security)
+    ip_address inet,
+    user_agent text,
+
+    -- Additional metadata
+    metadata jsonb not null default '{}'
+);
+
+-- Add soft delete columns to agencies table (for GDPR compliance)
+alter table agencies add column if not exists deleted_at timestamptz;
+alter table agencies add column if not exists deletion_scheduled_for timestamptz;
+
+-- Add slug format constraint (lowercase alphanumeric with hyphens, 3-50 chars)
+-- Note: This validates new slugs but allows existing invalid ones
+alter table agencies drop constraint if exists chk_slug_format;
+alter table agencies add constraint chk_slug_format
+    check (slug ~ '^[a-z0-9][a-z0-9-]*[a-z0-9]$' or length(slug) = 1);
+
+-- Indexes for agencies
+create index if not exists idx_agencies_slug on agencies(slug);
+create index if not exists idx_agencies_status on agencies(status);
+
+-- Indexes for agency_memberships
+create index if not exists idx_agency_memberships_user_id on agency_memberships(user_id);
+create index if not exists idx_agency_memberships_agency_id on agency_memberships(agency_id);
+create index if not exists idx_agency_memberships_role on agency_memberships(role);
+create index if not exists idx_agency_memberships_status on agency_memberships(status);
+
+-- Indexes for agency_form_options
+create index if not exists idx_agency_form_options_agency_id on agency_form_options(agency_id);
+create index if not exists idx_agency_form_options_category on agency_form_options(agency_id, category);
+create index if not exists idx_agency_form_options_active on agency_form_options(agency_id, is_active);
+
+-- Indexes for agency_proposal_templates
+create index if not exists idx_agency_proposal_templates_agency_id on agency_proposal_templates(agency_id);
+create index if not exists idx_agency_proposal_templates_default on agency_proposal_templates(agency_id, is_default);
+
+-- Indexes for agency_activity_log
+create index if not exists idx_activity_agency_created on agency_activity_log(agency_id, created_at desc);
+create index if not exists idx_activity_entity on agency_activity_log(entity_type, entity_id);
+create index if not exists idx_activity_user on agency_activity_log(user_id);
+create index if not exists idx_activity_action on agency_activity_log(action);
+
+-- Index for soft deleted agencies
+create index if not exists idx_agencies_deleted on agencies(deleted_at) where deleted_at is not null;
+
+-- Add foreign key for users.default_agency_id (after agencies table exists)
+-- Note: This needs to be run after agencies table is created
+alter table users add constraint fk_users_default_agency
+    foreign key (default_agency_id) references agencies(id) on delete set null;
 
 -- create "files" table
 create table if not exists files (
@@ -74,6 +267,7 @@ create table if not exists notes (
 create table if not exists consultations (
     id uuid primary key not null default gen_random_uuid(),
     user_id uuid not null references users(id) on delete cascade,
+    agency_id uuid references agencies(id) on delete cascade,  -- Added for multi-tenancy
 
     -- Contact Information (JSONB structure)
     contact_info jsonb not null default '{}',
@@ -145,6 +339,7 @@ create table if not exists consultation_drafts (
     id uuid primary key not null default gen_random_uuid(),
     consultation_id uuid not null references consultations(id) on delete cascade,
     user_id uuid not null references users(id) on delete cascade,
+    agency_id uuid references agencies(id) on delete cascade,  -- Added for multi-tenancy
 
     -- Draft data (same structure as consultations)
     contact_info jsonb not null default '{}',
@@ -169,6 +364,7 @@ create table if not exists consultation_versions (
     id uuid primary key not null default gen_random_uuid(),
     consultation_id uuid not null references consultations(id) on delete cascade,
     user_id uuid not null references users(id) on delete cascade,
+    agency_id uuid references agencies(id) on delete cascade,  -- Added for multi-tenancy
     version_number integer not null,
 
     -- Snapshot of consultation data at this version
@@ -192,6 +388,7 @@ create table if not exists consultation_versions (
 
 -- Indexes for consultations
 create index if not exists idx_consultations_user_id on consultations(user_id);
+create index if not exists idx_consultations_agency_id on consultations(agency_id);
 create index if not exists idx_consultations_status on consultations(status);
 create index if not exists idx_consultations_created_at on consultations(created_at);
 create index if not exists idx_consultations_updated_at on consultations(updated_at);
@@ -204,11 +401,13 @@ create index if not exists idx_consultations_urgency on consultations ((pain_poi
 -- Indexes for consultation_drafts
 create index if not exists idx_consultation_drafts_consultation_id on consultation_drafts(consultation_id);
 create index if not exists idx_consultation_drafts_user_id on consultation_drafts(user_id);
+create index if not exists idx_consultation_drafts_agency_id on consultation_drafts(agency_id);
 create index if not exists idx_consultation_drafts_updated_at on consultation_drafts(updated_at);
 
 -- Indexes for consultation_versions
 create index if not exists idx_consultation_versions_consultation_id on consultation_versions(consultation_id);
 create index if not exists idx_consultation_versions_user_id on consultation_versions(user_id);
+create index if not exists idx_consultation_versions_agency_id on consultation_versions(agency_id);
 create index if not exists idx_consultation_versions_created_at on consultation_versions(created_at);
 create index if not exists idx_consultation_versions_version_number on consultation_versions(consultation_id, version_number);
 

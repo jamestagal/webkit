@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PainPoints, UrgencyLevel } from "$lib/types/consultation";
 	import { consultationStore } from "$lib/stores/consultation.svelte";
+	import { getAgencyConfig } from "$lib/stores/agency-config.svelte";
 	import Input from "$lib/components/Input.svelte";
 	import Select from "$lib/components/Select.svelte";
 	import Textarea from "$lib/components/Textarea.svelte";
@@ -19,6 +20,9 @@
 		disabled?: boolean;
 	} = $props();
 
+	// Get agency config for configurable options
+	const agencyConfig = getAgencyConfig();
+
 	// Local form state with runes
 	let primaryChallenges = $state<string[]>(data.primary_challenges || []);
 	let technicalIssues = $state<string[]>(data.technical_issues || []);
@@ -36,83 +40,24 @@
 	let canAddChallenge = $derived(newChallenge.trim().length > 0);
 	let canAddTechnicalIssue = $derived(newTechnicalIssue.trim().length > 0);
 	let canAddSolutionGap = $derived(newSolutionGap.trim().length > 0);
-	// Predefined options
-	const urgencyOptions = [
+
+	// Use agency config with defaults fallback
+	let urgencyOptions = $derived([
 		{ value: "", label: "Select urgency level" },
-		{ value: "low", label: "Low - Can wait several months" },
-		{ value: "medium", label: "Medium - Needed within 2-3 months" },
-		{ value: "high", label: "High - Needed within 4-6 weeks" },
-		{ value: "critical", label: "Critical - Needed immediately" },
-	];
+		...agencyConfig.urgency_level.map((opt) => ({ value: opt.value, label: opt.label })),
+	]);
 
-	const commonChallenges = [
-		"Low website traffic",
-		"Poor search engine rankings",
-		"Outdated website design",
-		"Slow website performance",
-		"Low conversion rates",
-		"Lack of mobile optimization",
-		"Poor user experience",
-		"Limited online presence",
-		"Ineffective marketing campaigns",
-		"High customer acquisition costs",
-		"Poor brand recognition",
-		"Lack of analytics and tracking",
-		"Manual processes",
-		"Scalability issues",
-		"Security concerns",
-		"Integration problems",
-		"High maintenance costs",
-		"Limited functionality",
-		"Poor customer support tools",
-		"Inventory management issues",
-	];
+	let commonChallenges = $derived(
+		agencyConfig.primary_challenges.map((opt) => opt.label)
+	);
 
-	const commonTechnicalIssues = [
-		"Website crashes frequently",
-		"Slow loading times",
-		"Database performance issues",
-		"SSL certificate problems",
-		"Email delivery issues",
-		"Payment processing failures",
-		"Form submission errors",
-		"Search functionality broken",
-		"Mobile compatibility issues",
-		"Browser compatibility problems",
-		"API integration failures",
-		"Backup and recovery issues",
-		"Security vulnerabilities",
-		"Plugin/extension conflicts",
-		"Hosting limitations",
-		"CDN configuration issues",
-		"Cache management problems",
-		"Image optimization issues",
-		"Video streaming problems",
-		"Third-party service integration issues",
-	];
+	let commonTechnicalIssues = $derived(
+		agencyConfig.technical_issues.map((opt) => opt.label)
+	);
 
-	const commonSolutionGaps = [
-		"Lack of CRM integration",
-		"No email marketing automation",
-		"Missing analytics tracking",
-		"No A/B testing capabilities",
-		"Limited SEO tools",
-		"No social media integration",
-		"Missing e-commerce features",
-		"No customer support chat",
-		"Limited reporting capabilities",
-		"No backup solutions",
-		"Missing security monitoring",
-		"No performance optimization",
-		"Limited scalability options",
-		"No user management system",
-		"Missing content management features",
-		"No lead generation tools",
-		"Limited payment options",
-		"No inventory management",
-		"Missing workflow automation",
-		"No disaster recovery plan",
-	];
+	let commonSolutionGaps = $derived(
+		agencyConfig.solution_gaps.map((opt) => opt.label)
+	);
 
 	// Validation state
 	let impactAssessmentError = $state("");

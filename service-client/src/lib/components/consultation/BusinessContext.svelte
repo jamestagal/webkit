@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { BusinessContext } from "$lib/types/consultation";
 	import { consultationStore } from "$lib/stores/consultation.svelte";
+	import { getAgencyConfig } from "$lib/stores/agency-config.svelte";
 	import Select from "$lib/components/Select.svelte";
 	import Spinner from "$lib/components/Spinner.svelte";
 	import { X, AlertCircle, CheckCircle, AlertTriangle, Plus } from "lucide-svelte";
@@ -17,6 +18,9 @@
 		disabled?: boolean;
 	} = $props();
 
+	// Get agency config for configurable options
+	const agencyConfig = getAgencyConfig();
+
 	// Local form state with runes
 	let industry = $state(data.industry || "");
 	let businessType = $state(data.business_type || "");
@@ -29,71 +33,24 @@
 	let newDigitalPresence = $state("");
 	let newMarketingChannel = $state("");
 
-
-	// Predefined options
-	const industryOptions = [
+	// Use agency config with defaults fallback
+	let industryOptions = $derived([
 		{ value: "", label: "Select an industry" },
-		{ value: "technology", label: "Technology" },
-		{ value: "healthcare", label: "Healthcare" },
-		{ value: "finance", label: "Finance & Banking" },
-		{ value: "retail", label: "Retail & E-commerce" },
-		{ value: "education", label: "Education" },
-		{ value: "manufacturing", label: "Manufacturing" },
-		{ value: "real-estate", label: "Real Estate" },
-		{ value: "hospitality", label: "Hospitality & Tourism" },
-		{ value: "automotive", label: "Automotive" },
-		{ value: "agriculture", label: "Agriculture" },
-		{ value: "non-profit", label: "Non-Profit" },
-		{ value: "government", label: "Government" },
-		{ value: "consulting", label: "Consulting" },
-		{ value: "media", label: "Media & Entertainment" },
-		{ value: "other", label: "Other" },
-	];
+		...agencyConfig.industry.map((opt) => ({ value: opt.value, label: opt.label })),
+	]);
 
-	const businessTypeOptions = [
+	let businessTypeOptions = $derived([
 		{ value: "", label: "Select business type" },
-		{ value: "startup", label: "Startup" },
-		{ value: "small-business", label: "Small Business" },
-		{ value: "mid-market", label: "Mid-Market Company" },
-		{ value: "enterprise", label: "Enterprise" },
-		{ value: "non-profit", label: "Non-Profit Organization" },
-		{ value: "government", label: "Government Agency" },
-		{ value: "freelancer", label: "Freelancer/Solopreneur" },
-	];
+		...agencyConfig.business_type.map((opt) => ({ value: opt.value, label: opt.label })),
+	]);
 
-	const commonDigitalPresences = [
-		"Website",
-		"LinkedIn",
-		"Facebook",
-		"Instagram",
-		"Twitter",
-		"YouTube",
-		"TikTok",
-		"Google My Business",
-		"Yelp",
-		"Amazon",
-		"Shopify",
-	];
+	let commonDigitalPresences = $derived(
+		agencyConfig.digital_presence.map((opt) => opt.label)
+	);
 
-	const commonMarketingChannels = [
-		"SEO/Organic Search",
-		"Google Ads",
-		"Facebook Ads",
-		"Instagram Ads",
-		"LinkedIn Ads",
-		"Email Marketing",
-		"Content Marketing",
-		"Social Media",
-		"Word of Mouth",
-		"Referrals",
-		"Trade Shows",
-		"Print Advertising",
-		"Radio",
-		"TV",
-		"Direct Mail",
-		"Cold Calling",
-		"Influencer Marketing",
-	];
+	let commonMarketingChannels = $derived(
+		agencyConfig.marketing_channels.map((opt) => opt.label)
+	);
 
 	// Validation state
 	let teamSizeError = $state("");

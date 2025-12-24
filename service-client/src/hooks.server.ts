@@ -5,6 +5,12 @@ import { verifyJWT } from "./lib/server/jwt";
 import { refresh } from "./lib/server/refresh";
 import type { Session, User } from "./lib/types";
 import { env } from "$env/dynamic/private";
+import { db } from "$lib/server/db";
+import { agencyMemberships, agencies } from "$lib/server/schema";
+import { eq, and } from "drizzle-orm";
+
+// Cookie name for current agency (must match agency.ts)
+const CURRENT_AGENCY_COOKIE = 'current_agency_id';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const end = perf("handle");
@@ -84,6 +90,63 @@ export const handle: Handle = async ({ event, resolve }) => {
 		throw redirect(302, "/login");
 	}
 	logger.debug("User: %O", event.locals.user);
+
+	// ==========================================================================
+	// MULTI-TENANCY: Verify agency membership on protected routes
+	// ==========================================================================
+	const isAppRoute = event.url.pathname.startsWith('/consultation') ||
+		event.url.pathname.startsWith('/notes') ||
+		event.url.pathname.startsWith('/payments') ||
+		event.url.pathname.startsWith('/files') ||
+		event.url.pathname.startsWith('/emails') ||
+		event.url.pathname === '/';
+
+	if (isAppRoute) {
+		const currentAgencyId = event.cookies.get(CURRENT_AGENCY_COOKIE);
+
+		if (currentAgencyId) {
+			// Verify membership is still active
+			try {
+				const [membership] = await db
+					.select({
+						membershipId: agencyMemberships.id,
+						role: agencyMemberships.role,
+						status: agencyMemberships.status,
+						agencyStatus: agencies.status,
+						agencyDeleted: agencies.deletedAt
+					})
+					.from(agencyMemberships)
+					.innerJoin(agencies, eq(agencyMemberships.agencyId, agencies.id))
+					.where(
+						and(
+							eq(agencyMemberships.userId, event.locals.user.id),
+							eq(agencyMemberships.agencyId, currentAgencyId)
+						)
+					)
+					.limit(1);
+
+				// Check if membership is valid
+				const membershipValid = membership &&
+					membership.status === 'active' &&
+					membership.agencyStatus === 'active' &&
+					!membership.agencyDeleted;
+
+				if (!membershipValid) {
+					// Membership revoked or agency deleted - clear cookie
+					logger.warn(`Agency access revoked for user ${event.locals.user.id}`);
+					event.cookies.delete(CURRENT_AGENCY_COOKIE, { path: '/' });
+
+					// If this is an API request, let it continue (will get 403 from context)
+					// If it's a page request, could redirect to agency selection
+					// For now, just clear the cookie and let the request continue
+					// The layout will handle showing an error or redirecting
+				}
+			} catch (err) {
+				// Database error - log but don't block the request
+				logger.error("Error verifying agency membership:", err);
+			}
+		}
+	}
 
 	end();
 	return await resolve(event, {

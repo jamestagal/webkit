@@ -1,10 +1,25 @@
 <script lang="ts">
-	import { page } from "$app/state";
-	import type { Snippet } from "svelte";
-	import { House, BookOpen, DollarSign, Mail, File, LogOut, MessageCircle, ClipboardList } from "lucide-svelte";
-	import { env } from "$env/dynamic/public";
+	import { page } from '$app/state';
+	import type { Snippet } from 'svelte';
+	import {
+		House,
+		BookOpen,
+		DollarSign,
+		Mail,
+		File,
+		LogOut,
+		MessageCircle,
+		ClipboardList
+	} from 'lucide-svelte';
+	import { env } from '$env/dynamic/public';
+	import { setAgencyConfig } from '$lib/stores/agency-config.svelte';
 
-	let { children }: { children: Snippet } = $props();
+	let { children, data }: { children: Snippet; data: import('./$types').LayoutData } = $props();
+
+	// Set agency config context for child components
+	$effect(() => {
+		setAgencyConfig(data.agencyConfig);
+	});
 
 	let current = $derived(page.url.pathname);
 

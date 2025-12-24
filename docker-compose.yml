@@ -118,6 +118,7 @@ services:
       LOG_LEVEL: debug
       DOMAIN: localhost
       PUBLIC_CLIENT_URL: http://localhost:3000
+      PUBLIC_APP_DOMAIN: webkit.au
       CORE_URL: http://core:4001
       PUBLIC_CORE_URL: http://localhost:4001
       # PostgreSQL direct access for remote functions

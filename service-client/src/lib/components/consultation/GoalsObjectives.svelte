@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { GoalsObjectives, Timeline } from "$lib/types/consultation";
 	import { consultationStore } from "$lib/stores/consultation.svelte";
+	import { getAgencyConfig } from "$lib/stores/agency-config.svelte";
 	import Input from "$lib/components/Input.svelte";
 	import Select from "$lib/components/Select.svelte";
 	import Textarea from "$lib/components/Textarea.svelte";
@@ -18,6 +19,9 @@
 		errors?: string[];
 		disabled?: boolean;
 	} = $props();
+
+	// Get agency config for configurable options
+	const agencyConfig = getAgencyConfig();
 
 	// Local form state with runes
 	let primaryGoals = $state<string[]>(data.primary_goals || []);
@@ -49,109 +53,32 @@
 	let canAddKpi = $derived(newKpi.trim().length > 0);
 	let canAddBudgetConstraint = $derived(newBudgetConstraint.trim().length > 0);
 	let canAddMilestone = $derived(newMilestone.trim().length > 0);
-	// Predefined options
-	const budgetRangeOptions = [
+
+	// Use agency config with defaults fallback
+	let budgetRangeOptions = $derived([
 		{ value: "", label: "Select budget range" },
-		{ value: "under-5k", label: "Under $5,000" },
-		{ value: "5k-10k", label: "$5,000 - $10,000" },
-		{ value: "10k-25k", label: "$10,000 - $25,000" },
-		{ value: "25k-50k", label: "$25,000 - $50,000" },
-		{ value: "50k-100k", label: "$50,000 - $100,000" },
-		{ value: "100k-250k", label: "$100,000 - $250,000" },
-		{ value: "250k-500k", label: "$250,000 - $500,000" },
-		{ value: "over-500k", label: "Over $500,000" },
-		{ value: "tbd", label: "To be determined" },
-	];
+		...agencyConfig.budget_range.map((opt) => ({ value: opt.value, label: opt.label })),
+	]);
 
-	const commonPrimaryGoals = [
-		"Increase website traffic",
-		"Improve search engine rankings",
-		"Boost online sales/conversions",
-		"Enhance brand awareness",
-		"Expand into new markets",
-		"Improve customer experience",
-		"Reduce operational costs",
-		"Increase customer retention",
-		"Launch new products/services",
-		"Improve mobile experience",
-		"Build stronger online presence",
-		"Streamline business processes",
-		"Improve data analytics",
-		"Enhance security and compliance",
-		"Scale business operations",
-	];
+	let commonPrimaryGoals = $derived(
+		agencyConfig.primary_goals.map((opt) => opt.label)
+	);
 
-	const commonSecondaryGoals = [
-		"Integrate with existing systems",
-		"Improve team productivity",
-		"Reduce manual processes",
-		"Better customer support",
-		"Improve data visualization",
-		"Enhance user interface design",
-		"Build API integrations",
-		"Implement automation",
-		"Improve performance monitoring",
-		"Create better documentation",
-		"Establish backup procedures",
-		"Enhance accessibility",
-		"Implement A/B testing",
-		"Create training materials",
-		"Establish maintenance processes",
-	];
+	let commonSecondaryGoals = $derived(
+		agencyConfig.secondary_goals.map((opt) => opt.label)
+	);
 
-	const commonSuccessMetrics = [
-		"Website traffic increase (%)",
-		"Conversion rate improvement (%)",
-		"Page load speed (seconds)",
-		"Search engine ranking positions",
-		"Customer satisfaction score",
-		"Return on investment (ROI)",
-		"Cost per acquisition (CPA)",
-		"Customer lifetime value (CLV)",
-		"Email open/click rates",
-		"Social media engagement",
-		"Lead generation numbers",
-		"Time on site increase",
-		"Bounce rate reduction",
-		"Mobile traffic increase",
-		"Brand mention/awareness metrics",
-	];
+	let commonSuccessMetrics = $derived(
+		agencyConfig.success_metrics.map((opt) => opt.label)
+	);
 
-	const commonKpis = [
-		"Monthly website visitors",
-		"Conversion rate percentage",
-		"Average order value",
-		"Customer acquisition cost",
-		"Monthly recurring revenue",
-		"Customer churn rate",
-		"Net promoter score (NPS)",
-		"Cost per lead",
-		"Email subscriber growth",
-		"Social media followers",
-		"Organic search traffic",
-		"Page views per session",
-		"Cart abandonment rate",
-		"Support ticket volume",
-		"System uptime percentage",
-	];
+	let commonKpis = $derived(
+		agencyConfig.kpis.map((opt) => opt.label)
+	);
 
-	const commonBudgetConstraints = [
-		"Fixed annual budget",
-		"Need to show ROI within 6 months",
-		"Budget must be spread over multiple phases",
-		"Seasonal budget availability",
-		"Need approval for amounts over $X",
-		"Prefer monthly payment plans",
-		"Must justify cost with detailed analysis",
-		"Budget dependent on current performance",
-		"Need to allocate across multiple departments",
-		"Require detailed cost breakdown",
-		"Budget review required quarterly",
-		"Must compare with other vendor quotes",
-		"Need to reserve budget for maintenance",
-		"Prefer performance-based pricing",
-		"Budget contingent on business growth",
-	];
+	let commonBudgetConstraints = $derived(
+		agencyConfig.budget_constraints.map((opt) => opt.label)
+	);
 
 	// Derived validation
 	let isFormValid = $derived(primaryGoals.length > 0 && budgetRange.length > 0);

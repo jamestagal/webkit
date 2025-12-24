@@ -53,6 +53,7 @@
 
 	// State for submission
 	let isSubmitting = $state(false);
+	let showExitConfirmation = $state(false);
 
 	// Initialize the consultation wizard
 	onMount(async () => {
@@ -212,7 +213,7 @@
 	}
 </script>
 
-<svelte:window on:beforeunload={handleBeforeUnload} />
+<svelte:window onbeforeunload={handleBeforeUnload} />
 
 <div class="min-h-screen bg-gray-50">
 	<!-- Header -->

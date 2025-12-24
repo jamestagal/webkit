@@ -256,7 +256,7 @@
 	}
 </script>
 
-<svelte:window on:beforeunload={handleBeforeUnload} />
+<svelte:window onbeforeunload={handleBeforeUnload} />
 
 <div class="min-h-screen bg-gray-50">
 	<!-- Header -->
