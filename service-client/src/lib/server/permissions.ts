@@ -72,7 +72,23 @@ export const PERMISSIONS = {
 
 	// Analytics & reporting
 	'analytics:view': ['owner', 'admin'],
-	'analytics:export': ['owner', 'admin']
+	'analytics:export': ['owner', 'admin'],
+
+	// Agency Profile (V2)
+	'profile:view': ['owner', 'admin'],
+	'profile:edit': ['owner', 'admin'],
+
+	// Packages (V2)
+	'packages:view': ['owner', 'admin', 'member'],
+	'packages:create': ['owner', 'admin'],
+	'packages:edit': ['owner', 'admin'],
+	'packages:delete': ['owner'],
+
+	// Add-ons (V2)
+	'addons:view': ['owner', 'admin', 'member'],
+	'addons:create': ['owner', 'admin'],
+	'addons:edit': ['owner', 'admin'],
+	'addons:delete': ['owner']
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -341,6 +357,31 @@ export function getPermissionMatrix(): {
 				formatPermission('agency:delete', 'Delete agency'),
 				formatPermission('analytics:view', 'View analytics'),
 				formatPermission('analytics:export', 'Export analytics')
+			]
+		},
+		{
+			category: 'Agency Profile',
+			permissions: [
+				formatPermission('profile:view', 'View agency profile'),
+				formatPermission('profile:edit', 'Edit agency profile')
+			]
+		},
+		{
+			category: 'Packages',
+			permissions: [
+				formatPermission('packages:view', 'View packages'),
+				formatPermission('packages:create', 'Create packages'),
+				formatPermission('packages:edit', 'Edit packages'),
+				formatPermission('packages:delete', 'Delete packages')
+			]
+		},
+		{
+			category: 'Add-ons',
+			permissions: [
+				formatPermission('addons:view', 'View add-ons'),
+				formatPermission('addons:create', 'Create add-ons'),
+				formatPermission('addons:edit', 'Edit add-ons'),
+				formatPermission('addons:delete', 'Delete add-ons')
 			]
 		}
 	];

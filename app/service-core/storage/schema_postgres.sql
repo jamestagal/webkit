@@ -219,6 +219,152 @@ create index if not exists idx_agencies_deleted on agencies(deleted_at) where de
 alter table users add constraint fk_users_default_agency
     foreign key (default_agency_id) references agencies(id) on delete set null;
 
+-- =============================================================================
+-- AGENCY PROFILES, PACKAGES & ADD-ONS (V2 Foundation)
+-- =============================================================================
+
+-- create "agency_profiles" table - Extended business details for documents
+create table if not exists agency_profiles (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    agency_id uuid not null unique references agencies(id) on delete cascade,
+
+    -- Business Registration
+    abn varchar(20) not null default '',
+    acn varchar(20) not null default '',
+    legal_entity_name text not null default '',
+    trading_name text not null default '',
+
+    -- Address
+    address_line_1 text not null default '',
+    address_line_2 text not null default '',
+    city varchar(100) not null default '',
+    state varchar(50) not null default '',
+    postcode varchar(20) not null default '',
+    country varchar(100) not null default 'Australia',
+
+    -- Banking (for invoice display)
+    bank_name varchar(100) not null default '',
+    bsb varchar(10) not null default '',
+    account_number varchar(30) not null default '',
+    account_name text not null default '',
+
+    -- Tax & GST
+    gst_registered boolean not null default true,
+    tax_file_number varchar(20) not null default '',
+    gst_rate decimal(5,2) not null default 10.00,
+
+    -- Social & Branding
+    tagline text not null default '',
+    social_linkedin text not null default '',
+    social_facebook text not null default '',
+    social_instagram text not null default '',
+    social_twitter text not null default '',
+    brand_font varchar(100) not null default '',
+
+    -- Document Defaults
+    default_payment_terms varchar(50) not null default 'NET_14',
+    invoice_prefix varchar(20) not null default 'INV',
+    invoice_footer text not null default '',
+    next_invoice_number integer not null default 1,
+    contract_prefix varchar(20) not null default 'CON',
+    contract_footer text not null default '',
+    next_contract_number integer not null default 1,
+    proposal_prefix varchar(20) not null default 'PROP',
+    next_proposal_number integer not null default 1,
+
+    constraint valid_payment_terms check (default_payment_terms in ('DUE_ON_RECEIPT', 'NET_7', 'NET_14', 'NET_30'))
+);
+
+-- create "agency_packages" table - Configurable pricing tiers per agency
+create table if not exists agency_packages (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    agency_id uuid not null references agencies(id) on delete cascade,
+
+    -- Package Identity
+    name varchar(100) not null,
+    slug varchar(50) not null,
+    description text not null default '',
+
+    -- Pricing Model
+    pricing_model varchar(50) not null,
+
+    -- All prices in AUD dollars (DECIMAL for precision)
+    setup_fee decimal(10,2) not null default 0.00,
+    monthly_price decimal(10,2) not null default 0.00,
+    one_time_price decimal(10,2) not null default 0.00,
+    hosting_fee decimal(10,2) not null default 0.00,
+
+    -- Terms
+    minimum_term_months integer not null default 12,
+    cancellation_fee_type varchar(50),
+    cancellation_fee_amount decimal(10,2) not null default 0.00,
+
+    -- Included Features (JSONB array of strings)
+    included_features jsonb not null default '[]',
+    max_pages integer,  -- NULL = unlimited
+
+    -- Display Settings
+    display_order integer not null default 0,
+    is_featured boolean not null default false,
+    is_active boolean not null default true,
+
+    unique(agency_id, slug),
+
+    constraint valid_pricing_model check (pricing_model in ('subscription', 'lump_sum', 'hybrid')),
+    constraint valid_cancellation_fee_type check (cancellation_fee_type is null or cancellation_fee_type in ('none', 'fixed', 'remaining_balance'))
+);
+
+-- create "agency_addons" table - Optional services per package
+create table if not exists agency_addons (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    agency_id uuid not null references agencies(id) on delete cascade,
+
+    -- Add-on Identity
+    name varchar(100) not null,
+    slug varchar(50) not null,
+    description text not null default '',
+
+    -- Pricing (AUD dollars)
+    price decimal(10,2) not null,
+    pricing_type varchar(50) not null,
+    unit_label varchar(50),  -- e.g., "page", "hour" (for per_unit)
+
+    -- Availability (JSONB array of package slugs, empty = all packages)
+    available_packages jsonb not null default '[]',
+
+    -- Display Settings
+    display_order integer not null default 0,
+    is_active boolean not null default true,
+
+    unique(agency_id, slug),
+
+    constraint valid_pricing_type check (pricing_type in ('one_time', 'monthly', 'per_unit'))
+);
+
+-- Indexes for agency_profiles
+create index if not exists idx_agency_profiles_agency_id on agency_profiles(agency_id);
+
+-- Indexes for agency_packages
+create index if not exists idx_agency_packages_agency_id on agency_packages(agency_id);
+create index if not exists idx_agency_packages_slug on agency_packages(agency_id, slug);
+create index if not exists idx_agency_packages_active on agency_packages(agency_id, is_active);
+create index if not exists idx_agency_packages_display_order on agency_packages(agency_id, display_order);
+
+-- Indexes for agency_addons
+create index if not exists idx_agency_addons_agency_id on agency_addons(agency_id);
+create index if not exists idx_agency_addons_slug on agency_addons(agency_id, slug);
+create index if not exists idx_agency_addons_active on agency_addons(agency_id, is_active);
+create index if not exists idx_agency_addons_display_order on agency_addons(agency_id, display_order);
+
 -- create "files" table
 create table if not exists files (
     id uuid primary key not null,
