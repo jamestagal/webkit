@@ -3,6 +3,8 @@
 
 > **Scope Expansion**: From consultation capture → Full client lifecycle management
 
+> **Core Principle**: Capture rich data once, reuse everywhere. Every piece of information flows through the pipeline and auto-populates downstream documents, eliminating redundant data entry and enabling AI-powered content generation.
+
 ---
 
 ## Executive Summary
@@ -177,6 +179,351 @@ Webkit evolves from a proposal generator into a comprehensive client lifecycle m
 │                                                                               │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Data Pipeline & Cross-Population
+
+> **Design Goal**: Capture data once at the earliest opportunity, then auto-populate all downstream documents. No redundant data entry. Maximum reuse.
+
+### Data Sources & Ownership
+
+| Data Source | When Captured | Owner | Lifetime |
+|-------------|---------------|-------|----------|
+| **Agency Profile** | Agency setup | Agency admin | Persistent, rarely changes |
+| **Consultation** | Pre-sale discovery | Client + Agency | Per-project |
+| **Proposal** | After consultation | Agency | Per-project |
+| **Contract** | After proposal accepted | Both parties | Per-project |
+| **Invoice** | Generated from proposal | Agency | Per-project |
+| **Questionnaire** | Post-payment | Client | Per-project |
+
+### Cross-Population Matrix
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    DATA CROSS-POPULATION MATRIX                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│                    ┌─────────────────────────────────────────────────────┐  │
+│  AGENCY PROFILE    │ • Business name, ABN, logo                          │  │
+│  (Source of Truth) │ • Bank details (BSB, Account)                       │  │
+│                    │ • Contact info (email, phone, address)              │  │
+│                    │ • Branding (colors, fonts)                          │  │
+│                    └───────────────────────────────────────────────────────  │
+│                              │                                               │
+│                              ▼                                               │
+│         ┌─────────────┬─────────────┬─────────────┬─────────────┐          │
+│         │  PROPOSAL   │  INVOICE    │  CONTRACT   │   EMAILS    │          │
+│         │  • Header   │  • Header   │  • Party A  │  • Signature│          │
+│         │  • Footer   │  • Bank     │  • ABN      │  • Branding │          │
+│         │  • Logo     │  • ABN      │  • Logo     │  • From     │          │
+│         └─────────────┴─────────────┴─────────────┴─────────────┘          │
+│                                                                              │
+│                    ┌─────────────────────────────────────────────────────┐  │
+│  CONSULTATION      │ • Client business name, contact person              │  │
+│  (Client Discovery)│ • Website URL (triggers PageSpeed audit)            │  │
+│                    │ • Industry, business type                           │  │
+│                    │ • Goals, challenges, pain points                    │  │
+│                    │ • Budget range, timeline                            │  │
+│                    │ • Team size, current platform                       │  │
+│                    └───────────────────────────────────────────────────────  │
+│                              │                                               │
+│                              ▼                                               │
+│         ┌─────────────┬─────────────┬─────────────┬─────────────┐          │
+│         │  PROPOSAL   │  CONTRACT   │QUESTIONNAIRE│  SEO/AI     │          │
+│         │  • Client   │  • Party B  │  • Pre-fill │  • Keywords │          │
+│         │  • Analysis │  • Scope    │  • Industry │  • Copy     │          │
+│         │  • ROI calc │  • Ref URL  │  • Goals    │  • Meta     │          │
+│         └─────────────┴─────────────┴─────────────┴─────────────┘          │
+│                                                                              │
+│                    ┌─────────────────────────────────────────────────────┐  │
+│  PROPOSAL          │ • Selected package (name, pricing model)            │  │
+│  (Package Selection)• Add-ons selected                                   │  │
+│                    │ • Setup fee, monthly price, one-time price          │  │
+│                    │ • Proposal number                                   │  │
+│                    └───────────────────────────────────────────────────────  │
+│                              │                                               │
+│                              ▼                                               │
+│         ┌─────────────────────────────┬─────────────────────────────┐      │
+│         │         INVOICE             │         CONTRACT            │      │
+│         │  • Line items (auto)        │  • Schedule A (package)     │      │
+│         │  • Setup fee line           │  • Monthly price            │      │
+│         │  • Monthly × term           │  • Minimum term             │      │
+│         │  • Add-on lines             │  • Add-on scope             │      │
+│         │  • Totals calculated        │  • Payment schedule         │      │
+│         └─────────────────────────────┴─────────────────────────────┘      │
+│                                                                              │
+│                    ┌─────────────────────────────────────────────────────┐  │
+│  QUESTIONNAIRE     │ • Detailed business description                     │  │
+│  (Content Capture) │ • Services offered, USPs, differentiators           │  │
+│                    │ • Target audience, ideal customer                   │  │
+│                    │ • Brand voice, tone preferences                     │  │
+│                    │ • Page-by-page content, uploaded assets             │  │
+│                    └───────────────────────────────────────────────────────  │
+│                              │                                               │
+│                              ▼                                               │
+│         ┌─────────────────────────────┬─────────────────────────────┐      │
+│         │      CONTENT BRIEF          │      AI SEO CONTENT         │      │
+│         │  • Complete project spec    │  • Homepage hero copy       │      │
+│         │  • Merged consultation +    │  • About page content       │      │
+│         │    questionnaire data       │  • Service descriptions     │      │
+│         │  • Ready for dev handoff    │  • Meta descriptions        │      │
+│         └─────────────────────────────┴─────────────────────────────┘      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Merge Field System
+
+All documents use a consistent merge field syntax for auto-population:
+
+```typescript
+// Merge field format: {{source.field_name}}
+
+// Agency Profile fields
+{{agency.business_name}}
+{{agency.abn}}
+{{agency.logo_url}}
+{{agency.email}}
+{{agency.phone}}
+{{agency.address}}
+{{agency.bank_name}}
+{{agency.bsb}}
+{{agency.account_number}}
+{{agency.account_name}}
+
+// Consultation fields
+{{client.business_name}}
+{{client.contact_person}}
+{{client.email}}
+{{client.phone}}
+{{client.website_url}}
+{{client.industry}}
+{{client.business_type}}
+{{client.team_size}}
+{{client.goals}}                    // Formatted list
+{{client.challenges}}               // Formatted list
+{{client.budget_range}}
+{{client.timeline_start}}
+{{client.timeline_end}}
+
+// Proposal fields
+{{proposal.number}}                 // PROP-2025-0001
+{{proposal.date}}
+{{proposal.package_name}}
+{{proposal.package_price}}
+{{proposal.setup_fee}}
+{{proposal.monthly_price}}
+{{proposal.addons}}                 // Formatted list with prices
+{{proposal.total}}
+{{proposal.valid_until}}
+
+// Contract fields
+{{contract.number}}                 // CON-2025-0001
+{{contract.date}}
+{{contract.minimum_term}}
+{{contract.cancellation_fee}}
+{{contract.payment_terms}}
+
+// Invoice fields
+{{invoice.number}}                  // INV-2025-0001
+{{invoice.date}}
+{{invoice.due_date}}
+{{invoice.subtotal}}
+{{invoice.gst}}
+{{invoice.total}}
+{{invoice.payment_link}}
+
+// Computed/Derived fields
+{{computed.project_duration}}       // From timeline
+{{computed.total_contract_value}}   // Setup + (monthly × term)
+{{computed.roi_estimate}}           // AI-calculated
+```
+
+### Auto-Population Rules
+
+| Document | Auto-Populated From | Manual Override |
+|----------|---------------------|-----------------|
+| **Proposal Header** | Agency Profile (logo, name, contact) | No |
+| **Proposal Client Section** | Consultation (all client fields) | Yes |
+| **Proposal Analysis** | Consultation (goals, challenges) + PageSpeed | Editable |
+| **Contract Party A** | Agency Profile | No |
+| **Contract Party B** | Consultation (client details) | Yes |
+| **Contract Schedule A** | Proposal (package, pricing) | Editable |
+| **Invoice Header** | Agency Profile | No |
+| **Invoice Client** | Consultation OR Proposal | Yes |
+| **Invoice Line Items** | Proposal (package + add-ons) | Editable |
+| **Invoice Bank Details** | Agency Profile | No |
+| **Questionnaire Pre-fill** | Consultation (business name, industry) | Editable |
+| **Content Brief** | Consultation + Questionnaire | Generated |
+
+### AI-Powered Content Generation
+
+The rich data captured enables AI content generation for SEO-optimized website copy:
+
+```typescript
+interface AIContentGeneration {
+  // Input: Combined data from consultation + questionnaire
+  input: {
+    industry: string;
+    business_type: string;
+    goals: string[];
+    challenges: string[];
+    target_audience: string;
+    usps: string[];
+    services: string[];
+    brand_voice: string;
+    competitors: string[];
+  };
+
+  // Output: SEO-optimized content suggestions
+  output: {
+    homepage: {
+      hero_headline: string;
+      hero_subheadline: string;
+      value_propositions: string[];
+      cta_text: string;
+    };
+    about_page: {
+      company_story: string;
+      mission_statement: string;
+      team_description: string;
+    };
+    services_page: {
+      service_descriptions: ServiceDescription[];
+      benefits_list: string[];
+    };
+    seo: {
+      meta_title: string;
+      meta_description: string;
+      keywords: string[];
+      h1_suggestions: string[];
+      h2_suggestions: string[];
+    };
+  };
+}
+```
+
+### Data Pipeline Implementation
+
+```typescript
+// service-client/src/lib/server/services/data-pipeline.service.ts
+
+export class DataPipelineService {
+
+  // Get all data for a client project
+  async getProjectData(consultationId: string): Promise<ProjectData> {
+    const consultation = await getConsultation(consultationId);
+    const proposal = await getProposalByConsultation(consultationId);
+    const contract = await getContractByProposal(proposal?.id);
+    const invoice = await getInvoiceByProposal(proposal?.id);
+    const questionnaire = await getQuestionnaireByConsultation(consultationId);
+    const agency = await getAgency(consultation.agencyId);
+
+    return {
+      agency,
+      consultation,
+      proposal,
+      contract,
+      invoice,
+      questionnaire,
+      computed: this.computeDerivedFields(...)
+    };
+  }
+
+  // Resolve merge fields in a template
+  async resolveMergeFields(
+    template: string,
+    projectData: ProjectData
+  ): Promise<string> {
+    return template.replace(
+      /\{\{(\w+)\.(\w+)\}\}/g,
+      (match, source, field) => {
+        return projectData[source]?.[field] ?? match;
+      }
+    );
+  }
+
+  // Generate invoice line items from proposal
+  async generateInvoiceLines(proposalId: string): Promise<LineItem[]> {
+    const proposal = await getProposal(proposalId);
+    const lines: LineItem[] = [];
+
+    // Add setup fee if applicable
+    if (proposal.setup_fee > 0) {
+      lines.push({
+        description: `${proposal.package_name} - Setup Fee`,
+        quantity: 1,
+        unit_price: proposal.setup_fee,
+        total: proposal.setup_fee
+      });
+    }
+
+    // Add monthly recurring (first payment or full term)
+    if (proposal.monthly_price > 0) {
+      lines.push({
+        description: `${proposal.package_name} - Monthly Service`,
+        quantity: 12, // or 1 for first month only
+        unit_price: proposal.monthly_price,
+        total: proposal.monthly_price * 12
+      });
+    }
+
+    // Add one-time price if lump sum
+    if (proposal.one_time_price > 0) {
+      lines.push({
+        description: `${proposal.package_name} - Website Development`,
+        quantity: 1,
+        unit_price: proposal.one_time_price,
+        total: proposal.one_time_price
+      });
+    }
+
+    // Add each add-on
+    for (const addon of proposal.addons) {
+      lines.push({
+        description: addon.name,
+        quantity: addon.quantity || 1,
+        unit_price: addon.price,
+        total: addon.price * (addon.quantity || 1)
+      });
+    }
+
+    return lines;
+  }
+
+  // Generate AI content suggestions
+  async generateSEOContent(
+    consultationId: string,
+    questionnaireId?: string
+  ): Promise<AIContentSuggestions> {
+    const consultation = await getConsultation(consultationId);
+    const questionnaire = questionnaireId
+      ? await getQuestionnaire(questionnaireId)
+      : null;
+
+    // Combine data for AI prompt
+    const context = {
+      industry: consultation.businessContext.industry,
+      goals: consultation.goalsObjectives.primary_goals,
+      challenges: consultation.painPoints.primary_challenges,
+      // ... more fields
+    };
+
+    // Call AI service (Claude/OpenAI)
+    return await this.aiService.generateContent(context);
+  }
+}
+```
+
+### Benefits of This Approach
+
+1. **Zero Redundant Entry**: Client enters business name once in consultation → appears everywhere
+2. **Consistency**: Same data used across all documents, no typos or mismatches
+3. **Speed**: Proposals, contracts, invoices generated in seconds
+4. **AI Enhancement**: Rich data enables smart content generation
+5. **Audit Trail**: Clear lineage of where each piece of data originated
+6. **Easy Updates**: Change in source → propagates to all documents
 
 ---
 
