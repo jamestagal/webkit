@@ -2,17 +2,100 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Overview
+
+**Webkit** is a multi-tenant SaaS platform for web agencies to create client consultations and proposals. It uses agency-based tenancy with customizable forms and branding per agency.
+
 ## Architecture Overview
 
 This is a microservices application built with:
 - **Core Service**: Go backend providing gRPC and REST APIs, database interactions
 - **Admin Service**: Go backend with web interface for administration, Server-Sent Events (SSE)
-- **Client Service**: SvelteKit frontend application with TypeScript
+- **Client Service**: SvelteKit frontend application with TypeScript and Svelte 5 runes
 - **Database**: PostgreSQL (primary), with SQLite/Turso support
 - **Message Queue**: NATS for inter-service communication
 - **Monitoring**: Grafana and Prometheus integration available
 
 The services communicate via gRPC (internal) and REST APIs (external), with protobuf definitions in `/proto`.
+
+## Multi-Tenancy Architecture
+
+### Database Model (Single Shared Database)
+
+We use **shared database with row-level tenant isolation** - NOT separate databases per agency. All agencies share the same tables with `agency_id` columns for data separation.
+
+**Key Tables:**
+- `agencies` - Core tenant table with branding, billing, status
+- `agency_memberships` - User-Agency relationships with roles (owner/admin/member)
+- `agency_form_options` - Customizable form dropdown options per agency
+- `agency_proposal_templates` - Future proposal templates per agency
+- `consultations` - Scoped by `agency_id`
+- `consultation_drafts` - Scoped by `agency_id`
+
+### Data Isolation Pattern
+
+All database queries MUST use the `withAgencyScope()` helper:
+
+```typescript
+// service-client/src/lib/server/db-helpers.ts
+const consultations = await withAgencyScope(agencyId, async (id) => {
+    return db.query.consultations.findMany({
+        where: eq(consultations.agencyId, id)
+    });
+});
+```
+
+### Form Customization Per Agency
+
+Agencies can customize dropdown options via `agency_form_options` table. The 14 configurable categories are:
+- `industry`, `business_type`, `budget_range`, `urgency_level`
+- `primary_challenges`, `technical_issues`, `solution_gaps`
+- `digital_presence`, `marketing_channels`, `primary_goals`
+- `secondary_goals`, `success_metrics`, `kpis`, `budget_constraints`
+
+**How it works:**
+1. Layout loads agency config in `[agencySlug]/+layout.server.ts`
+2. Config stored via `setAgencyConfig()` module-level state
+3. Form components call `getAgencyConfig()` for options
+4. Falls back to defaults if agency has no custom options
+
+### Permissions & Roles
+
+Defined in `service-client/src/lib/server/permissions.ts`:
+- **Owner**: Full access including billing, member role changes
+- **Admin**: Settings, member management (except role changes), templates
+- **Member**: Create/edit own consultations and proposals
+
+### Subscription Tiers
+
+Defined in `service-client/src/lib/server/subscription.ts`:
+- `free`: 1 member, 5 consultations/month, 1 template
+- `starter`: 3 members, 25 consultations/month, 5 templates
+- `growth`: 10 members, 100 consultations/month, 20 templates
+- `enterprise`: Unlimited
+
+## Key Files & Locations
+
+### Multi-Tenancy Core
+- `service-client/src/lib/server/agency.ts` - Agency context helpers
+- `service-client/src/lib/server/db-helpers.ts` - Data isolation helpers
+- `service-client/src/lib/server/permissions.ts` - Permission matrix
+- `service-client/src/lib/server/subscription.ts` - Tier enforcement
+- `service-client/src/lib/stores/agency-config.svelte.ts` - Form options store
+
+### Remote Functions
+- `service-client/src/lib/api/consultation.remote.ts` - Consultation operations
+- `service-client/src/lib/api/agency.remote.ts` - Agency operations
+- `service-client/src/lib/api/gdpr.remote.ts` - Data export endpoints
+
+### Routes
+- `service-client/src/routes/(app)/[agencySlug]/` - Agency-scoped routes
+- `service-client/src/routes/(app)/agencies/` - Agency management
+- `service-client/src/routes/api/` - API endpoints (GDPR export)
+
+### Schema
+- `app/service-core/storage/schema_postgres.sql` - Go backend schema
+- `service-client/src/lib/server/schema.ts` - Drizzle schema (SvelteKit)
 
 ## Development Commands
 
@@ -34,22 +117,13 @@ sh scripts/run_grpc.sh
 docker compose up --build
 
 # Run database migrations
-sh scripts/run_migrations.sh [postgres|sqlite|turso]
+sh scripts/atlas.sh [postgres|sqlite|turso]
 ```
 
 ### Development Tools
 ```bash
 # Format all frontend code
 sh scripts/format.sh
-
-# Update user permissions (requires user ID)
-sh scripts/update_permissions.sh <user-id> [access-level]
-
-# Create development user with admin access
-sh scripts/seed_dev_user.sh
-
-# Configure Stripe webhooks (if using Stripe)
-sh scripts/run_stripe.sh
 
 # Client-specific commands (in service-client/)
 npm run dev          # Development server
@@ -79,37 +153,58 @@ npm run format       # Auto-format code
 
 ### Frontend (`/service-client`)
 - SvelteKit application with TypeScript
+- Svelte 5 runes (`$state`, `$derived`, `$props`, `$effect`)
 - TailwindCSS + DaisyUI for styling
 - Vitest for unit testing, Playwright for e2e testing
 
 ### Infrastructure
 - **proto/**: Protobuf definitions for gRPC services
 - **scripts/**: Development automation scripts
-- **grafana/**: Monitoring and observability setup
-- **kube/**: Kubernetes deployment configurations
+- **monitoring/**: Grafana, Prometheus, Loki configs
+- **infra/**: Terraform + Kubernetes deployment
 
-## Database Management
+## Svelte 5 Compliance
 
-The application uses SQLC for type-safe SQL queries and Atlas for schema migrations:
-- Schema files: `app/service-core/storage/schema_*.sql`
-- Query files: `app/service-core/storage/sql/*.sql`
-- Generated code: `app/service-core/storage/query/`
+This project uses Svelte 5. Key patterns:
 
-### Database Development Workflow
+```svelte
+<!-- Props: Use $props() not export let -->
+<script lang="ts">
+    let { value, onChange }: Props = $props();
+</script>
 
-When making database changes, follow this workflow:
+<!-- State: Use $state() -->
+let count = $state(0);
+
+<!-- Derived: Use $derived() -->
+let doubled = $derived(count * 2);
+
+<!-- Events: Use onclick not on:click -->
+<button onclick={handleClick}>Click</button>
+<svelte:window onbeforeunload={handleUnload} />
+```
+
+## Database Development Workflow
+
+When making database changes:
 
 1. **Start services**: `docker compose up`
 2. **Edit schema**: Modify `app/service-core/storage/schema_postgres.sql`
-3. **Apply migrations**: `sh scripts/atlas.sh [postgres|sqlite|turso]`
-4. **Edit queries**: Modify files in `app/service-core/storage/sql/*.sql`
-5. **Generate Go code**: `sh scripts/run_queries.sh [postgres|sqlite]`
-
-**Note**: Use `run_migrations.sh` only for initial setup or fresh databases. For schema changes during development, use `atlas.sh`.
+3. **Apply migrations**: `sh scripts/atlas.sh postgres`
+4. **Edit Drizzle schema**: Modify `service-client/src/lib/server/schema.ts`
+5. **Edit queries**: Modify files in `app/service-core/storage/sql/*.sql`
+6. **Generate Go code**: `sh scripts/run_queries.sh postgres`
 
 ## Key Environment Variables
 
-Authentication, payment providers, email providers, and file storage providers are configurable via environment variables. See `docker-compose.yml` for the complete list of supported providers and configuration options.
+| Variable | Description |
+|----------|-------------|
+| `PUBLIC_APP_DOMAIN` | Domain for agency URLs (e.g., `webkit.au`) |
+| `DATABASE_URL` | PostgreSQL connection string for Drizzle |
+| `DIRECT_URL` | Direct PostgreSQL URL (for migrations) |
+| `POSTGRES_*` | PostgreSQL connection details |
+
+See `docker-compose.yml` for the complete list.
 
 ## Hot Reload
 
