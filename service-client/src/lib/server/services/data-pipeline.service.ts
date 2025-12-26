@@ -139,10 +139,19 @@ export interface ProposalMergeFields {
 export interface ContractMergeFields {
 	number: string; // CON-2025-0001
 	date: string;
+	valid_until: string;
+	commencement_date: string;
+	completion_date: string;
+	total_price: string;
+	payment_terms: string;
 	minimum_term: string;
 	cancellation_terms: string;
 	start_date: string;
 	end_date: string;
+	services_description: string;
+	special_conditions: string;
+	agency_signatory_name: string;
+	agency_signatory_title: string;
 }
 
 export interface InvoiceMergeFields {
@@ -385,6 +394,50 @@ export class DataPipelineService {
 		};
 	}
 
+	/**
+	 * Build contract merge fields from contract data.
+	 */
+	buildContractMergeFields(contract: {
+		contractNumber: string;
+		createdAt: Date;
+		commencementDate?: Date | string | null;
+		completionDate?: Date | string | null;
+		totalPrice: string;
+		paymentTerms: string;
+		validUntil?: Date | string | null;
+		servicesDescription?: string;
+		specialConditions?: string;
+		agencySignatoryName?: string | null;
+		agencySignatoryTitle?: string | null;
+	}): ContractMergeFields {
+		return {
+			number: contract.contractNumber,
+			date: this.formatDate(contract.createdAt),
+			valid_until: contract.validUntil ? this.formatDate(contract.validUntil) : '',
+			commencement_date: contract.commencementDate
+				? this.formatDate(contract.commencementDate)
+				: '',
+			completion_date: contract.completionDate
+				? this.formatDate(contract.completionDate)
+				: '',
+			total_price: this.formatCurrency(parseFloat(contract.totalPrice)),
+			payment_terms: contract.paymentTerms,
+			// Aliases for template flexibility
+			minimum_term: '', // Derived from package or set manually
+			cancellation_terms: '', // Derived from package or set manually
+			start_date: contract.commencementDate
+				? this.formatDate(contract.commencementDate)
+				: '',
+			end_date: contract.completionDate
+				? this.formatDate(contract.completionDate)
+				: '',
+			services_description: contract.servicesDescription || '',
+			special_conditions: contract.specialConditions || '',
+			agency_signatory_name: contract.agencySignatoryName || '',
+			agency_signatory_title: contract.agencySignatoryTitle || ''
+		};
+	}
+
 	// =========================================================================
 	// Merge Field Resolution
 	// =========================================================================
@@ -523,10 +576,19 @@ export class DataPipelineService {
 			contract: [
 				'number',
 				'date',
+				'valid_until',
+				'commencement_date',
+				'completion_date',
+				'total_price',
+				'payment_terms',
 				'minimum_term',
 				'cancellation_terms',
 				'start_date',
-				'end_date'
+				'end_date',
+				'services_description',
+				'special_conditions',
+				'agency_signatory_name',
+				'agency_signatory_title'
 			],
 			invoice: [
 				'number',

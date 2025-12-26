@@ -443,6 +443,170 @@ export const proposals = pgTable(
 );
 
 // =============================================================================
+// CONTRACTS (V2 Document Generation)
+// =============================================================================
+
+// Contract Templates table - Agency contract configuration
+export const contractTemplates = pgTable(
+	'contract_templates',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+
+		agencyId: uuid('agency_id')
+			.notNull()
+			.references(() => agencies.id, { onDelete: 'cascade' }),
+
+		// Template identification
+		name: varchar('name', { length: 255 }).notNull(), // "Plentify Service Agreement 2026"
+		description: text('description').notNull().default(''),
+		version: integer('version').notNull().default(1),
+
+		// Cover page configuration (structured JSON)
+		coverPageConfig: jsonb('cover_page_config').notNull().default({}),
+		// { showLogo: true, showAgencyAddress: true, showClientAddress: true,
+		//   customFields: [{label, mergeField}] }
+
+		// Fixed terms & conditions content (rich text with merge fields)
+		termsContent: text('terms_content').notNull().default(''),
+
+		// Signature configuration
+		signatureConfig: jsonb('signature_config').notNull().default({}),
+		// { agencySignatory: "Benjamin Waller", agencyTitle: "Director",
+		//   requireClientTitle: true, requireWitness: false }
+
+		// Status
+		isDefault: boolean('is_default').notNull().default(false),
+		isActive: boolean('is_active').notNull().default(true),
+
+		createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' })
+	},
+	(table) => ({
+		agencyIdx: index('contract_templates_agency_idx').on(table.agencyId),
+		activeIdx: index('contract_templates_active_idx').on(table.agencyId, table.isActive)
+	})
+);
+
+// Contract Schedules table - Package-specific terms
+export const contractSchedules = pgTable(
+	'contract_schedules',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+
+		templateId: uuid('template_id')
+			.notNull()
+			.references(() => contractTemplates.id, { onDelete: 'cascade' }),
+
+		// Link to package (determines when this schedule is used)
+		packageId: uuid('package_id').references(() => agencyPackages.id, { onDelete: 'set null' }),
+
+		// Schedule identification
+		name: varchar('name', { length: 255 }).notNull(), // "Lump Sum Package Terms"
+		displayOrder: integer('display_order').notNull().default(0),
+
+		// Schedule content (rich text with merge fields)
+		content: text('content').notNull().default(''),
+
+		isActive: boolean('is_active').notNull().default(true)
+	},
+	(table) => ({
+		templateIdx: index('contract_schedules_template_idx').on(table.templateId),
+		packageIdx: index('contract_schedules_package_idx').on(table.packageId)
+	})
+);
+
+// Contracts table - Generated from proposals
+export const contracts = pgTable(
+	'contracts',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+
+		agencyId: uuid('agency_id')
+			.notNull()
+			.references(() => agencies.id, { onDelete: 'cascade' }),
+
+		// Link to proposal (required - contracts generated from proposals)
+		proposalId: uuid('proposal_id')
+			.notNull()
+			.references(() => proposals.id, { onDelete: 'cascade' }),
+
+		// Template used (for reference, content is snapshotted)
+		templateId: uuid('template_id').references(() => contractTemplates.id, {
+			onDelete: 'set null'
+		}),
+
+		// Document identification
+		contractNumber: varchar('contract_number', { length: 50 }).notNull(), // CON-2025-0001
+		slug: varchar('slug', { length: 100 }).notNull().unique(), // Public URL slug
+		version: integer('version').notNull().default(1), // For future amendments
+
+		// Status workflow: draft, sent, viewed, signed, completed, expired, terminated
+		status: varchar('status', { length: 50 }).notNull().default('draft'),
+
+		// Client info (snapshot from proposal at generation time)
+		clientBusinessName: text('client_business_name').notNull().default(''),
+		clientContactName: text('client_contact_name').notNull().default(''),
+		clientEmail: varchar('client_email', { length: 255 }).notNull().default(''),
+		clientPhone: varchar('client_phone', { length: 50 }).notNull().default(''),
+		clientAddress: text('client_address').notNull().default(''),
+
+		// Contract-specific fields (editable before sending)
+		servicesDescription: text('services_description').notNull().default(''),
+		commencementDate: timestamp('commencement_date', { withTimezone: true }),
+		completionDate: timestamp('completion_date', { withTimezone: true }),
+		specialConditions: text('special_conditions').notNull().default(''),
+
+		// Price snapshot from proposal
+		totalPrice: decimal('total_price', { precision: 10, scale: 2 }).notNull().default('0'),
+		priceIncludesGst: boolean('price_includes_gst').notNull().default(true),
+		paymentTerms: text('payment_terms').notNull().default(''),
+
+		// Generated content (resolved merge fields, stored for historical record)
+		generatedCoverHtml: text('generated_cover_html'),
+		generatedTermsHtml: text('generated_terms_html'),
+		generatedScheduleHtml: text('generated_schedule_html'),
+
+		// Validity
+		validUntil: timestamp('valid_until', { withTimezone: true }),
+
+		// Agency signature (pre-signed or on generation)
+		agencySignatoryName: varchar('agency_signatory_name', { length: 255 }),
+		agencySignatoryTitle: varchar('agency_signatory_title', { length: 100 }),
+		agencySignedAt: timestamp('agency_signed_at', { withTimezone: true }),
+
+		// Client signature
+		clientSignatoryName: varchar('client_signatory_name', { length: 255 }),
+		clientSignatoryTitle: varchar('client_signatory_title', { length: 100 }),
+		clientSignedAt: timestamp('client_signed_at', { withTimezone: true }),
+		clientSignatureIp: varchar('client_signature_ip', { length: 50 }),
+		clientSignatureUserAgent: text('client_signature_user_agent'),
+
+		// Tracking
+		viewCount: integer('view_count').notNull().default(0),
+		lastViewedAt: timestamp('last_viewed_at', { withTimezone: true }),
+		sentAt: timestamp('sent_at', { withTimezone: true }),
+
+		// PDF storage (generated on signing)
+		signedPdfUrl: text('signed_pdf_url'),
+
+		// Creator
+		createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' })
+	},
+	(table) => ({
+		agencyIdx: index('contracts_agency_idx').on(table.agencyId),
+		proposalIdx: index('contracts_proposal_idx').on(table.proposalId),
+		statusIdx: index('contracts_status_idx').on(table.status),
+		slugIdx: index('contracts_slug_idx').on(table.slug),
+		createdAtIdx: index('contracts_created_at_idx').on(table.createdAt)
+	})
+);
+
+// =============================================================================
 // CONSULTATION TABLES
 // =============================================================================
 
@@ -597,6 +761,42 @@ export type PaymentTerms = 'DUE_ON_RECEIPT' | 'NET_7' | 'NET_14' | 'NET_30';
 
 // Proposal status type
 export type ProposalStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined' | 'expired';
+
+// Contract Template types
+export type ContractTemplate = typeof contractTemplates.$inferSelect;
+export type ContractTemplateInsert = typeof contractTemplates.$inferInsert;
+
+// Contract Schedule types
+export type ContractSchedule = typeof contractSchedules.$inferSelect;
+export type ContractScheduleInsert = typeof contractSchedules.$inferInsert;
+
+// Contract types
+export type Contract = typeof contracts.$inferSelect;
+export type ContractInsert = typeof contracts.$inferInsert;
+export type ContractStatus =
+	| 'draft'
+	| 'sent'
+	| 'viewed'
+	| 'signed'
+	| 'completed'
+	| 'expired'
+	| 'terminated';
+
+// Cover page configuration (for contract templates)
+export interface CoverPageConfig {
+	showLogo?: boolean;
+	showAgencyAddress?: boolean;
+	showClientAddress?: boolean;
+	customFields?: { label: string; mergeField: string }[];
+}
+
+// Signature configuration (for contract templates)
+export interface SignatureConfig {
+	agencySignatory?: string;
+	agencyTitle?: string;
+	requireClientTitle?: boolean;
+	requireWitness?: boolean;
+}
 
 // Form option category type
 export type FormOptionCategory =

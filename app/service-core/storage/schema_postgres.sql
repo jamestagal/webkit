@@ -658,6 +658,117 @@ create index if not exists idx_proposals_slug on proposals(slug);
 create index if not exists idx_proposals_created_at on proposals(created_at desc);
 create index if not exists idx_proposals_client_email on proposals(client_email);
 
+-- =============================================================================
+-- CONTRACTS (V2 Document Generation)
+-- =============================================================================
+
+-- create "contract_templates" table - Agency contract configuration
+create table if not exists contract_templates (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    agency_id uuid not null references agencies(id) on delete cascade,
+
+    name varchar(255) not null,
+    description text not null default '',
+    version integer not null default 1,
+
+    cover_page_config jsonb not null default '{}',
+    terms_content text not null default '',
+    signature_config jsonb not null default '{}',
+
+    is_default boolean not null default false,
+    is_active boolean not null default true,
+
+    created_by uuid references users(id) on delete set null
+);
+
+create index if not exists idx_contract_templates_agency_id on contract_templates(agency_id);
+create index if not exists idx_contract_templates_active on contract_templates(agency_id, is_active);
+
+-- create "contract_schedules" table - Package-specific terms
+create table if not exists contract_schedules (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    template_id uuid not null references contract_templates(id) on delete cascade,
+    package_id uuid references agency_packages(id) on delete set null,
+
+    name varchar(255) not null,
+    display_order integer not null default 0,
+    content text not null default '',
+
+    is_active boolean not null default true
+);
+
+create index if not exists idx_contract_schedules_template_id on contract_schedules(template_id);
+create index if not exists idx_contract_schedules_package_id on contract_schedules(package_id);
+
+-- create "contracts" table - Generated from proposals
+create table if not exists contracts (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    agency_id uuid not null references agencies(id) on delete cascade,
+    proposal_id uuid not null references proposals(id) on delete cascade,
+    template_id uuid references contract_templates(id) on delete set null,
+
+    contract_number varchar(50) not null,
+    slug varchar(100) not null unique,
+    version integer not null default 1,
+    status varchar(50) not null default 'draft',
+
+    client_business_name text not null default '',
+    client_contact_name text not null default '',
+    client_email varchar(255) not null default '',
+    client_phone varchar(50) not null default '',
+    client_address text not null default '',
+
+    services_description text not null default '',
+    commencement_date timestamptz,
+    completion_date timestamptz,
+    special_conditions text not null default '',
+
+    total_price decimal(10,2) not null default 0,
+    price_includes_gst boolean not null default true,
+    payment_terms text not null default '',
+
+    generated_cover_html text,
+    generated_terms_html text,
+    generated_schedule_html text,
+
+    valid_until timestamptz,
+
+    agency_signatory_name varchar(255),
+    agency_signatory_title varchar(100),
+    agency_signed_at timestamptz,
+
+    client_signatory_name varchar(255),
+    client_signatory_title varchar(100),
+    client_signed_at timestamptz,
+    client_signature_ip varchar(50),
+    client_signature_user_agent text,
+
+    view_count integer not null default 0,
+    last_viewed_at timestamptz,
+    sent_at timestamptz,
+
+    signed_pdf_url text,
+
+    created_by uuid references users(id) on delete set null,
+
+    constraint valid_contract_status check (status in ('draft', 'sent', 'viewed', 'signed', 'completed', 'expired', 'terminated'))
+);
+
+create index if not exists idx_contracts_agency_id on contracts(agency_id);
+create index if not exists idx_contracts_proposal_id on contracts(proposal_id);
+create index if not exists idx_contracts_status on contracts(status);
+create index if not exists idx_contracts_slug on contracts(slug);
+create index if not exists idx_contracts_created_at on contracts(created_at desc);
+
 -- create "subscriptions" table for detailed subscription tracking
 create table if not exists subscriptions (
     id uuid primary key not null default gen_random_uuid(),

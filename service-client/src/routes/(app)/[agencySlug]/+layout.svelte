@@ -46,9 +46,9 @@
 		{ label: 'Consultation', url: `/${agencySlug}/consultation`, icon: MessageCircle },
 		{ label: 'My Consultations', url: `/${agencySlug}/consultation/history`, icon: ClipboardList },
 		{ label: 'Proposals', url: `/${agencySlug}/proposals`, icon: FileText },
+		{ label: 'Contracts', url: `/${agencySlug}/contracts`, icon: File },
 		{ label: 'Notes', url: `/${agencySlug}/notes`, icon: BookOpen },
 		{ label: 'Payments', url: `/${agencySlug}/payments`, icon: DollarSign },
-		{ label: 'Files', url: `/${agencySlug}/files`, icon: File },
 		{ label: 'Emails', url: `/${agencySlug}/emails`, icon: Mail }
 	]);
 

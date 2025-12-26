@@ -90,7 +90,23 @@ export const PERMISSIONS = {
 	'addons:view': ['owner', 'admin', 'member'],
 	'addons:create': ['owner', 'admin'],
 	'addons:edit': ['owner', 'admin'],
-	'addons:delete': ['owner']
+	'addons:delete': ['owner'],
+
+	// Contract Templates (V2)
+	'contract_template:view': ['owner', 'admin'],
+	'contract_template:create': ['owner', 'admin'],
+	'contract_template:edit': ['owner', 'admin'],
+	'contract_template:delete': ['owner'],
+
+	// Contracts (V2)
+	'contract:create': ['owner', 'admin', 'member'],
+	'contract:view_own': ['owner', 'admin', 'member'],
+	'contract:view_all': ['owner', 'admin'],
+	'contract:edit_own': ['owner', 'admin', 'member'],
+	'contract:edit_all': ['owner', 'admin'],
+	'contract:send': ['owner', 'admin', 'member'],
+	'contract:delete_own': ['owner', 'admin', 'member'],
+	'contract:delete_all': ['owner', 'admin']
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -188,7 +204,7 @@ export function canAccessResource(
 	role: AgencyRole,
 	resourceOwnerId: string,
 	currentUserId: string,
-	resourceType: 'consultation' | 'proposal'
+	resourceType: 'consultation' | 'proposal' | 'contract'
 ): boolean {
 	// Check for 'view_all' permission
 	const viewAllPermission = `${resourceType}:view_all` as Permission;
@@ -207,7 +223,7 @@ export function canModifyResource(
 	role: AgencyRole,
 	resourceOwnerId: string,
 	currentUserId: string,
-	resourceType: 'consultation' | 'proposal'
+	resourceType: 'consultation' | 'proposal' | 'contract'
 ): boolean {
 	// Check for 'edit_all' permission
 	const editAllPermission = `${resourceType}:edit_all` as Permission;
@@ -231,7 +247,7 @@ export function canDeleteResource(
 	role: AgencyRole,
 	resourceOwnerId: string,
 	currentUserId: string,
-	resourceType: 'consultation' | 'proposal'
+	resourceType: 'consultation' | 'proposal' | 'contract'
 ): boolean {
 	// Check for 'delete_all' permission
 	const deleteAllPermission = `${resourceType}:delete_all` as Permission;
@@ -386,6 +402,28 @@ export function getPermissionMatrix(): {
 				formatPermission('addons:create', 'Create add-ons'),
 				formatPermission('addons:edit', 'Edit add-ons'),
 				formatPermission('addons:delete', 'Delete add-ons')
+			]
+		},
+		{
+			category: 'Contract Templates',
+			permissions: [
+				formatPermission('contract_template:view', 'View contract templates'),
+				formatPermission('contract_template:create', 'Create contract templates'),
+				formatPermission('contract_template:edit', 'Edit contract templates'),
+				formatPermission('contract_template:delete', 'Delete contract templates')
+			]
+		},
+		{
+			category: 'Contracts',
+			permissions: [
+				formatPermission('contract:create', 'Create contracts'),
+				formatPermission('contract:view_own', 'View own contracts'),
+				formatPermission('contract:view_all', 'View all contracts'),
+				formatPermission('contract:edit_own', 'Edit own contracts'),
+				formatPermission('contract:edit_all', 'Edit all contracts'),
+				formatPermission('contract:send', 'Send contracts'),
+				formatPermission('contract:delete_own', 'Delete own contracts'),
+				formatPermission('contract:delete_all', 'Delete all contracts')
 			]
 		}
 	];

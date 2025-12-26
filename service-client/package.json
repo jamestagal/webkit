@@ -46,6 +46,11 @@
 	"dependencies": {
 		"@floating-ui/dom": "^1.6.5",
 		"@sveltejs/adapter-node": "^5.4.0",
+		"@tiptap/core": "^3.14.0",
+		"@tiptap/extension-link": "^3.14.0",
+		"@tiptap/extension-placeholder": "^3.14.0",
+		"@tiptap/pm": "^3.14.0",
+		"@tiptap/starter-kit": "^3.14.0",
 		"drizzle-orm": "^0.45.1",
 		"jose": "^5.9.3",
 		"lucide-svelte": "^0.511.0",

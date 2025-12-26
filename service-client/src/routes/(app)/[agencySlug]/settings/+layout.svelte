@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
-	import { Building2, Package, PlusSquare, Users, Palette } from 'lucide-svelte';
+	import { Building2, Package, PlusSquare, Users, Palette, FileText } from 'lucide-svelte';
 
 	let { children, data }: { children: Snippet; data: import('./$types').LayoutData } = $props();
 
@@ -33,6 +33,12 @@
 			url: `/${agencySlug}/settings/addons`,
 			icon: PlusSquare,
 			description: 'Optional services'
+		},
+		{
+			label: 'Contracts',
+			url: `/${agencySlug}/settings/contracts`,
+			icon: FileText,
+			description: 'Contract templates & terms'
 		},
 		{
 			label: 'Members',

@@ -1,0 +1,309 @@
+<script lang="ts">
+	import { invalidateAll } from '$app/navigation';
+	import { getToast } from '$lib/ui/toast_store.svelte';
+	import { deleteContract, sendContract, updateContractStatus } from '$lib/api/contracts.remote';
+	import {
+		Plus,
+		FileText,
+		MoreVertical,
+		Send,
+		Eye,
+		Trash2,
+		Copy,
+		ExternalLink,
+		CheckCircle,
+		Clock,
+		AlertCircle
+	} from 'lucide-svelte';
+	import type { PageProps } from './$types';
+
+	const toast = getToast();
+	let { data }: PageProps = $props();
+
+	let agencySlug = $derived(data.agency.slug);
+
+	// Filter state
+	let statusFilter = $state<string | null>(null);
+
+	// Filtered contracts
+	let filteredContracts = $derived(() => {
+		if (!statusFilter) return data.contracts;
+		return data.contracts.filter((c) => c.status === statusFilter);
+	});
+
+	// Status counts
+	let statusCounts = $derived({
+		draft: data.contracts.filter((c) => c.status === 'draft').length,
+		sent: data.contracts.filter((c) => c.status === 'sent' || c.status === 'viewed').length,
+		signed: data.contracts.filter((c) => c.status === 'signed' || c.status === 'completed')
+			.length
+	});
+
+	async function handleSend(contractId: string) {
+		try {
+			await sendContract(contractId);
+			await invalidateAll();
+			toast.success('Contract sent');
+		} catch (err) {
+			toast.error('Failed to send contract', err instanceof Error ? err.message : '');
+		}
+	}
+
+	async function handleDelete(contractId: string) {
+		if (!confirm('Are you sure you want to delete this contract?')) {
+			return;
+		}
+
+		try {
+			await deleteContract(contractId);
+			await invalidateAll();
+			toast.success('Contract deleted');
+		} catch (err) {
+			toast.error('Failed to delete contract', err instanceof Error ? err.message : '');
+		}
+	}
+
+	function getStatusBadge(status: string) {
+		switch (status) {
+			case 'draft':
+				return { class: 'badge-ghost', icon: Clock, label: 'Draft' };
+			case 'sent':
+				return { class: 'badge-info', icon: Send, label: 'Sent' };
+			case 'viewed':
+				return { class: 'badge-warning', icon: Eye, label: 'Viewed' };
+			case 'signed':
+				return { class: 'badge-success', icon: CheckCircle, label: 'Signed' };
+			case 'completed':
+				return { class: 'badge-success', icon: CheckCircle, label: 'Completed' };
+			case 'expired':
+				return { class: 'badge-error', icon: AlertCircle, label: 'Expired' };
+			case 'terminated':
+				return { class: 'badge-error', icon: AlertCircle, label: 'Terminated' };
+			default:
+				return { class: 'badge-ghost', icon: Clock, label: status };
+		}
+	}
+
+	function formatDate(date: Date | string | null) {
+		if (!date) return '-';
+		return new Date(date).toLocaleDateString('en-AU', {
+			day: 'numeric',
+			month: 'short',
+			year: 'numeric'
+		});
+	}
+
+	function formatCurrency(value: string | number) {
+		const num = typeof value === 'string' ? parseFloat(value) : value;
+		return new Intl.NumberFormat('en-AU', {
+			style: 'currency',
+			currency: 'AUD'
+		}).format(num);
+	}
+
+	function getPublicUrl(slug: string) {
+		return `/c/${slug}`;
+	}
+
+	function copyPublicUrl(slug: string) {
+		const url = `${window.location.origin}/c/${slug}`;
+		navigator.clipboard.writeText(url);
+		toast.success('Link copied to clipboard');
+	}
+</script>
+
+<div class="space-y-6">
+	<!-- Page Header -->
+	<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+		<div>
+			<h1 class="text-2xl font-bold">Contracts</h1>
+			<p class="text-base-content/70 mt-1">
+				Manage client contracts generated from proposals
+			</p>
+		</div>
+		<a href="/{agencySlug}/contracts/new" class="btn btn-primary">
+			<Plus class="h-4 w-4" />
+			New Contract
+		</a>
+	</div>
+
+	<!-- Status Filters -->
+	<div class="flex flex-wrap gap-2">
+		<button
+			type="button"
+			class="btn btn-sm {!statusFilter ? 'btn-primary' : 'btn-ghost'}"
+			onclick={() => (statusFilter = null)}
+		>
+			All ({data.contracts.length})
+		</button>
+		<button
+			type="button"
+			class="btn btn-sm {statusFilter === 'draft' ? 'btn-primary' : 'btn-ghost'}"
+			onclick={() => (statusFilter = 'draft')}
+		>
+			Drafts ({statusCounts.draft})
+		</button>
+		<button
+			type="button"
+			class="btn btn-sm {statusFilter === 'sent' ? 'btn-primary' : 'btn-ghost'}"
+			onclick={() => (statusFilter = 'sent')}
+		>
+			Sent ({statusCounts.sent})
+		</button>
+		<button
+			type="button"
+			class="btn btn-sm {statusFilter === 'signed' ? 'btn-primary' : 'btn-ghost'}"
+			onclick={() => (statusFilter = 'signed')}
+		>
+			Signed ({statusCounts.signed})
+		</button>
+	</div>
+
+	{#if data.contracts.length === 0}
+		<!-- Empty state -->
+		<div class="card bg-base-100 border border-base-300">
+			<div class="card-body items-center text-center py-12">
+				<div
+					class="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4"
+				>
+					<FileText class="h-8 w-8" />
+				</div>
+				<h3 class="text-lg font-semibold">No contracts yet</h3>
+				<p class="text-base-content/60 max-w-sm">
+					Generate your first contract from an accepted proposal to start sending agreements to clients.
+				</p>
+				<a href="/{agencySlug}/contracts/new" class="btn btn-primary mt-4">
+					<Plus class="h-4 w-4" />
+					Create Contract
+				</a>
+			</div>
+		</div>
+	{:else if filteredContracts().length === 0}
+		<!-- No matches -->
+		<div class="card bg-base-100 border border-base-300">
+			<div class="card-body items-center text-center py-8">
+				<p class="text-base-content/60">No contracts match the selected filter</p>
+				<button type="button" class="btn btn-ghost btn-sm mt-2" onclick={() => (statusFilter = null)}>
+					Clear filter
+				</button>
+			</div>
+		</div>
+	{:else}
+		<!-- Contracts Table -->
+		<div class="overflow-x-auto">
+			<table class="table table-zebra">
+				<thead>
+					<tr>
+						<th>Contract</th>
+						<th>Client</th>
+						<th>Value</th>
+						<th>Status</th>
+						<th>Created</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each filteredContracts() as contract (contract.id)}
+						{@const statusInfo = getStatusBadge(contract.status)}
+						<tr class="hover">
+							<td>
+								<div class="flex flex-col">
+									<span class="font-medium">{contract.contractNumber}</span>
+									<span class="text-sm text-base-content/60">v{contract.version}</span>
+								</div>
+							</td>
+							<td>
+								<div class="flex flex-col">
+									<span>{contract.clientBusinessName || 'No client'}</span>
+									<span class="text-sm text-base-content/60">
+										{contract.clientContactName || '-'}
+									</span>
+								</div>
+							</td>
+							<td>
+								<span class="font-medium">
+									{formatCurrency(contract.totalPrice)}
+								</span>
+							</td>
+							<td>
+								<div class="badge {statusInfo.class} gap-1">
+									<statusInfo.icon class="h-3 w-3" />
+									{statusInfo.label}
+								</div>
+								{#if contract.viewCount > 0}
+									<div class="text-xs text-base-content/60 mt-1">
+										{contract.viewCount} view{contract.viewCount > 1 ? 's' : ''}
+									</div>
+								{/if}
+							</td>
+							<td>
+								<span class="text-sm">{formatDate(contract.createdAt)}</span>
+							</td>
+							<td>
+								<div class="dropdown dropdown-end">
+									<button
+										type="button"
+										tabindex="0"
+										class="btn btn-ghost btn-sm btn-square"
+									>
+										<MoreVertical class="h-4 w-4" />
+									</button>
+									<ul
+										class="dropdown-content z-10 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300"
+									>
+										<li>
+											<a href="/{agencySlug}/contracts/{contract.id}">
+												<Eye class="h-4 w-4" />
+												View / Edit
+											</a>
+										</li>
+										{#if contract.status === 'draft'}
+											<li>
+												<button
+													type="button"
+													onclick={() => handleSend(contract.id)}
+												>
+													<Send class="h-4 w-4" />
+													Send to Client
+												</button>
+											</li>
+										{/if}
+										{#if ['sent', 'viewed', 'signed', 'completed'].includes(contract.status)}
+											<li>
+												<a href={getPublicUrl(contract.slug)} target="_blank">
+													<ExternalLink class="h-4 w-4" />
+													View Public Page
+												</a>
+											</li>
+											<li>
+												<button
+													type="button"
+													onclick={() => copyPublicUrl(contract.slug)}
+												>
+													<Copy class="h-4 w-4" />
+													Copy Link
+												</button>
+											</li>
+										{/if}
+										{#if !['signed', 'completed'].includes(contract.status)}
+											<li class="border-t border-base-300 mt-1 pt-1">
+												<button
+													type="button"
+													class="text-error"
+													onclick={() => handleDelete(contract.id)}
+												>
+													<Trash2 class="h-4 w-4" />
+													Delete
+												</button>
+											</li>
+										{/if}
+									</ul>
+								</div>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	{/if}
+</div>
