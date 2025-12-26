@@ -7,7 +7,7 @@
  * - Step 3: Pain Points (savePainPoints)
  * - Step 4: Goals & Objectives (saveGoalsObjectives)
  * - Completion: POST /consultations/{id}/complete endpoint
- * - Success: Redirect to /consultation/success
+ * - Success: Redirect to /{agencySlug}/consultation/success
  *
  * Critical verification: Ensures the completion endpoint is called
  * This is the primary bug fix - the old implementation never called POST /complete
@@ -15,11 +15,14 @@
 
 import { expect, test } from '@playwright/test';
 
+// Test agency slug - should match a seeded test agency or be created in beforeAll
+const TEST_AGENCY_SLUG = 'test-agency';
+
 test.describe('Consultation Form Flow', () => {
   test.beforeEach(async ({ page }) => {
     // Login first (assuming auth is required)
     // TODO: Replace with actual login flow once auth is implemented
-    await page.goto('/consultation');
+    await page.goto(`/${TEST_AGENCY_SLUG}/consultation`);
   });
 
   test('complete consultation form flow with all 4 steps', async ({ page }) => {
@@ -168,8 +171,8 @@ test.describe('Consultation Form Flow', () => {
     // SUCCESS PAGE
     // ===========================
     // Verify redirect to success page
-    await expect(page).toHaveURL(/\/consultation\/success/);
-    await expect(page.locator('h1')).toContainText('Success');
+    await expect(page).toHaveURL(new RegExp(`/${TEST_AGENCY_SLUG}/consultation/success`));
+    await expect(page.locator('h1')).toContainText('Consultation Complete');
   });
 
   test('validates required fields before allowing next step', async ({ page }) => {
@@ -275,7 +278,7 @@ test.describe('Consultation Form Flow', () => {
 
 test.describe('Consultation Form - Error Handling', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/consultation');
+    await page.goto(`/${TEST_AGENCY_SLUG}/consultation`);
   });
 
   test('handles network errors gracefully', async ({ page }) => {
@@ -307,7 +310,7 @@ test.describe('Consultation Form - Progressive Enhancement', () => {
     // Disable JavaScript
     await context.setJavaScriptEnabled(false);
 
-    await page.goto('/consultation');
+    await page.goto(`/${TEST_AGENCY_SLUG}/consultation`);
 
     // Form should still render
     await expect(page.locator('form')).toBeVisible();

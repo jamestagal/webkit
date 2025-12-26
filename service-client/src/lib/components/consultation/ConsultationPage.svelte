@@ -16,6 +16,7 @@
 	 */
 
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import ClientInfoForm from '$lib/components/consultation/ClientInfoForm.svelte';
 	import BusinessContext from '$lib/components/consultation/BusinessContext.svelte';
@@ -40,6 +41,9 @@
 		consultation,
 		draft
 	}: { consultation: Consultation | null; draft: ConsultationDraft | null } = $props();
+
+	// Get agency slug from route params for navigation
+	let agencySlug = $derived(page.params.agencySlug);
 
 	// Debug: Log loaded consultation data
 	console.log('ConsultationPage loaded:', {
@@ -238,7 +242,7 @@
 
 			// Handle redirect on client side (commands can't redirect)
 			if (result?.success) {
-				goto('/consultation/success');
+				goto(`/${agencySlug}/consultation/success`);
 			}
 		} catch (error) {
 			console.error('Error completing consultation:', error);
