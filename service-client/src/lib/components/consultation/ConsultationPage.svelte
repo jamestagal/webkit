@@ -21,7 +21,9 @@
 	import BusinessContext from '$lib/components/consultation/BusinessContext.svelte';
 	import PainPointsCapture from '$lib/components/consultation/PainPointsCapture.svelte';
 	import GoalsObjectives from '$lib/components/consultation/GoalsObjectives.svelte';
-	import { toast } from '$lib/components/shared/Toast.svelte';
+	import { getToast } from '$lib/ui/toast_store.svelte';
+
+	const toast = getToast();
 	import {
 		saveContactInfo,
 		saveBusinessContext,

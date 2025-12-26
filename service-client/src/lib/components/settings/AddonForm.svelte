@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
-	import { toast } from '$lib/components/shared/Toast.svelte';
+	import { getToast } from '$lib/ui/toast_store.svelte';
 	import {
 		createAgencyAddon,
 		updateAgencyAddon,
@@ -44,6 +44,8 @@
 	let isSaving = $state(false);
 	let error = $state('');
 	let packages = $state<{ slug: string; name: string }[]>([]);
+
+	const toast = getToast();
 
 	// Load available packages
 	$effect(() => {
@@ -124,7 +126,7 @@
 			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to save add-on';
-			toast.error(error);
+			toast.error('Save failed', error);
 		} finally {
 			isSaving = false;
 		}

@@ -16,7 +16,8 @@ import {
 	boolean,
 	bigint,
 	unique,
-	decimal
+	decimal,
+	index
 } from 'drizzle-orm/pg-core';
 
 // =============================================================================
@@ -337,6 +338,111 @@ export const agencyAddons = pgTable(
 );
 
 // =============================================================================
+// PROPOSALS (V2 Document Generation)
+// =============================================================================
+
+// Proposals table - Client proposals generated from consultations
+export const proposals = pgTable(
+	'proposals',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+
+		agencyId: uuid('agency_id')
+			.notNull()
+			.references(() => agencies.id, { onDelete: 'cascade' }),
+
+		// Link to consultation (optional - can create standalone proposals)
+		consultationId: uuid('consultation_id').references(() => consultations.id, {
+			onDelete: 'set null'
+		}),
+
+		// Document identification
+		proposalNumber: varchar('proposal_number', { length: 50 }).notNull(), // PROP-2025-0001
+		slug: varchar('slug', { length: 100 }).notNull().unique(), // Public URL slug
+
+		// Status workflow: draft, sent, viewed, accepted, declined, expired
+		status: varchar('status', { length: 50 }).notNull().default('draft'),
+
+		// Client info (denormalized for standalone proposals or overrides)
+		clientBusinessName: text('client_business_name').notNull().default(''),
+		clientContactName: text('client_contact_name').notNull().default(''),
+		clientEmail: varchar('client_email', { length: 255 }).notNull().default(''),
+		clientPhone: varchar('client_phone', { length: 50 }).notNull().default(''),
+		clientWebsite: text('client_website').notNull().default(''),
+
+		// Cover & Introduction
+		title: text('title').notNull().default('Website Proposal'),
+		coverImage: text('cover_image'), // Optional hero image URL
+
+		// Performance Analysis (manual entry after PageSpeed audit)
+		performanceData: jsonb('performance_data').notNull().default({}),
+		// { performance: 45, accessibility: 78, bestPractices: 82, seo: 65, loadTime: '4.2s', issues: [...] }
+
+		// The Opportunity (manual research about client's industry/business)
+		opportunityContent: text('opportunity_content').notNull().default(''),
+
+		// Current Issues (checklist items)
+		currentIssues: jsonb('current_issues').notNull().default([]),
+		// [{ text: 'Site is not mobile responsive', checked: true }, ...]
+
+		// Compliance Issues (optional section)
+		complianceIssues: jsonb('compliance_issues').notNull().default([]),
+		// [{ text: 'WCAG accessibility standards not met', checked: true }, ...]
+
+		// ROI Analysis (optional section)
+		roiAnalysis: jsonb('roi_analysis').notNull().default({}),
+		// { currentVisitors: 500, projectedVisitors: 1500, conversionRate: 2.5, projectedLeads: 37 }
+
+		// Performance Standards (metrics the new site will achieve)
+		performanceStandards: jsonb('performance_standards').notNull().default([]),
+		// [{ label: 'Page Load', value: '<2s' }, { label: 'Mobile Score', value: '95+' }, ...]
+
+		// Local Advantage (optional section for local SEO focus)
+		localAdvantageContent: text('local_advantage_content').notNull().default(''),
+
+		// Site Architecture (proposed pages)
+		proposedPages: jsonb('proposed_pages').notNull().default([]),
+		// [{ name: 'Home', description: 'Modern homepage with...', features: [...] }, ...]
+
+		// Implementation Timeline
+		timeline: jsonb('timeline').notNull().default([]),
+		// [{ week: '1-2', title: 'Discovery & Design', description: '...' }, ...]
+
+		// Closing section
+		closingContent: text('closing_content').notNull().default(''),
+
+		// Package selection
+		selectedPackageId: uuid('selected_package_id').references(() => agencyPackages.id, {
+			onDelete: 'set null'
+		}),
+		selectedAddons: jsonb('selected_addons').notNull().default([]), // addon IDs
+
+		// Price overrides (if different from package defaults)
+		customPricing: jsonb('custom_pricing'), // { setupFee, monthlyPrice, discountPercent, discountNote }
+
+		// Validity
+		validUntil: timestamp('valid_until', { withTimezone: true }),
+
+		// Tracking
+		viewCount: integer('view_count').notNull().default(0),
+		lastViewedAt: timestamp('last_viewed_at', { withTimezone: true }),
+		sentAt: timestamp('sent_at', { withTimezone: true }),
+		acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+		declinedAt: timestamp('declined_at', { withTimezone: true }),
+
+		// Creator
+		createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' })
+	},
+	(table) => ({
+		agencyIdx: index('proposals_agency_idx').on(table.agencyId),
+		consultationIdx: index('proposals_consultation_idx').on(table.consultationId),
+		statusIdx: index('proposals_status_idx').on(table.status)
+	})
+);
+
+// =============================================================================
 // CONSULTATION TABLES
 // =============================================================================
 
@@ -466,6 +572,10 @@ export type AgencyPackageInsert = typeof agencyPackages.$inferInsert;
 export type AgencyAddon = typeof agencyAddons.$inferSelect;
 export type AgencyAddonInsert = typeof agencyAddons.$inferInsert;
 
+// Proposal types
+export type Proposal = typeof proposals.$inferSelect;
+export type ProposalInsert = typeof proposals.$inferInsert;
+
 // Consultation types
 export type Consultation = typeof consultations.$inferSelect;
 export type ConsultationInsert = typeof consultations.$inferInsert;
@@ -484,6 +594,9 @@ export type PricingModel = 'subscription' | 'lump_sum' | 'hybrid';
 export type CancellationFeeType = 'none' | 'fixed' | 'remaining_balance';
 export type PricingType = 'one_time' | 'monthly' | 'per_unit';
 export type PaymentTerms = 'DUE_ON_RECEIPT' | 'NET_7' | 'NET_14' | 'NET_30';
+
+// Proposal status type
+export type ProposalStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined' | 'expired';
 
 // Form option category type
 export type FormOptionCategory =
@@ -541,4 +654,55 @@ export interface GoalsObjectives {
 	};
 	budget_range?: string;
 	budget_constraints?: string[];
+}
+
+// Proposal JSONB type definitions
+export interface PerformanceData {
+	performance?: number; // 0-100
+	accessibility?: number; // 0-100
+	bestPractices?: number; // 0-100
+	seo?: number; // 0-100
+	loadTime?: string; // e.g., "4.2s"
+	issues?: string[]; // List of key issues found
+}
+
+export interface ChecklistItem {
+	text: string;
+	checked: boolean;
+}
+
+export interface RoiAnalysis {
+	currentVisitors?: number;
+	projectedVisitors?: number;
+	conversionRate?: number;
+	projectedLeads?: number;
+	averageProjectValue?: number;
+	projectedRevenue?: number;
+}
+
+export interface PerformanceStandard {
+	label: string;
+	value: string;
+	icon?: string;
+}
+
+export interface ProposedPage {
+	name: string;
+	description?: string;
+	features?: string[];
+}
+
+export interface TimelinePhase {
+	week: string;
+	title: string;
+	description: string;
+}
+
+export interface CustomPricing {
+	setupFee?: string;
+	monthlyPrice?: string;
+	oneTimePrice?: string;
+	hostingFee?: string;
+	discountPercent?: number;
+	discountNote?: string;
 }

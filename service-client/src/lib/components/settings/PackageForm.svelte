@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
-	import { toast } from '$lib/components/shared/Toast.svelte';
+	import { getToast } from '$lib/ui/toast_store.svelte';
 	import {
 		createAgencyPackage,
 		updateAgencyPackage,
@@ -57,6 +57,8 @@
 	let isSaving = $state(false);
 	let error = $state('');
 	let newFeature = $state('');
+
+	const toast = getToast();
 
 	// Pricing model options
 	const pricingModels = [
@@ -119,21 +121,23 @@
 				await updateAgencyPackage({
 					packageId: existingPackage.id,
 					...formData,
-					maxPages: formData.maxPages || undefined
+					maxPages: formData.maxPages || undefined,
+					cancellationFeeType: formData.cancellationFeeType ?? undefined
 				});
 				await invalidateAll();
 				toast.success('Package updated');
 			} else {
 				await createAgencyPackage({
 					...formData,
-					maxPages: formData.maxPages || undefined
+					maxPages: formData.maxPages || undefined,
+					cancellationFeeType: formData.cancellationFeeType ?? undefined
 				});
 				toast.success('Package created');
 				goto(`/${agencySlug}/settings/packages`);
 			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to save package';
-			toast.error(error);
+			toast.error('Save failed', error);
 		} finally {
 			isSaving = false;
 		}

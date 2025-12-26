@@ -36,6 +36,8 @@ export const PERMISSIONS = {
 	'proposal:create': ['owner', 'admin', 'member'],
 	'proposal:view_own': ['owner', 'admin', 'member'],
 	'proposal:view_all': ['owner', 'admin'],
+	'proposal:edit_own': ['owner', 'admin', 'member'],
+	'proposal:edit_all': ['owner', 'admin'],
 	'proposal:send': ['owner', 'admin', 'member'],
 	'proposal:delete_own': ['owner', 'admin', 'member'],
 	'proposal:delete_all': ['owner', 'admin'],
@@ -307,6 +309,8 @@ export function getPermissionMatrix(): {
 				formatPermission('proposal:create', 'Create proposals'),
 				formatPermission('proposal:view_own', 'View own proposals'),
 				formatPermission('proposal:view_all', 'View all proposals'),
+				formatPermission('proposal:edit_own', 'Edit own proposals'),
+				formatPermission('proposal:edit_all', 'Edit all proposals'),
 				formatPermission('proposal:send', 'Send proposals'),
 				formatPermission('proposal:delete_own', 'Delete own proposals'),
 				formatPermission('proposal:delete_all', 'Delete all proposals')

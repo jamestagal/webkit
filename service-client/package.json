@@ -49,6 +49,7 @@
 		"drizzle-orm": "^0.45.1",
 		"jose": "^5.9.3",
 		"lucide-svelte": "^0.511.0",
+		"nanoid": "^5.1.6",
 		"pg": "^8.16.3",
 		"valibot": "^1.2.0",
 		"winston": "^3.15.0",

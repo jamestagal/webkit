@@ -37,7 +37,7 @@
 	}
 
 	// Get primary price based on model
-	let primaryPrice = $derived(() => {
+	let primaryPrice = $derived.by(() => {
 		switch (pkg.pricingModel) {
 			case 'subscription':
 				return { label: '/month', value: formatPrice(pkg.monthlyPrice) };
@@ -80,8 +80,8 @@
 				</div>
 
 				<div class="flex items-baseline gap-1 mt-1">
-					<span class="text-xl font-bold">{primaryPrice().value}</span>
-					<span class="text-sm text-base-content/60">{primaryPrice().label}</span>
+					<span class="text-xl font-bold">{primaryPrice.value}</span>
+					<span class="text-sm text-base-content/60">{primaryPrice.label}</span>
 				</div>
 
 				{#if pkg.pricingModel === 'hybrid' && pkg.setupFee && pkg.setupFee !== '0.00'}

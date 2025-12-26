@@ -273,9 +273,10 @@ export async function logActivity(
 		const event = getRequestEvent();
 
 		// Extract IP and User Agent from request
+		// IP address must be null (not 'unknown') for inet column type
 		const ipAddress = event?.request.headers.get('x-forwarded-for') ||
 			event?.request.headers.get('cf-connecting-ip') ||
-			'unknown';
+			null;
 		const userAgent = event?.request.headers.get('user-agent') || 'unknown';
 
 		const logEntry: AgencyActivityLogInsert = {
@@ -317,9 +318,10 @@ export async function logActivities(
 		const context = await getAgencyContext();
 		const event = getRequestEvent();
 
+		// IP address must be null (not 'unknown') for inet column type
 		const ipAddress = event?.request.headers.get('x-forwarded-for') ||
 			event?.request.headers.get('cf-connecting-ip') ||
-			'unknown';
+			null;
 		const userAgent = event?.request.headers.get('user-agent') || 'unknown';
 
 		const logEntries: AgencyActivityLogInsert[] = entries.map((entry) => ({

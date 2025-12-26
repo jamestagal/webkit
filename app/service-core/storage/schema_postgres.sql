@@ -557,6 +557,107 @@ create index if not exists idx_consultation_versions_agency_id on consultation_v
 create index if not exists idx_consultation_versions_created_at on consultation_versions(created_at);
 create index if not exists idx_consultation_versions_version_number on consultation_versions(consultation_id, version_number);
 
+-- =============================================================================
+-- PROPOSALS (V2 Document Generation)
+-- =============================================================================
+
+-- create "proposals" table - Client proposals generated from consultations
+create table if not exists proposals (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    agency_id uuid not null references agencies(id) on delete cascade,
+
+    -- Link to consultation (optional - can create standalone proposals)
+    consultation_id uuid references consultations(id) on delete set null,
+
+    -- Document identification
+    proposal_number varchar(50) not null,  -- PROP-2025-0001
+    slug varchar(100) not null unique,     -- Public URL slug
+
+    -- Status workflow: draft, sent, viewed, accepted, declined, expired
+    status varchar(50) not null default 'draft',
+
+    -- Client info (denormalized for standalone proposals or overrides)
+    client_business_name text not null default '',
+    client_contact_name text not null default '',
+    client_email varchar(255) not null default '',
+    client_phone varchar(50) not null default '',
+    client_website text not null default '',
+
+    -- Cover & Introduction
+    title text not null default 'Website Proposal',
+    cover_image text,  -- Optional hero image URL
+
+    -- Performance Analysis (manual entry after PageSpeed audit)
+    performance_data jsonb not null default '{}',
+    -- { performance: 45, accessibility: 78, bestPractices: 82, seo: 65, loadTime: '4.2s', issues: [...] }
+
+    -- The Opportunity (manual research about client's industry/business)
+    opportunity_content text not null default '',
+
+    -- Current Issues (checklist items)
+    current_issues jsonb not null default '[]',
+    -- [{ text: 'Site is not mobile responsive', checked: true }, ...]
+
+    -- Compliance Issues (optional section)
+    compliance_issues jsonb not null default '[]',
+    -- [{ text: 'WCAG accessibility standards not met', checked: true }, ...]
+
+    -- ROI Analysis (optional section)
+    roi_analysis jsonb not null default '{}',
+    -- { currentVisitors: 500, projectedVisitors: 1500, conversionRate: 2.5, projectedLeads: 37 }
+
+    -- Performance Standards (metrics the new site will achieve)
+    performance_standards jsonb not null default '[]',
+    -- [{ label: 'Page Load', value: '<2s' }, { label: 'Mobile Score', value: '95+' }, ...]
+
+    -- Local Advantage (optional section for local SEO focus)
+    local_advantage_content text not null default '',
+
+    -- Site Architecture (proposed pages)
+    proposed_pages jsonb not null default '[]',
+    -- [{ name: 'Home', description: 'Modern homepage with...', features: [...] }, ...]
+
+    -- Implementation Timeline
+    timeline jsonb not null default '[]',
+    -- [{ week: '1-2', title: 'Discovery & Design', description: '...' }, ...]
+
+    -- Closing section
+    closing_content text not null default '',
+
+    -- Package selection
+    selected_package_id uuid references agency_packages(id) on delete set null,
+    selected_addons jsonb not null default '[]',  -- addon IDs
+
+    -- Price overrides (if different from package defaults)
+    custom_pricing jsonb,  -- { setupFee, monthlyPrice, discountPercent, discountNote }
+
+    -- Validity
+    valid_until timestamptz,
+
+    -- Tracking
+    view_count integer not null default 0,
+    last_viewed_at timestamptz,
+    sent_at timestamptz,
+    accepted_at timestamptz,
+    declined_at timestamptz,
+
+    -- Creator
+    created_by uuid references users(id) on delete set null,
+
+    constraint valid_proposal_status check (status in ('draft', 'sent', 'viewed', 'accepted', 'declined', 'expired'))
+);
+
+-- Indexes for proposals
+create index if not exists idx_proposals_agency_id on proposals(agency_id);
+create index if not exists idx_proposals_consultation_id on proposals(consultation_id);
+create index if not exists idx_proposals_status on proposals(status);
+create index if not exists idx_proposals_slug on proposals(slug);
+create index if not exists idx_proposals_created_at on proposals(created_at desc);
+create index if not exists idx_proposals_client_email on proposals(client_email);
+
 -- create "subscriptions" table for detailed subscription tracking
 create table if not exists subscriptions (
     id uuid primary key not null default gen_random_uuid(),

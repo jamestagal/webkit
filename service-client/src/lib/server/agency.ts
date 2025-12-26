@@ -38,12 +38,15 @@ export interface AgencyContext {
 }
 
 /**
- * Get the current agency context for the authenticated user.
+ * Get the current agency context for the authenticated user (read-only).
  *
  * Resolution order:
  * 1. Agency ID from cookie (if user has access)
  * 2. User's default agency (if set)
  * 3. First agency user belongs to
+ *
+ * NOTE: This function is safe for use in query() functions as it doesn't
+ * modify cookies. Use setAgencyCookie() in commands if needed.
  *
  * Throws 403 if user has no agency access.
  */
@@ -58,8 +61,7 @@ export async function getAgencyContext(): Promise<AgencyContext> {
 	if (agencyId) {
 		const membership = await verifyMembership(userId, agencyId);
 		if (!membership) {
-			// Clear invalid cookie
-			event?.cookies.delete(CURRENT_AGENCY_COOKIE, { path: '/' });
+			// Don't delete cookie in read-only context - just ignore it
 			agencyId = undefined;
 		}
 	}
@@ -110,7 +112,14 @@ export async function getAgencyContext(): Promise<AgencyContext> {
 		throw error(403, 'Agency access denied');
 	}
 
-	// Set cookie for future requests
+	return context;
+}
+
+/**
+ * Set the agency cookie. Call this from command() functions after mutations.
+ */
+export function setAgencyCookie(agencyId: string): void {
+	const event = getRequestEvent();
 	event?.cookies.set(CURRENT_AGENCY_COOKIE, agencyId, {
 		path: '/',
 		httpOnly: true,
@@ -118,8 +127,6 @@ export async function getAgencyContext(): Promise<AgencyContext> {
 		sameSite: 'lax',
 		maxAge: 60 * 60 * 24 * 30 // 30 days
 	});
-
-	return context;
 }
 
 /**

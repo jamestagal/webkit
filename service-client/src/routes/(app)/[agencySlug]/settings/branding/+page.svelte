@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { toast } from '$lib/components/shared/Toast.svelte';
+	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { updateAgencyProfile } from '$lib/api/agency-profile.remote';
+
+	const toast = getToast();
 	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
 	import FormField from '$lib/components/settings/FormField.svelte';
 	import { Share2, Type, Quote } from 'lucide-svelte';
@@ -46,10 +48,10 @@
 		try {
 			await updateAgencyProfile(formData);
 			await invalidateAll();
-			toast.success('Branding settings updated');
+			toast.success('Branding updated');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to save branding';
-			toast.error(error);
+			toast.error('Save failed', error);
 		} finally {
 			isSaving = false;
 		}
@@ -108,51 +110,51 @@
 	>
 		<div class="grid gap-4 sm:grid-cols-2">
 			<FormField label="LinkedIn">
-				<div class="input input-bordered flex items-center gap-2">
-					<span class="text-base-content/50">linkedin.com/company/</span>
+				<label class="input input-bordered flex items-center gap-1">
+					<span class="text-base-content/50 text-sm whitespace-nowrap">linkedin.com/company/</span>
 					<input
 						type="text"
-						class="grow bg-transparent outline-none"
+						class="flex-1 min-w-0 bg-transparent outline-none"
 						placeholder="your-company"
 						bind:value={formData.socialLinkedin}
 					/>
-				</div>
+				</label>
 			</FormField>
 
 			<FormField label="Facebook">
-				<div class="input input-bordered flex items-center gap-2">
-					<span class="text-base-content/50">facebook.com/</span>
+				<label class="input input-bordered flex items-center gap-1">
+					<span class="text-base-content/50 text-sm whitespace-nowrap">facebook.com/</span>
 					<input
 						type="text"
-						class="grow bg-transparent outline-none"
+						class="flex-1 min-w-0 bg-transparent outline-none"
 						placeholder="your-page"
 						bind:value={formData.socialFacebook}
 					/>
-				</div>
+				</label>
 			</FormField>
 
 			<FormField label="Instagram">
-				<div class="input input-bordered flex items-center gap-2">
-					<span class="text-base-content/50">instagram.com/</span>
+				<label class="input input-bordered flex items-center gap-1">
+					<span class="text-base-content/50 text-sm whitespace-nowrap">instagram.com/</span>
 					<input
 						type="text"
-						class="grow bg-transparent outline-none"
+						class="flex-1 min-w-0 bg-transparent outline-none"
 						placeholder="your-handle"
 						bind:value={formData.socialInstagram}
 					/>
-				</div>
+				</label>
 			</FormField>
 
 			<FormField label="X (Twitter)">
-				<div class="input input-bordered flex items-center gap-2">
-					<span class="text-base-content/50">x.com/</span>
+				<label class="input input-bordered flex items-center gap-1">
+					<span class="text-base-content/50 text-sm whitespace-nowrap">x.com/</span>
 					<input
 						type="text"
-						class="grow bg-transparent outline-none"
+						class="flex-1 min-w-0 bg-transparent outline-none"
 						placeholder="your-handle"
 						bind:value={formData.socialTwitter}
 					/>
-				</div>
+				</label>
 			</FormField>
 		</div>
 	</SettingsSection>

@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { toast } from '$lib/components/shared/Toast.svelte';
+	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { deleteAgencyAddon, duplicateAgencyAddon } from '$lib/api/agency-addons.remote';
+
+	const toast = getToast();
 	import AddonCard from '$lib/components/settings/AddonCard.svelte';
 	import { Plus, PlusSquare } from 'lucide-svelte';
 	import type { PageProps } from './$types';
@@ -16,15 +18,12 @@
 	let inactiveAddons = $derived(data.addons.filter((a) => !a.isActive));
 
 	async function handleDuplicate(id: string) {
-		isDuplicating = id;
 		try {
 			await duplicateAgencyAddon(id);
 			await invalidateAll();
 			toast.success('Add-on duplicated');
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'Failed to duplicate');
-		} finally {
-			isDuplicating = null;
+			toast.error('Failed to duplicate', err instanceof Error ? err.message : '');
 		}
 	}
 
@@ -33,15 +32,12 @@
 			return;
 		}
 
-		isDeleting = id;
 		try {
 			await deleteAgencyAddon(id);
 			await invalidateAll();
 			toast.success('Add-on deleted');
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'Failed to delete');
-		} finally {
-			isDeleting = null;
+			toast.error('Failed to delete', err instanceof Error ? err.message : '');
 		}
 	}
 </script>

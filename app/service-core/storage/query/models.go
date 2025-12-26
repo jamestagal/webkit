@@ -10,11 +10,168 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
+
+type Agency struct {
+	ID                   uuid.UUID    `json:"id"`
+	CreatedAt            time.Time    `json:"created_at"`
+	UpdatedAt            time.Time    `json:"updated_at"`
+	Name                 string       `json:"name"`
+	Slug                 string       `json:"slug"`
+	LogoUrl              string       `json:"logo_url"`
+	PrimaryColor         string       `json:"primary_color"`
+	SecondaryColor       string       `json:"secondary_color"`
+	AccentColor          string       `json:"accent_color"`
+	Email                string       `json:"email"`
+	Phone                string       `json:"phone"`
+	Website              string       `json:"website"`
+	Status               string       `json:"status"`
+	SubscriptionTier     string       `json:"subscription_tier"`
+	SubscriptionID       string       `json:"subscription_id"`
+	SubscriptionEnd      sql.NullTime `json:"subscription_end"`
+	DeletedAt            sql.NullTime `json:"deleted_at"`
+	DeletionScheduledFor sql.NullTime `json:"deletion_scheduled_for"`
+}
+
+type AgencyActivityLog struct {
+	ID         uuid.UUID             `json:"id"`
+	CreatedAt  time.Time             `json:"created_at"`
+	AgencyID   uuid.UUID             `json:"agency_id"`
+	UserID     uuid.NullUUID         `json:"user_id"`
+	Action     string                `json:"action"`
+	EntityType string                `json:"entity_type"`
+	EntityID   uuid.NullUUID         `json:"entity_id"`
+	OldValues  pqtype.NullRawMessage `json:"old_values"`
+	NewValues  pqtype.NullRawMessage `json:"new_values"`
+	IpAddress  pqtype.Inet           `json:"ip_address"`
+	UserAgent  sql.NullString        `json:"user_agent"`
+	Metadata   json.RawMessage       `json:"metadata"`
+}
+
+type AgencyAddon struct {
+	ID                uuid.UUID       `json:"id"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+	AgencyID          uuid.UUID       `json:"agency_id"`
+	Name              string          `json:"name"`
+	Slug              string          `json:"slug"`
+	Description       string          `json:"description"`
+	Price             string          `json:"price"`
+	PricingType       string          `json:"pricing_type"`
+	UnitLabel         sql.NullString  `json:"unit_label"`
+	AvailablePackages json.RawMessage `json:"available_packages"`
+	DisplayOrder      int32           `json:"display_order"`
+	IsActive          bool            `json:"is_active"`
+}
+
+type AgencyFormOption struct {
+	ID        uuid.UUID       `json:"id"`
+	CreatedAt time.Time       `json:"created_at"`
+	UpdatedAt time.Time       `json:"updated_at"`
+	AgencyID  uuid.UUID       `json:"agency_id"`
+	Category  string          `json:"category"`
+	Value     string          `json:"value"`
+	Label     string          `json:"label"`
+	SortOrder int32           `json:"sort_order"`
+	IsDefault bool            `json:"is_default"`
+	IsActive  bool            `json:"is_active"`
+	Metadata  json.RawMessage `json:"metadata"`
+}
+
+type AgencyMembership struct {
+	ID          uuid.UUID     `json:"id"`
+	CreatedAt   time.Time     `json:"created_at"`
+	UpdatedAt   time.Time     `json:"updated_at"`
+	UserID      uuid.UUID     `json:"user_id"`
+	AgencyID    uuid.UUID     `json:"agency_id"`
+	Role        string        `json:"role"`
+	DisplayName string        `json:"display_name"`
+	Status      string        `json:"status"`
+	InvitedAt   sql.NullTime  `json:"invited_at"`
+	InvitedBy   uuid.NullUUID `json:"invited_by"`
+	AcceptedAt  sql.NullTime  `json:"accepted_at"`
+}
+
+type AgencyPackage struct {
+	ID                    uuid.UUID       `json:"id"`
+	CreatedAt             time.Time       `json:"created_at"`
+	UpdatedAt             time.Time       `json:"updated_at"`
+	AgencyID              uuid.UUID       `json:"agency_id"`
+	Name                  string          `json:"name"`
+	Slug                  string          `json:"slug"`
+	Description           string          `json:"description"`
+	PricingModel          string          `json:"pricing_model"`
+	SetupFee              string          `json:"setup_fee"`
+	MonthlyPrice          string          `json:"monthly_price"`
+	OneTimePrice          string          `json:"one_time_price"`
+	HostingFee            string          `json:"hosting_fee"`
+	MinimumTermMonths     int32           `json:"minimum_term_months"`
+	CancellationFeeType   sql.NullString  `json:"cancellation_fee_type"`
+	CancellationFeeAmount string          `json:"cancellation_fee_amount"`
+	IncludedFeatures      json.RawMessage `json:"included_features"`
+	MaxPages              sql.NullInt32   `json:"max_pages"`
+	DisplayOrder          int32           `json:"display_order"`
+	IsFeatured            bool            `json:"is_featured"`
+	IsActive              bool            `json:"is_active"`
+}
+
+type AgencyProfile struct {
+	ID                  uuid.UUID `json:"id"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
+	AgencyID            uuid.UUID `json:"agency_id"`
+	Abn                 string    `json:"abn"`
+	Acn                 string    `json:"acn"`
+	LegalEntityName     string    `json:"legal_entity_name"`
+	TradingName         string    `json:"trading_name"`
+	AddressLine1        string    `json:"address_line_1"`
+	AddressLine2        string    `json:"address_line_2"`
+	City                string    `json:"city"`
+	State               string    `json:"state"`
+	Postcode            string    `json:"postcode"`
+	Country             string    `json:"country"`
+	BankName            string    `json:"bank_name"`
+	Bsb                 string    `json:"bsb"`
+	AccountNumber       string    `json:"account_number"`
+	AccountName         string    `json:"account_name"`
+	GstRegistered       bool      `json:"gst_registered"`
+	TaxFileNumber       string    `json:"tax_file_number"`
+	GstRate             string    `json:"gst_rate"`
+	Tagline             string    `json:"tagline"`
+	SocialLinkedin      string    `json:"social_linkedin"`
+	SocialFacebook      string    `json:"social_facebook"`
+	SocialInstagram     string    `json:"social_instagram"`
+	SocialTwitter       string    `json:"social_twitter"`
+	BrandFont           string    `json:"brand_font"`
+	DefaultPaymentTerms string    `json:"default_payment_terms"`
+	InvoicePrefix       string    `json:"invoice_prefix"`
+	InvoiceFooter       string    `json:"invoice_footer"`
+	NextInvoiceNumber   int32     `json:"next_invoice_number"`
+	ContractPrefix      string    `json:"contract_prefix"`
+	ContractFooter      string    `json:"contract_footer"`
+	NextContractNumber  int32     `json:"next_contract_number"`
+	ProposalPrefix      string    `json:"proposal_prefix"`
+	NextProposalNumber  int32     `json:"next_proposal_number"`
+}
+
+type AgencyProposalTemplate struct {
+	ID            uuid.UUID       `json:"id"`
+	CreatedAt     time.Time       `json:"created_at"`
+	UpdatedAt     time.Time       `json:"updated_at"`
+	AgencyID      uuid.UUID       `json:"agency_id"`
+	Name          string          `json:"name"`
+	IsDefault     bool            `json:"is_default"`
+	Sections      json.RawMessage `json:"sections"`
+	HeaderContent string          `json:"header_content"`
+	FooterContent string          `json:"footer_content"`
+	Settings      json.RawMessage `json:"settings"`
+}
 
 type Consultation struct {
 	ID                   uuid.UUID       `json:"id"`
 	UserID               uuid.UUID       `json:"user_id"`
+	AgencyID             uuid.NullUUID   `json:"agency_id"`
 	ContactInfo          json.RawMessage `json:"contact_info"`
 	BusinessContext      json.RawMessage `json:"business_context"`
 	PainPoints           json.RawMessage `json:"pain_points"`
@@ -30,6 +187,7 @@ type ConsultationDraft struct {
 	ID              uuid.UUID       `json:"id"`
 	ConsultationID  uuid.UUID       `json:"consultation_id"`
 	UserID          uuid.UUID       `json:"user_id"`
+	AgencyID        uuid.NullUUID   `json:"agency_id"`
 	ContactInfo     json.RawMessage `json:"contact_info"`
 	BusinessContext json.RawMessage `json:"business_context"`
 	PainPoints      json.RawMessage `json:"pain_points"`
@@ -44,6 +202,7 @@ type ConsultationVersion struct {
 	ID                   uuid.UUID       `json:"id"`
 	ConsultationID       uuid.UUID       `json:"consultation_id"`
 	UserID               uuid.UUID       `json:"user_id"`
+	AgencyID             uuid.NullUUID   `json:"agency_id"`
 	VersionNumber        int32           `json:"version_number"`
 	ContactInfo          json.RawMessage `json:"contact_info"`
 	BusinessContext      json.RawMessage `json:"business_context"`
@@ -96,6 +255,44 @@ type Note struct {
 	Content  string    `json:"content"`
 }
 
+type Proposal struct {
+	ID                    uuid.UUID             `json:"id"`
+	CreatedAt             time.Time             `json:"created_at"`
+	UpdatedAt             time.Time             `json:"updated_at"`
+	AgencyID              uuid.UUID             `json:"agency_id"`
+	ConsultationID        uuid.NullUUID         `json:"consultation_id"`
+	ProposalNumber        string                `json:"proposal_number"`
+	Slug                  string                `json:"slug"`
+	Status                string                `json:"status"`
+	ClientBusinessName    string                `json:"client_business_name"`
+	ClientContactName     string                `json:"client_contact_name"`
+	ClientEmail           string                `json:"client_email"`
+	ClientPhone           string                `json:"client_phone"`
+	ClientWebsite         string                `json:"client_website"`
+	Title                 string                `json:"title"`
+	CoverImage            sql.NullString        `json:"cover_image"`
+	PerformanceData       json.RawMessage       `json:"performance_data"`
+	OpportunityContent    string                `json:"opportunity_content"`
+	CurrentIssues         json.RawMessage       `json:"current_issues"`
+	ComplianceIssues      json.RawMessage       `json:"compliance_issues"`
+	RoiAnalysis           json.RawMessage       `json:"roi_analysis"`
+	PerformanceStandards  json.RawMessage       `json:"performance_standards"`
+	LocalAdvantageContent string                `json:"local_advantage_content"`
+	ProposedPages         json.RawMessage       `json:"proposed_pages"`
+	Timeline              json.RawMessage       `json:"timeline"`
+	ClosingContent        string                `json:"closing_content"`
+	SelectedPackageID     uuid.NullUUID         `json:"selected_package_id"`
+	SelectedAddons        json.RawMessage       `json:"selected_addons"`
+	CustomPricing         pqtype.NullRawMessage `json:"custom_pricing"`
+	ValidUntil            sql.NullTime          `json:"valid_until"`
+	ViewCount             int32                 `json:"view_count"`
+	LastViewedAt          sql.NullTime          `json:"last_viewed_at"`
+	SentAt                sql.NullTime          `json:"sent_at"`
+	AcceptedAt            sql.NullTime          `json:"accepted_at"`
+	DeclinedAt            sql.NullTime          `json:"declined_at"`
+	CreatedBy             uuid.NullUUID         `json:"created_by"`
+}
+
 type Subscription struct {
 	ID                   uuid.UUID    `json:"id"`
 	Created              time.Time    `json:"created"`
@@ -118,16 +315,17 @@ type Token struct {
 }
 
 type User struct {
-	ID              uuid.UUID `json:"id"`
-	Created         time.Time `json:"created"`
-	Updated         time.Time `json:"updated"`
-	Email           string    `json:"email"`
-	Phone           string    `json:"phone"`
-	Access          int64     `json:"access"`
-	Sub             string    `json:"sub"`
-	Avatar          string    `json:"avatar"`
-	CustomerID      string    `json:"customer_id"`
-	SubscriptionID  string    `json:"subscription_id"`
-	SubscriptionEnd time.Time `json:"subscription_end"`
-	ApiKey          string    `json:"api_key"`
+	ID              uuid.UUID     `json:"id"`
+	Created         time.Time     `json:"created"`
+	Updated         time.Time     `json:"updated"`
+	Email           string        `json:"email"`
+	Phone           string        `json:"phone"`
+	Access          int64         `json:"access"`
+	Sub             string        `json:"sub"`
+	Avatar          string        `json:"avatar"`
+	CustomerID      string        `json:"customer_id"`
+	SubscriptionID  string        `json:"subscription_id"`
+	SubscriptionEnd time.Time     `json:"subscription_end"`
+	ApiKey          string        `json:"api_key"`
+	DefaultAgencyID uuid.NullUUID `json:"default_agency_id"`
 }

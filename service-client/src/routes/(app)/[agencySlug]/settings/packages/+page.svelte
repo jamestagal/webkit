@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { toast } from '$lib/components/shared/Toast.svelte';
+	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { deleteAgencyPackage, duplicateAgencyPackage } from '$lib/api/agency-packages.remote';
+
+	const toast = getToast();
 	import PackageCard from '$lib/components/settings/PackageCard.svelte';
 	import { Plus, Package } from 'lucide-svelte';
 	import type { PageProps } from './$types';
@@ -16,15 +18,12 @@
 	let inactivePackages = $derived(data.packages.filter((p) => !p.isActive));
 
 	async function handleDuplicate(id: string) {
-		isDuplicating = id;
 		try {
 			await duplicateAgencyPackage(id);
 			await invalidateAll();
 			toast.success('Package duplicated');
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'Failed to duplicate');
-		} finally {
-			isDuplicating = null;
+			toast.error('Failed to duplicate', err instanceof Error ? err.message : '');
 		}
 	}
 
@@ -33,15 +32,12 @@
 			return;
 		}
 
-		isDeleting = id;
 		try {
 			await deleteAgencyPackage(id);
 			await invalidateAll();
 			toast.success('Package deleted');
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'Failed to delete');
-		} finally {
-			isDeleting = null;
+			toast.error('Failed to delete', err instanceof Error ? err.message : '');
 		}
 	}
 </script>

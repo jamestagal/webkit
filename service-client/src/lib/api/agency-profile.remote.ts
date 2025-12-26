@@ -68,25 +68,17 @@ const UpdateProfileSchema = v.object({
 
 /**
  * Get the agency profile for the current agency.
- * Auto-creates an empty profile if one doesn't exist.
+ * Returns null for profile if one doesn't exist - use ensureAgencyProfile() to create.
  */
 export const getAgencyProfile = query(async () => {
 	const context = await requireAgencyRole(['owner', 'admin']);
 
 	// Try to get existing profile
-	let [profile] = await db
+	const [profile] = await db
 		.select()
 		.from(agencyProfiles)
 		.where(eq(agencyProfiles.agencyId, context.agencyId))
 		.limit(1);
-
-	// Auto-create if not exists
-	if (!profile) {
-		[profile] = await db
-			.insert(agencyProfiles)
-			.values({ agencyId: context.agencyId })
-			.returning();
-	}
 
 	// Also get agency info for merged data
 	const [agency] = await db
@@ -105,29 +97,52 @@ export const getAgencyProfile = query(async () => {
 		.limit(1);
 
 	return {
-		profile,
+		profile: profile ?? null,
 		agency
 	};
 });
 
 /**
  * Get just the profile data (for forms that don't need agency data).
+ * Returns null if no profile exists.
  */
 export const getAgencyProfileOnly = query(async () => {
 	const context = await requireAgencyRole(['owner', 'admin']);
 
-	let [profile] = await db
+	const [profile] = await db
 		.select()
 		.from(agencyProfiles)
 		.where(eq(agencyProfiles.agencyId, context.agencyId))
 		.limit(1);
 
-	if (!profile) {
-		[profile] = await db
-			.insert(agencyProfiles)
-			.values({ agencyId: context.agencyId })
-			.returning();
+	return profile ?? null;
+});
+
+/**
+ * Ensure an agency profile exists (creates if missing).
+ * Call this before editing profile data.
+ */
+export const ensureAgencyProfile = command(v.object({}), async () => {
+	const context = await requireAgencyRole(['owner', 'admin']);
+
+	// Check if profile exists
+	const [existing] = await db
+		.select({ id: agencyProfiles.id })
+		.from(agencyProfiles)
+		.where(eq(agencyProfiles.agencyId, context.agencyId))
+		.limit(1);
+
+	if (existing) {
+		return existing;
 	}
+
+	// Create new profile
+	const [profile] = await db
+		.insert(agencyProfiles)
+		.values({ agencyId: context.agencyId })
+		.returning();
+
+	await logActivity('profile.created', 'agency_profile', profile?.id, {});
 
 	return profile;
 });

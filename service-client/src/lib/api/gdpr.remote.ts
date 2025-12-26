@@ -378,8 +378,9 @@ export const cancelAgencyDeletion = command(async () => {
  * Perform soft delete on an agency.
  * This is called by a background job after grace period expires.
  * NOT exposed as a user-callable command.
+ * @internal - Do not export from .remote.ts files
  */
-export async function performSoftDelete(agencyId: string): Promise<void> {
+async function performSoftDelete(agencyId: string): Promise<void> {
 	// Verify grace period has expired
 	const [agency] = await db
 		.select({

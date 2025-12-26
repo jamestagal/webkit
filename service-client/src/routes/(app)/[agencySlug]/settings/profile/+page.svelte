@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { toast } from '$lib/components/shared/Toast.svelte';
+	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { updateAgencyProfile } from '$lib/api/agency-profile.remote';
+
+	const toast = getToast();
 	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
 	import FormField from '$lib/components/settings/FormField.svelte';
 	import { Building2, MapPin, Landmark, Receipt, FileText } from 'lucide-svelte';
@@ -79,10 +81,10 @@
 		try {
 			await updateAgencyProfile(formData);
 			await invalidateAll();
-			toast.success('Profile updated successfully');
+			toast.success('Profile updated');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to save profile';
-			toast.error(error);
+			toast.error('Save failed', error);
 		} finally {
 			isSaving = false;
 		}

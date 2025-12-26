@@ -315,6 +315,76 @@ export class DataPipelineService {
 		};
 	}
 
+	/**
+	 * Build proposal merge fields from proposal data and related package/addons.
+	 */
+	buildProposalMergeFields(
+		proposal: {
+			proposalNumber: string;
+			title: string;
+			createdAt: Date;
+			validUntil?: Date | null;
+			customPricing?: {
+				setupFee?: string;
+				monthlyPrice?: string;
+				oneTimePrice?: string;
+				hostingFee?: string;
+				discountPercent?: number;
+				discountNote?: string;
+			} | null;
+		},
+		selectedPackage?: {
+			name: string;
+			description: string;
+			setupFee: string;
+			monthlyPrice: string;
+			oneTimePrice: string;
+			hostingFee: string;
+		} | null,
+		selectedAddons?: { name: string; price: string }[]
+	): ProposalMergeFields {
+		// Use custom pricing if provided, otherwise fall back to package pricing
+		const setupFee = proposal.customPricing?.setupFee ?? selectedPackage?.setupFee ?? '0.00';
+		const monthlyPrice =
+			proposal.customPricing?.monthlyPrice ?? selectedPackage?.monthlyPrice ?? '0.00';
+		const oneTimePrice =
+			proposal.customPricing?.oneTimePrice ?? selectedPackage?.oneTimePrice ?? '0.00';
+		const hostingFee =
+			proposal.customPricing?.hostingFee ?? selectedPackage?.hostingFee ?? '0.00';
+
+		// Calculate addons total
+		const addonsTotal =
+			selectedAddons?.reduce((sum, addon) => sum + parseFloat(addon.price || '0'), 0) ?? 0;
+
+		// Calculate subtotal (setup + one-time + addons)
+		const subtotal =
+			parseFloat(setupFee) + parseFloat(oneTimePrice) + addonsTotal;
+
+		// Apply discount if present
+		const discountPercent = proposal.customPricing?.discountPercent ?? 0;
+		const discountedSubtotal = subtotal * (1 - discountPercent / 100);
+
+		// Calculate GST (default 10%)
+		const gst = this.calculateGST(discountedSubtotal);
+		const total = discountedSubtotal + gst;
+
+		return {
+			number: proposal.proposalNumber,
+			date: this.formatDate(proposal.createdAt),
+			valid_until: proposal.validUntil ? this.formatDate(proposal.validUntil) : '',
+			package_name: selectedPackage?.name ?? '',
+			package_description: selectedPackage?.description ?? '',
+			setup_fee: this.formatCurrency(parseFloat(setupFee)),
+			monthly_price: this.formatCurrency(parseFloat(monthlyPrice)),
+			one_time_price: this.formatCurrency(parseFloat(oneTimePrice)),
+			hosting_fee: this.formatCurrency(parseFloat(hostingFee)),
+			addons: selectedAddons?.map((a) => a.name).join(', ') ?? '',
+			subtotal: this.formatCurrency(discountedSubtotal),
+			gst: this.formatCurrency(gst),
+			total: this.formatCurrency(total)
+		};
+	}
+
 	// =========================================================================
 	// Merge Field Resolution
 	// =========================================================================

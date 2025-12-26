@@ -81,7 +81,7 @@ INSERT INTO consultations (
     id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8
-) RETURNING id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at
+) RETURNING id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at
 `
 
 type CreateConsultationParams struct {
@@ -112,6 +112,7 @@ func (q *Queries) CreateConsultation(ctx context.Context, arg CreateConsultation
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
+		&i.AgencyID,
 		&i.ContactInfo,
 		&i.BusinessContext,
 		&i.PainPoints,
@@ -131,7 +132,7 @@ INSERT INTO consultation_drafts (
     id, consultation_id, user_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9
-) RETURNING id, consultation_id, user_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes, created_at, updated_at
+) RETURNING id, consultation_id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes, created_at, updated_at
 `
 
 type CreateConsultationDraftParams struct {
@@ -164,6 +165,7 @@ func (q *Queries) CreateConsultationDraft(ctx context.Context, arg CreateConsult
 		&i.ID,
 		&i.ConsultationID,
 		&i.UserID,
+		&i.AgencyID,
 		&i.ContactInfo,
 		&i.BusinessContext,
 		&i.PainPoints,
@@ -183,7 +185,7 @@ INSERT INTO consultation_versions (
     status, completion_percentage, change_summary, changed_fields
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
-) RETURNING id, consultation_id, user_id, version_number, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, change_summary, changed_fields, created_at
+) RETURNING id, consultation_id, user_id, agency_id, version_number, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, change_summary, changed_fields, created_at
 `
 
 type CreateConsultationVersionParams struct {
@@ -222,6 +224,7 @@ func (q *Queries) CreateConsultationVersion(ctx context.Context, arg CreateConsu
 		&i.ID,
 		&i.ConsultationID,
 		&i.UserID,
+		&i.AgencyID,
 		&i.VersionNumber,
 		&i.ContactInfo,
 		&i.BusinessContext,
@@ -314,7 +317,7 @@ func (q *Queries) DeleteTokens(ctx context.Context) error {
 }
 
 const getConsultation = `-- name: GetConsultation :one
-SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations WHERE id = $1
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations WHERE id = $1
 `
 
 func (q *Queries) GetConsultation(ctx context.Context, id uuid.UUID) (Consultation, error) {
@@ -323,6 +326,7 @@ func (q *Queries) GetConsultation(ctx context.Context, id uuid.UUID) (Consultati
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
+		&i.AgencyID,
 		&i.ContactInfo,
 		&i.BusinessContext,
 		&i.PainPoints,
@@ -337,7 +341,7 @@ func (q *Queries) GetConsultation(ctx context.Context, id uuid.UUID) (Consultati
 }
 
 const getConsultationByUser = `-- name: GetConsultationByUser :one
-SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations WHERE id = $1 AND user_id = $2
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations WHERE id = $1 AND user_id = $2
 `
 
 type GetConsultationByUserParams struct {
@@ -351,6 +355,7 @@ func (q *Queries) GetConsultationByUser(ctx context.Context, arg GetConsultation
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
+		&i.AgencyID,
 		&i.ContactInfo,
 		&i.BusinessContext,
 		&i.PainPoints,
@@ -365,7 +370,7 @@ func (q *Queries) GetConsultationByUser(ctx context.Context, arg GetConsultation
 }
 
 const getConsultationDraft = `-- name: GetConsultationDraft :one
-SELECT id, consultation_id, user_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes, created_at, updated_at FROM consultation_drafts WHERE consultation_id = $1
+SELECT id, consultation_id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes, created_at, updated_at FROM consultation_drafts WHERE consultation_id = $1
 `
 
 func (q *Queries) GetConsultationDraft(ctx context.Context, consultationID uuid.UUID) (ConsultationDraft, error) {
@@ -375,6 +380,7 @@ func (q *Queries) GetConsultationDraft(ctx context.Context, consultationID uuid.
 		&i.ID,
 		&i.ConsultationID,
 		&i.UserID,
+		&i.AgencyID,
 		&i.ContactInfo,
 		&i.BusinessContext,
 		&i.PainPoints,
@@ -388,7 +394,7 @@ func (q *Queries) GetConsultationDraft(ctx context.Context, consultationID uuid.
 }
 
 const getConsultationDraftByUser = `-- name: GetConsultationDraftByUser :one
-SELECT id, consultation_id, user_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes, created_at, updated_at FROM consultation_drafts WHERE consultation_id = $1 AND user_id = $2
+SELECT id, consultation_id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes, created_at, updated_at FROM consultation_drafts WHERE consultation_id = $1 AND user_id = $2
 `
 
 type GetConsultationDraftByUserParams struct {
@@ -403,6 +409,7 @@ func (q *Queries) GetConsultationDraftByUser(ctx context.Context, arg GetConsult
 		&i.ID,
 		&i.ConsultationID,
 		&i.UserID,
+		&i.AgencyID,
 		&i.ContactInfo,
 		&i.BusinessContext,
 		&i.PainPoints,
@@ -416,7 +423,7 @@ func (q *Queries) GetConsultationDraftByUser(ctx context.Context, arg GetConsult
 }
 
 const getConsultationVersion = `-- name: GetConsultationVersion :one
-SELECT id, consultation_id, user_id, version_number, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, change_summary, changed_fields, created_at FROM consultation_versions
+SELECT id, consultation_id, user_id, agency_id, version_number, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, change_summary, changed_fields, created_at FROM consultation_versions
 WHERE consultation_id = $1 AND version_number = $2
 `
 
@@ -432,6 +439,7 @@ func (q *Queries) GetConsultationVersion(ctx context.Context, arg GetConsultatio
 		&i.ID,
 		&i.ConsultationID,
 		&i.UserID,
+		&i.AgencyID,
 		&i.VersionNumber,
 		&i.ContactInfo,
 		&i.BusinessContext,
@@ -448,7 +456,7 @@ func (q *Queries) GetConsultationVersion(ctx context.Context, arg GetConsultatio
 
 const getConsultationsByBusinessName = `-- name: GetConsultationsByBusinessName :many
 
-SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1
 AND contact_info->>'business_name' ILIKE $2
 ORDER BY created_at DESC
@@ -480,6 +488,7 @@ func (q *Queries) GetConsultationsByBusinessName(ctx context.Context, arg GetCon
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
+			&i.AgencyID,
 			&i.ContactInfo,
 			&i.BusinessContext,
 			&i.PainPoints,
@@ -504,7 +513,7 @@ func (q *Queries) GetConsultationsByBusinessName(ctx context.Context, arg GetCon
 }
 
 const getConsultationsByIndustry = `-- name: GetConsultationsByIndustry :many
-SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1
 AND business_context->>'industry' = $2
 ORDER BY created_at DESC
@@ -535,6 +544,7 @@ func (q *Queries) GetConsultationsByIndustry(ctx context.Context, arg GetConsult
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
+			&i.AgencyID,
 			&i.ContactInfo,
 			&i.BusinessContext,
 			&i.PainPoints,
@@ -559,7 +569,7 @@ func (q *Queries) GetConsultationsByIndustry(ctx context.Context, arg GetConsult
 }
 
 const getConsultationsByUrgency = `-- name: GetConsultationsByUrgency :many
-SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1
 AND pain_points->>'urgency_level' = $2
 ORDER BY created_at DESC
@@ -590,6 +600,7 @@ func (q *Queries) GetConsultationsByUrgency(ctx context.Context, arg GetConsulta
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
+			&i.AgencyID,
 			&i.ContactInfo,
 			&i.BusinessContext,
 			&i.PainPoints,
@@ -614,7 +625,7 @@ func (q *Queries) GetConsultationsByUrgency(ctx context.Context, arg GetConsulta
 }
 
 const getLatestConsultationVersion = `-- name: GetLatestConsultationVersion :one
-SELECT id, consultation_id, user_id, version_number, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, change_summary, changed_fields, created_at FROM consultation_versions
+SELECT id, consultation_id, user_id, agency_id, version_number, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, change_summary, changed_fields, created_at FROM consultation_versions
 WHERE consultation_id = $1
 ORDER BY version_number DESC
 LIMIT 1
@@ -627,6 +638,7 @@ func (q *Queries) GetLatestConsultationVersion(ctx context.Context, consultation
 		&i.ID,
 		&i.ConsultationID,
 		&i.UserID,
+		&i.AgencyID,
 		&i.VersionNumber,
 		&i.ContactInfo,
 		&i.BusinessContext,
@@ -817,7 +829,7 @@ func (q *Queries) InsertToken(ctx context.Context, arg InsertTokenParams) (Token
 }
 
 const insertUser = `-- name: InsertUser :one
-insert into users (id, email, access, sub, avatar, api_key) values ($1, $2, $3, $4, $5, $6) returning id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key
+insert into users (id, email, access, sub, avatar, api_key) values ($1, $2, $3, $4, $5, $6) returning id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id
 `
 
 type InsertUserParams struct {
@@ -852,12 +864,13 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, e
 		&i.SubscriptionID,
 		&i.SubscriptionEnd,
 		&i.ApiKey,
+		&i.DefaultAgencyID,
 	)
 	return i, err
 }
 
 const listConsultationVersions = `-- name: ListConsultationVersions :many
-SELECT id, consultation_id, user_id, version_number, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, change_summary, changed_fields, created_at FROM consultation_versions
+SELECT id, consultation_id, user_id, agency_id, version_number, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, change_summary, changed_fields, created_at FROM consultation_versions
 WHERE consultation_id = $1
 ORDER BY version_number DESC
 LIMIT $2 OFFSET $3
@@ -882,6 +895,7 @@ func (q *Queries) ListConsultationVersions(ctx context.Context, arg ListConsulta
 			&i.ID,
 			&i.ConsultationID,
 			&i.UserID,
+			&i.AgencyID,
 			&i.VersionNumber,
 			&i.ContactInfo,
 			&i.BusinessContext,
@@ -907,7 +921,7 @@ func (q *Queries) ListConsultationVersions(ctx context.Context, arg ListConsulta
 }
 
 const listConsultationsByCompletion = `-- name: ListConsultationsByCompletion :many
-SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1
 AND completion_percentage BETWEEN $2 AND $3
 ORDER BY completion_percentage DESC, created_at DESC
@@ -940,6 +954,7 @@ func (q *Queries) ListConsultationsByCompletion(ctx context.Context, arg ListCon
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
+			&i.AgencyID,
 			&i.ContactInfo,
 			&i.BusinessContext,
 			&i.PainPoints,
@@ -964,7 +979,7 @@ func (q *Queries) ListConsultationsByCompletion(ctx context.Context, arg ListCon
 }
 
 const listConsultationsByDateRange = `-- name: ListConsultationsByDateRange :many
-SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1
 AND created_at BETWEEN $2 AND $3
 ORDER BY created_at DESC
@@ -997,6 +1012,7 @@ func (q *Queries) ListConsultationsByDateRange(ctx context.Context, arg ListCons
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
+			&i.AgencyID,
 			&i.ContactInfo,
 			&i.BusinessContext,
 			&i.PainPoints,
@@ -1021,7 +1037,7 @@ func (q *Queries) ListConsultationsByDateRange(ctx context.Context, arg ListCons
 }
 
 const listConsultationsByStatus = `-- name: ListConsultationsByStatus :many
-SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1 AND status = $2
 ORDER BY created_at DESC
 LIMIT $3 OFFSET $4
@@ -1051,6 +1067,7 @@ func (q *Queries) ListConsultationsByStatus(ctx context.Context, arg ListConsult
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
+			&i.AgencyID,
 			&i.ContactInfo,
 			&i.BusinessContext,
 			&i.PainPoints,
@@ -1076,7 +1093,7 @@ func (q *Queries) ListConsultationsByStatus(ctx context.Context, arg ListConsult
 
 const listConsultationsByUser = `-- name: ListConsultationsByUser :many
 
-SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -1101,6 +1118,7 @@ func (q *Queries) ListConsultationsByUser(ctx context.Context, arg ListConsultat
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
+			&i.AgencyID,
 			&i.ContactInfo,
 			&i.BusinessContext,
 			&i.PainPoints,
@@ -1125,7 +1143,7 @@ func (q *Queries) ListConsultationsByUser(ctx context.Context, arg ListConsultat
 }
 
 const searchConsultations = `-- name: SearchConsultations :many
-SELECT id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1
 AND (
     contact_info->>'business_name' ILIKE $2 OR
@@ -1160,6 +1178,7 @@ func (q *Queries) SearchConsultations(ctx context.Context, arg SearchConsultatio
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
+			&i.AgencyID,
 			&i.ContactInfo,
 			&i.BusinessContext,
 			&i.PainPoints,
@@ -1472,7 +1491,7 @@ func (q *Queries) SelectToken(ctx context.Context, id string) (Token, error) {
 }
 
 const selectUser = `-- name: SelectUser :one
-select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key from users where id = $1
+select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id from users where id = $1
 `
 
 func (q *Queries) SelectUser(ctx context.Context, id uuid.UUID) (User, error) {
@@ -1491,12 +1510,13 @@ func (q *Queries) SelectUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.SubscriptionID,
 		&i.SubscriptionEnd,
 		&i.ApiKey,
+		&i.DefaultAgencyID,
 	)
 	return i, err
 }
 
 const selectUserByCustomerID = `-- name: SelectUserByCustomerID :one
-select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key from users where customer_id = $1
+select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id from users where customer_id = $1
 `
 
 func (q *Queries) SelectUserByCustomerID(ctx context.Context, customerID string) (User, error) {
@@ -1515,12 +1535,13 @@ func (q *Queries) SelectUserByCustomerID(ctx context.Context, customerID string)
 		&i.SubscriptionID,
 		&i.SubscriptionEnd,
 		&i.ApiKey,
+		&i.DefaultAgencyID,
 	)
 	return i, err
 }
 
 const selectUserByEmailAndSub = `-- name: SelectUserByEmailAndSub :one
-select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key from users where email = $1 and sub = $2
+select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id from users where email = $1 and sub = $2
 `
 
 type SelectUserByEmailAndSubParams struct {
@@ -1544,12 +1565,13 @@ func (q *Queries) SelectUserByEmailAndSub(ctx context.Context, arg SelectUserByE
 		&i.SubscriptionID,
 		&i.SubscriptionEnd,
 		&i.ApiKey,
+		&i.DefaultAgencyID,
 	)
 	return i, err
 }
 
 const selectUsers = `-- name: SelectUsers :many
-select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key from users
+select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id from users
 `
 
 func (q *Queries) SelectUsers(ctx context.Context) ([]User, error) {
@@ -1574,6 +1596,7 @@ func (q *Queries) SelectUsers(ctx context.Context) ([]User, error) {
 			&i.SubscriptionID,
 			&i.SubscriptionEnd,
 			&i.ApiKey,
+			&i.DefaultAgencyID,
 		); err != nil {
 			return nil, err
 		}
@@ -1598,7 +1621,7 @@ UPDATE consultations SET
     completion_percentage = $7,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at
+RETURNING id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at
 `
 
 type UpdateConsultationParams struct {
@@ -1625,6 +1648,7 @@ func (q *Queries) UpdateConsultation(ctx context.Context, arg UpdateConsultation
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
+		&i.AgencyID,
 		&i.ContactInfo,
 		&i.BusinessContext,
 		&i.PainPoints,
@@ -1648,7 +1672,7 @@ UPDATE consultation_drafts SET
     draft_notes = $7,
     updated_at = CURRENT_TIMESTAMP
 WHERE consultation_id = $1
-RETURNING id, consultation_id, user_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes, created_at, updated_at
+RETURNING id, consultation_id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes, created_at, updated_at
 `
 
 type UpdateConsultationDraftParams struct {
@@ -1676,6 +1700,7 @@ func (q *Queries) UpdateConsultationDraft(ctx context.Context, arg UpdateConsult
 		&i.ID,
 		&i.ConsultationID,
 		&i.UserID,
+		&i.AgencyID,
 		&i.ContactInfo,
 		&i.BusinessContext,
 		&i.PainPoints,
@@ -1694,7 +1719,7 @@ UPDATE consultations SET
     completed_at = CASE WHEN $2 = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at
+RETURNING id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at
 `
 
 type UpdateConsultationStatusParams struct {
@@ -1708,6 +1733,7 @@ func (q *Queries) UpdateConsultationStatus(ctx context.Context, arg UpdateConsul
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
+		&i.AgencyID,
 		&i.ContactInfo,
 		&i.BusinessContext,
 		&i.PainPoints,
@@ -1809,7 +1835,7 @@ update users set
     subscription_end = $6,
     api_key = $7,
     updated = current_timestamp
-where id = $8 returning id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key
+where id = $8 returning id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id
 `
 
 type UpdateUserParams struct {
@@ -1848,12 +1874,13 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.SubscriptionID,
 		&i.SubscriptionEnd,
 		&i.ApiKey,
+		&i.DefaultAgencyID,
 	)
 	return i, err
 }
 
 const updateUserAccess = `-- name: UpdateUserAccess :one
-update users set access = $1 where id = $2 returning id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key
+update users set access = $1 where id = $2 returning id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id
 `
 
 type UpdateUserAccessParams struct {
@@ -1877,6 +1904,7 @@ func (q *Queries) UpdateUserAccess(ctx context.Context, arg UpdateUserAccessPara
 		&i.SubscriptionID,
 		&i.SubscriptionEnd,
 		&i.ApiKey,
+		&i.DefaultAgencyID,
 	)
 	return i, err
 }
@@ -1954,7 +1982,7 @@ DO UPDATE SET
     auto_saved = EXCLUDED.auto_saved,
     draft_notes = EXCLUDED.draft_notes,
     updated_at = CURRENT_TIMESTAMP
-RETURNING id, consultation_id, user_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes, created_at, updated_at
+RETURNING id, consultation_id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, auto_saved, draft_notes, created_at, updated_at
 `
 
 type UpsertConsultationDraftParams struct {
@@ -1986,6 +2014,7 @@ func (q *Queries) UpsertConsultationDraft(ctx context.Context, arg UpsertConsult
 		&i.ID,
 		&i.ConsultationID,
 		&i.UserID,
+		&i.AgencyID,
 		&i.ContactInfo,
 		&i.BusinessContext,
 		&i.PainPoints,
