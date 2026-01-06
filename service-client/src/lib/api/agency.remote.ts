@@ -515,10 +515,3 @@ export const setDefaultAgency = command(SwitchAgencySchema, async (agencyId: str
 	await db.update(users).set({ defaultAgencyId: agencyId }).where(eq(users.id, userId));
 });
 
-// =============================================================================
-// Type Exports
-// =============================================================================
-
-export type AgencyWithRole = Awaited<ReturnType<typeof getUserAgencies>>[number];
-export type AgencyFormOptionsMap = Awaited<ReturnType<typeof getAgencyFormOptions>>;
-export type AgencyMember = Awaited<ReturnType<typeof getAgencyMembers>>[number];

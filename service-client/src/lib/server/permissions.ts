@@ -106,7 +106,20 @@ export const PERMISSIONS = {
 	'contract:edit_all': ['owner', 'admin'],
 	'contract:send': ['owner', 'admin', 'member'],
 	'contract:delete_own': ['owner', 'admin', 'member'],
-	'contract:delete_all': ['owner', 'admin']
+	'contract:delete_all': ['owner', 'admin'],
+
+	// Invoices (V2)
+	'invoice:create': ['owner', 'admin', 'member'],
+	'invoice:view_own': ['owner', 'admin', 'member'],
+	'invoice:view_all': ['owner', 'admin'],
+	'invoice:edit_own': ['owner', 'admin', 'member'],
+	'invoice:edit_all': ['owner', 'admin'],
+	'invoice:send': ['owner', 'admin', 'member'],
+	'invoice:record_payment': ['owner', 'admin'],
+	'invoice:delete_own': ['owner', 'admin', 'member'],
+	'invoice:delete_all': ['owner', 'admin'],
+	'invoice:cancel': ['owner', 'admin'],
+	'invoice:refund': ['owner']
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -204,7 +217,7 @@ export function canAccessResource(
 	role: AgencyRole,
 	resourceOwnerId: string,
 	currentUserId: string,
-	resourceType: 'consultation' | 'proposal' | 'contract'
+	resourceType: 'consultation' | 'proposal' | 'contract' | 'invoice'
 ): boolean {
 	// Check for 'view_all' permission
 	const viewAllPermission = `${resourceType}:view_all` as Permission;
@@ -223,7 +236,7 @@ export function canModifyResource(
 	role: AgencyRole,
 	resourceOwnerId: string,
 	currentUserId: string,
-	resourceType: 'consultation' | 'proposal' | 'contract'
+	resourceType: 'consultation' | 'proposal' | 'contract' | 'invoice'
 ): boolean {
 	// Check for 'edit_all' permission
 	const editAllPermission = `${resourceType}:edit_all` as Permission;
@@ -247,7 +260,7 @@ export function canDeleteResource(
 	role: AgencyRole,
 	resourceOwnerId: string,
 	currentUserId: string,
-	resourceType: 'consultation' | 'proposal' | 'contract'
+	resourceType: 'consultation' | 'proposal' | 'contract' | 'invoice'
 ): boolean {
 	// Check for 'delete_all' permission
 	const deleteAllPermission = `${resourceType}:delete_all` as Permission;
@@ -424,6 +437,22 @@ export function getPermissionMatrix(): {
 				formatPermission('contract:send', 'Send contracts'),
 				formatPermission('contract:delete_own', 'Delete own contracts'),
 				formatPermission('contract:delete_all', 'Delete all contracts')
+			]
+		},
+		{
+			category: 'Invoices',
+			permissions: [
+				formatPermission('invoice:create', 'Create invoices'),
+				formatPermission('invoice:view_own', 'View own invoices'),
+				formatPermission('invoice:view_all', 'View all invoices'),
+				formatPermission('invoice:edit_own', 'Edit own invoices'),
+				formatPermission('invoice:edit_all', 'Edit all invoices'),
+				formatPermission('invoice:send', 'Send invoices'),
+				formatPermission('invoice:record_payment', 'Record payments'),
+				formatPermission('invoice:delete_own', 'Delete own invoices'),
+				formatPermission('invoice:delete_all', 'Delete all invoices'),
+				formatPermission('invoice:cancel', 'Cancel invoices'),
+				formatPermission('invoice:refund', 'Refund invoices')
 			]
 		}
 	];

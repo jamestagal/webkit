@@ -471,10 +471,3 @@ export const duplicateAgencyAddon = command(
 	}
 );
 
-// =============================================================================
-// Type Exports
-// =============================================================================
-
-export type AgencyAddonList = Awaited<ReturnType<typeof getAgencyAddons>>;
-export type AgencyAddonData = Awaited<ReturnType<typeof getAgencyAddon>>;
-export type AgencyAddonWithPackages = Awaited<ReturnType<typeof getAddonsWithPackages>>[number];

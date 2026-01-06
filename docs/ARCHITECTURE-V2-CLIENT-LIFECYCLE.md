@@ -1495,32 +1495,36 @@ export const submitFormResponse = command(...)
 
 ## Implementation Phases
 
-### Phase 1: Proposals (Week 1-2)
-- [ ] Database schema (proposals, contract_templates)
-- [ ] Proposal generator from consultation
-- [ ] PageSpeed audit integration
-- [ ] PDF generation (server-side)
-- [ ] Public shareable links
-- [ ] Proposal preview & edit
+### Phase 1: Proposals ✅ COMPLETE
+- [x] Database schema (proposals, contract_templates)
+- [x] Proposal generator from consultation
+- [x] PDF generation (Gotenberg)
+- [x] Public shareable links (`/p/[slug]`)
+- [x] Proposal preview & edit
+- [ ] PageSpeed audit integration (deferred)
 
-### Phase 2: Contracts (Week 3)
-- [ ] Contract template management
-- [ ] Merge field system
-- [ ] PDF contract generation
-- [ ] Simple signature (checkbox + typed name)
-- [ ] PDF upload alternative
+### Phase 2: Contracts ✅ COMPLETE
+- [x] Contract template management
+- [x] Merge field system
+- [x] PDF contract generation (Gotenberg)
+- [x] Simple signature (typed name + checkbox)
+- [x] Public contract view (`/c/[slug]`)
+- [ ] PDF upload alternative (deferred)
 
-### Phase 3: Invoices (Week 4-5)
-- [ ] Invoice CRUD
-- [ ] Line item management
-- [ ] Stripe Payment Link integration
-- [ ] Invoice PDF generation
-- [ ] Status tracking
-- [ ] AI invoice creation from text
+### Phase 3: Invoices ✅ COMPLETE
+- [x] Invoice CRUD (standalone + from proposal/contract)
+- [x] Line item management with per-item taxable flag
+- [x] Invoice PDF generation (Gotenberg)
+- [x] Status tracking (draft → sent → viewed → paid/overdue/cancelled)
+- [x] Public invoice view (`/i/[slug]`)
+- [x] Manual payment recording
+- [ ] Stripe Payment Link integration (deferred to Phase 4)
+- [ ] AI invoice creation from text (deferred)
 
 ### Phase 4: Email & Reminders (Week 6)
 - [ ] Resend integration
 - [ ] Email templates per agency
+- [ ] Send documents with PDF attachments (proposals, invoices, contracts)
 - [ ] Payment reminders (scheduled)
 - [ ] AI reminder generation
 - [ ] Email tracking (opens, clicks)

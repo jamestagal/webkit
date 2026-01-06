@@ -3,17 +3,14 @@
 	import type { Snippet } from 'svelte';
 	import {
 		House,
-		BookOpen,
-		DollarSign,
-		Mail,
 		File,
 		LogOut,
 		MessageCircle,
 		ClipboardList,
 		FileText,
+		Receipt,
 		Settings,
-		Users,
-		Building2
+		Users
 	} from 'lucide-svelte';
 	import { env } from '$env/dynamic/public';
 	import { setAgencyConfig } from '$lib/stores/agency-config.svelte';
@@ -47,9 +44,7 @@
 		{ label: 'My Consultations', url: `/${agencySlug}/consultation/history`, icon: ClipboardList },
 		{ label: 'Proposals', url: `/${agencySlug}/proposals`, icon: FileText },
 		{ label: 'Contracts', url: `/${agencySlug}/contracts`, icon: File },
-		{ label: 'Notes', url: `/${agencySlug}/notes`, icon: BookOpen },
-		{ label: 'Payments', url: `/${agencySlug}/payments`, icon: DollarSign },
-		{ label: 'Emails', url: `/${agencySlug}/emails`, icon: Mail }
+		{ label: 'Invoices', url: `/${agencySlug}/invoices`, icon: Receipt }
 	]);
 
 	// Admin navigation (only shown to owner/admin)
@@ -253,7 +248,7 @@
 				agencies={data.userAgencies}
 			/>
 		</div>
-		<div class="px-4 py-10 sm:px-6 lg:px-8 lg:py-6">
+		<div class="px-4 py-10 sm:px-6 lg:px-8 xl:px-12 lg:py-6 max-w-[1600px]">
 			{@render children()}
 		</div>
 	</main>

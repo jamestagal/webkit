@@ -127,6 +127,8 @@ services:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      # Gotenberg PDF generation
+      GOTENBERG_URL: http://gotenberg:3000
 
   postgres:
     container_name: webkit-postgres
@@ -151,6 +153,29 @@ services:
     ports:
       - 8222:8222
     command: "--cluster_name NATS --cluster nats://0.0.0.0:6222 --http_port 8222"
+
+  gotenberg:
+    container_name: webkit-gotenberg
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+    ports:
+      - 3003:3000
+    command:
+      - "gotenberg"
+      - "--api-timeout=60s"
+      - "--chromium-restart-after=50"
+      - "--log-level=info"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   postgres_data:

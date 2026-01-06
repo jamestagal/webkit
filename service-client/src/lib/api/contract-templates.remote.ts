@@ -738,10 +738,3 @@ export const reorderSchedules = command(ReorderSchedulesSchema, async (data) => 
 	});
 });
 
-// =============================================================================
-// Type Exports
-// =============================================================================
-
-export type ContractTemplateList = Awaited<ReturnType<typeof getContractTemplates>>;
-export type ContractTemplateWithSchedules = Awaited<ReturnType<typeof getContractTemplate>>;
-export type ContractScheduleList = Awaited<ReturnType<typeof getContractSchedules>>;

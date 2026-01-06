@@ -521,10 +521,3 @@ export const exportUserData = query(async () => {
 	};
 });
 
-// =============================================================================
-// Type Exports
-// =============================================================================
-
-export type AgencyExportData = Awaited<ReturnType<typeof exportAgencyData>>;
-export type UserExportData = Awaited<ReturnType<typeof exportUserData>>;
-export type DeletionStatus = Awaited<ReturnType<typeof getDeletionStatus>>;

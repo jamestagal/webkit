@@ -607,6 +607,127 @@ export const contracts = pgTable(
 );
 
 // =============================================================================
+// INVOICES (V2 Document Generation)
+// =============================================================================
+
+export const invoices = pgTable(
+	'invoices',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+
+		agencyId: uuid('agency_id')
+			.notNull()
+			.references(() => agencies.id, { onDelete: 'cascade' }),
+
+		// Link to source documents (optional)
+		proposalId: uuid('proposal_id').references(() => proposals.id, { onDelete: 'set null' }),
+		contractId: uuid('contract_id').references(() => contracts.id, { onDelete: 'set null' }),
+
+		// Document identification
+		invoiceNumber: varchar('invoice_number', { length: 50 }).notNull(),
+		slug: varchar('slug', { length: 100 }).notNull().unique(),
+
+		// Status workflow: draft, sent, viewed, paid, overdue, cancelled, refunded
+		status: varchar('status', { length: 50 }).notNull().default('draft'),
+
+		// Client info (snapshot at invoice creation)
+		clientBusinessName: text('client_business_name').notNull(),
+		clientContactName: text('client_contact_name').notNull().default(''),
+		clientEmail: varchar('client_email', { length: 255 }).notNull(),
+		clientPhone: varchar('client_phone', { length: 50 }).notNull().default(''),
+		clientAddress: text('client_address').notNull().default(''),
+		clientAbn: varchar('client_abn', { length: 20 }).notNull().default(''),
+
+		// Dates
+		issueDate: timestamp('issue_date', { withTimezone: true }).notNull(),
+		dueDate: timestamp('due_date', { withTimezone: true }).notNull(),
+
+		// Financials (all in AUD)
+		subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull(),
+		discountAmount: decimal('discount_amount', { precision: 10, scale: 2 })
+			.notNull()
+			.default('0.00'),
+		discountDescription: text('discount_description').notNull().default(''),
+		gstAmount: decimal('gst_amount', { precision: 10, scale: 2 }).notNull().default('0.00'),
+		total: decimal('total', { precision: 10, scale: 2 }).notNull(),
+
+		// GST settings (snapshot from agency profile)
+		gstRegistered: boolean('gst_registered').notNull().default(true),
+		gstRate: decimal('gst_rate', { precision: 5, scale: 2 }).notNull().default('10.00'),
+
+		// Payment terms
+		paymentTerms: varchar('payment_terms', { length: 50 }).notNull().default('NET_14'),
+		paymentTermsCustom: text('payment_terms_custom').notNull().default(''),
+
+		// Notes
+		notes: text('notes').notNull().default(''), // Internal notes
+		publicNotes: text('public_notes').notNull().default(''), // Shown on invoice
+
+		// Tracking
+		viewCount: integer('view_count').notNull().default(0),
+		lastViewedAt: timestamp('last_viewed_at', { withTimezone: true }),
+		sentAt: timestamp('sent_at', { withTimezone: true }),
+		paidAt: timestamp('paid_at', { withTimezone: true }),
+
+		// Payment recording
+		paymentMethod: varchar('payment_method', { length: 50 }), // bank_transfer, card, cash, other
+		paymentReference: text('payment_reference'), // Transaction ID, cheque number, etc.
+		paymentNotes: text('payment_notes'),
+
+		// PDF storage
+		pdfUrl: text('pdf_url'),
+		pdfGeneratedAt: timestamp('pdf_generated_at', { withTimezone: true }),
+
+		// Creator
+		createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' })
+	},
+	(table) => ({
+		agencyIdx: index('invoices_agency_idx').on(table.agencyId),
+		statusIdx: index('invoices_status_idx').on(table.status),
+		dueDateIdx: index('invoices_due_date_idx').on(table.dueDate),
+		slugIdx: index('invoices_slug_idx').on(table.slug),
+		invoiceNumberIdx: index('invoices_number_idx').on(table.agencyId, table.invoiceNumber)
+	})
+);
+
+export const invoiceLineItems = pgTable(
+	'invoice_line_items',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+
+		invoiceId: uuid('invoice_id')
+			.notNull()
+			.references(() => invoices.id, { onDelete: 'cascade' }),
+
+		// Line item details
+		description: text('description').notNull(),
+		quantity: decimal('quantity', { precision: 10, scale: 2 }).notNull().default('1.00'),
+		unitPrice: decimal('unit_price', { precision: 10, scale: 2 }).notNull(),
+		amount: decimal('amount', { precision: 10, scale: 2 }).notNull(), // quantity * unitPrice
+
+		// Tax handling per line item
+		isTaxable: boolean('is_taxable').notNull().default(true),
+
+		// Ordering
+		sortOrder: integer('sort_order').notNull().default(0),
+
+		// Optional categorization
+		category: varchar('category', { length: 50 }), // setup, development, hosting, addon, other
+
+		// Reference to package/addon if applicable
+		packageId: uuid('package_id').references(() => agencyPackages.id, { onDelete: 'set null' }),
+		addonId: uuid('addon_id').references(() => agencyAddons.id, { onDelete: 'set null' })
+	},
+	(table) => ({
+		invoiceIdx: index('invoice_line_items_invoice_idx').on(table.invoiceId)
+	})
+);
+
+// =============================================================================
 // CONSULTATION TABLES
 // =============================================================================
 
@@ -781,6 +902,22 @@ export type ContractStatus =
 	| 'completed'
 	| 'expired'
 	| 'terminated';
+
+// Invoice types
+export type Invoice = typeof invoices.$inferSelect;
+export type InvoiceInsert = typeof invoices.$inferInsert;
+export type InvoiceLineItem = typeof invoiceLineItems.$inferSelect;
+export type InvoiceLineItemInsert = typeof invoiceLineItems.$inferInsert;
+export type InvoiceStatus =
+	| 'draft'
+	| 'sent'
+	| 'viewed'
+	| 'paid'
+	| 'overdue'
+	| 'cancelled'
+	| 'refunded';
+export type InvoicePaymentMethod = 'bank_transfer' | 'card' | 'cash' | 'other';
+export type LineItemCategory = 'setup' | 'development' | 'hosting' | 'addon' | 'other';
 
 // Cover page configuration (for contract templates)
 export interface CoverPageConfig {

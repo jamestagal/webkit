@@ -438,6 +438,45 @@ export class DataPipelineService {
 		};
 	}
 
+	/**
+	 * Build invoice merge fields from invoice data.
+	 */
+	buildInvoiceMergeFields(invoice: {
+		invoiceNumber: string;
+		issueDate: Date | string;
+		dueDate: Date | string;
+		paymentTerms: string;
+		paymentTermsCustom?: string;
+		subtotal: string;
+		gstAmount: string;
+		total: string;
+		status: string;
+		paidAt?: Date | string | null;
+	}): InvoiceMergeFields {
+		const total = parseFloat(invoice.total);
+		const isPaid = invoice.status === 'paid';
+		const amountPaid = isPaid ? total : 0;
+		const amountDue = isPaid ? 0 : total;
+
+		// Format payment terms
+		const paymentTermsLabel =
+			invoice.paymentTerms === 'CUSTOM'
+				? invoice.paymentTermsCustom || 'Custom'
+				: this.getPaymentTermsLabel(invoice.paymentTerms);
+
+		return {
+			number: invoice.invoiceNumber,
+			date: this.formatDate(invoice.issueDate),
+			due_date: this.formatDate(invoice.dueDate),
+			payment_terms: paymentTermsLabel,
+			subtotal: this.formatCurrency(parseFloat(invoice.subtotal)),
+			gst: this.formatCurrency(parseFloat(invoice.gstAmount)),
+			total: this.formatCurrency(total),
+			amount_paid: this.formatCurrency(amountPaid),
+			amount_due: this.formatCurrency(amountDue)
+		};
+	}
+
 	// =========================================================================
 	// Merge Field Resolution
 	// =========================================================================

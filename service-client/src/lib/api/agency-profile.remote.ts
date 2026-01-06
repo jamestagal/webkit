@@ -304,9 +304,3 @@ export const getNextDocumentNumber = command(
 	}
 );
 
-// =============================================================================
-// Type Exports
-// =============================================================================
-
-export type AgencyProfileWithAgency = Awaited<ReturnType<typeof getAgencyProfile>>;
-export type AgencyProfileData = Awaited<ReturnType<typeof getAgencyProfileOnly>>;

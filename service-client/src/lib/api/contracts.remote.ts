@@ -974,11 +974,3 @@ export const updateContractStatus = command(
 	}
 );
 
-// =============================================================================
-// Type Exports
-// =============================================================================
-
-export type ContractList = Awaited<ReturnType<typeof getContracts>>;
-export type ContractData = Awaited<ReturnType<typeof getContract>>;
-export type ContractWithRelations = Awaited<ReturnType<typeof getContractWithRelations>>;
-export type ContractPublicData = Awaited<ReturnType<typeof getContractBySlug>>;

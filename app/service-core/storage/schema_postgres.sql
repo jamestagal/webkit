@@ -769,6 +769,91 @@ create index if not exists idx_contracts_status on contracts(status);
 create index if not exists idx_contracts_slug on contracts(slug);
 create index if not exists idx_contracts_created_at on contracts(created_at desc);
 
+-- create "invoices" table
+create table if not exists invoices (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    agency_id uuid not null references agencies(id) on delete cascade,
+    proposal_id uuid references proposals(id) on delete set null,
+    contract_id uuid references contracts(id) on delete set null,
+
+    invoice_number varchar(50) not null,
+    slug varchar(100) not null unique,
+    status varchar(50) not null default 'draft',
+
+    client_business_name text not null,
+    client_contact_name text not null default '',
+    client_email varchar(255) not null,
+    client_phone varchar(50) not null default '',
+    client_address text not null default '',
+    client_abn varchar(20) not null default '',
+
+    issue_date timestamptz not null,
+    due_date timestamptz not null,
+
+    subtotal decimal(10,2) not null,
+    discount_amount decimal(10,2) not null default 0.00,
+    discount_description text not null default '',
+    gst_amount decimal(10,2) not null default 0.00,
+    total decimal(10,2) not null,
+
+    gst_registered boolean not null default true,
+    gst_rate decimal(5,2) not null default 10.00,
+
+    payment_terms varchar(50) not null default 'NET_14',
+    payment_terms_custom text not null default '',
+
+    notes text not null default '',
+    public_notes text not null default '',
+
+    view_count integer not null default 0,
+    last_viewed_at timestamptz,
+    sent_at timestamptz,
+    paid_at timestamptz,
+
+    payment_method varchar(50),
+    payment_reference text,
+    payment_notes text,
+
+    pdf_url text,
+    pdf_generated_at timestamptz,
+
+    created_by uuid references users(id) on delete set null,
+
+    constraint valid_invoice_status check (status in ('draft', 'sent', 'viewed', 'paid', 'overdue', 'cancelled', 'refunded'))
+);
+
+create index if not exists idx_invoices_agency_id on invoices(agency_id);
+create index if not exists idx_invoices_status on invoices(status);
+create index if not exists idx_invoices_due_date on invoices(due_date);
+create index if not exists idx_invoices_slug on invoices(slug);
+create index if not exists idx_invoices_number on invoices(agency_id, invoice_number);
+
+-- create "invoice_line_items" table
+create table if not exists invoice_line_items (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    invoice_id uuid not null references invoices(id) on delete cascade,
+
+    description text not null,
+    quantity decimal(10,2) not null default 1.00,
+    unit_price decimal(10,2) not null,
+    amount decimal(10,2) not null,
+
+    is_taxable boolean not null default true,
+    sort_order integer not null default 0,
+    category varchar(50),
+
+    package_id uuid references agency_packages(id) on delete set null,
+    addon_id uuid references agency_addons(id) on delete set null
+);
+
+create index if not exists idx_invoice_line_items_invoice_id on invoice_line_items(invoice_id);
+
 -- create "subscriptions" table for detailed subscription tracking
 create table if not exists subscriptions (
     id uuid primary key not null default gen_random_uuid(),

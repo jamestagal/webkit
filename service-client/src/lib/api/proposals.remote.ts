@@ -747,10 +747,3 @@ export const updateProposalStatus = command(
 	}
 );
 
-// =============================================================================
-// Type Exports
-// =============================================================================
-
-export type ProposalList = Awaited<ReturnType<typeof getProposals>>;
-export type ProposalData = Awaited<ReturnType<typeof getProposal>>;
-export type ProposalWithRelations = Awaited<ReturnType<typeof getProposalWithRelations>>;

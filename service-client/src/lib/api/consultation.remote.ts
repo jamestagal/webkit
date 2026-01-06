@@ -569,9 +569,3 @@ export const autoSaveDraft = command(AutoSaveDraftSchema, async (data) => {
 	getDraft(data.consultationId).refresh();
 });
 
-// =============================================================================
-// Type Exports
-// =============================================================================
-
-export type Consultation = Awaited<ReturnType<typeof getOrCreateConsultation>>;
-export type ConsultationDraft = NonNullable<Awaited<ReturnType<typeof getDraft>>>;

@@ -427,9 +427,3 @@ export const duplicateAgencyPackage = command(
 	}
 );
 
-// =============================================================================
-// Type Exports
-// =============================================================================
-
-export type AgencyPackageList = Awaited<ReturnType<typeof getAgencyPackages>>;
-export type AgencyPackageData = Awaited<ReturnType<typeof getAgencyPackage>>;
