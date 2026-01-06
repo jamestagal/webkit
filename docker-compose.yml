@@ -111,6 +111,7 @@ services:
     volumes:
       - ./service-client/src:/service/src
       - ./service-client/.svelte-kit:/service/.svelte-kit
+      - ./service-client/.env:/service/.env
       - /service/node_modules
     ports:
       - 3000:3000
@@ -129,6 +130,24 @@ services:
       POSTGRES_PASSWORD: postgres
       # Gotenberg PDF generation
       GOTENBERG_URL: http://gotenberg:3000
+      # Resend email service (production)
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-noreply@webkit.au}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Webkit}
+      # SMTP for local testing (Mailpit)
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+
+  mailpit:
+    container_name: webkit-mailpit
+    image: axllent/mailpit
+    restart: unless-stopped
+    ports:
+      - 8025:8025  # Web UI
+      - 1025:1025  # SMTP
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
 
   postgres:
     container_name: webkit-postgres

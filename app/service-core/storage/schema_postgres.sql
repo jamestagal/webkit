@@ -854,6 +854,58 @@ create table if not exists invoice_line_items (
 
 create index if not exists idx_invoice_line_items_invoice_id on invoice_line_items(invoice_id);
 
+-- create "email_logs" table for tracking sent emails
+create table if not exists email_logs (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+
+    -- Agency scope
+    agency_id uuid not null references agencies(id) on delete cascade,
+
+    -- Related entities (all optional, at least one should be set)
+    proposal_id uuid references proposals(id) on delete set null,
+    invoice_id uuid references invoices(id) on delete set null,
+    contract_id uuid references contracts(id) on delete set null,
+
+    -- Email type
+    email_type varchar(50) not null,
+
+    -- Email details
+    recipient_email varchar(255) not null,
+    recipient_name varchar(255),
+    subject varchar(500) not null,
+    body_html text not null,
+
+    -- Attachment info
+    has_attachment boolean not null default false,
+    attachment_filename varchar(255),
+
+    -- Resend tracking
+    resend_message_id varchar(100),
+
+    -- Status: pending, sent, delivered, opened, bounced, failed
+    status varchar(50) not null default 'pending',
+
+    sent_at timestamptz,
+    delivered_at timestamptz,
+    opened_at timestamptz,
+
+    -- Error handling
+    error_message text,
+    retry_count integer not null default 0,
+
+    -- Sender info
+    sent_by uuid references users(id) on delete set null
+);
+
+-- Indexes for email_logs
+create index if not exists idx_email_logs_agency_id on email_logs(agency_id);
+create index if not exists idx_email_logs_proposal_id on email_logs(proposal_id);
+create index if not exists idx_email_logs_invoice_id on email_logs(invoice_id);
+create index if not exists idx_email_logs_contract_id on email_logs(contract_id);
+create index if not exists idx_email_logs_status on email_logs(status);
+create index if not exists idx_email_logs_created_at on email_logs(created_at);
+
 -- create "subscriptions" table for detailed subscription tracking
 create table if not exists subscriptions (
     id uuid primary key not null default gen_random_uuid(),

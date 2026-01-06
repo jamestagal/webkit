@@ -202,6 +202,54 @@ function calculateInvoiceTotals(
 }
 
 // =============================================================================
+// Helper: Check and Update Overdue Status
+// =============================================================================
+
+/**
+ * Check if an invoice is overdue and update its status if needed.
+ * Returns the invoice with potentially updated status.
+ */
+async function checkAndUpdateOverdueStatus<T extends { id: string; status: string; dueDate: Date }>(
+	invoice: T
+): Promise<T> {
+	// Only check invoices that are sent or viewed (not draft, paid, cancelled, etc.)
+	if (!['sent', 'viewed'].includes(invoice.status)) {
+		return invoice;
+	}
+
+	const now = new Date();
+	const dueDate = new Date(invoice.dueDate);
+
+	// Set dueDate to end of day for comparison
+	dueDate.setHours(23, 59, 59, 999);
+
+	if (now > dueDate) {
+		// Update status in database
+		await db.update(invoices).set({ status: 'overdue', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
+
+		// Return invoice with updated status
+		return { ...invoice, status: 'overdue' };
+	}
+
+	return invoice;
+}
+
+/**
+ * Check and update overdue status for multiple invoices.
+ */
+async function checkAndUpdateOverdueStatusBatch<T extends { id: string; status: string; dueDate: Date }>(
+	invoiceList: T[]
+): Promise<T[]> {
+	const results: T[] = [];
+
+	for (const invoice of invoiceList) {
+		results.push(await checkAndUpdateOverdueStatus(invoice));
+	}
+
+	return results;
+}
+
+// =============================================================================
 // Query Functions
 // =============================================================================
 
@@ -237,10 +285,13 @@ export const getInvoices = query(InvoiceFiltersSchema, async (filters) => {
 		.where(and(...conditions))
 		.orderBy(desc(invoices.createdAt));
 
+	// Check and update overdue status for all invoices
+	const updatedResults = await checkAndUpdateOverdueStatusBatch(results);
+
 	// If there's a search term, filter in JS (simpler than ILIKE)
 	if (filters.search) {
 		const searchLower = filters.search.toLowerCase();
-		return results.filter(
+		return updatedResults.filter(
 			(inv) =>
 				inv.invoiceNumber.toLowerCase().includes(searchLower) ||
 				inv.clientBusinessName.toLowerCase().includes(searchLower) ||
@@ -248,7 +299,7 @@ export const getInvoices = query(InvoiceFiltersSchema, async (filters) => {
 		);
 	}
 
-	return results;
+	return updatedResults;
 });
 
 /**
@@ -272,6 +323,9 @@ export const getInvoice = query(v.pipe(v.string(), v.uuid()), async (invoiceId) 
 		throw new Error('Permission denied');
 	}
 
+	// Check and update overdue status
+	const updatedInvoice = await checkAndUpdateOverdueStatus(invoice);
+
 	// Get line items
 	const lineItems = await db
 		.select()
@@ -279,7 +333,7 @@ export const getInvoice = query(v.pipe(v.string(), v.uuid()), async (invoiceId) 
 		.where(eq(invoiceLineItems.invoiceId, invoiceId))
 		.orderBy(asc(invoiceLineItems.sortOrder));
 
-	return { invoice, lineItems };
+	return { invoice: updatedInvoice, lineItems };
 });
 
 /**
@@ -291,6 +345,9 @@ export const getInvoiceBySlug = query(v.pipe(v.string(), v.minLength(1)), async 
 	if (!invoice) {
 		return null;
 	}
+
+	// Check and update overdue status
+	const updatedInvoice = await checkAndUpdateOverdueStatus(invoice);
 
 	// Get line items
 	const lineItems = await db
@@ -308,7 +365,7 @@ export const getInvoiceBySlug = query(v.pipe(v.string(), v.minLength(1)), async 
 		.where(eq(agencyProfiles.agencyId, invoice.agencyId))
 		.limit(1);
 
-	return { invoice, lineItems, agency, profile };
+	return { invoice: updatedInvoice, lineItems, agency, profile };
 });
 
 /**
@@ -337,10 +394,22 @@ export const getInvoiceStats = query(v.object({}), async () => {
 		paidTotal: 0
 	};
 
+	const now = new Date();
+
 	for (const inv of allInvoices) {
 		const amount = parseFloat(inv.total);
 
-		switch (inv.status) {
+		// Check if sent/viewed invoices are actually overdue
+		let effectiveStatus = inv.status;
+		if (['sent', 'viewed'].includes(inv.status)) {
+			const dueDate = new Date(inv.dueDate);
+			dueDate.setHours(23, 59, 59, 999);
+			if (now > dueDate) {
+				effectiveStatus = 'overdue';
+			}
+		}
+
+		switch (effectiveStatus) {
 			case 'draft':
 				stats.draftCount++;
 				stats.draftTotal += amount;
@@ -827,8 +896,10 @@ export const updateInvoice = command(UpdateInvoiceSchema, async (data) => {
 		throw new Error('Permission denied');
 	}
 
-	if (invoice.status !== 'draft') {
-		throw new Error('Can only edit draft invoices');
+	// Allow editing for draft, sent, viewed, and overdue invoices
+	// Block editing for paid, cancelled, and refunded invoices
+	if (['paid', 'cancelled', 'refunded'].includes(invoice.status)) {
+		throw new Error('Cannot edit paid, cancelled, or refunded invoices');
 	}
 
 	// Get agency profile for GST

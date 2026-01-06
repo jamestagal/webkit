@@ -1521,13 +1521,21 @@ export const submitFormResponse = command(...)
 - [ ] Stripe Payment Link integration (deferred to Phase 4)
 - [ ] AI invoice creation from text (deferred)
 
-### Phase 4: Email & Reminders (Week 6)
-- [ ] Resend integration
-- [ ] Email templates per agency
-- [ ] Send documents with PDF attachments (proposals, invoices, contracts)
-- [ ] Payment reminders (scheduled)
-- [ ] AI reminder generation
-- [ ] Email tracking (opens, clicks)
+### Phase 4: Email & Reminders ✅ COMPLETE
+- [x] Resend integration (email.service.ts with lazy client initialization)
+- [x] Email templates per document type (professional HTML templates)
+- [x] Send documents with PDF attachments (proposals, invoices, contracts)
+- [x] Email logging (email_logs table with status tracking)
+- [x] Email history component (EmailHistory.svelte with email type badges)
+- [x] Emails list page with filters (/{agencySlug}/emails)
+- [x] Retry failed emails functionality
+- [x] Manual payment reminder sending (Send Reminder action)
+- [x] Overdue reminder email template with urgency styling and days past due
+- [x] Automatic overdue status detection (updates invoice status on fetch)
+- [x] Expanded invoice editing (dates, line items, financials for non-draft invoices)
+- [ ] Scheduled payment reminders - deferred to Phase 5
+- [ ] AI reminder generation - deferred
+- [ ] Email tracking via Resend webhooks (opens, clicks) - deferred
 
 ### Phase 5: Unified Form Builder & Questionnaire (Week 7-9)
 

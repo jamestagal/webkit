@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
-	import { deleteContract, sendContract, updateContractStatus } from '$lib/api/contracts.remote';
+	import { deleteContract, updateContractStatus } from '$lib/api/contracts.remote';
+	import { sendContractEmail } from '$lib/api/email.remote';
 	import {
 		Plus,
 		FileText,
@@ -13,7 +14,8 @@
 		ExternalLink,
 		CheckCircle,
 		Clock,
-		AlertCircle
+		AlertCircle,
+		RefreshCw
 	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
@@ -39,13 +41,35 @@
 			.length
 	});
 
-	async function handleSend(contractId: string) {
+	async function handleSend(contractId: string, clientEmail: string) {
+		if (!confirm(`Send this contract to ${clientEmail}?`)) return;
+
 		try {
-			await sendContract(contractId);
+			const result = await sendContractEmail({ contractId });
 			await invalidateAll();
-			toast.success('Contract sent');
+			if (result.success) {
+				toast.success('Contract sent', `Email delivered to ${clientEmail}`);
+			} else {
+				toast.error('Failed to send contract', result.error || 'Unknown error');
+			}
 		} catch (err) {
 			toast.error('Failed to send contract', err instanceof Error ? err.message : '');
+		}
+	}
+
+	async function handleResend(contractId: string, clientEmail: string) {
+		if (!confirm(`Resend this contract to ${clientEmail}?`)) return;
+
+		try {
+			const result = await sendContractEmail({ contractId });
+			await invalidateAll();
+			if (result.success) {
+				toast.success('Contract resent', `Email delivered to ${clientEmail}`);
+			} else {
+				toast.error('Failed to resend contract', result.error || 'Unknown error');
+			}
+		} catch (err) {
+			toast.error('Failed to resend contract', err instanceof Error ? err.message : '');
 		}
 	}
 
@@ -261,10 +285,21 @@
 											<li>
 												<button
 													type="button"
-													onclick={() => handleSend(contract.id)}
+													onclick={() => handleSend(contract.id, contract.clientEmail)}
 												>
 													<Send class="h-4 w-4" />
 													Send to Client
+												</button>
+											</li>
+										{/if}
+										{#if ['sent', 'viewed'].includes(contract.status)}
+											<li>
+												<button
+													type="button"
+													onclick={() => handleResend(contract.id, contract.clientEmail)}
+												>
+													<RefreshCw class="h-4 w-4" />
+													Resend Email
 												</button>
 											</li>
 										{/if}

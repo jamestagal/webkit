@@ -2,6 +2,8 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { updateContract, sendContract, deleteContract } from '$lib/api/contracts.remote';
+	import { sendContractEmail } from '$lib/api/email.remote';
+	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
 	import {
 		Save,
 		ArrowLeft,
@@ -145,7 +147,7 @@
 			return;
 		}
 
-		if (!confirm('Send this contract to the client? This action cannot be undone.')) {
+		if (!confirm(`Send this contract to ${clientEmail}?`)) {
 			return;
 		}
 
@@ -171,10 +173,14 @@
 				agencySignatoryTitle
 			});
 
-			// Then send
-			await sendContract(contract.id);
+			// Then send email
+			const result = await sendContractEmail({ contractId: contract.id });
 			await invalidateAll();
-			toast.success('Contract sent to client');
+			if (result.success) {
+				toast.success('Contract sent', `Email delivered to ${clientEmail}`);
+			} else {
+				toast.error('Failed to send contract', result.error || 'Unknown error');
+			}
 		} catch (err) {
 			toast.error('Failed to send', err instanceof Error ? err.message : '');
 		} finally {
@@ -509,6 +515,13 @@
 			</div>
 		</div>
 	{/if}
+
+	<!-- Email History -->
+	<div class="card bg-base-100 border border-base-300">
+		<div class="card-body">
+			<EmailHistory contractId={contract.id} />
+		</div>
+	</div>
 
 	<!-- Actions -->
 	<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

@@ -4,11 +4,12 @@
 	import {
 		updateInvoice,
 		deleteInvoice,
-		sendInvoice,
 		recordPayment,
 		cancelInvoice,
 		duplicateInvoice
 	} from '$lib/api/invoices.remote';
+	import { sendInvoiceEmail } from '$lib/api/email.remote';
+	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
 	import {
 		ArrowLeft,
 		Edit,
@@ -39,16 +40,60 @@
 
 	let isEditing = $state(false);
 	let saving = $state(false);
+	let sending = $state(false);
 	let showPaymentModal = $state(false);
 
-	// Edit form state
+	// Edit form state - Client details
 	let editClientBusinessName = $state('');
 	let editClientContactName = $state('');
 	let editClientEmail = $state('');
 	let editClientPhone = $state('');
 	let editClientAddress = $state('');
+	let editClientAbn = $state('');
+
+	// Edit form state - Dates & Terms
+	let editIssueDate = $state('');
+	let editDueDate = $state('');
+	let editPaymentTerms = $state('NET_14');
+	let editPaymentTermsCustom = $state('');
+
+	// Edit form state - Financials
+	let editDiscountAmount = $state('0.00');
+	let editDiscountDescription = $state('');
+
+	// Edit form state - Notes
 	let editNotes = $state('');
 	let editPublicNotes = $state('');
+
+	// Edit form state - Line items
+	type EditLineItem = {
+		id?: string | undefined;
+		description: string;
+		quantity: string;
+		unitPrice: string;
+		isTaxable: boolean;
+		category?: string | undefined;
+	};
+	let editLineItems = $state<EditLineItem[]>([]);
+
+	// Calculated totals for edit mode
+	let editSubtotal = $derived(() => {
+		return editLineItems.reduce((sum, item) => {
+			return sum + parseFloat(item.quantity || '0') * parseFloat(item.unitPrice || '0');
+		}, 0);
+	});
+
+	let editGstAmount = $derived(() => {
+		const taxableAmount = editLineItems
+			.filter((item) => item.isTaxable)
+			.reduce((sum, item) => sum + parseFloat(item.quantity || '0') * parseFloat(item.unitPrice || '0'), 0);
+		const gstRate = parseFloat(invoice.gstRate as string) / 100;
+		return invoice.gstRegistered ? taxableAmount * gstRate : 0;
+	});
+
+	let editTotal = $derived(() => {
+		return editSubtotal() - parseFloat(editDiscountAmount || '0') + editGstAmount();
+	});
 
 	// Payment form state
 	let paymentMethod = $state<'bank_transfer' | 'card' | 'cash' | 'other'>('bank_transfer');
@@ -56,29 +101,96 @@
 	let paymentNotes = $state('');
 	let paidAt = $state(new Date().toISOString().split('T')[0]);
 
+	function formatDateForInput(date: Date | string | null): string {
+		if (!date) return '';
+		return new Date(date).toISOString().split('T')[0] ?? '';
+	}
+
 	function startEditing() {
+		// Client details
 		editClientBusinessName = invoice.clientBusinessName;
 		editClientContactName = invoice.clientContactName;
 		editClientEmail = invoice.clientEmail;
 		editClientPhone = invoice.clientPhone;
 		editClientAddress = invoice.clientAddress;
+		editClientAbn = invoice.clientAbn || '';
+
+		// Dates & Terms
+		editIssueDate = formatDateForInput(invoice.issueDate);
+		editDueDate = formatDateForInput(invoice.dueDate);
+		editPaymentTerms = invoice.paymentTerms;
+		editPaymentTermsCustom = invoice.paymentTermsCustom || '';
+
+		// Financials
+		editDiscountAmount = invoice.discountAmount?.toString() || '0.00';
+		editDiscountDescription = invoice.discountDescription || '';
+
+		// Notes
 		editNotes = invoice.notes;
 		editPublicNotes = invoice.publicNotes;
+
+		// Line items
+		editLineItems = lineItems.map((item) => ({
+			id: item.id,
+			description: item.description,
+			quantity: item.quantity?.toString() || '1',
+			unitPrice: item.unitPrice?.toString() || '0',
+			isTaxable: item.isTaxable ?? true,
+			category: item.category || undefined
+		}));
+
 		isEditing = true;
 	}
 
+	function addLineItem() {
+		editLineItems = [
+			...editLineItems,
+			{ description: '', quantity: '1', unitPrice: '0', isTaxable: true }
+		];
+	}
+
+	function removeLineItem(index: number) {
+		editLineItems = editLineItems.filter((_, i) => i !== index);
+	}
+
 	async function handleSave() {
+		// Validate line items
+		const validLineItems = editLineItems.filter((item) => item.description.trim() !== '');
+		if (validLineItems.length === 0) {
+			toast.error('At least one line item is required');
+			return;
+		}
+
 		saving = true;
 		try {
 			await updateInvoice({
 				invoiceId: invoice.id,
+				// Client details
 				clientBusinessName: editClientBusinessName,
 				clientContactName: editClientContactName,
 				clientEmail: editClientEmail,
 				clientPhone: editClientPhone,
 				clientAddress: editClientAddress,
+				clientAbn: editClientAbn,
+				// Dates & Terms
+				issueDate: editIssueDate,
+				dueDate: editDueDate,
+				paymentTerms: editPaymentTerms,
+				paymentTermsCustom: editPaymentTermsCustom,
+				// Financials
+				discountAmount: editDiscountAmount,
+				discountDescription: editDiscountDescription,
+				// Notes
 				notes: editNotes,
-				publicNotes: editPublicNotes
+				publicNotes: editPublicNotes,
+				// Line items
+				lineItems: validLineItems.map((item) => ({
+					description: item.description,
+					quantity: item.quantity,
+					unitPrice: item.unitPrice,
+					isTaxable: item.isTaxable,
+					category: item.category
+				}))
 			});
 			await invalidateAll();
 			isEditing = false;
@@ -91,14 +203,21 @@
 	}
 
 	async function handleSend() {
-		if (!confirm('Send this invoice to the client?')) return;
+		if (!confirm(`Send this invoice to ${invoice.clientEmail}?`)) return;
 
+		sending = true;
 		try {
-			await sendInvoice(invoice.id);
+			const result = await sendInvoiceEmail({ invoiceId: invoice.id });
 			await invalidateAll();
-			toast.success('Invoice sent');
+			if (result.success) {
+				toast.success('Invoice sent', `Email delivered to ${invoice.clientEmail}`);
+			} else {
+				toast.error('Failed to send invoice', result.error || 'Unknown error');
+			}
 		} catch (err) {
 			toast.error('Failed to send invoice', err instanceof Error ? err.message : '');
+		} finally {
+			sending = false;
 		}
 	}
 
@@ -300,16 +419,22 @@
 				PDF
 			</button>
 
+			{#if !['paid', 'cancelled', 'refunded'].includes(invoice.status) && !isEditing}
+				<button type="button" class="btn btn-outline btn-sm" onclick={startEditing}>
+					<Edit class="h-4 w-4" />
+					Edit
+				</button>
+			{/if}
+
 			{#if invoice.status === 'draft'}
-				{#if !isEditing}
-					<button type="button" class="btn btn-outline btn-sm" onclick={startEditing}>
-						<Edit class="h-4 w-4" />
-						Edit
-					</button>
-				{/if}
-				<button type="button" class="btn btn-primary btn-sm" onclick={handleSend}>
-					<Send class="h-4 w-4" />
-					Send
+				<button type="button" class="btn btn-primary btn-sm" onclick={handleSend} disabled={sending}>
+					{#if sending}
+						<Loader2 class="h-4 w-4 animate-spin" />
+						Sending...
+					{:else}
+						<Send class="h-4 w-4" />
+						Send
+					{/if}
 				</button>
 			{/if}
 
@@ -367,19 +492,21 @@
 	{#if isEditing}
 		<!-- Edit Mode -->
 		<form onsubmit={handleSave} class="space-y-6">
+			<!-- Client Details -->
 			<div class="card bg-base-100 border border-base-300">
 				<div class="card-body">
 					<h2 class="card-title text-lg">Client Details</h2>
 					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 						<div class="form-control">
 							<label class="label" for="edit-clientBusinessName">
-								<span class="label-text">Business Name</span>
+								<span class="label-text">Business Name <span class="text-error">*</span></span>
 							</label>
 							<input
 								type="text"
 								id="edit-clientBusinessName"
 								class="input input-bordered"
 								bind:value={editClientBusinessName}
+								required
 							/>
 						</div>
 						<div class="form-control">
@@ -395,13 +522,14 @@
 						</div>
 						<div class="form-control">
 							<label class="label" for="edit-clientEmail">
-								<span class="label-text">Email</span>
+								<span class="label-text">Email <span class="text-error">*</span></span>
 							</label>
 							<input
 								type="email"
 								id="edit-clientEmail"
 								class="input input-bordered"
 								bind:value={editClientEmail}
+								required
 							/>
 						</div>
 						<div class="form-control">
@@ -415,7 +543,7 @@
 								bind:value={editClientPhone}
 							/>
 						</div>
-						<div class="form-control md:col-span-2">
+						<div class="form-control">
 							<label class="label" for="edit-clientAddress">
 								<span class="label-text">Address</span>
 							</label>
@@ -426,10 +554,235 @@
 								bind:value={editClientAddress}
 							></textarea>
 						</div>
+						<div class="form-control">
+							<label class="label" for="edit-clientAbn">
+								<span class="label-text">ABN</span>
+							</label>
+							<input
+								type="text"
+								id="edit-clientAbn"
+								class="input input-bordered"
+								bind:value={editClientAbn}
+								placeholder="XX XXX XXX XXX"
+							/>
+						</div>
 					</div>
 				</div>
 			</div>
 
+			<!-- Dates & Payment Terms -->
+			<div class="card bg-base-100 border border-base-300">
+				<div class="card-body">
+					<h2 class="card-title text-lg">Dates & Payment Terms</h2>
+					<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+						<div class="form-control">
+							<label class="label" for="edit-issueDate">
+								<span class="label-text">Issue Date <span class="text-error">*</span></span>
+							</label>
+							<input
+								type="date"
+								id="edit-issueDate"
+								class="input input-bordered"
+								bind:value={editIssueDate}
+								required
+							/>
+						</div>
+						<div class="form-control">
+							<label class="label" for="edit-dueDate">
+								<span class="label-text">Due Date <span class="text-error">*</span></span>
+							</label>
+							<input
+								type="date"
+								id="edit-dueDate"
+								class="input input-bordered"
+								bind:value={editDueDate}
+								required
+							/>
+						</div>
+						<div class="form-control">
+							<label class="label" for="edit-paymentTerms">
+								<span class="label-text">Payment Terms</span>
+							</label>
+							<select
+								id="edit-paymentTerms"
+								class="select select-bordered"
+								bind:value={editPaymentTerms}
+							>
+								<option value="DUE_ON_RECEIPT">Due on Receipt</option>
+								<option value="NET_7">Net 7</option>
+								<option value="NET_14">Net 14</option>
+								<option value="NET_30">Net 30</option>
+								<option value="NET_60">Net 60</option>
+								<option value="CUSTOM">Custom</option>
+							</select>
+						</div>
+						{#if editPaymentTerms === 'CUSTOM'}
+							<div class="form-control md:col-span-3">
+								<label class="label" for="edit-paymentTermsCustom">
+									<span class="label-text">Custom Payment Terms</span>
+								</label>
+								<input
+									type="text"
+									id="edit-paymentTermsCustom"
+									class="input input-bordered"
+									bind:value={editPaymentTermsCustom}
+									placeholder="e.g., 50% upfront, 50% on completion"
+								/>
+							</div>
+						{/if}
+					</div>
+				</div>
+			</div>
+
+			<!-- Line Items -->
+			<div class="card bg-base-100 border border-base-300">
+				<div class="card-body">
+					<div class="flex items-center justify-between">
+						<h2 class="card-title text-lg">Line Items</h2>
+						<button type="button" class="btn btn-sm btn-outline" onclick={addLineItem}>
+							<Plus class="h-4 w-4" />
+							Add Item
+						</button>
+					</div>
+					<div class="overflow-x-auto">
+						<table class="table table-sm">
+							<thead>
+								<tr>
+									<th class="w-[40%]">Description</th>
+									<th class="w-20">Qty</th>
+									<th class="w-28">Unit Price</th>
+									<th class="w-24">Taxable</th>
+									<th class="w-28 text-right">Amount</th>
+									<th class="w-12"></th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each editLineItems as item, index (index)}
+									<tr>
+										<td>
+											<input
+												type="text"
+												class="input input-bordered input-sm w-full"
+												bind:value={item.description}
+												placeholder="Item description"
+												required
+											/>
+										</td>
+										<td>
+											<input
+												type="number"
+												class="input input-bordered input-sm w-full"
+												bind:value={item.quantity}
+												min="0.01"
+												step="0.01"
+											/>
+										</td>
+										<td>
+											<input
+												type="number"
+												class="input input-bordered input-sm w-full"
+												bind:value={item.unitPrice}
+												min="0"
+												step="0.01"
+											/>
+										</td>
+										<td>
+											<input
+												type="checkbox"
+												class="checkbox checkbox-sm"
+												bind:checked={item.isTaxable}
+											/>
+										</td>
+										<td class="text-right font-medium">
+											{formatCurrency(
+												parseFloat(item.quantity || '0') * parseFloat(item.unitPrice || '0')
+											)}
+										</td>
+										<td>
+											<button
+												type="button"
+												class="btn btn-ghost btn-sm btn-square text-error"
+												onclick={() => removeLineItem(index)}
+												disabled={editLineItems.length <= 1}
+											>
+												<Trash2 class="h-4 w-4" />
+											</button>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+					{#if editLineItems.length === 0}
+						<div class="text-center py-4 text-base-content/60">
+							No line items. Click "Add Item" to add one.
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Financials -->
+			<div class="card bg-base-100 border border-base-300">
+				<div class="card-body">
+					<h2 class="card-title text-lg">Discount & Totals</h2>
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<div class="space-y-4">
+							<div class="form-control">
+								<label class="label" for="edit-discountAmount">
+									<span class="label-text">Discount Amount</span>
+								</label>
+								<div class="input-group">
+									<span class="bg-base-200 px-3 flex items-center">$</span>
+									<input
+										type="number"
+										id="edit-discountAmount"
+										class="input input-bordered flex-1"
+										bind:value={editDiscountAmount}
+										min="0"
+										step="0.01"
+									/>
+								</div>
+							</div>
+							<div class="form-control">
+								<label class="label" for="edit-discountDescription">
+									<span class="label-text">Discount Description</span>
+								</label>
+								<input
+									type="text"
+									id="edit-discountDescription"
+									class="input input-bordered"
+									bind:value={editDiscountDescription}
+									placeholder="e.g., Early payment discount"
+								/>
+							</div>
+						</div>
+						<div class="bg-base-200/50 rounded-lg p-4 space-y-2">
+							<div class="flex justify-between text-sm">
+								<span class="text-base-content/70">Subtotal</span>
+								<span>{formatCurrency(editSubtotal())}</span>
+							</div>
+							{#if parseFloat(editDiscountAmount || '0') > 0}
+								<div class="flex justify-between text-sm text-success">
+									<span>Discount</span>
+									<span>-{formatCurrency(parseFloat(editDiscountAmount || '0'))}</span>
+								</div>
+							{/if}
+							{#if invoice.gstRegistered}
+								<div class="flex justify-between text-sm">
+									<span class="text-base-content/70">GST ({invoice.gstRate}%)</span>
+									<span>{formatCurrency(editGstAmount())}</span>
+								</div>
+							{/if}
+							<div class="flex justify-between font-bold text-lg border-t border-base-300 pt-2">
+								<span>Total</span>
+								<span>{formatCurrency(editTotal())}</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Notes -->
 			<div class="card bg-base-100 border border-base-300">
 				<div class="card-body">
 					<h2 class="card-title text-lg">Notes</h2>
@@ -443,6 +796,7 @@
 								class="textarea textarea-bordered"
 								rows="3"
 								bind:value={editNotes}
+								placeholder="Notes only visible to your team"
 							></textarea>
 						</div>
 						<div class="form-control">
@@ -454,6 +808,7 @@
 								class="textarea textarea-bordered"
 								rows="3"
 								bind:value={editPublicNotes}
+								placeholder="Notes visible on the invoice"
 							></textarea>
 						</div>
 					</div>
@@ -721,6 +1076,13 @@
 						{/if}
 					</div>
 				{/if}
+			</div>
+		</div>
+
+		<!-- Email History -->
+		<div class="card bg-base-100 border border-base-300">
+			<div class="card-body">
+				<EmailHistory invoiceId={invoice.id} />
 			</div>
 		</div>
 	{/if}

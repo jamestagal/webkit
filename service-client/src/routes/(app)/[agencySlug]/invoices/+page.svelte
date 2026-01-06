@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
-	import { deleteInvoice, sendInvoice, cancelInvoice } from '$lib/api/invoices.remote';
+	import { deleteInvoice, cancelInvoice } from '$lib/api/invoices.remote';
+	import { sendInvoiceEmail, sendInvoiceReminder } from '$lib/api/email.remote';
 	import {
 		Plus,
 		FileText,
@@ -17,7 +18,9 @@
 		DollarSign,
 		Download,
 		XCircle,
-		Banknote
+		Banknote,
+		Bell,
+		RefreshCw
 	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
@@ -45,13 +48,51 @@
 		paid: data.invoices.filter((i) => i.status === 'paid').length
 	});
 
-	async function handleSend(invoiceId: string) {
+	async function handleSend(invoiceId: string, clientEmail: string) {
+		if (!confirm(`Send this invoice to ${clientEmail}?`)) return;
+
 		try {
-			await sendInvoice(invoiceId);
+			const result = await sendInvoiceEmail({ invoiceId });
 			await invalidateAll();
-			toast.success('Invoice sent');
+			if (result.success) {
+				toast.success('Invoice sent', `Email delivered to ${clientEmail}`);
+			} else {
+				toast.error('Failed to send invoice', result.error || 'Unknown error');
+			}
 		} catch (err) {
 			toast.error('Failed to send invoice', err instanceof Error ? err.message : '');
+		}
+	}
+
+	async function handleResend(invoiceId: string, clientEmail: string) {
+		if (!confirm(`Resend this invoice to ${clientEmail}?`)) return;
+
+		try {
+			const result = await sendInvoiceEmail({ invoiceId });
+			await invalidateAll();
+			if (result.success) {
+				toast.success('Invoice resent', `Email delivered to ${clientEmail}`);
+			} else {
+				toast.error('Failed to resend invoice', result.error || 'Unknown error');
+			}
+		} catch (err) {
+			toast.error('Failed to resend invoice', err instanceof Error ? err.message : '');
+		}
+	}
+
+	async function handleSendReminder(invoiceId: string, clientEmail: string) {
+		if (!confirm(`Send a payment reminder to ${clientEmail}?`)) return;
+
+		try {
+			const result = await sendInvoiceReminder({ invoiceId });
+			await invalidateAll();
+			if (result.success) {
+				toast.success('Reminder sent', `Payment reminder delivered to ${clientEmail}`);
+			} else {
+				toast.error('Failed to send reminder', result.error || 'Unknown error');
+			}
+		} catch (err) {
+			toast.error('Failed to send reminder', err instanceof Error ? err.message : '');
 		}
 	}
 
@@ -320,7 +361,7 @@
 										</li>
 										{#if invoice.status === 'draft'}
 											<li>
-												<button type="button" onclick={() => handleSend(invoice.id)}>
+												<button type="button" onclick={() => handleSend(invoice.id, invoice.clientEmail)}>
 													<Send class="h-4 w-4" />
 													Send to Client
 												</button>
@@ -340,6 +381,18 @@
 													<DollarSign class="h-4 w-4" />
 													Record Payment
 												</a>
+											</li>
+											<li>
+												<button type="button" onclick={() => handleResend(invoice.id, invoice.clientEmail)}>
+													<RefreshCw class="h-4 w-4" />
+													Resend Email
+												</button>
+											</li>
+											<li>
+												<button type="button" onclick={() => handleSendReminder(invoice.id, invoice.clientEmail)}>
+													<Bell class="h-4 w-4" />
+													Send Reminder
+												</button>
 											</li>
 										{/if}
 										{#if !['draft', 'cancelled', 'refunded'].includes(invoice.status)}

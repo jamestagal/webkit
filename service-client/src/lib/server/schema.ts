@@ -728,6 +728,67 @@ export const invoiceLineItems = pgTable(
 );
 
 // =============================================================================
+// EMAIL LOGS TABLE
+// =============================================================================
+
+// Email logs table - tracks all emails sent from the agency
+export const emailLogs = pgTable(
+	'email_logs',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+
+		// Agency scope
+		agencyId: uuid('agency_id')
+			.notNull()
+			.references(() => agencies.id, { onDelete: 'cascade' }),
+
+		// Related entities (all optional, at least one should be set)
+		proposalId: uuid('proposal_id').references(() => proposals.id, { onDelete: 'set null' }),
+		invoiceId: uuid('invoice_id').references(() => invoices.id, { onDelete: 'set null' }),
+		contractId: uuid('contract_id').references(() => contracts.id, { onDelete: 'set null' }),
+
+		// Email type
+		emailType: varchar('email_type', { length: 50 }).notNull(),
+		// Types: 'proposal_sent', 'invoice_sent', 'contract_sent', 'payment_reminder', 'custom'
+
+		// Email details
+		recipientEmail: varchar('recipient_email', { length: 255 }).notNull(),
+		recipientName: varchar('recipient_name', { length: 255 }),
+		subject: varchar('subject', { length: 500 }).notNull(),
+		bodyHtml: text('body_html').notNull(),
+
+		// Attachment info
+		hasAttachment: boolean('has_attachment').notNull().default(false),
+		attachmentFilename: varchar('attachment_filename', { length: 255 }),
+
+		// Resend tracking
+		resendMessageId: varchar('resend_message_id', { length: 100 }),
+
+		// Status
+		status: varchar('status', { length: 50 }).notNull().default('pending'),
+		// Values: 'pending', 'sent', 'delivered', 'opened', 'bounced', 'failed'
+
+		sentAt: timestamp('sent_at', { withTimezone: true }),
+		deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+		openedAt: timestamp('opened_at', { withTimezone: true }),
+
+		// Error handling
+		errorMessage: text('error_message'),
+		retryCount: integer('retry_count').notNull().default(0),
+
+		// Sender info
+		sentBy: uuid('sent_by').references(() => users.id, { onDelete: 'set null' })
+	},
+	(table) => ({
+		agencyIdx: index('email_logs_agency_idx').on(table.agencyId),
+		proposalIdx: index('email_logs_proposal_idx').on(table.proposalId),
+		invoiceIdx: index('email_logs_invoice_idx').on(table.invoiceId),
+		contractIdx: index('email_logs_contract_idx').on(table.contractId)
+	})
+);
+
+// =============================================================================
 // CONSULTATION TABLES
 // =============================================================================
 
@@ -918,6 +979,12 @@ export type InvoiceStatus =
 	| 'refunded';
 export type InvoicePaymentMethod = 'bank_transfer' | 'card' | 'cash' | 'other';
 export type LineItemCategory = 'setup' | 'development' | 'hosting' | 'addon' | 'other';
+
+// Email log types
+export type EmailLog = typeof emailLogs.$inferSelect;
+export type EmailLogInsert = typeof emailLogs.$inferInsert;
+export type EmailType = 'proposal_sent' | 'invoice_sent' | 'contract_sent' | 'payment_reminder' | 'custom';
+export type EmailStatus = 'pending' | 'sent' | 'delivered' | 'opened' | 'bounced' | 'failed';
 
 // Cover page configuration (for contract templates)
 export interface CoverPageConfig {

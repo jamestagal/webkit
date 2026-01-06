@@ -17,6 +17,8 @@
 		updateProposal,
 		sendProposal
 	} from '$lib/api/proposals.remote';
+	import { sendProposalEmail } from '$lib/api/email.remote';
+	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
 	import { getActivePackages } from '$lib/api/agency-packages.remote';
 	import { getActiveAddons } from '$lib/api/agency-addons.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
@@ -172,16 +174,20 @@
 	}
 
 	async function handleSend() {
-		if (!confirm('Are you sure you want to send this proposal? The client will be able to view it.')) {
+		if (!confirm(`Send this proposal to ${formData.clientEmail}?`)) {
 			return;
 		}
 
 		isSending = true;
 		try {
 			await handleSave();
-			await sendProposal(proposalId);
-			toast.success('Proposal sent');
+			const result = await sendProposalEmail({ proposalId });
 			await invalidateAll();
+			if (result.success) {
+				toast.success('Proposal sent', `Email delivered to ${formData.clientEmail}`);
+			} else {
+				toast.error('Failed to send proposal', result.error || 'Unknown error');
+			}
 		} catch (err) {
 			toast.error('Failed to send', err instanceof Error ? err.message : 'Unknown error');
 		} finally {
@@ -797,6 +803,13 @@
 						</div>
 					</section>
 				{/if}
+
+				<!-- Email History - Always visible -->
+				<section class="card bg-base-100 shadow">
+					<div class="card-body">
+						<EmailHistory proposalId={proposal.id} />
+					</div>
+				</section>
 			</div>
 		</main>
 	</div>

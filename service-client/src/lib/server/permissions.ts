@@ -119,7 +119,12 @@ export const PERMISSIONS = {
 	'invoice:delete_own': ['owner', 'admin', 'member'],
 	'invoice:delete_all': ['owner', 'admin'],
 	'invoice:cancel': ['owner', 'admin'],
-	'invoice:refund': ['owner']
+	'invoice:refund': ['owner'],
+
+	// Emails (V2)
+	'email:send': ['owner', 'admin', 'member'],
+	'email:view_logs': ['owner', 'admin'],
+	'email:resend': ['owner', 'admin']
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -453,6 +458,14 @@ export function getPermissionMatrix(): {
 				formatPermission('invoice:delete_all', 'Delete all invoices'),
 				formatPermission('invoice:cancel', 'Cancel invoices'),
 				formatPermission('invoice:refund', 'Refund invoices')
+			]
+		},
+		{
+			category: 'Emails',
+			permissions: [
+				formatPermission('email:send', 'Send emails'),
+				formatPermission('email:view_logs', 'View email logs'),
+				formatPermission('email:resend', 'Resend emails')
 			]
 		}
 	];

@@ -1,0 +1,519 @@
+/**
+ * Email Templates
+ *
+ * Generates professional HTML emails for proposals, invoices, and contracts.
+ * Uses inline styles for maximum email client compatibility.
+ */
+
+import type { Agency, AgencyProfile, Proposal, Invoice, Contract } from '$lib/server/schema';
+
+// =============================================================================
+// Template Data Interfaces
+// =============================================================================
+
+export interface EmailTemplateData {
+	agency: {
+		name: string;
+		email?: string | undefined;
+		phone?: string | undefined;
+		logoUrl?: string | undefined;
+		primaryColor?: string | undefined;
+		website?: string | undefined;
+	};
+	recipient: {
+		name: string;
+		businessName?: string | undefined;
+		email: string;
+	};
+	document: {
+		type: 'proposal' | 'invoice' | 'contract';
+		number: string;
+		publicUrl: string;
+		total?: string | undefined;
+		dueDate?: string | undefined;
+		paymentLinkUrl?: string | undefined; // Phase 5 integration
+	};
+	customMessage?: string | undefined;
+}
+
+export interface EmailTemplate {
+	subject: string;
+	bodyHtml: string;
+}
+
+// =============================================================================
+// Utility Functions
+// =============================================================================
+
+/**
+ * Format a decimal string or number as currency (AUD)
+ */
+function formatCurrency(value: string | number | null | undefined): string {
+	const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
+	return new Intl.NumberFormat('en-AU', {
+		style: 'currency',
+		currency: 'AUD',
+		minimumFractionDigits: 2
+	}).format(num);
+}
+
+/**
+ * Format a date for display
+ */
+function formatDate(date: Date | string | null | undefined): string {
+	if (!date) return '';
+	const d = typeof date === 'string' ? new Date(date) : date;
+	return d.toLocaleDateString('en-AU', {
+		day: 'numeric',
+		month: 'long',
+		year: 'numeric'
+	});
+}
+
+/**
+ * Get default primary color
+ */
+function getColor(color?: string): string {
+	return color || '#4F46E5';
+}
+
+// =============================================================================
+// Base Email Wrapper
+// =============================================================================
+
+function wrapEmail(content: string, primaryColor: string, logoUrl?: string, agencyName?: string): string {
+	return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5; line-height: 1.6;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f4f4f5;">
+        <tr>
+            <td style="padding: 40px 20px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto;">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background-color: ${primaryColor}; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+                            ${logoUrl
+                                ? `<img src="${logoUrl}" alt="${agencyName || 'Logo'}" style="max-height: 48px; max-width: 200px;">`
+                                : `<span style="color: white; font-size: 24px; font-weight: 600;">${agencyName || ''}</span>`
+                            }
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style="background-color: white; padding: 32px; border-radius: 0 0 8px 8px;">
+                            ${content}
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 24px; text-align: center; color: #6b7280; font-size: 12px;">
+                            <p style="margin: 0;">This email was sent by ${agencyName || 'our team'}.</p>
+                            <p style="margin: 8px 0 0 0;">If you have any questions, please reply to this email.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`;
+}
+
+// =============================================================================
+// Proposal Email Template
+// =============================================================================
+
+export function generateProposalEmail(data: EmailTemplateData): EmailTemplate {
+	const { agency, recipient, document, customMessage } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Hi ${recipient.name},
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            ${customMessage || `Thank you for your interest in working with ${agency.name}. We've prepared a proposal tailored to your needs.`}
+        </p>
+
+        <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Proposal Number</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${document.number}</td>
+                </tr>
+                ${document.total ? `
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px; padding-top: 12px;">Total Value</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600; padding-top: 12px;">${formatCurrency(document.total)}</td>
+                </tr>
+                ` : ''}
+            </table>
+        </div>
+
+        <p style="margin: 0 0 24px 0; color: #4b5563;">
+            Please review the proposal and let us know if you have any questions. You can view the full details by clicking the button below.
+        </p>
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${document.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Proposal
+            </a>
+        </div>
+
+        <p style="margin: 24px 0 0 0; color: #4b5563;">
+            Best regards,<br>
+            <strong>${agency.name}</strong>
+        </p>
+    `;
+
+	return {
+		subject: `Proposal ${document.number} from ${agency.name}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name)
+	};
+}
+
+// =============================================================================
+// Invoice Email Template
+// =============================================================================
+
+export function generateInvoiceEmail(data: EmailTemplateData): EmailTemplate {
+	const { agency, recipient, document, customMessage } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const paymentButton = document.paymentLinkUrl ? `
+        <div style="text-align: center; margin: 24px 0;">
+            <a href="${document.paymentLinkUrl}"
+               style="display: inline-block; background-color: #059669; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                Pay ${formatCurrency(document.total)} Now
+            </a>
+            <p style="margin: 8px 0 0 0; color: #6b7280; font-size: 12px;">
+                Secure payment via Stripe
+            </p>
+        </div>
+    ` : '';
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Hi ${recipient.name},
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            ${customMessage || `Please find attached your invoice from ${agency.name}.`}
+        </p>
+
+        <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Invoice Number</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${document.number}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px; padding-top: 12px;">Amount Due</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600; font-size: 18px; padding-top: 12px;">
+                        ${formatCurrency(document.total)}
+                    </td>
+                </tr>
+                ${document.dueDate ? `
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px; padding-top: 12px;">Due Date</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600; padding-top: 12px;">${document.dueDate}</td>
+                </tr>
+                ` : ''}
+            </table>
+        </div>
+
+        ${paymentButton}
+
+        <div style="text-align: center; margin: 24px 0;">
+            <a href="${document.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Invoice
+            </a>
+        </div>
+
+        <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
+            A PDF copy of this invoice is attached to this email.
+        </p>
+
+        <p style="margin: 24px 0 0 0; color: #4b5563;">
+            Thank you for your business,<br>
+            <strong>${agency.name}</strong>
+        </p>
+    `;
+
+	return {
+		subject: `Invoice ${document.number} from ${agency.name}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name)
+	};
+}
+
+// =============================================================================
+// Invoice Reminder Email Template
+// =============================================================================
+
+export interface ReminderEmailData extends EmailTemplateData {
+	isOverdue: boolean;
+	daysPastDue?: number;
+}
+
+export function generateInvoiceReminderEmail(data: ReminderEmailData): EmailTemplate {
+	const { agency, recipient, document, customMessage, isOverdue, daysPastDue } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	// Different messaging for overdue vs friendly reminder
+	let reminderMessage: string;
+	let subjectPrefix: string;
+
+	if (isOverdue && daysPastDue) {
+		subjectPrefix = 'Overdue: ';
+		reminderMessage =
+			customMessage ||
+			`This is a reminder that Invoice ${document.number} is now ${daysPastDue} day${daysPastDue === 1 ? '' : 's'} overdue. Please arrange payment at your earliest convenience.`;
+	} else {
+		subjectPrefix = 'Reminder: ';
+		reminderMessage =
+			customMessage ||
+			`This is a friendly reminder that Invoice ${document.number} is due on ${document.dueDate}. Please arrange payment by the due date to avoid any late fees.`;
+	}
+
+	const paymentButton = document.paymentLinkUrl
+		? `
+        <div style="text-align: center; margin: 24px 0;">
+            <a href="${document.paymentLinkUrl}"
+               style="display: inline-block; background-color: #059669; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                Pay ${formatCurrency(document.total)} Now
+            </a>
+            <p style="margin: 8px 0 0 0; color: #6b7280; font-size: 12px;">
+                Secure payment via Stripe
+            </p>
+        </div>
+    `
+		: '';
+
+	const urgencyBanner = isOverdue
+		? `
+        <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 0 0 24px 0;">
+            <p style="margin: 0; color: #991b1b; font-weight: 600;">
+                ⚠️ This invoice is overdue
+            </p>
+        </div>
+    `
+		: '';
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Hi ${recipient.name},
+        </h2>
+
+        ${urgencyBanner}
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            ${reminderMessage}
+        </p>
+
+        <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Invoice Number</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${document.number}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px; padding-top: 12px;">Amount Due</td>
+                    <td style="text-align: right; color: ${isOverdue ? '#dc2626' : '#1f2937'}; font-weight: 600; font-size: 18px; padding-top: 12px;">
+                        ${formatCurrency(document.total)}
+                    </td>
+                </tr>
+                ${document.dueDate ? `
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px; padding-top: 12px;">Due Date</td>
+                    <td style="text-align: right; color: ${isOverdue ? '#dc2626' : '#1f2937'}; font-weight: 600; padding-top: 12px;">${document.dueDate}</td>
+                </tr>
+                ` : ''}
+            </table>
+        </div>
+
+        ${paymentButton}
+
+        <div style="text-align: center; margin: 24px 0;">
+            <a href="${document.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Invoice
+            </a>
+        </div>
+
+        <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
+            If you have already made this payment, please disregard this reminder.
+        </p>
+
+        <p style="margin: 24px 0 0 0; color: #4b5563;">
+            Thank you,<br>
+            <strong>${agency.name}</strong>
+        </p>
+    `;
+
+	return {
+		subject: `${subjectPrefix}Invoice ${document.number} from ${agency.name}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name)
+	};
+}
+
+// =============================================================================
+// Contract Email Template
+// =============================================================================
+
+export function generateContractEmail(data: EmailTemplateData): EmailTemplate {
+	const { agency, recipient, document, customMessage } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Hi ${recipient.name},
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            ${customMessage || `${agency.name} has sent you a contract for your review and signature.`}
+        </p>
+
+        <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Contract Reference</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${document.number}</td>
+                </tr>
+            </table>
+        </div>
+
+        <p style="margin: 0 0 24px 0; color: #4b5563;">
+            Please review the contract carefully. Once you're ready, you can sign it electronically by clicking the button below.
+        </p>
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${document.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                Review & Sign Contract
+            </a>
+        </div>
+
+        <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
+            A PDF copy of this contract is attached for your records.
+        </p>
+
+        <p style="margin: 24px 0 0 0; color: #4b5563;">
+            Best regards,<br>
+            <strong>${agency.name}</strong>
+        </p>
+    `;
+
+	return {
+		subject: `Contract from ${agency.name} - Please Review and Sign`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name)
+	};
+}
+
+// =============================================================================
+// Helper Functions for Building Template Data
+// =============================================================================
+
+export function buildProposalEmailData(
+	proposal: Proposal,
+	agency: Agency,
+	profile: AgencyProfile | null,
+	publicUrl: string
+): EmailTemplateData {
+	return {
+		agency: {
+			name: profile?.tradingName || agency.name,
+			email: agency.email || undefined,
+			phone: agency.phone || undefined,
+			logoUrl: agency.logoUrl || undefined,
+			primaryColor: agency.primaryColor || undefined,
+			website: agency.website || undefined
+		},
+		recipient: {
+			name: proposal.clientContactName || proposal.clientBusinessName,
+			businessName: proposal.clientBusinessName || undefined,
+			email: proposal.clientEmail
+		},
+		document: {
+			type: 'proposal',
+			number: proposal.proposalNumber,
+			publicUrl
+		}
+	};
+}
+
+export function buildInvoiceEmailData(
+	invoice: Invoice,
+	agency: Agency,
+	profile: AgencyProfile | null,
+	publicUrl: string,
+	paymentLinkUrl?: string
+): EmailTemplateData {
+	return {
+		agency: {
+			name: profile?.tradingName || agency.name,
+			email: agency.email || undefined,
+			phone: agency.phone || undefined,
+			logoUrl: agency.logoUrl || undefined,
+			primaryColor: agency.primaryColor || undefined,
+			website: agency.website || undefined
+		},
+		recipient: {
+			name: invoice.clientContactName || invoice.clientBusinessName,
+			businessName: invoice.clientBusinessName || undefined,
+			email: invoice.clientEmail
+		},
+		document: {
+			type: 'invoice',
+			number: invoice.invoiceNumber,
+			publicUrl,
+			total: invoice.total?.toString(),
+			dueDate: formatDate(invoice.dueDate),
+			paymentLinkUrl
+		}
+	};
+}
+
+export function buildContractEmailData(
+	contract: Contract,
+	agency: Agency,
+	profile: AgencyProfile | null,
+	publicUrl: string
+): EmailTemplateData {
+	return {
+		agency: {
+			name: profile?.tradingName || agency.name,
+			email: agency.email || undefined,
+			phone: agency.phone || undefined,
+			logoUrl: agency.logoUrl || undefined,
+			primaryColor: agency.primaryColor || undefined,
+			website: agency.website || undefined
+		},
+		recipient: {
+			name: contract.clientContactName || contract.clientBusinessName,
+			businessName: contract.clientBusinessName || undefined,
+			email: contract.clientEmail
+		},
+		document: {
+			type: 'contract',
+			number: contract.contractNumber,
+			publicUrl
+		}
+	};
+}
