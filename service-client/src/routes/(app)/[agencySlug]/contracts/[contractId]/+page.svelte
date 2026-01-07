@@ -4,6 +4,7 @@
 	import { updateContract, sendContract, deleteContract } from '$lib/api/contracts.remote';
 	import { sendContractEmail } from '$lib/api/email.remote';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
+	import QuestionnaireView from '$lib/components/questionnaire/QuestionnaireView.svelte';
 	import {
 		Save,
 		ArrowLeft,
@@ -23,6 +24,7 @@
 
 	let agencySlug = $derived(data.agency.slug);
 	let contract = $derived(data.contract);
+	let questionnaire = $derived(data.questionnaire);
 
 	let isSubmitting = $state(false);
 	let isSending = $state(false);
@@ -273,6 +275,13 @@
 				<p class="text-sm opacity-80">
 					{formatDate(contract.clientSignedAt)}
 				</p>
+			</div>
+		</div>
+
+		<!-- Website Questionnaire - Prominent placement for signed contracts -->
+		<div class="card bg-base-100 border-2 border-primary/30">
+			<div class="card-body">
+				<QuestionnaireView {questionnaire} contractSlug={contract.slug} />
 			</div>
 		</div>
 	{/if}

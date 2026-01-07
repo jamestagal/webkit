@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import {
 		CheckCircle,
 		Clock,
@@ -8,7 +9,8 @@
 		Eye,
 		Banknote,
 		Download,
-		Printer
+		Printer,
+		CreditCard
 	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
@@ -18,6 +20,16 @@
 	let lineItems = $derived(data.lineItems || []);
 	let agency = $derived(data.agency);
 	let profile = $derived(data.profile);
+
+	// Check for successful payment redirect
+	let justPaid = $derived(page.url.searchParams.get('paid') === 'true');
+
+	// Check if payment link is available and invoice can be paid
+	let canPay = $derived(
+		invoice.stripePaymentLinkUrl &&
+		!['paid', 'cancelled', 'refunded'].includes(invoice.status) &&
+		invoice.onlinePaymentEnabled
+	);
 
 	function getStatusBadge(status: string) {
 		switch (status) {
@@ -95,6 +107,17 @@
 
 <div class="min-h-screen bg-base-200 py-8">
 	<div class="container mx-auto px-4 max-w-3xl">
+		<!-- Payment Success Banner -->
+		{#if justPaid}
+			<div class="alert alert-success mb-6 print-hidden">
+				<CheckCircle class="h-5 w-5" />
+				<div>
+					<h3 class="font-bold">Payment Successful!</h3>
+					<p class="text-sm">Thank you for your payment. A confirmation has been sent to your email.</p>
+				</div>
+			</div>
+		{/if}
+
 		<!-- Actions Bar (hidden in print) -->
 		<div class="flex justify-end gap-2 mb-6 print-hidden">
 			<button type="button" class="btn btn-outline btn-sm" onclick={downloadPdf}>
@@ -351,6 +374,24 @@
 				{/if}
 			</div>
 		</div>
+
+		<!-- Pay Now Button -->
+		{#if canPay}
+			<div class="mt-6 print-hidden">
+				<a
+					href={invoice.stripePaymentLinkUrl}
+					class="btn btn-primary btn-lg w-full gap-2"
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					<CreditCard class="h-5 w-5" />
+					Pay {formatCurrency(invoice.total)} Now
+				</a>
+				<p class="text-center text-sm text-base-content/60 mt-2">
+					Secure payment powered by Stripe
+				</p>
+			</div>
+		{/if}
 
 		<!-- Powered By Footer -->
 		<div class="text-center mt-8 text-sm text-base-content/40 print-hidden">

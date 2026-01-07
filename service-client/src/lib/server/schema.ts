@@ -253,7 +253,17 @@ export const agencyProfiles = pgTable('agency_profiles', {
 	contractFooter: text('contract_footer').notNull().default(''),
 	nextContractNumber: integer('next_contract_number').notNull().default(1),
 	proposalPrefix: varchar('proposal_prefix', { length: 20 }).notNull().default('PROP'),
-	nextProposalNumber: integer('next_proposal_number').notNull().default(1)
+	nextProposalNumber: integer('next_proposal_number').notNull().default(1),
+
+	// Stripe Connect
+	stripeAccountId: varchar('stripe_account_id', { length: 255 }),
+	stripeAccountStatus: varchar('stripe_account_status', { length: 50 })
+		.notNull()
+		.default('not_connected'), // not_connected, pending, active, restricted, disabled
+	stripeOnboardingComplete: boolean('stripe_onboarding_complete').notNull().default(false),
+	stripeConnectedAt: timestamp('stripe_connected_at', { withTimezone: true }),
+	stripePayoutsEnabled: boolean('stripe_payouts_enabled').notNull().default(false),
+	stripeChargesEnabled: boolean('stripe_charges_enabled').notNull().default(false)
 });
 
 // Agency Packages table - Configurable pricing tiers per agency
@@ -680,6 +690,13 @@ export const invoices = pgTable(
 		pdfUrl: text('pdf_url'),
 		pdfGeneratedAt: timestamp('pdf_generated_at', { withTimezone: true }),
 
+		// Stripe Payment
+		stripePaymentLinkId: varchar('stripe_payment_link_id', { length: 255 }),
+		stripePaymentLinkUrl: text('stripe_payment_link_url'),
+		stripePaymentIntentId: varchar('stripe_payment_intent_id', { length: 255 }),
+		stripeCheckoutSessionId: varchar('stripe_checkout_session_id', { length: 255 }),
+		onlinePaymentEnabled: boolean('online_payment_enabled').notNull().default(true),
+
 		// Creator
 		createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' })
 	},
@@ -787,6 +804,55 @@ export const emailLogs = pgTable(
 		contractIdx: index('email_logs_contract_idx').on(table.contractId)
 	})
 );
+
+// =============================================================================
+// QUESTIONNAIRE RESPONSES TABLE
+// =============================================================================
+
+// Questionnaire responses - stores Initial Website Questionnaire responses
+export const questionnaireResponses = pgTable(
+	'questionnaire_responses',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+
+		// Agency scope
+		agencyId: uuid('agency_id')
+			.notNull()
+			.references(() => agencies.id, { onDelete: 'cascade' }),
+
+		// Linked to contract (one questionnaire per contract)
+		contractId: uuid('contract_id')
+			.notNull()
+			.references(() => contracts.id, { onDelete: 'cascade' })
+			.unique(),
+
+		// All responses stored as JSONB (39 fields across 8 sections)
+		responses: jsonb('responses').notNull().default({}),
+
+		// Progress tracking
+		currentSection: integer('current_section').notNull().default(0),
+		completionPercentage: integer('completion_percentage').notNull().default(0),
+
+		// Status: not_started, in_progress, completed
+		status: varchar('status', { length: 50 }).notNull().default('not_started'),
+
+		// Timestamps
+		startedAt: timestamp('started_at', { withTimezone: true }),
+		completedAt: timestamp('completed_at', { withTimezone: true }),
+		lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).defaultNow()
+	},
+	(table) => ({
+		agencyIdx: index('questionnaire_responses_agency_idx').on(table.agencyId),
+		contractIdx: index('questionnaire_responses_contract_idx').on(table.contractId),
+		statusIdx: index('questionnaire_responses_status_idx').on(table.agencyId, table.status)
+	})
+);
+
+export type QuestionnaireResponse = typeof questionnaireResponses.$inferSelect;
+export type QuestionnaireResponseInsert = typeof questionnaireResponses.$inferInsert;
+export type QuestionnaireStatus = 'not_started' | 'in_progress' | 'completed';
 
 // =============================================================================
 // CONSULTATION TABLES

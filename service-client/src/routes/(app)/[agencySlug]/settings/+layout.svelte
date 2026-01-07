@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
-	import { Building2, Package, PlusSquare, Users, Palette, FileText } from 'lucide-svelte';
+	import { Building2, Package, PlusSquare, Users, Palette, FileText, CreditCard } from 'lucide-svelte';
 
 	let { children, data }: { children: Snippet; data: import('./$types').LayoutData } = $props();
 
@@ -45,6 +45,12 @@
 			url: `/${agencySlug}/settings/members`,
 			icon: Users,
 			description: 'Team management'
+		},
+		{
+			label: 'Payments',
+			url: `/${agencySlug}/settings/payments`,
+			icon: CreditCard,
+			description: 'Stripe Connect & online payments'
 		}
 	]);
 

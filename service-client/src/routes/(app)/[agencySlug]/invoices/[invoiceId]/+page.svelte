@@ -9,6 +9,7 @@
 		duplicateInvoice
 	} from '$lib/api/invoices.remote';
 	import { sendInvoiceEmail } from '$lib/api/email.remote';
+	import { createPaymentLink } from '$lib/api/stripe.remote';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
 	import {
 		ArrowLeft,
@@ -27,7 +28,9 @@
 		DollarSign,
 		Loader2,
 		Plus,
-		Save
+		Save,
+		CreditCard,
+		Link
 	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
@@ -42,6 +45,19 @@
 	let saving = $state(false);
 	let sending = $state(false);
 	let showPaymentModal = $state(false);
+	let generatingPaymentLink = $state(false);
+
+	// Stripe status
+	let stripeConnected = $derived(
+		data.profile?.stripeAccountId && data.profile?.stripeChargesEnabled
+	);
+	let hasPaymentLink = $derived(!!invoice.stripePaymentLinkUrl);
+	let canGeneratePaymentLink = $derived(
+		stripeConnected &&
+			!hasPaymentLink &&
+			!['paid', 'cancelled', 'refunded'].includes(invoice.status) &&
+			invoice.onlinePaymentEnabled
+	);
 
 	// Edit form state - Client details
 	let editClientBusinessName = $state('');
@@ -275,6 +291,26 @@
 		}
 	}
 
+	async function handleGeneratePaymentLink() {
+		generatingPaymentLink = true;
+		try {
+			await createPaymentLink({ invoiceId: invoice.id });
+			await invalidateAll();
+			toast.success('Payment link created', 'Clients can now pay online');
+		} catch (err) {
+			toast.error('Failed to create payment link', err instanceof Error ? err.message : '');
+		} finally {
+			generatingPaymentLink = false;
+		}
+	}
+
+	function copyPaymentLink() {
+		if (invoice.stripePaymentLinkUrl) {
+			navigator.clipboard.writeText(invoice.stripePaymentLinkUrl);
+			toast.success('Payment link copied');
+		}
+	}
+
 	function downloadPdf() {
 		window.open(`/api/invoices/${invoice.id}/pdf`, '_blank');
 	}
@@ -439,6 +475,26 @@
 			{/if}
 
 			{#if ['sent', 'viewed', 'overdue'].includes(invoice.status)}
+				{#if canGeneratePaymentLink}
+					<button
+						type="button"
+						class="btn btn-primary btn-sm"
+						onclick={handleGeneratePaymentLink}
+						disabled={generatingPaymentLink}
+					>
+						{#if generatingPaymentLink}
+							<Loader2 class="h-4 w-4 animate-spin" />
+						{:else}
+							<CreditCard class="h-4 w-4" />
+						{/if}
+						Generate Pay Link
+					</button>
+				{:else if hasPaymentLink}
+					<button type="button" class="btn btn-outline btn-sm" onclick={copyPaymentLink}>
+						<Link class="h-4 w-4" />
+						Copy Pay Link
+					</button>
+				{/if}
 				<button type="button" class="btn btn-success btn-sm" onclick={() => (showPaymentModal = true)}>
 					<DollarSign class="h-4 w-4" />
 					Record Payment

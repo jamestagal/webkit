@@ -275,7 +275,16 @@ create table if not exists agency_profiles (
     proposal_prefix varchar(20) not null default 'PROP',
     next_proposal_number integer not null default 1,
 
-    constraint valid_payment_terms check (default_payment_terms in ('DUE_ON_RECEIPT', 'NET_7', 'NET_14', 'NET_30'))
+    -- Stripe Connect
+    stripe_account_id varchar(255),
+    stripe_account_status varchar(50) not null default 'not_connected',
+    stripe_onboarding_complete boolean not null default false,
+    stripe_connected_at timestamptz,
+    stripe_payouts_enabled boolean not null default false,
+    stripe_charges_enabled boolean not null default false,
+
+    constraint valid_payment_terms check (default_payment_terms in ('DUE_ON_RECEIPT', 'NET_7', 'NET_14', 'NET_30')),
+    constraint valid_stripe_status check (stripe_account_status in ('not_connected', 'pending', 'active', 'restricted', 'disabled'))
 );
 
 -- create "agency_packages" table - Configurable pricing tiers per agency
@@ -820,6 +829,13 @@ create table if not exists invoices (
     pdf_url text,
     pdf_generated_at timestamptz,
 
+    -- Stripe Payment
+    stripe_payment_link_id varchar(255),
+    stripe_payment_link_url text,
+    stripe_payment_intent_id varchar(255),
+    stripe_checkout_session_id varchar(255),
+    online_payment_enabled boolean not null default true,
+
     created_by uuid references users(id) on delete set null,
 
     constraint valid_invoice_status check (status in ('draft', 'sent', 'viewed', 'paid', 'overdue', 'cancelled', 'refunded'))
@@ -905,6 +921,39 @@ create index if not exists idx_email_logs_invoice_id on email_logs(invoice_id);
 create index if not exists idx_email_logs_contract_id on email_logs(contract_id);
 create index if not exists idx_email_logs_status on email_logs(status);
 create index if not exists idx_email_logs_created_at on email_logs(created_at);
+
+-- create "questionnaire_responses" table for Initial Website Questionnaire
+create table if not exists questionnaire_responses (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    -- Agency scope
+    agency_id uuid not null references agencies(id) on delete cascade,
+
+    -- Linked to contract (one questionnaire per contract)
+    contract_id uuid not null references contracts(id) on delete cascade unique,
+
+    -- All responses stored as JSONB (39 fields across 8 sections)
+    responses jsonb not null default '{}',
+
+    -- Progress tracking
+    current_section integer not null default 0,
+    completion_percentage integer not null default 0,
+
+    -- Status: not_started, in_progress, completed
+    status varchar(50) not null default 'not_started',
+
+    -- Timestamps
+    started_at timestamptz,
+    completed_at timestamptz,
+    last_activity_at timestamptz default current_timestamp
+);
+
+-- Indexes for questionnaire_responses
+create index if not exists idx_questionnaire_responses_agency_id on questionnaire_responses(agency_id);
+create index if not exists idx_questionnaire_responses_contract_id on questionnaire_responses(contract_id);
+create index if not exists idx_questionnaire_responses_status on questionnaire_responses(agency_id, status);
 
 -- create "subscriptions" table for detailed subscription tracking
 create table if not exists subscriptions (

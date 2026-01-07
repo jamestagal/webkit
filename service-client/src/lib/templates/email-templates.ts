@@ -517,3 +517,82 @@ export function buildContractEmailData(
 		}
 	};
 }
+
+// =============================================================================
+// Questionnaire Completion Notification (to agency)
+// =============================================================================
+
+export interface QuestionnaireNotificationData {
+	agency: {
+		name: string;
+		primaryColor?: string | undefined;
+		logoUrl?: string | undefined;
+	};
+	client: {
+		name: string;
+		businessName?: string | undefined;
+		email: string;
+	};
+	contract: {
+		number: string;
+	};
+	questionnaireUrl: string;
+}
+
+/**
+ * Generate email notification to agency when client completes questionnaire
+ */
+export function generateQuestionnaireCompletedEmail(data: QuestionnaireNotificationData): EmailTemplate {
+	const { agency, client, contract, questionnaireUrl } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const content = `
+        <h1 style="margin: 0 0 24px 0; font-size: 24px; font-weight: 600; color: #111827;">
+            Questionnaire Completed
+        </h1>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            Great news! <strong>${client.name}</strong>${client.businessName ? ` (${client.businessName})` : ''} has completed their Initial Website Questionnaire.
+        </p>
+
+        <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table style="width: 100%;">
+                <tr>
+                    <td style="padding: 8px 0; color: #6b7280;">Client Name:</td>
+                    <td style="padding: 8px 0; font-weight: 600; color: #111827; text-align: right;">${client.name}</td>
+                </tr>
+                ${client.businessName ? `
+                <tr>
+                    <td style="padding: 8px 0; color: #6b7280;">Business:</td>
+                    <td style="padding: 8px 0; font-weight: 600; color: #111827; text-align: right;">${client.businessName}</td>
+                </tr>
+                ` : ''}
+                <tr>
+                    <td style="padding: 8px 0; color: #6b7280;">Contract #:</td>
+                    <td style="padding: 8px 0; font-weight: 600; color: #111827; text-align: right;">${contract.number}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #6b7280;">Email:</td>
+                    <td style="padding: 8px 0; color: #111827; text-align: right;">${client.email}</td>
+                </tr>
+            </table>
+        </div>
+
+        <p style="margin: 0 0 24px 0; color: #4b5563;">
+            You can now review their responses and start working on their website.
+        </p>
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${questionnaireUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Questionnaire Responses
+            </a>
+        </div>
+    `;
+
+	return {
+		subject: `${client.name} has completed their Website Questionnaire`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name)
+	};
+}

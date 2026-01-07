@@ -124,7 +124,13 @@ export const PERMISSIONS = {
 	// Emails (V2)
 	'email:send': ['owner', 'admin', 'member'],
 	'email:view_logs': ['owner', 'admin'],
-	'email:resend': ['owner', 'admin']
+	'email:resend': ['owner', 'admin'],
+
+	// Stripe Connect (V2)
+	'stripe:connect': ['owner'], // Connect Stripe account
+	'stripe:disconnect': ['owner'], // Disconnect Stripe account
+	'stripe:view_status': ['owner', 'admin'],
+	'invoice:create_payment_link': ['owner', 'admin', 'member']
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -466,6 +472,15 @@ export function getPermissionMatrix(): {
 				formatPermission('email:send', 'Send emails'),
 				formatPermission('email:view_logs', 'View email logs'),
 				formatPermission('email:resend', 'Resend emails')
+			]
+		},
+		{
+			category: 'Stripe Payments',
+			permissions: [
+				formatPermission('stripe:connect', 'Connect Stripe account'),
+				formatPermission('stripe:disconnect', 'Disconnect Stripe account'),
+				formatPermission('stripe:view_status', 'View Stripe status'),
+				formatPermission('invoice:create_payment_link', 'Create payment links')
 			]
 		}
 	];

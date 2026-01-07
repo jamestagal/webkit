@@ -89,6 +89,12 @@ const SignContractSchema = v.object({
 	agreedToTerms: v.literal(true)
 });
 
+const ContractFiltersSchema = v.object({
+	status: v.optional(ContractStatusSchema),
+	limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(100))),
+	offset: v.optional(v.pipe(v.number(), v.minValue(0)))
+});
+
 // =============================================================================
 // Helper Functions
 // =============================================================================
@@ -224,42 +230,33 @@ function buildPaymentTerms(
  * Get all contracts for the current agency.
  * Respects permissions - members only see their own contracts.
  */
-export const getContracts = query(
-	v.optional(
-		v.object({
-			status: v.optional(ContractStatusSchema),
-			limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(100))),
-			offset: v.optional(v.pipe(v.number(), v.minValue(0)))
-		})
-	),
-	async (filters) => {
-		const context = await getAgencyContext();
-		const { status, limit = 50, offset = 0 } = filters || {};
+export const getContracts = query(ContractFiltersSchema, async (filters) => {
+	const context = await getAgencyContext();
+	const { status, limit = 50, offset = 0 } = filters;
 
-		// Build where conditions
-		const conditions = [eq(contracts.agencyId, context.agencyId)];
+	// Build where conditions
+	const conditions = [eq(contracts.agencyId, context.agencyId)];
 
-		// Add status filter if provided
-		if (status) {
-			conditions.push(eq(contracts.status, status));
-		}
-
-		// If member, only show their own contracts
-		if (!hasPermission(context.role, 'contract:view_all')) {
-			conditions.push(eq(contracts.createdBy, context.userId));
-		}
-
-		const results = await db
-			.select()
-			.from(contracts)
-			.where(and(...conditions))
-			.orderBy(desc(contracts.createdAt))
-			.limit(limit)
-			.offset(offset);
-
-		return results;
+	// Add status filter if provided
+	if (status) {
+		conditions.push(eq(contracts.status, status));
 	}
-);
+
+	// If member, only show their own contracts
+	if (!hasPermission(context.role, 'contract:view_all')) {
+		conditions.push(eq(contracts.createdBy, context.userId));
+	}
+
+	const results = await db
+		.select()
+		.from(contracts)
+		.where(and(...conditions))
+		.orderBy(desc(contracts.createdAt))
+		.limit(limit)
+		.offset(offset);
+
+	return results;
+});
 
 /**
  * Get a single contract by ID.

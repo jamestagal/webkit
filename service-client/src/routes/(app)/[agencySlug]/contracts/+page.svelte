@@ -214,7 +214,7 @@
 		</div>
 	{:else}
 		<!-- Contracts Table -->
-		<div class="overflow-x-auto">
+		<div class="overflow-visible">
 			<table class="table table-zebra">
 				<thead>
 					<tr>
@@ -273,7 +273,7 @@
 										<MoreVertical class="h-4 w-4" />
 									</button>
 									<ul
-										class="dropdown-content z-10 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300"
+										class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300"
 									>
 										<li>
 											<a href="/{agencySlug}/contracts/{contract.id}">
