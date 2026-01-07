@@ -4,13 +4,14 @@
 	import {
 		createContractSchedule,
 		updateContractSchedule,
-		deleteContractSchedule
+		deleteContractSchedule,
+		reorderSchedules
 	} from '$lib/api/contract-templates.remote';
+	import DraggableList from '$lib/components/DraggableList.svelte';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import MergeFieldPicker from '$lib/components/contracts/MergeFieldPicker.svelte';
 	import {
 		Plus,
-		ArrowLeft,
 		Save,
 		Trash2,
 		GripVertical,
@@ -37,6 +38,14 @@
 
 	// Expanded state for viewing content
 	let expandedSchedules = $state<Set<string>>(new Set());
+
+	// Local schedules for reordering
+	let localSchedules = $state<typeof data.schedules>([]);
+
+	// Sync local schedules with data
+	$effect(() => {
+		localSchedules = [...data.schedules];
+	});
 
 	function openCreateModal() {
 		editingSchedule = null;
@@ -134,6 +143,20 @@
 	function handleContentUpdate(html: string) {
 		scheduleContent = html;
 	}
+
+	async function handleReorder(newItems: typeof localSchedules) {
+		localSchedules = newItems;
+		try {
+			await reorderSchedules({
+				templateId: data.template.id,
+				scheduleIds: newItems.map((s) => s.id)
+			});
+			toast.success('Order updated');
+		} catch (err) {
+			toast.error('Failed to update order', err instanceof Error ? err.message : '');
+			await invalidateAll();
+		}
+	}
 </script>
 
 <div class="space-y-6">
@@ -145,22 +168,35 @@
 					Contract Templates
 				</a>
 				<span>/</span>
-				<a
-					href="/{agencySlug}/settings/contracts/{data.template.id}"
-					class="hover:text-primary"
-				>
-					{data.template.name}
-				</a>
+				<span>{data.template.name}</span>
 			</div>
-			<h1 class="text-2xl font-bold">Schedule Management</h1>
+			<h1 class="text-2xl font-bold">Edit Contract Template</h1>
 			<p class="text-base-content/70 mt-1">
-				Define package-specific terms for "{data.template.name}"
+				Define schedule sections for "{data.template.name}"
 			</p>
 		</div>
 		<button type="button" class="btn btn-primary" onclick={openCreateModal}>
 			<Plus class="h-4 w-4" />
 			Add Schedule
 		</button>
+	</div>
+
+	<!-- Tab Navigation -->
+	<div class="tabs tabs-boxed bg-base-200 w-fit">
+		<a
+			href="/{agencySlug}/settings/contracts/{data.template.id}"
+			class="tab"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+			Template Settings
+		</a>
+		<a
+			href="/{agencySlug}/settings/contracts/{data.template.id}/schedules"
+			class="tab tab-active"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 12H3"/><path d="M16 6H3"/><path d="M16 18H3"/><path d="m19 10-4 4"/><path d="m15 10 4 4"/></svg>
+			Schedule Sections
+		</a>
 	</div>
 
 	<!-- Info box -->
@@ -174,7 +210,7 @@
 	</div>
 
 	<!-- Schedules List -->
-	{#if data.schedules.length === 0}
+	{#if localSchedules.length === 0}
 		<div class="card bg-base-100 border border-base-300">
 			<div class="card-body items-center text-center py-12">
 				<div
@@ -193,12 +229,19 @@
 			</div>
 		</div>
 	{:else}
-		<div class="space-y-3">
-			{#each data.schedules as schedule, index (schedule.id)}
-				<div class="card bg-base-100 border border-base-300">
+		<DraggableList items={localSchedules} onReorder={handleReorder}>
+			{#snippet item(schedule, index, isDragging, isDragOver)}
+				<div
+					class="card bg-base-100 border border-base-300 transition-all duration-200"
+					class:opacity-50={isDragging}
+					class:border-primary={isDragOver}
+					class:scale-[1.02]={isDragOver}
+				>
 					<div class="card-body p-4">
 						<div class="flex items-center gap-3">
-							<div class="text-base-content/40">
+							<div
+								class="text-base-content/40 cursor-grab active:cursor-grabbing hover:text-base-content/60"
+							>
 								<GripVertical class="h-5 w-5" />
 							</div>
 
@@ -254,17 +297,10 @@
 						{/if}
 					</div>
 				</div>
-			{/each}
-		</div>
+			{/snippet}
+		</DraggableList>
 	{/if}
 
-	<!-- Back button -->
-	<div class="pt-4">
-		<a href="/{agencySlug}/settings/contracts/{data.template.id}" class="btn btn-ghost">
-			<ArrowLeft class="h-4 w-4" />
-			Back to Template
-		</a>
-	</div>
 </div>
 
 <!-- Create/Edit Modal -->

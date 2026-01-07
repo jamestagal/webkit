@@ -11,6 +11,15 @@ export default defineConfig({
 		fs: {
 			strict: false,
 		},
+		hmr: {
+			// HMR over WebSocket on the same port as the dev server
+			clientPort: 3000,
+		},
+		watch: {
+			// Use polling for Docker volume mounts (more reliable)
+			usePolling: true,
+			interval: 1000,
+		},
 	},
 	test: {
 		workspace: [

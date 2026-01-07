@@ -69,7 +69,11 @@
 	}
 </script>
 
-<div class="dropdown dropdown-end">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+	class="dropdown dropdown-end"
+	onclick={(e) => e.stopPropagation()}
+>
 	<button
 		type="button"
 		class="btn btn-sm btn-ghost gap-2"
@@ -107,4 +111,4 @@
 	{/if}
 </div>
 
-<svelte:window onclick={() => (isOpen = false)} />
+<svelte:window onclick={() => { isOpen = false; }} />

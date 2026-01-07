@@ -184,6 +184,163 @@ let doubled = $derived(count * 2);
 <svelte:window onbeforeunload={handleUnload} />
 ```
 
+## SvelteKit Remote Functions
+
+This project uses **SvelteKit Remote Functions** for server-side data operations. Remote functions are server-side functions that can be called from the client.
+
+### Critical Rules
+
+**File Naming & Location:**
+- Files MUST use `.remote.ts` extension
+- Location: `src/lib/api/*.remote.ts`
+- Do NOT place in `src/lib/server/` (reserved for server-only utilities)
+
+**Export Restrictions (CRITICAL):**
+- `.remote.ts` files can ONLY export functions wrapped with `query()`, `command()`, `form()`, or `prerender()`
+- **Type exports are NOT allowed** - move types to separate `.types.ts` files
+- Regular function exports will cause runtime errors
+
+```typescript
+// BAD - will cause "all exports must be remote functions" error
+export type MyType = { ... };
+export interface MyInterface { ... }
+export const helper = () => { ... };
+
+// GOOD - only remote function exports
+export const getData = query(schema, async (input) => { ... });
+export const saveData = command(schema, async (input) => { ... });
+```
+
+**Type Export Pattern:**
+```typescript
+// questionnaire.types.ts - separate file for types
+export type QuestionnaireResponses = { ... };
+export type QuestionnaireAccessResult = { ... };
+
+// questionnaire.remote.ts - import types, only export remote functions
+import type { QuestionnaireResponses } from './questionnaire.types';
+export const getQuestionnaire = query(...);
+```
+
+### Function Types
+
+| Type | Purpose | Usage |
+|------|---------|-------|
+| `query` | Read data | Cached, can be called during render |
+| `command` | Write data | Cannot be called during render |
+| `form` | Form submissions | Works without JS (progressive enhancement) |
+| `prerender` | Build-time data | Cached in browser Cache API |
+
+### Validation with Valibot
+
+All functions accepting arguments MUST use Valibot schema validation:
+
+```typescript
+// CORRECT - schema as first argument
+export const getContract = query(
+  v.pipe(v.string(), v.uuid()),
+  async (contractId) => { ... }
+);
+
+export const updateContract = command(
+  UpdateContractSchema,
+  async (data) => { ... }
+);
+
+// INCORRECT - manual validation inside
+export const badExample = command(async (data: unknown) => {
+  const validated = v.parse(Schema, data); // Don't do this!
+});
+
+// Functions with no arguments - no schema needed
+export const getCurrentUser = query(async () => { ... });
+```
+
+### Optional Filter Parameters Pattern (CRITICAL)
+
+For functions that accept optional filter objects (like list queries), wrap the schema with `v.optional()`:
+
+```typescript
+// Define schema with v.optional() wrapper
+const ContractFiltersSchema = v.optional(
+  v.object({
+    status: v.optional(ContractStatusSchema),
+    limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(100))),
+    offset: v.optional(v.pipe(v.number(), v.minValue(0)))
+  })
+);
+
+// Use schema as first argument, handle undefined filters
+export const getContracts = query(ContractFiltersSchema, async (filters) => {
+  const { status, limit = 50, offset = 0 } = filters || {};
+  // ... use filters with defaults
+});
+
+// Call with empty object or specific filters
+const contracts = await getContracts({});
+const filtered = await getContracts({ status: 'signed' });
+```
+
+**Why this pattern is required:**
+- Schema MUST be first argument to `query()` - internal validation doesn't work
+- `v.optional()` wrapper allows calling with `{}` or `undefined`
+- Use `filters || {}` or `filters?.field` to safely access properties
+
+### Request Context
+
+Use `getRequestEvent()` for cookies and session data:
+
+```typescript
+import { getRequestEvent } from '$app/server';
+
+export const myFunction = query(async () => {
+  const event = getRequestEvent();
+  const cookies = event.cookies;
+  // ...
+});
+```
+
+Note: `route`, `params`, `url` from `getRequestEvent()` reflect the **calling page**, not the endpoint.
+
+### Error Handling
+
+```typescript
+import { error, redirect } from '@sveltejs/kit';
+
+export const myQuery = query(async () => {
+  if (!authorized) throw error(403, 'Forbidden');
+  if (needsLogin) throw redirect(302, '/login');
+  // ...
+});
+```
+
+- `redirect()` works in `query`, `form`, `prerender` (NOT in `command`)
+- `error()` throws HTTP errors in all function types
+
+### Remote Functions Files
+
+| File | Purpose |
+|------|---------|
+| `agency.remote.ts` | Agency CRUD, members, form options |
+| `agency-profile.remote.ts` | Agency profile and settings |
+| `agency-packages.remote.ts` | Service packages |
+| `agency-addons.remote.ts` | Package addons |
+| `consultation.remote.ts` | Client consultations |
+| `proposals.remote.ts` | Proposals CRUD |
+| `contracts.remote.ts` | Contracts, signing |
+| `contract-templates.remote.ts` | Contract templates |
+| `invoices.remote.ts` | Invoicing |
+| `questionnaire.remote.ts` | Client questionnaires |
+| `email.remote.ts` | Email sending/logs |
+| `stripe.remote.ts` | Stripe Connect, payments |
+| `gdpr.remote.ts` | Data export, deletion |
+
+### Type Files
+
+| File | Types For |
+|------|-----------|
+| `questionnaire.types.ts` | Questionnaire responses, access results |
+
 ## Database Development Workflow
 
 When making database changes:

@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import {
 		createInvoice,
 		createInvoiceFromProposal,
 		createInvoiceFromContract
 	} from '$lib/api/invoices.remote';
+	import DraggableList from '$lib/components/DraggableList.svelte';
 	import {
 		ArrowLeft,
 		Plus,
@@ -102,50 +103,8 @@
 		lineItems = lineItems.filter((item) => item.id !== id);
 	}
 
-	// Drag and drop state
-	let draggedIndex = $state<number | null>(null);
-	let dragOverIndex = $state<number | null>(null);
-
-	function handleDragStart(event: DragEvent, index: number) {
-		draggedIndex = index;
-		if (event.dataTransfer) {
-			event.dataTransfer.effectAllowed = 'move';
-			event.dataTransfer.setData('text/plain', index.toString());
-		}
-	}
-
-	function handleDragOver(event: DragEvent, index: number) {
-		event.preventDefault();
-		if (event.dataTransfer) {
-			event.dataTransfer.dropEffect = 'move';
-		}
-		dragOverIndex = index;
-	}
-
-	function handleDragLeave() {
-		dragOverIndex = null;
-	}
-
-	function handleDrop(event: DragEvent, dropIndex: number) {
-		event.preventDefault();
-		if (draggedIndex === null || draggedIndex === dropIndex) {
-			draggedIndex = null;
-			dragOverIndex = null;
-			return;
-		}
-
-		const newItems = [...lineItems];
-		const [draggedItem] = newItems.splice(draggedIndex, 1);
-		newItems.splice(dropIndex, 0, draggedItem);
+	function handleReorder(newItems: LineItem[]) {
 		lineItems = newItems;
-
-		draggedIndex = null;
-		dragOverIndex = null;
-	}
-
-	function handleDragEnd() {
-		draggedIndex = null;
-		dragOverIndex = null;
 	}
 
 	function addPackageAsLineItem(pkg: (typeof data.packages)[0]) {
@@ -568,84 +527,78 @@
 							</div>
 						{/if}
 
-						<div class="overflow-x-auto mt-4">
-							<table class="table">
-								<thead>
-									<tr>
-										<th class="w-8"></th>
-										<th>Description</th>
-										<th class="w-24">Qty</th>
-										<th class="w-32">Unit Price</th>
-										<th class="w-24">Taxable</th>
-										<th class="w-32 text-right">Amount</th>
-										<th class="w-8"></th>
-									</tr>
-								</thead>
-								<tbody>
-									{#each lineItems as item, index (item.id)}
-										<tr
-											draggable="true"
-											ondragstart={(e) => handleDragStart(e, index)}
-											ondragover={(e) => handleDragOver(e, index)}
-											ondragleave={handleDragLeave}
-											ondrop={(e) => handleDrop(e, index)}
-											ondragend={handleDragEnd}
-											class="{draggedIndex === index ? 'opacity-50' : ''} {dragOverIndex === index && draggedIndex !== index ? 'bg-base-200' : ''}"
-										>
-											<td>
-												<GripVertical class="h-4 w-4 text-base-content/40 cursor-grab active:cursor-grabbing" />
-											</td>
-											<td>
-												<input
-													type="text"
-													class="input input-bordered input-sm w-full"
-													placeholder="Item description"
-													bind:value={item.description}
-												/>
-											</td>
-											<td>
-												<input
-													type="number"
-													step="0.01"
-													class="input input-bordered input-sm w-full"
-													bind:value={item.quantity}
-												/>
-											</td>
-											<td>
-												<input
-													type="number"
-													step="0.01"
-													class="input input-bordered input-sm w-full"
-													bind:value={item.unitPrice}
-												/>
-											</td>
-											<td>
-												<input
-													type="checkbox"
-													class="checkbox checkbox-sm"
-													bind:checked={item.isTaxable}
-												/>
-											</td>
-											<td class="text-right font-medium">
-												{formatCurrency(
-													parseFloat(item.quantity || '0') * parseFloat(item.unitPrice || '0')
-												)}
-											</td>
-											<td>
-												<button
-													type="button"
-													class="btn btn-ghost btn-sm btn-square text-error"
-													onclick={() => removeLineItem(item.id)}
-													disabled={lineItems.length === 1}
-												>
-													<Trash2 class="h-4 w-4" />
-												</button>
-											</td>
-										</tr>
-									{/each}
-								</tbody>
-							</table>
+						<!-- Line Items Header -->
+						<div class="mt-4 hidden md:grid grid-cols-[32px_1fr_80px_100px_60px_100px_32px] gap-2 text-sm font-medium text-base-content/60 px-2">
+							<div></div>
+							<div>Description</div>
+							<div>Qty</div>
+							<div>Unit Price</div>
+							<div>Tax</div>
+							<div class="text-right">Amount</div>
+							<div></div>
 						</div>
+
+						<!-- Line Items List -->
+						<DraggableList items={lineItems} onReorder={handleReorder} class="space-y-2 mt-2">
+							{#snippet item(lineItem, _index, isDragging, isDragOver)}
+								<div
+									class="grid grid-cols-1 md:grid-cols-[32px_1fr_80px_100px_60px_100px_32px] gap-2 items-center p-2 bg-base-100 rounded-lg border border-base-200 transition-all duration-200"
+									class:opacity-50={isDragging}
+									class:border-primary={isDragOver}
+									class:scale-[1.02]={isDragOver}
+								>
+									<div class="hidden md:flex items-center justify-center text-base-content/40 cursor-grab active:cursor-grabbing">
+										<GripVertical class="h-4 w-4" />
+									</div>
+									<div>
+										<input
+											type="text"
+											class="input input-bordered input-sm w-full"
+											placeholder="Item description"
+											bind:value={lineItem.description}
+										/>
+									</div>
+									<div>
+										<input
+											type="number"
+											step="0.01"
+											class="input input-bordered input-sm w-full"
+											bind:value={lineItem.quantity}
+										/>
+									</div>
+									<div>
+										<input
+											type="number"
+											step="0.01"
+											class="input input-bordered input-sm w-full"
+											bind:value={lineItem.unitPrice}
+										/>
+									</div>
+									<div class="flex items-center justify-center">
+										<input
+											type="checkbox"
+											class="checkbox checkbox-sm"
+											bind:checked={lineItem.isTaxable}
+										/>
+									</div>
+									<div class="text-right font-medium text-sm">
+										{formatCurrency(
+											parseFloat(lineItem.quantity || '0') * parseFloat(lineItem.unitPrice || '0')
+										)}
+									</div>
+									<div class="flex items-center justify-center">
+										<button
+											type="button"
+											class="btn btn-ghost btn-sm btn-square text-error"
+											onclick={() => removeLineItem(lineItem.id)}
+											disabled={lineItems.length === 1}
+										>
+											<Trash2 class="h-4 w-4" />
+										</button>
+									</div>
+								</div>
+							{/snippet}
+						</DraggableList>
 					</div>
 				</div>
 			{/if}

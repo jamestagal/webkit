@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { QuestionnaireResponses } from '$lib/api/questionnaire.remote';
+	import type { QuestionnaireResponses } from '$lib/api/questionnaire.types';
 
 	interface Props {
 		responses: QuestionnaireResponses;

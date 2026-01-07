@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { getContractWithRelations } from '$lib/api/contracts.remote';
 import { getQuestionnaireByContract } from '$lib/api/questionnaire.remote';
+import { getAllActiveSchedules } from '$lib/api/contract-templates.remote';
 import { error } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -10,20 +11,27 @@ export const load: PageServerLoad = async ({ params }) => {
 		throw error(404, 'Contract not found');
 	}
 
-	// Load questionnaire data if contract is signed
+	// Load questionnaire data (always load, not just for signed)
 	let questionnaire = null;
-	if (['signed', 'completed'].includes(result.contract.status)) {
-		try {
-			questionnaire = await getQuestionnaireByContract(params.contractId);
-		} catch {
-			// Questionnaire may not exist yet
-		}
+	try {
+		questionnaire = await getQuestionnaireByContract(params.contractId);
+	} catch {
+		// Questionnaire may not exist yet
+	}
+
+	// Load available schedule sections for selection
+	let availableSchedules: Awaited<ReturnType<typeof getAllActiveSchedules>> = [];
+	try {
+		availableSchedules = await getAllActiveSchedules();
+	} catch {
+		// Templates may not exist
 	}
 
 	return {
 		contract: result.contract,
 		proposal: result.proposal,
 		template: result.template,
-		questionnaire
+		questionnaire,
+		availableSchedules
 	};
 };

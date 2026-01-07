@@ -20,7 +20,7 @@ import {
 import { getAgencyContext } from '$lib/server/agency';
 import { logActivity } from '$lib/server/db-helpers';
 import { hasPermission } from '$lib/server/permissions';
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { eq, and, desc, asc, inArray } from 'drizzle-orm';
 
 // =============================================================================
 // Validation Schemas
@@ -250,6 +250,56 @@ export const getDefaultTemplate = query(v.undefined(), async () => {
 		.limit(1);
 
 	return template || null;
+});
+
+/**
+ * Get all active schedule sections for an agency.
+ * Used in contract editor for selecting which schedules to include.
+ */
+export const getAllActiveSchedules = query(v.undefined(), async () => {
+	const context = await getAgencyContext();
+
+	// Check permission
+	if (!hasPermission(context.role, 'contract_template:view')) {
+		throw new Error('Permission denied');
+	}
+
+	// Get all templates for this agency
+	const templates = await db
+		.select({ id: contractTemplates.id })
+		.from(contractTemplates)
+		.where(eq(contractTemplates.agencyId, context.agencyId));
+
+	if (templates.length === 0) {
+		return [];
+	}
+
+	const templateIds = templates.map((t) => t.id);
+
+	// Get all active schedules for these templates
+	const schedules = await db
+		.select({
+			id: contractSchedules.id,
+			templateId: contractSchedules.templateId,
+			name: contractSchedules.name,
+			content: contractSchedules.content,
+			displayOrder: contractSchedules.displayOrder,
+			isActive: contractSchedules.isActive,
+			sectionCategory: contractSchedules.sectionCategory,
+			packageId: contractSchedules.packageId,
+			packageName: agencyPackages.name
+		})
+		.from(contractSchedules)
+		.leftJoin(agencyPackages, eq(contractSchedules.packageId, agencyPackages.id))
+		.where(
+			and(
+				eq(contractSchedules.isActive, true),
+				inArray(contractSchedules.templateId, templateIds)
+			)
+		)
+		.orderBy(asc(contractSchedules.displayOrder));
+
+	return schedules;
 });
 
 // =============================================================================

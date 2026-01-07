@@ -30,7 +30,7 @@ import {
 	canModifyResource,
 	canDeleteResource
 } from '$lib/server/permissions';
-import { dataPipelineService } from '$lib/server/services/data-pipeline.service';
+import { dataPipelineService, type MergeFieldData } from '$lib/server/services/data-pipeline.service';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
@@ -79,7 +79,13 @@ const UpdateContractSchema = v.object({
 
 	// Agency signature
 	agencySignatoryName: v.optional(v.string()),
-	agencySignatoryTitle: v.optional(v.string())
+	agencySignatoryTitle: v.optional(v.string()),
+
+	// Field visibility (which fields to show on public view)
+	visibleFields: v.optional(v.array(v.string())),
+
+	// Schedule sections to include
+	includedScheduleIds: v.optional(v.array(v.string()))
 });
 
 const SignContractSchema = v.object({
@@ -89,11 +95,13 @@ const SignContractSchema = v.object({
 	agreedToTerms: v.literal(true)
 });
 
-const ContractFiltersSchema = v.object({
-	status: v.optional(ContractStatusSchema),
-	limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(100))),
-	offset: v.optional(v.pipe(v.number(), v.minValue(0)))
-});
+const ContractFiltersSchema = v.optional(
+	v.object({
+		status: v.optional(ContractStatusSchema),
+		limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(100))),
+		offset: v.optional(v.pipe(v.number(), v.minValue(0)))
+	})
+);
 
 // =============================================================================
 // Helper Functions
@@ -232,7 +240,7 @@ function buildPaymentTerms(
  */
 export const getContracts = query(ContractFiltersSchema, async (filters) => {
 	const context = await getAgencyContext();
-	const { status, limit = 50, offset = 0 } = filters;
+	const { status, limit = 50, offset = 0 } = filters || {};
 
 	// Build where conditions
 	const conditions = [eq(contracts.agencyId, context.agencyId)];
@@ -531,7 +539,7 @@ export const createContractFromProposal = command(CreateContractSchema, async (d
 	const paymentTerms = buildPaymentTerms(proposal, selectedPackage);
 
 	// Build merge field data (only include defined properties)
-	const mergeData: import('$lib/server/services/data-pipeline.service').MergeFieldData = {
+	const mergeData: MergeFieldData = {
 		proposal: dataPipelineService.buildProposalMergeFields(
 			{
 				proposalNumber: proposal.proposalNumber,
@@ -647,9 +655,9 @@ export const updateContract = command(UpdateContractSchema, async (data) => {
 		throw new Error('Permission denied');
 	}
 
-	// Cannot modify sent/signed contracts
-	if (['sent', 'viewed', 'signed', 'completed'].includes(existing.status)) {
-		throw new Error('Cannot modify contract after sending');
+	// Only lock after signing - allow edits to sent/viewed contracts
+	if (['signed', 'completed'].includes(existing.status)) {
+		throw new Error('Cannot modify signed contract');
 	}
 
 	// Build update object
@@ -688,6 +696,11 @@ export const updateContract = command(UpdateContractSchema, async (data) => {
 		updates['agencySignatoryName'] = data.agencySignatoryName;
 	if (data.agencySignatoryTitle !== undefined)
 		updates['agencySignatoryTitle'] = data.agencySignatoryTitle;
+
+	// Field visibility and schedule sections
+	if (data.visibleFields !== undefined) updates['visibleFields'] = data.visibleFields;
+	if (data.includedScheduleIds !== undefined)
+		updates['includedScheduleIds'] = data.includedScheduleIds;
 
 	const [contract] = await db
 		.update(contracts)

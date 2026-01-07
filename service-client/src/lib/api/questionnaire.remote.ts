@@ -16,8 +16,7 @@ import {
 	contracts,
 	invoices,
 	agencies,
-	agencyProfiles,
-	type QuestionnaireResponse
+	agencyProfiles
 } from '$lib/server/schema';
 import { getAgencyContext } from '$lib/server/agency';
 import { logActivity } from '$lib/server/db-helpers';
@@ -25,76 +24,8 @@ import { canAccessResource } from '$lib/server/permissions';
 import { eq, and, asc } from 'drizzle-orm';
 import { sendEmail } from '$lib/server/services/email.service';
 import { generateQuestionnaireCompletedEmail } from '$lib/templates/email-templates';
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export type QuestionnaireResponses = {
-	// Section 1: Personal Information
-	first_name?: string;
-	last_name?: string;
-	email?: string;
-
-	// Section 2: Company Details
-	company_name?: string;
-	registered_address?: string;
-
-	// Section 3: Information to be Displayed
-	displayed_business_name?: string;
-	displayed_address?: string;
-	displayed_phone?: string;
-	displayed_email?: string;
-	social_media_accounts?: string;
-	opening_hours?: string;
-
-	// Section 4: Domain & Technical
-	has_domain?: 'yes' | 'no';
-	domain_name?: string;
-	has_google_business?: 'yes' | 'no';
-
-	// Section 5: About Your Business
-	business_story?: string;
-	business_emails?: string;
-	areas_served?: string;
-	target_customers?: string;
-	top_services?: string;
-	other_services?: string;
-	differentiators?: string;
-	statistics_awards?: string;
-	additional_business_details?: string;
-
-	// Section 6: Website Content
-	pages_wanted?: string;
-	customer_actions?: string;
-	key_information?: string;
-	calls_to_action?: string;
-	regularly_updated_content?: string;
-	additional_content_details?: string;
-
-	// Section 7: Website Design
-	competitor_websites?: string;
-	reference_websites?: string;
-	aesthetic_description?: string;
-	branding_guidelines?: string;
-	additional_design_details?: string;
-
-	// Section 8: Final Details
-	timeline?: string;
-	google_analytics?: 'yes' | 'no';
-	referral_source?: string;
-	other_services_interest?: string[];
-	marketing_permissions?: string[];
-};
-
-export type QuestionnaireAccessResult = {
-	allowed: boolean;
-	reason?: 'contract_not_found' | 'contract_not_signed' | 'payment_required' | 'already_completed';
-	contract?: typeof contracts.$inferSelect;
-	agency?: typeof agencies.$inferSelect;
-	agencyProfile?: typeof agencyProfiles.$inferSelect;
-	questionnaire?: QuestionnaireResponse;
-};
+import { nanoid } from 'nanoid';
+import type { QuestionnaireResponses, QuestionnaireAccessResult } from './questionnaire.types';
 
 // =============================================================================
 // Validation Schemas
@@ -306,8 +237,11 @@ export const checkQuestionnaireAccess = query(
 			const [newQuestionnaire] = await db
 				.insert(questionnaireResponses)
 				.values({
+					slug: nanoid(12),
 					agencyId: contract.agencyId,
 					contractId: contract.id,
+					clientBusinessName: contract.clientBusinessName || '',
+					clientEmail: contract.clientEmail || '',
 					responses: prefillData,
 					currentSection: 0,
 					completionPercentage: calculateCompletionPercentage(prefillData),
@@ -452,15 +386,15 @@ export const submitQuestionnaire = command(SubmitQuestionnaireSchema, async (dat
 		throw new Error('Questionnaire already submitted');
 	}
 
-	// Get contract for logging and email
-	const [contract] = await db
-		.select()
-		.from(contracts)
-		.where(eq(contracts.id, existing.contractId))
-		.limit(1);
-
-	if (!contract) {
-		throw new Error('Associated contract not found');
+	// Get contract for logging and email (if linked)
+	let contract = null;
+	if (existing.contractId) {
+		const [foundContract] = await db
+			.select()
+			.from(contracts)
+			.where(eq(contracts.id, existing.contractId))
+			.limit(1);
+		contract = foundContract;
 	}
 
 	// Get agency and profile for email
@@ -497,7 +431,7 @@ export const submitQuestionnaire = command(SubmitQuestionnaireSchema, async (dat
 	await logActivity('questionnaire.completed', 'questionnaire', questionnaire.id, {
 		newValues: {
 			contractId: existing.contractId,
-			clientName: contract.clientContactName || 'Unknown'
+			clientName: contract?.clientContactName || existing.clientBusinessName || 'Unknown'
 		}
 	});
 
@@ -505,7 +439,15 @@ export const submitQuestionnaire = command(SubmitQuestionnaireSchema, async (dat
 	if (agency?.email) {
 		try {
 			const baseUrl = env.PUBLIC_CLIENT_URL || 'https://webkit.au';
-			const questionnaireUrl = `${baseUrl}/${agency.slug}/contracts/${contract.id}`;
+			// Use contract link if available, otherwise use questionnaire by slug
+			const questionnaireUrl = contract
+				? `${baseUrl}/${agency.slug}/contracts/${contract.id}`
+				: `${baseUrl}/q/${existing.slug}`;
+
+			// Get client info from contract if linked, otherwise from questionnaire
+			const clientName = contract?.clientContactName || contract?.clientBusinessName || existing.clientBusinessName || 'Client';
+			const clientBusinessName = contract?.clientBusinessName || existing.clientBusinessName || undefined;
+			const clientEmail = contract?.clientEmail || existing.clientEmail || '';
 
 			const emailContent = generateQuestionnaireCompletedEmail({
 				agency: {
@@ -514,13 +456,15 @@ export const submitQuestionnaire = command(SubmitQuestionnaireSchema, async (dat
 					logoUrl: agency.logoUrl || undefined
 				},
 				client: {
-					name: contract.clientContactName || contract.clientBusinessName,
-					businessName: contract.clientBusinessName || undefined,
-					email: contract.clientEmail
+					name: clientName,
+					businessName: clientBusinessName,
+					email: clientEmail
 				},
-				contract: {
-					number: contract.contractNumber
-				},
+				...(contract && {
+					contract: {
+						number: contract.contractNumber
+					}
+				}),
 				questionnaireUrl
 			});
 
@@ -541,33 +485,229 @@ export const submitQuestionnaire = command(SubmitQuestionnaireSchema, async (dat
 /**
  * Get all questionnaires for the current agency (authenticated).
  */
-export const getQuestionnaires = query(
-	v.optional(
-		v.object({
-			status: v.optional(QuestionnaireStatusSchema),
-			limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(100))),
-			offset: v.optional(v.pipe(v.number(), v.minValue(0)))
-		})
-	),
-	async (filters) => {
-		const context = await getAgencyContext();
-		const { status, limit = 50, offset = 0 } = filters || {};
+const QuestionnaireFiltersSchema = v.optional(
+	v.object({
+		status: v.optional(QuestionnaireStatusSchema),
+		limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(100))),
+		offset: v.optional(v.pipe(v.number(), v.minValue(0)))
+	})
+);
 
-		// Build where conditions
-		const conditions = [eq(questionnaireResponses.agencyId, context.agencyId)];
+export const getQuestionnaires = query(QuestionnaireFiltersSchema, async (filters) => {
+	const context = await getAgencyContext();
+	const { status, limit = 50, offset = 0 } = filters || {};
 
-		if (status) {
-			conditions.push(eq(questionnaireResponses.status, status));
+	// Build where conditions
+	const conditions = [eq(questionnaireResponses.agencyId, context.agencyId)];
+
+	if (status) {
+		conditions.push(eq(questionnaireResponses.status, status));
+	}
+
+	const results = await db
+		.select()
+		.from(questionnaireResponses)
+		.where(and(...conditions))
+		.orderBy(questionnaireResponses.createdAt)
+		.limit(limit)
+		.offset(offset);
+
+	return results;
+});
+
+// =============================================================================
+// Standalone Questionnaire Management (Authenticated)
+// =============================================================================
+
+const CreateQuestionnaireSchema = v.object({
+	clientBusinessName: v.pipe(v.string(), v.minLength(1)),
+	clientEmail: v.pipe(v.string(), v.email()),
+	contractId: v.optional(v.pipe(v.string(), v.uuid())),
+	proposalId: v.optional(v.pipe(v.string(), v.uuid())),
+	consultationId: v.optional(v.pipe(v.string(), v.uuid()))
+});
+
+/**
+ * Create a standalone questionnaire (authenticated).
+ * Can optionally be linked to a contract, proposal, or consultation.
+ */
+export const createQuestionnaire = command(CreateQuestionnaireSchema, async (data) => {
+	const context = await getAgencyContext();
+
+	// Verify any linked entities belong to the agency
+	if (data.contractId) {
+		const [contract] = await db
+			.select()
+			.from(contracts)
+			.where(and(eq(contracts.id, data.contractId), eq(contracts.agencyId, context.agencyId)))
+			.limit(1);
+		if (!contract) {
+			throw new Error('Contract not found');
 		}
+	}
 
-		const results = await db
+	// Generate unique slug
+	const slug = nanoid(12);
+
+	// Pre-fill responses from client info
+	const prefillData: Partial<QuestionnaireResponses> = {
+		email: data.clientEmail,
+		company_name: data.clientBusinessName,
+		displayed_business_name: data.clientBusinessName
+	};
+
+	// Create questionnaire
+	const [questionnaire] = await db
+		.insert(questionnaireResponses)
+		.values({
+			slug,
+			agencyId: context.agencyId,
+			clientBusinessName: data.clientBusinessName,
+			clientEmail: data.clientEmail,
+			contractId: data.contractId || null,
+			proposalId: data.proposalId || null,
+			consultationId: data.consultationId || null,
+			responses: prefillData,
+			currentSection: 0,
+			completionPercentage: calculateCompletionPercentage(prefillData),
+			status: 'not_started'
+		})
+		.returning();
+
+	if (!questionnaire) {
+		throw new Error('Failed to create questionnaire');
+	}
+
+	// Log activity
+	await logActivity('questionnaire.created', 'questionnaire', questionnaire.id, {
+		newValues: {
+			clientBusinessName: data.clientBusinessName,
+			clientEmail: data.clientEmail
+		}
+	});
+
+	return questionnaire;
+});
+
+/**
+ * Delete a questionnaire (authenticated).
+ * Only allows deleting not_started or in_progress questionnaires.
+ */
+export const deleteQuestionnaire = command(
+	v.pipe(v.string(), v.uuid()),
+	async (questionnaireId: string) => {
+		const context = await getAgencyContext();
+
+		// Verify questionnaire exists and belongs to agency
+		const [existing] = await db
 			.select()
 			.from(questionnaireResponses)
-			.where(and(...conditions))
-			.orderBy(questionnaireResponses.createdAt)
-			.limit(limit)
-			.offset(offset);
+			.where(
+				and(
+					eq(questionnaireResponses.id, questionnaireId),
+					eq(questionnaireResponses.agencyId, context.agencyId)
+				)
+			)
+			.limit(1);
 
-		return results;
+		if (!existing) {
+			throw new Error('Questionnaire not found');
+		}
+
+		// Cannot delete completed questionnaires
+		if (existing.status === 'completed') {
+			throw new Error('Cannot delete completed questionnaire');
+		}
+
+		await db.delete(questionnaireResponses).where(eq(questionnaireResponses.id, questionnaireId));
+
+		// Log activity
+		await logActivity('questionnaire.deleted', 'questionnaire', questionnaireId, {
+			oldValues: {
+				clientBusinessName: existing.clientBusinessName,
+				clientEmail: existing.clientEmail,
+				status: existing.status
+			}
+		});
+
+		return { success: true };
+	}
+);
+
+/**
+ * Get a single questionnaire by ID (authenticated).
+ */
+export const getQuestionnaireById = query(
+	v.pipe(v.string(), v.uuid()),
+	async (questionnaireId: string) => {
+		const context = await getAgencyContext();
+
+		const [questionnaire] = await db
+			.select()
+			.from(questionnaireResponses)
+			.where(
+				and(
+					eq(questionnaireResponses.id, questionnaireId),
+					eq(questionnaireResponses.agencyId, context.agencyId)
+				)
+			)
+			.limit(1);
+
+		if (!questionnaire) {
+			throw new Error('Questionnaire not found');
+		}
+
+		return questionnaire;
+	}
+);
+
+/**
+ * Get questionnaire by its own slug (public, no auth).
+ * Used by the public questionnaire form.
+ */
+export const getQuestionnaireByOwnSlug = query(
+	v.pipe(v.string(), v.minLength(1)),
+	async (slug: string) => {
+		// Find questionnaire by its own slug
+		const [questionnaire] = await db
+			.select()
+			.from(questionnaireResponses)
+			.where(eq(questionnaireResponses.slug, slug))
+			.limit(1);
+
+		if (!questionnaire) {
+			return null;
+		}
+
+		// Get agency profile for branding
+		const [agency] = await db
+			.select()
+			.from(agencies)
+			.where(eq(agencies.id, questionnaire.agencyId))
+			.limit(1);
+
+		const [agencyProfile] = await db
+			.select()
+			.from(agencyProfiles)
+			.where(eq(agencyProfiles.agencyId, questionnaire.agencyId))
+			.limit(1);
+
+		// Get linked contract if any (for additional context)
+		let contract = null;
+		if (questionnaire.contractId) {
+			const [foundContract] = await db
+				.select()
+				.from(contracts)
+				.where(eq(contracts.id, questionnaire.contractId))
+				.limit(1);
+			contract = foundContract || null;
+		}
+
+		return {
+			questionnaire,
+			agency: agency || null,
+			agencyProfile: agencyProfile || null,
+			contract
+		};
 	}
 );

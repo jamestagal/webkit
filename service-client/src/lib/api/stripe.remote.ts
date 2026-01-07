@@ -177,9 +177,13 @@ export const refreshStripeAccountStatus = command(async () => {
 	try {
 		const account = await getStripe().accounts.retrieve(profile.stripeAccountId);
 
-		// Determine account status
+		// Determine account status based on actual capabilities
+		// Prioritize charges_enabled as the key indicator
 		let status: 'active' | 'restricted' | 'disabled' = 'active';
-		if (account.requirements?.disabled_reason) {
+		if (account.charges_enabled) {
+			// If charges are enabled, account is functional
+			status = 'active';
+		} else if (account.requirements?.disabled_reason) {
 			status = 'disabled';
 		} else if (
 			account.requirements?.currently_due &&
@@ -220,18 +224,16 @@ export const refreshStripeAccountStatus = command(async () => {
 /**
  * Create a Stripe Payment Link for an invoice.
  */
-export const createPaymentLink = command(async (data: unknown) => {
+export const createPaymentLink = command(CreatePaymentLinkSchema, async (data) => {
 	const context = await getAgencyContext();
 
 	if (!hasPermission(context.role, 'invoice:create_payment_link')) {
 		throw error(403, 'Permission denied: invoice:create_payment_link');
 	}
 
-	const validated = v.parse(CreatePaymentLinkSchema, data);
-
 	// Get the invoice
 	const invoice = await db.query.invoices.findFirst({
-		where: eq(invoices.id, validated.invoiceId)
+		where: eq(invoices.id, data.invoiceId)
 	});
 
 	if (!invoice) {
@@ -340,7 +342,7 @@ export const createPaymentLink = command(async (data: unknown) => {
 /**
  * Get the payment link for an invoice.
  */
-export const getPaymentLink = query(async (invoiceId: string) => {
+export const getPaymentLink = query(v.pipe(v.string(), v.uuid()), async (invoiceId) => {
 	const context = await getAgencyContext();
 
 	const invoice = await db.query.invoices.findFirst({
@@ -362,18 +364,16 @@ export const getPaymentLink = query(async (invoiceId: string) => {
  * Disable/deactivate a payment link for an invoice.
  * Called when cancelling an invoice or manually disabling payments.
  */
-export const disablePaymentLink = command(async (data: unknown) => {
+export const disablePaymentLink = command(DisablePaymentLinkSchema, async (data) => {
 	const context = await getAgencyContext();
 
 	if (!hasPermission(context.role, 'invoice:cancel')) {
 		throw error(403, 'Permission denied: invoice:cancel');
 	}
 
-	const validated = v.parse(DisablePaymentLinkSchema, data);
-
 	// Get the invoice
 	const invoice = await db.query.invoices.findFirst({
-		where: eq(invoices.id, validated.invoiceId)
+		where: eq(invoices.id, data.invoiceId)
 	});
 
 	if (!invoice || invoice.agencyId !== context.agencyId) {

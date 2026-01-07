@@ -7,6 +7,7 @@
 		LogOut,
 		MessageCircle,
 		ClipboardList,
+		ClipboardCheck,
 		FileText,
 		Receipt,
 		Settings,
@@ -44,7 +45,8 @@
 		{ label: 'My Consultations', url: `/${agencySlug}/consultation/history`, icon: ClipboardList },
 		{ label: 'Proposals', url: `/${agencySlug}/proposals`, icon: FileText },
 		{ label: 'Contracts', url: `/${agencySlug}/contracts`, icon: File },
-		{ label: 'Invoices', url: `/${agencySlug}/invoices`, icon: Receipt }
+		{ label: 'Invoices', url: `/${agencySlug}/invoices`, icon: Receipt },
+		{ label: 'Questionnaires', url: `/${agencySlug}/questionnaires`, icon: ClipboardCheck }
 	]);
 
 	// Admin navigation (only shown to owner/admin)

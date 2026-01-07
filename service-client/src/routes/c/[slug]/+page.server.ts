@@ -7,8 +7,8 @@
 
 import type { PageServerLoad, Actions } from './$types';
 import { db } from '$lib/server/db';
-import { contracts, agencies, agencyProfiles } from '$lib/server/schema';
-import { eq, sql } from 'drizzle-orm';
+import { contracts, agencies, agencyProfiles, contractSchedules } from '$lib/server/schema';
+import { eq, sql, inArray } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -62,13 +62,36 @@ export const load: PageServerLoad = async ({ params }) => {
 		.where(eq(agencyProfiles.agencyId, contract.agencyId))
 		.limit(1);
 
+	// Fetch included schedule sections
+	const includedScheduleIds = (contract.includedScheduleIds as string[]) || [];
+	let includedSchedules: Array<{
+		id: string;
+		name: string;
+		content: string;
+		displayOrder: number;
+	}> = [];
+
+	if (includedScheduleIds.length > 0) {
+		includedSchedules = await db
+			.select({
+				id: contractSchedules.id,
+				name: contractSchedules.name,
+				content: contractSchedules.content,
+				displayOrder: contractSchedules.displayOrder
+			})
+			.from(contractSchedules)
+			.where(inArray(contractSchedules.id, includedScheduleIds))
+			.orderBy(contractSchedules.displayOrder);
+	}
+
 	return {
 		contract: {
 			...contract,
 			status: isExpired ? 'expired' : contract.status
 		},
 		agency,
-		profile
+		profile,
+		includedSchedules
 	};
 };
 

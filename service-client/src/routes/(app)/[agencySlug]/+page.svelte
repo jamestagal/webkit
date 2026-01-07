@@ -33,7 +33,7 @@
 <div class="space-y-8">
 	<!-- Welcome Header -->
 	<div>
-		<h1 class="text-2xl font-bold">Welcome to {data.agency.name}</h1>
+		<h1 class="text-2xl font-bold">Welcome to WebKit</h1>
 		<p class="text-base-content/70 mt-1">
 			{#if data.membership.displayName}
 				Logged in as {data.membership.displayName} ({data.membership.role})

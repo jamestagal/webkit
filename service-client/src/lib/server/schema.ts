@@ -517,6 +517,10 @@ export const contractSchedules = pgTable(
 		name: varchar('name', { length: 255 }).notNull(), // "Lump Sum Package Terms"
 		displayOrder: integer('display_order').notNull().default(0),
 
+		// Category for organizing the reusable schedule library
+		// Categories: 'service_level', 'payment_billing', 'ownership', 'cancellation', 'package_terms', 'custom'
+		sectionCategory: varchar('section_category', { length: 100 }).notNull().default('custom'),
+
 		// Schedule content (rich text with merge fields)
 		content: text('content').notNull().default(''),
 
@@ -603,6 +607,22 @@ export const contracts = pgTable(
 
 		// PDF storage (generated on signing)
 		signedPdfUrl: text('signed_pdf_url'),
+
+		// Field visibility - array of field keys to show on public view
+		// Possible values: 'services', 'commencementDate', 'completionDate', 'price', 'paymentTerms', 'specialConditions'
+		visibleFields: jsonb('visible_fields')
+			.notNull()
+			.default([
+				'services',
+				'commencementDate',
+				'completionDate',
+				'price',
+				'paymentTerms',
+				'specialConditions'
+			]),
+
+		// Schedule sections to include from library (array of schedule IDs)
+		includedScheduleIds: jsonb('included_schedule_ids').notNull().default([]),
 
 		// Creator
 		createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' })
@@ -810,6 +830,7 @@ export const emailLogs = pgTable(
 // =============================================================================
 
 // Questionnaire responses - stores Initial Website Questionnaire responses
+// Now standalone entities that can be linked to contracts, proposals, or consultations
 export const questionnaireResponses = pgTable(
 	'questionnaire_responses',
 	{
@@ -822,11 +843,19 @@ export const questionnaireResponses = pgTable(
 			.notNull()
 			.references(() => agencies.id, { onDelete: 'cascade' }),
 
-		// Linked to contract (one questionnaire per contract)
-		contractId: uuid('contract_id')
-			.notNull()
-			.references(() => contracts.id, { onDelete: 'cascade' })
-			.unique(),
+		// Public URL slug (questionnaire's own slug for access)
+		slug: varchar('slug', { length: 100 }).notNull().unique(),
+
+		// Optional links to other entities (all nullable for standalone questionnaires)
+		contractId: uuid('contract_id').references(() => contracts.id, { onDelete: 'set null' }),
+		proposalId: uuid('proposal_id').references(() => proposals.id, { onDelete: 'set null' }),
+		consultationId: uuid('consultation_id').references(() => consultations.id, {
+			onDelete: 'set null'
+		}),
+
+		// Client identification (for standalone questionnaires without linked entities)
+		clientBusinessName: text('client_business_name').notNull().default(''),
+		clientEmail: varchar('client_email', { length: 255 }).notNull().default(''),
 
 		// All responses stored as JSONB (39 fields across 8 sections)
 		responses: jsonb('responses').notNull().default({}),
@@ -845,7 +874,9 @@ export const questionnaireResponses = pgTable(
 	},
 	(table) => ({
 		agencyIdx: index('questionnaire_responses_agency_idx').on(table.agencyId),
+		slugIdx: index('questionnaire_responses_slug_idx').on(table.slug),
 		contractIdx: index('questionnaire_responses_contract_idx').on(table.contractId),
+		proposalIdx: index('questionnaire_responses_proposal_idx').on(table.proposalId),
 		statusIdx: index('questionnaire_responses_status_idx').on(table.agencyId, table.status)
 	})
 );

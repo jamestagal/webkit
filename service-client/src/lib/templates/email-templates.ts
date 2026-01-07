@@ -533,7 +533,7 @@ export interface QuestionnaireNotificationData {
 		businessName?: string | undefined;
 		email: string;
 	};
-	contract: {
+	contract?: {
 		number: string;
 	};
 	questionnaireUrl: string;
@@ -567,10 +567,12 @@ export function generateQuestionnaireCompletedEmail(data: QuestionnaireNotificat
                     <td style="padding: 8px 0; font-weight: 600; color: #111827; text-align: right;">${client.businessName}</td>
                 </tr>
                 ` : ''}
+                ${contract ? `
                 <tr>
                     <td style="padding: 8px 0; color: #6b7280;">Contract #:</td>
                     <td style="padding: 8px 0; font-weight: 600; color: #111827; text-align: right;">${contract.number}</td>
                 </tr>
+                ` : ''}
                 <tr>
                     <td style="padding: 8px 0; color: #6b7280;">Email:</td>
                     <td style="padding: 8px 0; color: #111827; text-align: right;">${client.email}</td>

@@ -707,6 +707,8 @@ create table if not exists contract_schedules (
 
     name varchar(255) not null,
     display_order integer not null default 0,
+    -- Category for organizing the reusable schedule library
+    section_category varchar(100) not null default 'custom',
     content text not null default '',
 
     is_active boolean not null default true
@@ -766,6 +768,11 @@ create table if not exists contracts (
     sent_at timestamptz,
 
     signed_pdf_url text,
+
+    -- Field visibility - array of field keys to show on public view
+    visible_fields jsonb not null default '["services","commencementDate","completionDate","price","paymentTerms","specialConditions"]',
+    -- Schedule sections to include from library (array of schedule IDs)
+    included_schedule_ids jsonb not null default '[]',
 
     created_by uuid references users(id) on delete set null,
 
@@ -931,8 +938,17 @@ create table if not exists questionnaire_responses (
     -- Agency scope
     agency_id uuid not null references agencies(id) on delete cascade,
 
-    -- Linked to contract (one questionnaire per contract)
-    contract_id uuid not null references contracts(id) on delete cascade unique,
+    -- Public URL slug (questionnaire's own slug for access)
+    slug varchar(100) not null unique,
+
+    -- Optional links to other entities (all nullable for standalone questionnaires)
+    contract_id uuid references contracts(id) on delete set null,
+    proposal_id uuid references proposals(id) on delete set null,
+    consultation_id uuid references consultations(id) on delete set null,
+
+    -- Client identification (for standalone questionnaires without linked entities)
+    client_business_name text not null default '',
+    client_email varchar(255) not null default '',
 
     -- All responses stored as JSONB (39 fields across 8 sections)
     responses jsonb not null default '{}',
@@ -952,7 +968,9 @@ create table if not exists questionnaire_responses (
 
 -- Indexes for questionnaire_responses
 create index if not exists idx_questionnaire_responses_agency_id on questionnaire_responses(agency_id);
+create index if not exists idx_questionnaire_responses_slug on questionnaire_responses(slug);
 create index if not exists idx_questionnaire_responses_contract_id on questionnaire_responses(contract_id);
+create index if not exists idx_questionnaire_responses_proposal_id on questionnaire_responses(proposal_id);
 create index if not exists idx_questionnaire_responses_status on questionnaire_responses(agency_id, status);
 
 -- create "subscriptions" table for detailed subscription tracking

@@ -3,7 +3,7 @@
 	import { saveQuestionnaireProgress, submitQuestionnaire } from '$lib/api/questionnaire.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import type { QuestionnaireResponse } from '$lib/server/schema';
-	import type { QuestionnaireResponses } from '$lib/api/questionnaire.remote';
+	import type { QuestionnaireResponses } from '$lib/api/questionnaire.types';
 
 	// Import section components
 	import QuestionnaireSidebar from './QuestionnaireSidebar.svelte';

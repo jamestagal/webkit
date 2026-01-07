@@ -75,14 +75,16 @@ const SendInvoiceReminderSchema = v.object({
 	customMessage: v.optional(v.string())
 });
 
-const GetEmailLogsFilterSchema = v.object({
-	proposalId: v.optional(v.pipe(v.string(), v.uuid())),
-	invoiceId: v.optional(v.pipe(v.string(), v.uuid())),
-	contractId: v.optional(v.pipe(v.string(), v.uuid())),
-	status: v.optional(v.string()),
-	limit: v.optional(v.number()),
-	offset: v.optional(v.number())
-});
+const GetEmailLogsFilterSchema = v.optional(
+	v.object({
+		proposalId: v.optional(v.pipe(v.string(), v.uuid())),
+		invoiceId: v.optional(v.pipe(v.string(), v.uuid())),
+		contractId: v.optional(v.pipe(v.string(), v.uuid())),
+		status: v.optional(v.string()),
+		limit: v.optional(v.number()),
+		offset: v.optional(v.number())
+	})
+);
 
 // =============================================================================
 // Query Functions
@@ -100,24 +102,24 @@ export const getEmailLogs = query(GetEmailLogsFilterSchema, async (filters) => {
 
 	const conditions = [eq(emailLogs.agencyId, context.agencyId)];
 
-	if (filters.proposalId) {
+	if (filters?.proposalId) {
 		conditions.push(eq(emailLogs.proposalId, filters.proposalId));
 	}
-	if (filters.invoiceId) {
+	if (filters?.invoiceId) {
 		conditions.push(eq(emailLogs.invoiceId, filters.invoiceId));
 	}
-	if (filters.contractId) {
+	if (filters?.contractId) {
 		conditions.push(eq(emailLogs.contractId, filters.contractId));
 	}
-	if (filters.status) {
+	if (filters?.status) {
 		conditions.push(eq(emailLogs.status, filters.status));
 	}
 
 	const logs = await db.query.emailLogs.findMany({
 		where: and(...conditions),
 		orderBy: [desc(emailLogs.createdAt)],
-		limit: filters.limit || 50,
-		offset: filters.offset || 0
+		limit: filters?.limit || 50,
+		offset: filters?.offset || 0
 	});
 
 	return logs;

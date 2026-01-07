@@ -108,12 +108,14 @@ const RecordPaymentSchema = v.object({
 	paidAt: v.optional(v.string())
 });
 
-const InvoiceFiltersSchema = v.object({
-	status: v.optional(InvoiceStatusSchema),
-	fromDate: v.optional(v.string()),
-	toDate: v.optional(v.string()),
-	search: v.optional(v.string())
-});
+const InvoiceFiltersSchema = v.optional(
+	v.object({
+		status: v.optional(InvoiceStatusSchema),
+		fromDate: v.optional(v.string()),
+		toDate: v.optional(v.string()),
+		search: v.optional(v.string())
+	})
+);
 
 // =============================================================================
 // Helper Functions
@@ -261,15 +263,15 @@ export const getInvoices = query(InvoiceFiltersSchema, async (filters) => {
 
 	const conditions = [eq(invoices.agencyId, context.agencyId)];
 
-	if (filters.status) {
+	if (filters?.status) {
 		conditions.push(eq(invoices.status, filters.status));
 	}
 
-	if (filters.fromDate) {
+	if (filters?.fromDate) {
 		conditions.push(gte(invoices.issueDate, new Date(filters.fromDate)));
 	}
 
-	if (filters.toDate) {
+	if (filters?.toDate) {
 		conditions.push(lte(invoices.issueDate, new Date(filters.toDate)));
 	}
 
@@ -371,7 +373,7 @@ export const getInvoiceBySlug = query(v.pipe(v.string(), v.minLength(1)), async 
 /**
  * Get invoice statistics for dashboard.
  */
-export const getInvoiceStats = query(v.object({}), async () => {
+export const getInvoiceStats = query(async () => {
 	const context = await getAgencyContext();
 
 	const allInvoices = await db

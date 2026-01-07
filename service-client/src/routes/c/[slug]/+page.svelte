@@ -8,6 +8,24 @@
 	let contract = $derived(data.contract);
 	let agency = $derived(data.agency);
 	let profile = $derived(data.profile);
+	let includedSchedules = $derived(data.includedSchedules);
+
+	// Get visible fields from contract, with defaults
+	let visibleFields = $derived<string[]>(
+		(contract.visibleFields as string[]) || [
+			'services',
+			'commencementDate',
+			'completionDate',
+			'price',
+			'paymentTerms',
+			'specialConditions'
+		]
+	);
+
+	// Helper to check field visibility
+	function isFieldVisible(field: string): boolean {
+		return visibleFields.includes(field);
+	}
 
 	// Form state
 	let signatoryName = $state('');
@@ -17,13 +35,9 @@
 	let signatureSuccess = $state(false);
 
 	// Check if already signed
-	let isSigned = $derived(
-		contract.status === 'signed' || contract.status === 'completed'
-	);
+	let isSigned = $derived(contract.status === 'signed' || contract.status === 'completed');
 	let isExpired = $derived(contract.status === 'expired');
-	let canSign = $derived(
-		!isSigned && !isExpired && ['sent', 'viewed'].includes(contract.status)
-	);
+	let canSign = $derived(!isSigned && !isExpired && ['sent', 'viewed'].includes(contract.status));
 
 	function formatDate(date: Date | string | null) {
 		if (!date) return '-';
@@ -60,11 +74,7 @@
 		<div class="container mx-auto px-4 py-6">
 			<div class="flex items-center gap-4">
 				{#if agency?.logoUrl}
-					<img
-						src={agency.logoUrl}
-						alt={agency.name}
-						class="h-12 w-auto object-contain"
-					/>
+					<img src={agency.logoUrl} alt={agency.name} class="h-12 w-auto object-contain" />
 				{:else}
 					<div class="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
 						<Building2 class="h-6 w-6 text-primary" />
@@ -99,7 +109,8 @@
 				<div>
 					<h3 class="font-bold">Contract Expired</h3>
 					<p class="text-sm">
-						This contract expired on {formatDate(contract.validUntil)}. Please contact the agency for a new contract.
+						This contract expired on {formatDate(contract.validUntil)}. Please contact the agency
+						for a new contract.
 					</p>
 				</div>
 			</div>
@@ -112,7 +123,9 @@
 				<div>
 					<h3 class="font-bold">Contract Signed</h3>
 					<p class="text-sm">
-						This contract was signed by {contract.clientSignatoryName} on {formatDate(contract.clientSignedAt)}.
+						This contract was signed by {contract.clientSignatoryName} on {formatDate(
+							contract.clientSignedAt
+						)}.
 					</p>
 				</div>
 			</div>
@@ -129,9 +142,7 @@
 						<div class="grid gap-6 sm:grid-cols-2 mt-4">
 							<!-- Agency -->
 							<div>
-								<h3 class="text-sm font-medium text-base-content/60 mb-2">
-									Service Provider
-								</h3>
+								<h3 class="text-sm font-medium text-base-content/60 mb-2">Service Provider</h3>
 								<p class="font-semibold">{agency?.name}</p>
 								{#if profile}
 									<p class="text-sm text-base-content/70 mt-1">
@@ -177,13 +188,13 @@
 								<span class="text-sm text-base-content/60">Valid Until</span>
 								<p class="font-medium">{formatDate(contract.validUntil)}</p>
 							</div>
-							{#if contract.commencementDate}
+							{#if isFieldVisible('commencementDate') && contract.commencementDate}
 								<div>
 									<span class="text-sm text-base-content/60">Commencement</span>
 									<p class="font-medium">{formatDate(contract.commencementDate)}</p>
 								</div>
 							{/if}
-							{#if contract.completionDate}
+							{#if isFieldVisible('completionDate') && contract.completionDate}
 								<div>
 									<span class="text-sm text-base-content/60">Completion</span>
 									<p class="font-medium">{formatDate(contract.completionDate)}</p>
@@ -191,39 +202,48 @@
 							{/if}
 						</div>
 
-						{#if contract.servicesDescription}
+						{#if isFieldVisible('services') && contract.servicesDescription}
 							<div class="mt-6">
-								<h3 class="text-sm font-medium text-base-content/60 mb-2">
-									Services
-								</h3>
+								<h3 class="text-sm font-medium text-base-content/60 mb-2">Services</h3>
 								<p class="text-base-content/80">{contract.servicesDescription}</p>
 							</div>
 						{/if}
 					</div>
 				</div>
 
-				<!-- Terms & Conditions -->
+				<!-- Terms & Conditions (from template) -->
 				{#if contract.generatedTermsHtml}
 					<div class="card bg-base-100 border border-base-300">
 						<div class="card-body">
 							<h2 class="card-title">Terms & Conditions</h2>
-							<div
-								class="prose prose-sm max-w-none mt-4"
-							>
+							<div class="prose prose-sm max-w-none mt-4">
 								{@html contract.generatedTermsHtml}
 							</div>
 						</div>
 					</div>
 				{/if}
 
-				<!-- Schedule -->
-				{#if contract.generatedScheduleHtml}
+				<!-- Included Schedule Sections (new dynamic sections) -->
+				{#if includedSchedules && includedSchedules.length > 0}
 					<div class="card bg-base-100 border border-base-300">
 						<div class="card-body">
 							<h2 class="card-title">Schedule A</h2>
-							<div
-								class="prose prose-sm max-w-none mt-4"
-							>
+							<div class="prose prose-sm max-w-none mt-4 space-y-6">
+								{#each includedSchedules as schedule}
+									<div class="border-b border-base-200 pb-6 last:border-0 last:pb-0">
+										<h3 class="text-lg font-semibold mb-3">{schedule.name}</h3>
+										{@html schedule.content}
+									</div>
+								{/each}
+							</div>
+						</div>
+					</div>
+				{:else if contract.generatedScheduleHtml}
+					<!-- Fallback to legacy generated schedule HTML -->
+					<div class="card bg-base-100 border border-base-300">
+						<div class="card-body">
+							<h2 class="card-title">Schedule A</h2>
+							<div class="prose prose-sm max-w-none mt-4">
 								{@html contract.generatedScheduleHtml}
 							</div>
 						</div>
@@ -231,7 +251,7 @@
 				{/if}
 
 				<!-- Special Conditions -->
-				{#if contract.specialConditions}
+				{#if isFieldVisible('specialConditions') && contract.specialConditions}
 					<div class="card bg-base-100 border border-base-300">
 						<div class="card-body">
 							<h2 class="card-title">Special Conditions</h2>
@@ -246,27 +266,27 @@
 			<!-- Sidebar -->
 			<div class="space-y-6">
 				<!-- Pricing -->
-				<div class="card bg-base-100 border border-base-300">
-					<div class="card-body">
-						<h2 class="card-title text-lg">Contract Value</h2>
+				{#if isFieldVisible('price')}
+					<div class="card bg-base-100 border border-base-300">
+						<div class="card-body">
+							<h2 class="card-title text-lg">Contract Value</h2>
 
-						<div class="text-3xl font-bold text-primary mt-4">
-							{formatCurrency(contract.totalPrice)}
-						</div>
-						<p class="text-sm text-base-content/60">
-							{contract.priceIncludesGst ? 'Inc. GST' : 'Ex. GST'}
-						</p>
-
-						{#if contract.paymentTerms}
-							<div class="mt-4 pt-4 border-t border-base-200">
-								<h3 class="text-sm font-medium text-base-content/60 mb-2">
-									Payment Terms
-								</h3>
-								<p class="text-sm text-base-content/80">{contract.paymentTerms}</p>
+							<div class="text-3xl font-bold text-primary mt-4">
+								{formatCurrency(contract.totalPrice)}
 							</div>
-						{/if}
+							<p class="text-sm text-base-content/60">
+								{contract.priceIncludesGst ? 'Inc. GST' : 'Ex. GST'}
+							</p>
+
+							{#if isFieldVisible('paymentTerms') && contract.paymentTerms}
+								<div class="mt-4 pt-4 border-t border-base-200">
+									<h3 class="text-sm font-medium text-base-content/60 mb-2">Payment Terms</h3>
+									<p class="text-sm text-base-content/80">{contract.paymentTerms}</p>
+								</div>
+							{/if}
+						</div>
 					</div>
-				</div>
+				{/if}
 
 				<!-- Signatures -->
 				<div class="card bg-base-100 border border-base-300">
@@ -403,9 +423,7 @@
 									</p>
 								</form>
 							{:else if isExpired}
-								<p class="text-sm text-error italic">
-									This contract has expired
-								</p>
+								<p class="text-sm text-error italic">This contract has expired</p>
 							{:else}
 								<p class="text-sm text-base-content/60 italic">Pending</p>
 							{/if}

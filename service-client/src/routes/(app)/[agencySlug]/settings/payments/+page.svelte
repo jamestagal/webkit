@@ -275,14 +275,26 @@
 							Open Stripe Dashboard
 						</a>
 
-						<button
-							type="button"
-							class="btn btn-ghost btn-sm"
-							onclick={() => invalidateAll()}
+						<form
+							method="POST"
+							action="?/refresh"
+							use:enhance={() => {
+								return async ({ result, update }) => {
+									if (result.type === 'success') {
+										toast.success('Status refreshed');
+									} else if (result.type === 'failure') {
+										toast.error(result.data?.error as string || 'Failed to refresh');
+									}
+									await update();
+								};
+							}}
+							class="inline"
 						>
-							<RefreshCw class="h-4 w-4" />
-							Refresh Status
-						</button>
+							<button type="submit" class="btn btn-ghost btn-sm">
+								<RefreshCw class="h-4 w-4" />
+								Refresh Status
+							</button>
+						</form>
 
 						<button
 							type="button"

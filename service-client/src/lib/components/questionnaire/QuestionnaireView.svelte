@@ -1,17 +1,21 @@
 <script lang="ts">
 	import { ClipboardList, CheckCircle, Clock, AlertCircle, ExternalLink, Copy } from 'lucide-svelte';
 	import type { QuestionnaireResponse } from '$lib/server/schema';
-	import type { QuestionnaireResponses } from '$lib/api/questionnaire.remote';
+	import type { QuestionnaireResponses } from '$lib/api/questionnaire.types';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 
 	interface Props {
 		questionnaire: QuestionnaireResponse | null;
-		contractSlug: string;
+		/** @deprecated Use questionnaire.slug instead. Falls back to questionnaire's own slug. */
+		contractSlug?: string;
 	}
 
 	let { questionnaire, contractSlug }: Props = $props();
 
 	const toast = getToast();
+
+	// Use questionnaire's own slug, with fallback to contractSlug for backward compatibility
+	let slug = $derived(questionnaire?.slug || contractSlug || '');
 
 	let responses = $derived(questionnaire?.responses as QuestionnaireResponses || {});
 
@@ -40,7 +44,7 @@
 	}
 
 	function copyPublicUrl() {
-		const url = `${window.location.origin}/q/${contractSlug}`;
+		const url = `${window.location.origin}/q/${slug}`;
 		navigator.clipboard.writeText(url);
 		toast.success('Questionnaire link copied');
 	}
@@ -172,14 +176,14 @@
 				<input
 					type="text"
 					readonly
-					value="{typeof window !== 'undefined' ? window.location.origin : ''}/q/{contractSlug}"
+					value="{typeof window !== 'undefined' ? window.location.origin : ''}/q/{slug}"
 					class="input input-bordered input-sm flex-1 font-mono text-sm"
 				/>
 				<button type="button" class="btn btn-primary btn-sm" onclick={copyPublicUrl}>
 					<Copy class="h-4 w-4" />
 					Copy
 				</button>
-				<a href="/q/{contractSlug}" target="_blank" class="btn btn-ghost btn-sm">
+				<a href="/q/{slug}" target="_blank" class="btn btn-ghost btn-sm">
 					<ExternalLink class="h-4 w-4" />
 					Preview
 				</a>
@@ -195,7 +199,7 @@
 				</div>
 			</div>
 			<div class="flex gap-2">
-				<a href="/q/{contractSlug}" target="_blank" class="btn btn-ghost btn-sm">
+				<a href="/q/{slug}" target="_blank" class="btn btn-ghost btn-sm">
 					<ExternalLink class="h-4 w-4" />
 					View Form
 				</a>
