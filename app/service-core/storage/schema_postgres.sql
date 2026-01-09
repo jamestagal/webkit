@@ -653,10 +653,25 @@ create table if not exists proposals (
     accepted_at timestamptz,
     declined_at timestamptz,
 
+    -- Client response fields (PART 2: Proposal Improvements)
+    client_comments text not null default '',           -- Optional comments when client accepts
+    decline_reason text not null default '',            -- Optional reason when client declines
+    revision_request_notes text not null default '',    -- Required notes for revision requests
+    revision_requested_at timestamptz,
+
+    -- New content sections (PART 2: Proposal Improvements)
+    executive_summary text not null default '',         -- Brief proposal overview
+    next_steps jsonb not null default '[]',             -- Array of {text, completed} items
+
+    -- Consultation data cache (PART 2: Proposal Improvements)
+    consultation_pain_points jsonb not null default '{}',   -- Cached from consultation
+    consultation_goals jsonb not null default '{}',         -- Cached from consultation
+    consultation_challenges jsonb not null default '[]',    -- Array of challenge strings
+
     -- Creator
     created_by uuid references users(id) on delete set null,
 
-    constraint valid_proposal_status check (status in ('draft', 'sent', 'viewed', 'accepted', 'declined', 'expired'))
+    constraint valid_proposal_status check (status in ('draft', 'sent', 'viewed', 'accepted', 'declined', 'revision_requested', 'expired'))
 );
 
 -- Indexes for proposals

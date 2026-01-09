@@ -2,17 +2,26 @@
 	import { invalidateAll } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { updateAgencyProfile } from '$lib/api/agency-profile.remote';
+	import { updateAgencyContact } from '$lib/api/agency.remote';
 
 	const toast = getToast();
 	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
 	import FormField from '$lib/components/settings/FormField.svelte';
-	import { Building2, MapPin, Landmark, Receipt, FileText } from 'lucide-svelte';
+	import { Building2, MapPin, Landmark, Receipt, FileText, Phone } from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
-	// Safe access to profile data
+	// Safe access to profile and agency data
 	const profile = data.profile;
+	const agency = data.agency;
+
+	// Contact form state (from agency table)
+	let contactData = $state({
+		email: agency?.email ?? '',
+		phone: agency?.phone ?? '',
+		website: agency?.website ?? ''
+	});
 
 	// Form state - initialized from server data
 	let formData = $state({
@@ -79,7 +88,10 @@
 		error = '';
 
 		try {
+			// Save profile data
 			await updateAgencyProfile(formData);
+			// Save contact data
+			await updateAgencyContact(contactData);
 			await invalidateAll();
 			toast.success('Profile updated');
 		} catch (err) {
@@ -160,6 +172,44 @@
 					bind:value={formData.tradingName}
 				/>
 			</FormField>
+		</div>
+	</SettingsSection>
+
+	<!-- Contact Information -->
+	<SettingsSection
+		title="Contact Information"
+		description="Contact details shown on proposals and documents"
+		icon={Phone}
+	>
+		<div class="grid gap-4 sm:grid-cols-2">
+			<FormField label="Email" hint="Business email for client communication">
+				<input
+					type="email"
+					class="input input-bordered w-full"
+					placeholder="hello@youragency.com"
+					bind:value={contactData.email}
+				/>
+			</FormField>
+
+			<FormField label="Phone" hint="Business phone number">
+				<input
+					type="tel"
+					class="input input-bordered w-full"
+					placeholder="02 1234 5678"
+					bind:value={contactData.phone}
+				/>
+			</FormField>
+
+			<div class="sm:col-span-2">
+				<FormField label="Website" hint="Your agency website URL">
+					<input
+						type="url"
+						class="input input-bordered w-full"
+						placeholder="https://www.youragency.com"
+						bind:value={contactData.website}
+					/>
+				</FormField>
+			</div>
 		</div>
 	</SettingsSection>
 

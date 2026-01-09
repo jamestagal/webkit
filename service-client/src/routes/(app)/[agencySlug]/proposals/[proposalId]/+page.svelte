@@ -12,11 +12,7 @@
 
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import {
-		getProposalWithRelations,
-		updateProposal,
-		sendProposal
-	} from '$lib/api/proposals.remote';
+	import { getProposalWithRelations, updateProposal, markProposalReady } from '$lib/api/proposals.remote';
 	import { sendProposalEmail } from '$lib/api/email.remote';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
 	import { getActivePackages } from '$lib/api/agency-packages.remote';
@@ -36,7 +32,11 @@
 		MessageSquare,
 		Plus,
 		Trash2,
-		Check
+		Check,
+		FileSignature,
+		ListChecks,
+		Lightbulb,
+		CheckCircle2
 	} from 'lucide-svelte';
 	import type {
 		ChecklistItem,
@@ -45,7 +45,10 @@
 		PerformanceStandard,
 		ProposedPage,
 		TimelinePhase,
-		CustomPricing
+		CustomPricing,
+		NextStepItem,
+		ConsultationPainPoints,
+		ConsultationGoals
 	} from '$lib/server/schema';
 
 	const toast = getToast();
@@ -53,8 +56,7 @@
 	const proposalId = page.params.proposalId;
 
 	// Load data
-	const { proposal, selectedPackage, selectedAddons, consultation } =
-		await getProposalWithRelations(proposalId);
+	const { proposal } = await getProposalWithRelations(proposalId);
 	const packages = await getActivePackages();
 	const addons = await getActiveAddons();
 
@@ -85,6 +87,10 @@
 		timeline: (proposal.timeline as TimelinePhase[]) || [],
 		closingContent: proposal.closingContent,
 
+		// New sections (PART 2: Proposal Improvements)
+		executiveSummary: proposal.executiveSummary || '',
+		nextSteps: (proposal.nextSteps as NextStepItem[]) || [],
+
 		// Package
 		selectedPackageId: proposal.selectedPackageId || '',
 		selectedAddons: (proposal.selectedAddons as string[]) || [],
@@ -100,15 +106,34 @@
 	let isSending = $state(false);
 	let activeSection = $state('client');
 
+	// Consultation insights from cached data (PART 2)
+	const consultationPainPoints = (proposal.consultationPainPoints as ConsultationPainPoints) || {};
+	const consultationGoals = (proposal.consultationGoals as ConsultationGoals) || {};
+	const consultationChallenges = (proposal.consultationChallenges as string[]) || [];
+	const hasConsultationInsights =
+		consultationChallenges.length > 0 ||
+		Object.keys(consultationPainPoints).length > 0 ||
+		Object.keys(consultationGoals).length > 0;
+
+	// Client feedback (PART 2: Proposal Improvements)
+	const clientComments = proposal.clientComments || '';
+	const declineReason = proposal.declineReason || '';
+	const revisionRequestNotes = proposal.revisionRequestNotes || '';
+	const hasClientFeedback = !!(clientComments || declineReason || revisionRequestNotes);
+
 	// Sections for navigation
 	const sections = [
 		{ id: 'client', label: 'Client Info', icon: User },
+		{ id: 'summary', label: 'Summary', icon: FileSignature },
 		{ id: 'performance', label: 'Performance', icon: BarChart3 },
 		{ id: 'content', label: 'Content', icon: FileText },
 		{ id: 'package', label: 'Package', icon: Package },
 		{ id: 'timeline', label: 'Timeline', icon: Calendar },
 		{ id: 'architecture', label: 'Pages', icon: Layout },
-		{ id: 'closing', label: 'Closing', icon: MessageSquare }
+		{ id: 'nextsteps', label: 'Next Steps', icon: ListChecks },
+		{ id: 'closing', label: 'Closing', icon: MessageSquare },
+		...(hasClientFeedback ? [{ id: 'feedback', label: 'Feedback', icon: MessageSquare }] : []),
+		...(hasConsultationInsights ? [{ id: 'insights', label: 'Insights', icon: Lightbulb }] : [])
 	];
 
 	// Helper for checklist items
@@ -156,6 +181,21 @@
 		formData.performanceStandards = formData.performanceStandards.filter((_, i) => i !== index);
 	}
 
+	// Helper for next steps (PART 2)
+	function addNextStep() {
+		formData.nextSteps = [...formData.nextSteps, { text: '', completed: false }];
+	}
+
+	function removeNextStep(index: number) {
+		formData.nextSteps = formData.nextSteps.filter((_, i) => i !== index);
+	}
+
+	function toggleNextStep(index: number) {
+		formData.nextSteps = formData.nextSteps.map((step, i) =>
+			i === index ? { ...step, completed: !step.completed } : step
+		);
+	}
+
 	async function handleSave() {
 		isSaving = true;
 		try {
@@ -195,6 +235,22 @@
 		}
 	}
 
+	let isMarkingReady = $state(false);
+
+	async function handleMarkReady() {
+		isMarkingReady = true;
+		try {
+			await handleSave();
+			await markProposalReady(proposalId);
+			await invalidateAll();
+			toast.success('Proposal marked as ready', 'You can now review and send it');
+		} catch (err) {
+			toast.error('Failed to mark as ready', err instanceof Error ? err.message : 'Unknown error');
+		} finally {
+			isMarkingReady = false;
+		}
+	}
+
 	function viewPublic() {
 		window.open(`/p/${proposal.slug}`, '_blank');
 	}
@@ -222,12 +278,11 @@
 			</div>
 		</div>
 		<div class="flex-none gap-2">
-			{#if proposal.status !== 'draft'}
-				<button type="button" class="btn btn-ghost btn-sm" onclick={viewPublic}>
-					<Eye class="h-4 w-4" />
-					View
-				</button>
-			{/if}
+			<!-- Preview button - always available -->
+			<button type="button" class="btn btn-ghost btn-sm" onclick={viewPublic}>
+				<Eye class="h-4 w-4" />
+				Preview
+			</button>
 			<button
 				type="button"
 				class="btn btn-outline btn-sm"
@@ -244,6 +299,21 @@
 			{#if proposal.status === 'draft'}
 				<button
 					type="button"
+					class="btn btn-outline btn-sm"
+					onclick={handleMarkReady}
+					disabled={isMarkingReady}
+				>
+					{#if isMarkingReady}
+						<span class="loading loading-spinner loading-sm"></span>
+					{:else}
+						<CheckCircle2 class="h-4 w-4" />
+					{/if}
+					Mark Ready
+				</button>
+			{/if}
+			{#if proposal.status === 'draft' || proposal.status === 'ready' || proposal.status === 'revision_requested'}
+				<button
+					type="button"
 					class="btn btn-primary btn-sm"
 					onclick={handleSend}
 					disabled={isSending}
@@ -253,11 +323,28 @@
 					{:else}
 						<Send class="h-4 w-4" />
 					{/if}
-					Send
+					{proposal.status === 'revision_requested' ? 'Resend' : 'Send'}
 				</button>
 			{/if}
 		</div>
 	</div>
+
+	<!-- Status Banner for revision_requested (PART 2) -->
+	{#if proposal.status === 'revision_requested'}
+		<div class="bg-warning text-warning-content px-4 py-3">
+			<div class="mx-auto max-w-4xl">
+				<div class="flex items-start gap-3">
+					<MessageSquare class="h-5 w-5 shrink-0 mt-0.5" />
+					<div>
+						<p class="font-semibold">Client requested revisions</p>
+						{#if revisionRequestNotes}
+							<p class="mt-1 text-sm opacity-90">{revisionRequestNotes}</p>
+						{/if}
+					</div>
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	<div class="flex flex-1">
 		<!-- Sidebar Navigation -->
@@ -371,6 +458,26 @@
 									bind:value={formData.validUntil}
 								/>
 							</div>
+						</div>
+					</section>
+				{/if}
+
+				<!-- Executive Summary Section (PART 2) -->
+				{#if activeSection === 'summary'}
+					<section class="card bg-base-100 shadow">
+						<div class="card-body">
+							<h2 class="card-title">
+								<FileSignature class="h-5 w-5" />
+								Executive Summary
+							</h2>
+							<p class="text-base-content/60 text-sm">
+								A brief overview of the proposal highlighting key benefits and value proposition.
+							</p>
+							<textarea
+								class="textarea textarea-bordered min-h-48"
+								bind:value={formData.executiveSummary}
+								placeholder="Summarize the key points of this proposal: what problem you're solving, your recommended solution, expected outcomes, and why your agency is the right choice..."
+							></textarea>
 						</div>
 					</section>
 				{/if}
@@ -790,6 +897,60 @@
 					</section>
 				{/if}
 
+				<!-- Next Steps Section (PART 2) -->
+				{#if activeSection === 'nextsteps'}
+					<section class="card bg-base-100 shadow">
+						<div class="card-body">
+							<h2 class="card-title">
+								<ListChecks class="h-5 w-5" />
+								Next Steps
+							</h2>
+							<p class="text-base-content/60 text-sm">
+								Define the action items for moving forward after the client accepts this proposal.
+							</p>
+
+							<div class="space-y-2">
+								{#each formData.nextSteps as step, index}
+									<div class="flex items-center gap-2">
+										<button
+											type="button"
+											class="btn btn-ghost btn-xs"
+											onclick={() => toggleNextStep(index)}
+											title={step.completed ? 'Mark as incomplete' : 'Mark as complete'}
+										>
+											{#if step.completed}
+												<Check class="h-4 w-4 text-success" />
+											{:else}
+												<div class="h-4 w-4 rounded border-2 border-base-content/30"></div>
+											{/if}
+										</button>
+										<input
+											type="text"
+											class="input input-bordered input-sm flex-1"
+											class:line-through={step.completed}
+											class:opacity-60={step.completed}
+											bind:value={step.text}
+											placeholder="e.g., Schedule kickoff meeting"
+										/>
+										<button
+											type="button"
+											class="btn btn-ghost btn-sm text-error"
+											onclick={() => removeNextStep(index)}
+										>
+											<Trash2 class="h-4 w-4" />
+										</button>
+									</div>
+								{/each}
+
+								<button type="button" class="btn btn-ghost btn-sm" onclick={addNextStep}>
+									<Plus class="h-4 w-4" />
+									Add Step
+								</button>
+							</div>
+						</div>
+					</section>
+				{/if}
+
 				<!-- Closing Section -->
 				{#if activeSection === 'closing'}
 					<section class="card bg-base-100 shadow">
@@ -800,6 +961,168 @@
 								bind:value={formData.closingContent}
 								placeholder="A personal message to close the proposal..."
 							></textarea>
+						</div>
+					</section>
+				{/if}
+
+				<!-- Client Feedback Section (PART 2: Proposal Improvements) -->
+				{#if activeSection === 'feedback' && hasClientFeedback}
+					<section class="card bg-base-100 shadow">
+						<div class="card-body">
+							<h2 class="card-title">
+								<MessageSquare class="h-5 w-5" />
+								Client Feedback
+							</h2>
+							<p class="text-base-content/60 text-sm">
+								Feedback received from the client about this proposal.
+							</p>
+
+							{#if revisionRequestNotes}
+								<div class="mt-4 rounded-lg bg-warning/10 border border-warning/30 p-4">
+									<h3 class="font-semibold text-sm text-warning mb-2">Revision Request</h3>
+									<p class="text-sm whitespace-pre-wrap">{revisionRequestNotes}</p>
+									{#if proposal.revisionRequestedAt}
+										<p class="text-xs text-base-content/60 mt-2">
+											Requested on {new Date(proposal.revisionRequestedAt).toLocaleDateString('en-AU', {
+												day: 'numeric',
+												month: 'long',
+												year: 'numeric',
+												hour: '2-digit',
+												minute: '2-digit'
+											})}
+										</p>
+									{/if}
+								</div>
+							{/if}
+
+							{#if clientComments}
+								<div class="mt-4 rounded-lg bg-success/10 border border-success/30 p-4">
+									<h3 class="font-semibold text-sm text-success mb-2">Acceptance Comments</h3>
+									<p class="text-sm whitespace-pre-wrap">{clientComments}</p>
+									{#if proposal.acceptedAt}
+										<p class="text-xs text-base-content/60 mt-2">
+											Accepted on {new Date(proposal.acceptedAt).toLocaleDateString('en-AU', {
+												day: 'numeric',
+												month: 'long',
+												year: 'numeric',
+												hour: '2-digit',
+												minute: '2-digit'
+											})}
+										</p>
+									{/if}
+								</div>
+							{/if}
+
+							{#if declineReason}
+								<div class="mt-4 rounded-lg bg-error/10 border border-error/30 p-4">
+									<h3 class="font-semibold text-sm text-error mb-2">Decline Reason</h3>
+									<p class="text-sm whitespace-pre-wrap">{declineReason}</p>
+									{#if proposal.declinedAt}
+										<p class="text-xs text-base-content/60 mt-2">
+											Declined on {new Date(proposal.declinedAt).toLocaleDateString('en-AU', {
+												day: 'numeric',
+												month: 'long',
+												year: 'numeric',
+												hour: '2-digit',
+												minute: '2-digit'
+											})}
+										</p>
+									{/if}
+								</div>
+							{/if}
+						</div>
+					</section>
+				{/if}
+
+				<!-- Consultation Insights Section (PART 2) -->
+				{#if activeSection === 'insights' && hasConsultationInsights}
+					<section class="card bg-base-100 shadow">
+						<div class="card-body">
+							<h2 class="card-title">
+								<Lightbulb class="h-5 w-5" />
+								Consultation Insights
+							</h2>
+							<p class="text-base-content/60 text-sm">
+								Data captured from the linked consultation for reference while building this proposal.
+							</p>
+
+							{#if consultationChallenges.length > 0}
+								<div class="mt-4">
+									<h3 class="font-semibold text-sm mb-2">Key Challenges</h3>
+									<ul class="list-disc list-inside space-y-1 text-sm">
+										{#each consultationChallenges as challenge}
+											<li class="text-base-content/80">{challenge}</li>
+										{/each}
+									</ul>
+								</div>
+							{/if}
+
+							{#if consultationPainPoints.primary_challenges?.length || consultationPainPoints.technical_issues?.length}
+								<div class="mt-4">
+									<h3 class="font-semibold text-sm mb-2">Pain Points</h3>
+									<div class="grid gap-4 sm:grid-cols-2">
+										{#if consultationPainPoints.primary_challenges?.length}
+											<div>
+												<p class="text-xs text-base-content/60 mb-1">Primary Challenges</p>
+												<ul class="list-disc list-inside space-y-1 text-sm">
+													{#each consultationPainPoints.primary_challenges as item}
+														<li class="text-base-content/80">{item}</li>
+													{/each}
+												</ul>
+											</div>
+										{/if}
+										{#if consultationPainPoints.technical_issues?.length}
+											<div>
+												<p class="text-xs text-base-content/60 mb-1">Technical Issues</p>
+												<ul class="list-disc list-inside space-y-1 text-sm">
+													{#each consultationPainPoints.technical_issues as item}
+														<li class="text-base-content/80">{item}</li>
+													{/each}
+												</ul>
+											</div>
+										{/if}
+									</div>
+								</div>
+							{/if}
+
+							{#if consultationGoals.primary_goals?.length || consultationGoals.secondary_goals?.length}
+								<div class="mt-4">
+									<h3 class="font-semibold text-sm mb-2">Client Goals</h3>
+									<div class="grid gap-4 sm:grid-cols-2">
+										{#if consultationGoals.primary_goals?.length}
+											<div>
+												<p class="text-xs text-base-content/60 mb-1">Primary Goals</p>
+												<ul class="list-disc list-inside space-y-1 text-sm">
+													{#each consultationGoals.primary_goals as item}
+														<li class="text-base-content/80">{item}</li>
+													{/each}
+												</ul>
+											</div>
+										{/if}
+										{#if consultationGoals.secondary_goals?.length}
+											<div>
+												<p class="text-xs text-base-content/60 mb-1">Secondary Goals</p>
+												<ul class="list-disc list-inside space-y-1 text-sm">
+													{#each consultationGoals.secondary_goals as item}
+														<li class="text-base-content/80">{item}</li>
+													{/each}
+												</ul>
+											</div>
+										{/if}
+									</div>
+								</div>
+							{/if}
+
+							{#if consultationGoals.success_metrics?.length}
+								<div class="mt-4">
+									<h3 class="font-semibold text-sm mb-2">Success Metrics</h3>
+									<ul class="list-disc list-inside space-y-1 text-sm">
+										{#each consultationGoals.success_metrics as metric}
+											<li class="text-base-content/80">{metric}</li>
+										{/each}
+									</ul>
+								</div>
+							{/if}
 						</div>
 					</section>
 				{/if}

@@ -1,15 +1,21 @@
 /**
- * Public Proposal View - Server Load
+ * Public Proposal View - Server Load & Actions
  *
  * Loads proposal by public slug without authentication.
  * Records view count.
+ * Handles client response actions (accept, decline, revision request).
  */
 
-import type { PageServerLoad } from './$types';
+import type { PageServerLoad, Actions } from './$types';
 import { db } from '$lib/server/db';
 import { proposals, agencies, agencyProfiles, agencyPackages, agencyAddons } from '$lib/server/schema';
 import { eq, sql } from 'drizzle-orm';
-import { error } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
+import {
+	acceptProposal,
+	declineProposal,
+	requestProposalRevision
+} from '$lib/api/proposals.remote';
 
 export const load: PageServerLoad = async ({ params }) => {
 	const { slug } = params;
@@ -90,4 +96,58 @@ export const load: PageServerLoad = async ({ params }) => {
 		selectedPackage,
 		selectedAddons
 	};
+};
+
+// Form actions for client responses (PART 2: Proposal Improvements)
+export const actions: Actions = {
+	accept: async ({ params, request }) => {
+		const data = await request.formData();
+		const comments = data.get('comments')?.toString() || '';
+
+		try {
+			const result = await acceptProposal({
+				slug: params.slug,
+				comments: comments || undefined
+			});
+			return { success: true, action: 'accepted', contractSlug: result.contractSlug };
+		} catch (err) {
+			return fail(400, {
+				error: err instanceof Error ? err.message : 'Failed to accept proposal'
+			});
+		}
+	},
+
+	decline: async ({ params, request }) => {
+		const data = await request.formData();
+		const reason = data.get('reason')?.toString() || '';
+
+		try {
+			await declineProposal({
+				slug: params.slug,
+				reason: reason || undefined
+			});
+			return { success: true, action: 'declined' };
+		} catch (err) {
+			return fail(400, {
+				error: err instanceof Error ? err.message : 'Failed to decline proposal'
+			});
+		}
+	},
+
+	requestRevision: async ({ params, request }) => {
+		const data = await request.formData();
+		const notes = data.get('notes')?.toString() || '';
+
+		try {
+			await requestProposalRevision({
+				slug: params.slug,
+				notes
+			});
+			return { success: true, action: 'revision_requested' };
+		} catch (err) {
+			return fail(400, {
+				error: err instanceof Error ? err.message : 'Failed to request revision'
+			});
+		}
+	}
 };

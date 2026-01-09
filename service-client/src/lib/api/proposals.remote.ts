@@ -17,6 +17,7 @@ import {
 	agencyPackages,
 	agencyAddons,
 	consultations,
+	contracts,
 	type ContactInfo
 } from '$lib/server/schema';
 import { getAgencyContext } from '$lib/server/agency';
@@ -85,6 +86,12 @@ const CustomPricingSchema = v.object({
 	discountNote: v.optional(v.string())
 });
 
+// Next Step Item Schema (for editable checklist) - PART 2: Proposal Improvements
+const NextStepItemSchema = v.object({
+	text: v.string(),
+	completed: v.boolean()
+});
+
 const CreateProposalSchema = v.object({
 	consultationId: v.optional(v.pipe(v.string(), v.uuid())),
 	selectedPackageId: v.optional(v.pipe(v.string(), v.uuid())),
@@ -119,6 +126,10 @@ const UpdateProposalSchema = v.object({
 	timeline: v.optional(v.array(TimelinePhaseSchema)),
 	closingContent: v.optional(v.string()),
 
+	// New content sections (PART 2: Proposal Improvements)
+	executiveSummary: v.optional(v.string()),
+	nextSteps: v.optional(v.array(NextStepItemSchema)),
+
 	// Package selection
 	selectedPackageId: v.optional(v.nullable(v.pipe(v.string(), v.uuid()))),
 	selectedAddons: v.optional(v.array(v.pipe(v.string(), v.uuid()))),
@@ -134,8 +145,28 @@ const ProposalStatusSchema = v.picklist([
 	'viewed',
 	'accepted',
 	'declined',
+	'revision_requested',
 	'expired'
 ]);
+
+// =============================================================================
+// Public Response Schemas (PART 2: Proposal Improvements)
+// =============================================================================
+
+const AcceptProposalSchema = v.object({
+	slug: v.pipe(v.string(), v.minLength(1)),
+	comments: v.optional(v.pipe(v.string(), v.maxLength(2000)))
+});
+
+const DeclineProposalSchema = v.object({
+	slug: v.pipe(v.string(), v.minLength(1)),
+	reason: v.optional(v.pipe(v.string(), v.maxLength(2000)))
+});
+
+const RequestRevisionSchema = v.object({
+	slug: v.pipe(v.string(), v.minLength(1)),
+	notes: v.pipe(v.string(), v.minLength(10), v.maxLength(2000))
+});
 
 // =============================================================================
 // Helper Functions
@@ -382,7 +413,7 @@ export const createProposal = command(CreateProposalSchema, async (data) => {
 	// Generate unique slug
 	const slug = await generateUniqueSlug();
 
-	// Pre-fill client data from consultation if provided
+	// Pre-fill client data and cache consultation insights if provided
 	let clientData: Partial<typeof proposals.$inferInsert> = {};
 	if (data.consultationId) {
 		const [consultation] = await db
@@ -398,12 +429,37 @@ export const createProposal = command(CreateProposalSchema, async (data) => {
 
 		if (consultation) {
 			const contactInfo = consultation.contactInfo as ContactInfo;
+
+			// Extract pain points data
+			const painPoints = consultation.painPoints as {
+				primary_challenges?: string[];
+				technical_issues?: string[];
+				solution_gaps?: string[];
+			} | null;
+
+			// Extract goals data
+			const goalsObjectives = consultation.goalsObjectives as {
+				primary_goals?: string[];
+				secondary_goals?: string[];
+				success_metrics?: string[];
+			} | null;
+
+			// Build challenges array from pain points
+			const challenges = [
+				...(painPoints?.primary_challenges || []),
+				...(painPoints?.technical_issues || [])
+			];
+
 			clientData = {
 				clientBusinessName: contactInfo?.business_name || '',
 				clientContactName: contactInfo?.contact_person || '',
 				clientEmail: contactInfo?.email || '',
 				clientPhone: contactInfo?.phone || '',
-				clientWebsite: contactInfo?.website || ''
+				clientWebsite: contactInfo?.website || '',
+				// Cache consultation insights for display in proposal editor (PART 2)
+				consultationPainPoints: painPoints || {},
+				consultationGoals: goalsObjectives || {},
+				consultationChallenges: challenges
 			};
 		}
 	}
@@ -486,6 +542,10 @@ export const updateProposal = command(UpdateProposalSchema, async (data) => {
 	if (data.proposedPages !== undefined) updates['proposedPages'] = data.proposedPages;
 	if (data.timeline !== undefined) updates['timeline'] = data.timeline;
 	if (data.closingContent !== undefined) updates['closingContent'] = data.closingContent;
+
+	// New content sections (PART 2: Proposal Improvements)
+	if (data.executiveSummary !== undefined) updates['executiveSummary'] = data.executiveSummary;
+	if (data.nextSteps !== undefined) updates['nextSteps'] = data.nextSteps;
 
 	// Package selection
 	if (data.selectedPackageId !== undefined) updates['selectedPackageId'] = data.selectedPackageId;
@@ -619,6 +679,51 @@ export const duplicateProposal = command(
 );
 
 /**
+ * Mark a proposal as ready (intermediate step before sending).
+ */
+export const markProposalReady = command(v.pipe(v.string(), v.uuid()), async (proposalId: string) => {
+	const context = await getAgencyContext();
+
+	// Verify proposal exists and belongs to agency
+	const [existing] = await db
+		.select()
+		.from(proposals)
+		.where(and(eq(proposals.id, proposalId), eq(proposals.agencyId, context.agencyId)))
+		.limit(1);
+
+	if (!existing) {
+		throw new Error('Proposal not found');
+	}
+
+	// Check modify permission
+	if (!canModifyResource(context.role, existing.createdBy || '', context.userId, 'proposal')) {
+		throw new Error('Permission denied');
+	}
+
+	// Only draft proposals can be marked as ready
+	if (existing.status !== 'draft') {
+		throw new Error('Only draft proposals can be marked as ready');
+	}
+
+	// Update status to ready
+	const [proposal] = await db
+		.update(proposals)
+		.set({
+			status: 'ready',
+			updatedAt: new Date()
+		})
+		.where(eq(proposals.id, proposalId))
+		.returning();
+
+	// Log activity
+	await logActivity('proposal.ready', 'proposal', proposalId, {
+		newValues: { status: 'ready' }
+	});
+
+	return proposal;
+});
+
+/**
  * Send a proposal (mark as sent).
  */
 export const sendProposal = command(v.pipe(v.string(), v.uuid()), async (proposalId: string) => {
@@ -746,4 +851,206 @@ export const updateProposalStatus = command(
 		return proposal;
 	}
 );
+
+// =============================================================================
+// Public Response Commands (PART 2: Proposal Improvements)
+// No authentication required - operates by slug
+// =============================================================================
+
+/**
+ * Generate a unique contract slug.
+ */
+async function generateUniqueContractSlug(): Promise<string> {
+	let slug = nanoid(12);
+	let attempts = 0;
+
+	while (attempts < 10) {
+		const [existing] = await db
+			.select({ id: contracts.id })
+			.from(contracts)
+			.where(eq(contracts.slug, slug))
+			.limit(1);
+
+		if (!existing) return slug;
+
+		slug = nanoid(12);
+		attempts++;
+	}
+
+	throw new Error('Unable to generate unique contract slug');
+}
+
+/**
+ * Get the next contract number for an agency.
+ */
+async function getNextContractNumber(agencyId: string): Promise<string> {
+	const [profile] = await db
+		.select()
+		.from(agencyProfiles)
+		.where(eq(agencyProfiles.agencyId, agencyId))
+		.limit(1);
+
+	const prefix = profile?.contractPrefix || 'CON';
+	const nextNumber = profile?.nextContractNumber || 1;
+
+	// Generate document number
+	const contractNumber = dataPipelineService.generateDocumentNumber(prefix, nextNumber);
+
+	// Increment next number
+	if (profile) {
+		await db
+			.update(agencyProfiles)
+			.set({
+				nextContractNumber: nextNumber + 1,
+				updatedAt: new Date()
+			})
+			.where(eq(agencyProfiles.id, profile.id));
+	}
+
+	return contractNumber;
+}
+
+/**
+ * Client accepts a proposal with optional comments.
+ * Creates a draft contract automatically.
+ * Public command - no authentication required.
+ */
+export const acceptProposal = command(AcceptProposalSchema, async (data) => {
+	// Find proposal by slug
+	const [proposal] = await db
+		.select()
+		.from(proposals)
+		.where(eq(proposals.slug, data.slug))
+		.limit(1);
+
+	if (!proposal) {
+		throw new Error('Proposal not found');
+	}
+
+	// Validate status - only sent or viewed proposals can be accepted
+	if (proposal.status !== 'sent' && proposal.status !== 'viewed') {
+		throw new Error('Proposal cannot be accepted');
+	}
+
+	// Update proposal status
+	await db
+		.update(proposals)
+		.set({
+			status: 'accepted',
+			acceptedAt: new Date(),
+			clientComments: data.comments || '',
+			updatedAt: new Date()
+		})
+		.where(eq(proposals.id, proposal.id));
+
+	// Auto-create draft contract from proposal
+	let contractSlug: string | undefined;
+	try {
+		const contractNumber = await getNextContractNumber(proposal.agencyId);
+		contractSlug = await generateUniqueContractSlug();
+
+		// Calculate total price from custom pricing or package
+		let totalPrice = '0';
+		const customPricing = proposal.customPricing as {
+			setupFee?: string;
+			monthlyPrice?: string;
+			oneTimePrice?: string;
+		} | null;
+
+		if (customPricing?.setupFee) {
+			totalPrice = customPricing.setupFee;
+		} else if (customPricing?.oneTimePrice) {
+			totalPrice = customPricing.oneTimePrice;
+		}
+
+		await db.insert(contracts).values({
+			agencyId: proposal.agencyId,
+			proposalId: proposal.id,
+			contractNumber,
+			slug: contractSlug,
+			status: 'draft',
+			clientBusinessName: proposal.clientBusinessName,
+			clientContactName: proposal.clientContactName,
+			clientEmail: proposal.clientEmail,
+			clientPhone: proposal.clientPhone,
+			totalPrice,
+			createdBy: proposal.createdBy
+		});
+	} catch (err) {
+		// Log error but don't fail the accept - contract can be created manually
+		console.error('Failed to auto-create contract:', err);
+	}
+
+	return { success: true, contractSlug };
+});
+
+/**
+ * Client declines a proposal with optional reason.
+ * Public command - no authentication required.
+ */
+export const declineProposal = command(DeclineProposalSchema, async (data) => {
+	// Find proposal by slug
+	const [proposal] = await db
+		.select()
+		.from(proposals)
+		.where(eq(proposals.slug, data.slug))
+		.limit(1);
+
+	if (!proposal) {
+		throw new Error('Proposal not found');
+	}
+
+	// Validate status - only sent or viewed proposals can be declined
+	if (proposal.status !== 'sent' && proposal.status !== 'viewed') {
+		throw new Error('Proposal cannot be declined');
+	}
+
+	// Update proposal status
+	await db
+		.update(proposals)
+		.set({
+			status: 'declined',
+			declinedAt: new Date(),
+			declineReason: data.reason || '',
+			updatedAt: new Date()
+		})
+		.where(eq(proposals.id, proposal.id));
+
+	return { success: true };
+});
+
+/**
+ * Client requests revisions to a proposal with required notes.
+ * Public command - no authentication required.
+ */
+export const requestProposalRevision = command(RequestRevisionSchema, async (data) => {
+	// Find proposal by slug
+	const [proposal] = await db
+		.select()
+		.from(proposals)
+		.where(eq(proposals.slug, data.slug))
+		.limit(1);
+
+	if (!proposal) {
+		throw new Error('Proposal not found');
+	}
+
+	// Validate status - only sent or viewed proposals can request revision
+	if (proposal.status !== 'sent' && proposal.status !== 'viewed') {
+		throw new Error('Proposal cannot request revision');
+	}
+
+	// Update proposal status
+	await db
+		.update(proposals)
+		.set({
+			status: 'revision_requested',
+			revisionRequestedAt: new Date(),
+			revisionRequestNotes: data.notes,
+			updatedAt: new Date()
+		})
+		.where(eq(proposals.id, proposal.id));
+
+	return { success: true };
+});
 

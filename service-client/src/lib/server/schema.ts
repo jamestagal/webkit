@@ -442,6 +442,21 @@ export const proposals = pgTable(
 		acceptedAt: timestamp('accepted_at', { withTimezone: true }),
 		declinedAt: timestamp('declined_at', { withTimezone: true }),
 
+		// Client response fields (PART 2: Proposal Improvements)
+		clientComments: text('client_comments').notNull().default(''), // Optional comments when client accepts
+		declineReason: text('decline_reason').notNull().default(''), // Optional reason when client declines
+		revisionRequestNotes: text('revision_request_notes').notNull().default(''), // Required notes for revision requests
+		revisionRequestedAt: timestamp('revision_requested_at', { withTimezone: true }),
+
+		// New content sections (PART 2: Proposal Improvements)
+		executiveSummary: text('executive_summary').notNull().default(''), // Brief proposal overview
+		nextSteps: jsonb('next_steps').notNull().default([]), // Array of {text, completed} items
+
+		// Consultation data cache (PART 2: Proposal Improvements)
+		consultationPainPoints: jsonb('consultation_pain_points').notNull().default({}), // Cached from consultation
+		consultationGoals: jsonb('consultation_goals').notNull().default({}), // Cached from consultation
+		consultationChallenges: jsonb('consultation_challenges').notNull().default([]), // Array of challenge strings
+
 		// Creator
 		createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' })
 	},
@@ -1039,7 +1054,7 @@ export type PricingType = 'one_time' | 'monthly' | 'per_unit';
 export type PaymentTerms = 'DUE_ON_RECEIPT' | 'NET_7' | 'NET_14' | 'NET_30';
 
 // Proposal status type
-export type ProposalStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined' | 'expired';
+export type ProposalStatus = 'draft' | 'ready' | 'sent' | 'viewed' | 'accepted' | 'declined' | 'revision_requested' | 'expired';
 
 // Contract Template types
 export type ContractTemplate = typeof contractTemplates.$inferSelect;
@@ -1206,4 +1221,22 @@ export interface CustomPricing {
 	hostingFee?: string;
 	discountPercent?: number;
 	discountNote?: string;
+}
+
+// PART 2: Proposal Improvements types
+export interface NextStepItem {
+	text: string;
+	completed: boolean;
+}
+
+export interface ConsultationPainPoints {
+	primary_challenges?: string[];
+	technical_issues?: string[];
+	solution_gaps?: string[];
+}
+
+export interface ConsultationGoals {
+	primary_goals?: string[];
+	secondary_goals?: string[];
+	success_metrics?: string[];
 }

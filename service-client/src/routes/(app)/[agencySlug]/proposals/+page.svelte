@@ -32,6 +32,17 @@
 			: proposals.filter((p) => p.status === statusFilter)
 	);
 
+	// Derived: status counts for filter tabs
+	let statusCounts = $derived({
+		all: proposals.length,
+		draft: proposals.filter((p) => p.status === 'draft').length,
+		ready: proposals.filter((p) => p.status === 'ready').length,
+		sent: proposals.filter((p) => p.status === 'sent').length,
+		viewed: proposals.filter((p) => p.status === 'viewed').length,
+		accepted: proposals.filter((p) => p.status === 'accepted').length,
+		revision_requested: proposals.filter((p) => p.status === 'revision_requested').length
+	});
+
 	function formatDate(date: Date | string | null): string {
 		if (!date) return 'N/A';
 		const d = new Date(date);
@@ -45,7 +56,9 @@
 	function getStatusBadge(status: string): { class: string; label: string } {
 		switch (status) {
 			case 'draft':
-				return { class: 'badge-warning', label: 'Draft' };
+				return { class: 'badge-ghost', label: 'Draft' };
+			case 'ready':
+				return { class: 'badge-warning', label: 'Ready' };
 			case 'sent':
 				return { class: 'badge-info', label: 'Sent' };
 			case 'viewed':
@@ -54,6 +67,8 @@
 				return { class: 'badge-success', label: 'Accepted' };
 			case 'declined':
 				return { class: 'badge-error', label: 'Declined' };
+			case 'revision_requested':
+				return { class: 'badge-warning badge-outline', label: 'Revision Requested' };
 			case 'expired':
 				return { class: 'badge-neutral', label: 'Expired' };
 			default:
@@ -130,35 +145,49 @@
 			class="btn btn-sm {statusFilter === 'all' ? 'btn-primary' : 'btn-ghost'}"
 			onclick={() => (statusFilter = 'all')}
 		>
-			All
+			All ({statusCounts.all})
 		</button>
 		<button
 			type="button"
 			class="btn btn-sm {statusFilter === 'draft' ? 'btn-primary' : 'btn-ghost'}"
 			onclick={() => (statusFilter = 'draft')}
 		>
-			Drafts
+			Drafts ({statusCounts.draft})
+		</button>
+		<button
+			type="button"
+			class="btn btn-sm {statusFilter === 'ready' ? 'btn-primary' : 'btn-ghost'}"
+			onclick={() => (statusFilter = 'ready')}
+		>
+			Ready ({statusCounts.ready})
 		</button>
 		<button
 			type="button"
 			class="btn btn-sm {statusFilter === 'sent' ? 'btn-primary' : 'btn-ghost'}"
 			onclick={() => (statusFilter = 'sent')}
 		>
-			Sent
+			Sent ({statusCounts.sent})
 		</button>
 		<button
 			type="button"
 			class="btn btn-sm {statusFilter === 'viewed' ? 'btn-primary' : 'btn-ghost'}"
 			onclick={() => (statusFilter = 'viewed')}
 		>
-			Viewed
+			Viewed ({statusCounts.viewed})
 		</button>
 		<button
 			type="button"
 			class="btn btn-sm {statusFilter === 'accepted' ? 'btn-primary' : 'btn-ghost'}"
 			onclick={() => (statusFilter = 'accepted')}
 		>
-			Accepted
+			Accepted ({statusCounts.accepted})
+		</button>
+		<button
+			type="button"
+			class="btn btn-sm {statusFilter === 'revision_requested' ? 'btn-primary' : 'btn-ghost'}"
+			onclick={() => (statusFilter = 'revision_requested')}
+		>
+			Revisions ({statusCounts.revision_requested})
 		</button>
 	</div>
 
@@ -237,16 +266,14 @@
 									<Pencil class="h-4 w-4" />
 								</button>
 
-								{#if proposal.status !== 'draft'}
-									<button
-										type="button"
-										class="btn btn-ghost btn-sm"
-										onclick={() => viewPublicProposal(proposal.slug)}
-										title="View public page"
-									>
-										<ExternalLink class="h-4 w-4" />
-									</button>
-								{/if}
+								<button
+									type="button"
+									class="btn btn-ghost btn-sm"
+									onclick={() => viewPublicProposal(proposal.slug)}
+									title="Preview proposal"
+								>
+									<ExternalLink class="h-4 w-4" />
+								</button>
 
 								<button
 									type="button"
