@@ -25,6 +25,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Agent/AI tooling
+.agent-os/
+
 # Build artifacts
 dist/
 build/
