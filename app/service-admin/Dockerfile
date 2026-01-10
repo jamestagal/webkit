@@ -35,7 +35,7 @@ WORKDIR ./service-admin
 CMD ["air", "-c", ".air.toml"]
 
 # Build
-FROM golang:1.24.4-bookworm AS build
+FROM golang:1.25-bookworm AS build
 WORKDIR /
 
 ARG TARGETOS
