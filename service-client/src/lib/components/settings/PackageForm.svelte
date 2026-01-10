@@ -301,11 +301,11 @@
 	<!-- Contract Terms -->
 	<SettingsSection title="Contract Terms" description="Minimum term and cancellation policy" icon={Clock}>
 		<div class="grid gap-4 sm:grid-cols-2">
-			<FormField label="Minimum Term (Months)">
+			<FormField label="Minimum Term (Months)" hint="0 = no minimum term">
 				<input
 					type="number"
 					class="input input-bordered w-full"
-					min="1"
+					min="0"
 					max="60"
 					bind:value={formData.minimumTermMonths}
 				/>
