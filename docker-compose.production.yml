@@ -1,0 +1,177 @@
+# Production Docker Compose for Hostinger VPS with Traefik
+# This connects to an existing Traefik instance on the traefik-public network
+
+services:
+  # =============================================================================
+  # Core API Service (Go)
+  # =============================================================================
+  core:
+    image: ghcr.io/jamestagal/webkit/service-core-r:latest
+    container_name: webkit-core
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: info
+      HTTP_PORT: 4001
+      GRPC_PORT: 4002
+      DOMAIN: webkit.au
+      TASK_TOKEN: ${TASK_TOKEN}
+      CORE_URL: https://api.webkit.au
+      ADMIN_URL: https://admin.webkit.au
+      CLIENT_URL: https://app.webkit.au
+      # Database
+      DATABASE_PROVIDER: postgres
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-webkit}
+      POSTGRES_USER: ${POSTGRES_USER:-webkit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Auth
+      AUTH_PROVIDER: ${AUTH_PROVIDER:-google}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      # Payment
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-stripe}
+      STRIPE_API_KEY: ${STRIPE_API_KEY}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      # Email
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-resend}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@webkit.au}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      # File Storage (R2)
+      FILE_PROVIDER: r2
+      BUCKET_NAME: ${BUCKET_NAME:-webkit-files}
+      R2_ENDPOINT: ${R2_ENDPOINT}
+      R2_ACCESS_KEY: ${R2_ACCESS_KEY}
+      R2_SECRET_KEY: ${R2_SECRET_KEY}
+    networks:
+      - traefik-public
+      - webkit-internal
+    labels:
+      - "traefik.enable=true"
+      # HTTP API
+      - "traefik.http.routers.webkit-api.rule=Host(`api.webkit.au`)"
+      - "traefik.http.routers.webkit-api.entrypoints=websecure"
+      - "traefik.http.routers.webkit-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.webkit-api.service=webkit-api"
+      - "traefik.http.services.webkit-api.loadbalancer.server.port=4001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # =============================================================================
+  # Admin Service (Go + Templ)
+  # =============================================================================
+  admin:
+    image: ghcr.io/jamestagal/webkit/service-admin-r:latest
+    container_name: webkit-admin
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: info
+      HTTP_PORT: 3001
+      SSE_PORT: 3002
+      DOMAIN: webkit.au
+      ADMIN_URL: https://admin.webkit.au
+      SSE_URL: https://admin.webkit.au
+      NATS_URL: nats://nats:4222
+      CORE_URL: https://api.webkit.au
+      CORE_URI: core:4002
+    networks:
+      - traefik-public
+      - webkit-internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.webkit-admin.rule=Host(`admin.webkit.au`)"
+      - "traefik.http.routers.webkit-admin.entrypoints=websecure"
+      - "traefik.http.routers.webkit-admin.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.webkit-admin.service=webkit-admin"
+      - "traefik.http.services.webkit-admin.loadbalancer.server.port=3001"
+    depends_on:
+      - core
+      - nats
+
+  # =============================================================================
+  # Client Service (SvelteKit - Node adapter for production)
+  # =============================================================================
+  client:
+    image: ghcr.io/jamestagal/webkit/service-client-r:latest
+    container_name: webkit-client
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      ORIGIN: https://app.webkit.au
+      PUBLIC_CORE_URL: https://api.webkit.au
+      PUBLIC_APP_DOMAIN: webkit.au
+      # Database for Drizzle (direct connection)
+      DATABASE_URL: postgres://${POSTGRES_USER:-webkit}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-webkit}
+      DIRECT_URL: postgres://${POSTGRES_USER:-webkit}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-webkit}
+    networks:
+      - traefik-public
+      - webkit-internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.webkit-client.rule=Host(`app.webkit.au`)"
+      - "traefik.http.routers.webkit-client.entrypoints=websecure"
+      - "traefik.http.routers.webkit-client.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.webkit-client.service=webkit-client"
+      - "traefik.http.services.webkit-client.loadbalancer.server.port=3000"
+    depends_on:
+      - core
+
+  # =============================================================================
+  # PostgreSQL Database
+  # =============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: webkit-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-webkit}
+      POSTGRES_USER: ${POSTGRES_USER:-webkit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - webkit-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-webkit} -d ${POSTGRES_DB:-webkit}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # NATS Message Queue
+  # =============================================================================
+  nats:
+    image: nats:latest
+    container_name: webkit-nats
+    restart: unless-stopped
+    command: ["--cluster_name", "webkit"]
+    networks:
+      - webkit-internal
+
+  # =============================================================================
+  # Gotenberg (PDF Generation)
+  # =============================================================================
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: webkit-gotenberg
+    restart: unless-stopped
+    networks:
+      - webkit-internal
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  traefik-public:
+    external: true
+  webkit-internal:
+    driver: bridge
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
