@@ -20,8 +20,18 @@ import { eq } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { env } from '$env/dynamic/private';
 
-// Use dynamic env for runtime configuration
-const stripe = new Stripe(env.STRIPE_SECRET_KEY || '');
+// Lazy-initialize Stripe to avoid build-time errors
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+	if (!_stripe) {
+		const secretKey = env.STRIPE_SECRET_KEY;
+		if (!secretKey) {
+			throw new Error('STRIPE_SECRET_KEY is not configured');
+		}
+		_stripe = new Stripe(secretKey);
+	}
+	return _stripe;
+}
 
 export const POST: RequestHandler = async ({ request }) => {
 	const payload = await request.text();
@@ -31,10 +41,16 @@ export const POST: RequestHandler = async ({ request }) => {
 		return new Response('Missing stripe-signature header', { status: 400 });
 	}
 
+	const webhookSecret = env.STRIPE_WEBHOOK_SECRET;
+	if (!webhookSecret) {
+		console.error('STRIPE_WEBHOOK_SECRET is not configured');
+		return new Response('Webhook not configured', { status: 500 });
+	}
+
 	let event: Stripe.Event;
 
 	try {
-		event = stripe.webhooks.constructEvent(payload, sig, env.STRIPE_WEBHOOK_SECRET || '');
+		event = getStripe().webhooks.constructEvent(payload, sig, webhookSecret);
 	} catch (err) {
 		console.error('Webhook signature verification failed:', err);
 		return new Response('Webhook signature verification failed', { status: 400 });
