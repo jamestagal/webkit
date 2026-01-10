@@ -27,24 +27,68 @@ export async function refresh(
 ): Promise<string> {
 	const end = perf("refresh");
 	try {
+		logger.debug(`Attempting token refresh to ${env.CORE_URL}/refresh`);
+
 		const r = await fetch(`${env.CORE_URL}/refresh`, {
 			headers: { Cookie: `refresh_token=${refresh_token}; access_token=${access_token}` },
 		});
+
 		if (!r.ok) {
+			const body = await r.text().catch(() => "");
+			logger.error(`Refresh failed: status=${r.status}, body=${body}`);
 			throw new Error(`Error refreshing token: ${r.status}`);
 		}
-		const new_cookies = r.headers.get("set-cookie");
-		if (!new_cookies) {
-			throw new Error("No cookies found");
+
+		// Use getSetCookie() for proper handling of multiple Set-Cookie headers
+		// This is the standard way in Node 18.15+ and works correctly with proxies
+		let cookieHeaders: string[];
+		if (typeof r.headers.getSetCookie === "function") {
+			cookieHeaders = r.headers.getSetCookie();
+		} else {
+			// Fallback for older environments - get raw header
+			const raw = r.headers.get("set-cookie");
+			cookieHeaders = raw ? [raw] : [];
 		}
-		refresh_token = new_cookies.match(/refresh_token=([^;]+)/)?.[1] ?? "";
-		access_token = new_cookies.match(/access_token=([^;]+)/)?.[1] ?? "";
+
+		logger.debug(`Received ${cookieHeaders.length} Set-Cookie header(s)`);
+
+		if (cookieHeaders.length === 0) {
+			throw new Error("No Set-Cookie headers in refresh response");
+		}
+
+		// Parse cookies from all headers
+		let newAccessToken = "";
+		let newRefreshToken = "";
+
+		for (const cookie of cookieHeaders) {
+			const accessMatch = cookie.match(/access_token=([^;]+)/);
+			const refreshMatch = cookie.match(/refresh_token=([^;]+)/);
+
+			if (accessMatch?.[1]) {
+				newAccessToken = accessMatch[1];
+			}
+			if (refreshMatch?.[1]) {
+				newRefreshToken = refreshMatch[1];
+			}
+		}
+
+		// Validate we got both tokens
+		if (!newAccessToken) {
+			logger.error("No access_token in refresh response cookies");
+			throw new Error("Missing access_token in refresh response");
+		}
+		if (!newRefreshToken) {
+			logger.error("No refresh_token in refresh response cookies");
+			throw new Error("Missing refresh_token in refresh response");
+		}
+
+		logger.debug("Successfully parsed new tokens from refresh response");
 
 		// Token expiration constants (must match Go backend config/config.go)
 		const ACCESS_TOKEN_MAX_AGE = 15 * 60; // 15 minutes in seconds
 		const REFRESH_TOKEN_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
 
-		event.cookies.set("access_token", access_token, {
+		event.cookies.set("access_token", newAccessToken, {
 			path: "/",
 			sameSite: "lax",
 			secure: true,
@@ -52,7 +96,7 @@ export async function refresh(
 			domain: env.DOMAIN,
 			maxAge: ACCESS_TOKEN_MAX_AGE,
 		});
-		event.cookies.set("refresh_token", refresh_token, {
+		event.cookies.set("refresh_token", newRefreshToken, {
 			path: "/",
 			sameSite: "lax",
 			secure: true,
@@ -60,8 +104,11 @@ export async function refresh(
 			domain: env.DOMAIN,
 			maxAge: REFRESH_TOKEN_MAX_AGE,
 		});
+
+		logger.debug(`Cookies set with domain=${env.DOMAIN}, access_maxAge=${ACCESS_TOKEN_MAX_AGE}s, refresh_maxAge=${REFRESH_TOKEN_MAX_AGE}s`);
+
 		end();
-		return access_token;
+		return newAccessToken;
 	} catch (e) {
 		logger.error(`Error refreshing token: ${e}`);
 		throw new TokenRefreshError("Session expired. Please log in again.");

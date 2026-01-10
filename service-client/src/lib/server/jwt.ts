@@ -15,15 +15,23 @@ function getPublicKeyPath(): string {
 
 // Verify a JWT token using EdDSA
 export async function verifyJWT<T>(token: string): Promise<T | undefined> {
+	// Empty token is not an error, just means user isn't authenticated
+	if (!token) {
+		return undefined;
+	}
+
 	try {
-		// Load public key
 		const publicKey = readFileSync(getPublicKeyPath(), "utf-8");
 		const p = await jose.importSPKI(publicKey, "EdDSA");
-
 		const { payload } = await jose.jwtVerify<T>(token, p);
 		return payload;
 	} catch (e) {
-		logger.error("Error verifying JWT", e);
+		// Token expiration is normal (triggers refresh), only log actual errors
+		if (e instanceof jose.errors.JWTExpired) {
+			logger.debug("JWT token expired - refresh will be attempted");
+		} else {
+			logger.error("Error verifying JWT", e);
+		}
 		return undefined;
 	}
 }

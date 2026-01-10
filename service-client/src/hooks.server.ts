@@ -77,8 +77,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// Check if we have a token. If not, redirect to the auth page
 	let access_token = event.cookies.get("access_token") ?? "";
 	const refresh_token = event.cookies.get("refresh_token") ?? "";
+
+	// Debug logging for auth flow (helps diagnose production session issues)
+	logger.debug(`Auth check: path=${event.url.pathname}, hasAccessToken=${!!access_token}, hasRefreshToken=${!!refresh_token}`);
+
 	if (!refresh_token) {
-		logger.debug("No token found");
+		logger.debug("No refresh_token cookie found - redirecting to login");
 		throw redirect(302, "/login");
 	}
 	if (event.url.pathname === "/payments") {
@@ -89,19 +93,21 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// If the token is invalid, refresh the token
 	// JWT token holds the information about subscription status, so we need to refresh it
 	if (!user) {
+		logger.debug(`Access token invalid/expired for path=${event.url.pathname}, attempting refresh`);
 		try {
 			access_token = await refresh(event, access_token, refresh_token);
 			user = await verifyJWT(access_token);
 			if (!user) {
-				logger.error("Error refreshing token");
+				logger.error("Token verification failed after successful refresh");
 				if (isRemoteFunctionRequest(event)) {
 					throw error(401, "Session expired. Please log in again.");
 				}
 				throw redirect(302, "/login");
 			}
+			logger.debug("Token refresh successful");
 		} catch (e) {
 			if (e instanceof TokenRefreshError) {
-				logger.error("Token refresh failed:", e.message);
+				logger.error(`Token refresh failed for path=${event.url.pathname}: ${e.message}`);
 				// For remote functions (commands), throw HTTP error instead of redirect
 				if (isRemoteFunctionRequest(event)) {
 					throw error(401, e.message);
