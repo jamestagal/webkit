@@ -18,9 +18,10 @@ import { db } from '$lib/server/db';
 import { invoices, agencyProfiles } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import Stripe from 'stripe';
-import { STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
-const stripe = new Stripe(STRIPE_SECRET_KEY);
+// Use dynamic env for runtime configuration
+const stripe = new Stripe(env.STRIPE_SECRET_KEY || '');
 
 export const POST: RequestHandler = async ({ request }) => {
 	const payload = await request.text();
@@ -33,7 +34,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	let event: Stripe.Event;
 
 	try {
-		event = stripe.webhooks.constructEvent(payload, sig, STRIPE_WEBHOOK_SECRET);
+		event = stripe.webhooks.constructEvent(payload, sig, env.STRIPE_WEBHOOK_SECRET || '');
 	} catch (err) {
 		console.error('Webhook signature verification failed:', err);
 		return new Response('Webhook signature verification failed', { status: 400 });
