@@ -63,8 +63,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           tags: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          no-cache: true
 
       - name: Clean up key files (Go services)
         if: always() && matrix.service != 'service-client'
