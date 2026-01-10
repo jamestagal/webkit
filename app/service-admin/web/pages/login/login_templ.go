@@ -5,12 +5,12 @@ package login
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
-import "github.com/a-h/templ"
-import templruntime "github.com/a-h/templ/runtime"
-
 import (
 	"service-admin/config"
 	"service-admin/web"
+
+	"github.com/a-h/templ"
+	templruntime "github.com/a-h/templ/runtime"
 )
 
 func Login(cfg *config.Config, err string) templ.Component {
@@ -46,7 +46,7 @@ func Login(cfg *config.Config, err string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<main class=\"flex min-h-full flex-col items-center justify-center p-10\"><h2 class=\"text-center text-2xl font-semibold\">Log in to GoFast</h2><div class=\"mx-auto mt-10 flex w-full max-w-sm flex-col gap-4\"><form action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<main class=\"flex min-h-full flex-col items-center justify-center p-10\"><h2 class=\"text-center text-2xl font-semibold\">Log in to Webkit</h2><div class=\"mx-auto mt-10 flex w-full max-w-sm flex-col gap-4\"><form action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

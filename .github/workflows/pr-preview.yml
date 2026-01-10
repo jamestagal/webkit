@@ -121,6 +121,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           CONTEXT: ${{ vars.CONTEXT }}
           DOMAIN: ${{ vars.DOMAIN }}
+          CLOUDFLARE: "1"
         working-directory: service-client
         run: |
           npm ci

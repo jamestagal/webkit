@@ -1,5 +1,9 @@
-import adapter from "@sveltejs/adapter-node";
+import adapterCloudflare from "@sveltejs/adapter-cloudflare";
+import adapterNode from "@sveltejs/adapter-node";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
+
+// Use Cloudflare adapter for production/preview, Node for local dev
+const isCloudflare = process.env.CF_PAGES === '1' || process.env.CLOUDFLARE === '1';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -15,10 +19,8 @@ const config = {
 	},
 
 	kit: {
-		// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
-		// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
-		// See https://svelte.dev/docs/kit/adapters for more information about adapters.
-		adapter: adapter(),
+		// Use Cloudflare adapter for deployments, Node adapter for local development
+		adapter: isCloudflare ? adapterCloudflare() : adapterNode(),
 		alias: {},
 		experimental: {
 			remoteFunctions: true

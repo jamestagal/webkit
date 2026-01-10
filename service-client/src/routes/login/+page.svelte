@@ -30,7 +30,7 @@
 {/if}
 
 <main class="flex min-h-full flex-col items-center justify-center p-10">
-	<h2 class="text-center text-2xl font-semibold">Log in to GoFast</h2>
+	<h2 class="text-center text-2xl font-semibold">Log in to Webkit</h2>
 
 	<div class="mx-auto mt-10 flex w-full max-w-sm flex-col gap-4">
 		<form method="post" action={env.PUBLIC_CORE_URL + "/login"}>
