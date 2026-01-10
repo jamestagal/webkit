@@ -1,13 +1,19 @@
 <script lang="ts">
-	import { MessageCircle, ClipboardList, Users, TrendingUp } from 'lucide-svelte';
+	import { invalidateAll } from '$app/navigation';
+	import { MessageCircle, ClipboardList, Users, TrendingUp, Rocket, Check, Sparkles, Trash2, Lock } from 'lucide-svelte';
+	import { loadDemoData, clearDemoData } from '$lib/api/demo.remote';
+	import { getToast } from '$lib/ui/toast_store.svelte';
 
 	let { data } = $props();
+
+	const toast = getToast();
+	let isLoadingDemo = $state(false);
 
 	// Quick stats (placeholder - would be loaded from server)
 	let stats = $state([
 		{
 			label: 'Active Consultations',
-			value: '-',
+			value: data.consultationCount.toString(),
 			icon: MessageCircle,
 			href: `/${data.agency.slug}/consultation/history?status=in_progress`
 		},
@@ -24,6 +30,38 @@
 			href: `/${data.agency.slug}/settings/members`
 		}
 	]);
+
+	async function handleLoadDemo() {
+		isLoadingDemo = true;
+		try {
+			const result = await loadDemoData();
+			if (result.success) {
+				toast.success('Demo data loaded successfully!');
+				await invalidateAll();
+			} else {
+				toast.error('Demo data already exists');
+			}
+		} catch (err) {
+			toast.error('Failed to load demo data');
+			console.error(err);
+		} finally {
+			isLoadingDemo = false;
+		}
+	}
+
+	async function handleClearDemo() {
+		isLoadingDemo = true;
+		try {
+			await clearDemoData();
+			toast.success('Demo data cleared');
+			await invalidateAll();
+		} catch (err) {
+			toast.error('Failed to clear demo data');
+			console.error(err);
+		} finally {
+			isLoadingDemo = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -42,6 +80,91 @@
 			{/if}
 		</p>
 	</div>
+
+	<!-- Onboarding Section (shown until profile is complete) -->
+	{#if !data.isProfileComplete}
+		<div class="card bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20">
+			<div class="card-body">
+				<h2 class="card-title flex items-center gap-2">
+					<Rocket class="h-5 w-5" />
+					Get Started with Your Agency
+				</h2>
+				<p class="text-base-content/70 text-sm">Complete these steps to set up your agency and explore the platform.</p>
+
+				<div class="space-y-4 mt-4">
+					<!-- Step 1: Agency Settings (Required) -->
+					<div class="flex items-start sm:items-center gap-4 flex-col sm:flex-row">
+						{#if data.isProfileComplete}
+							<div class="badge badge-success gap-1">
+								<Check class="h-3 w-3" /> Complete
+							</div>
+						{:else}
+							<div class="badge badge-primary">Step 1</div>
+						{/if}
+						<div class="flex-1">
+							<p class="font-medium">Complete Agency Settings</p>
+							<p class="text-sm text-base-content/60">Add your business details, address, and payment info</p>
+						</div>
+						{#if !data.isProfileComplete}
+							<a href="/{data.agency.slug}/settings/profile" class="btn btn-sm btn-primary">
+								Go to Settings
+							</a>
+						{/if}
+					</div>
+
+					<!-- Step 2: Demo Data (Locked until Step 1 complete) -->
+					<div class="flex items-start sm:items-center gap-4 flex-col sm:flex-row">
+						{#if data.hasDemoData}
+							<div class="badge badge-success gap-1">
+								<Check class="h-3 w-3" /> Loaded
+							</div>
+						{:else if !data.isProfileComplete}
+							<div class="badge badge-ghost gap-1">
+								<Lock class="h-3 w-3" /> Step 2
+							</div>
+						{:else}
+							<div class="badge badge-outline">Step 2</div>
+						{/if}
+						<div class="flex-1">
+							<p class="font-medium">Load Demo Data (Optional)</p>
+							{#if !data.isProfileComplete}
+								<p class="text-sm text-base-content/60">Complete Step 1 first to enable demo data</p>
+							{:else}
+								<p class="text-sm text-base-content/60">See how a full client journey works with sample data</p>
+							{/if}
+						</div>
+						{#if !data.hasDemoData}
+							<button
+								class="btn btn-sm btn-outline gap-1"
+								onclick={handleLoadDemo}
+								disabled={isLoadingDemo || !data.isProfileComplete}
+							>
+								{#if isLoadingDemo}
+									<span class="loading loading-spinner loading-xs"></span>
+								{:else}
+									<Sparkles class="h-3 w-3" />
+								{/if}
+								Load Demo
+							</button>
+						{:else}
+							<button
+								class="btn btn-sm btn-ghost text-error gap-1"
+								onclick={handleClearDemo}
+								disabled={isLoadingDemo}
+							>
+								{#if isLoadingDemo}
+									<span class="loading loading-spinner loading-xs"></span>
+								{:else}
+									<Trash2 class="h-3 w-3" />
+								{/if}
+								Clear Demo
+							</button>
+						{/if}
+					</div>
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	<!-- Quick Stats -->
 	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

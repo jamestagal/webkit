@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
-	import { Building2, Package, PlusSquare, Users, Palette, FileText, CreditCard } from 'lucide-svelte';
+	import { Building2, Package, PlusSquare, Users, Palette, FileText, CreditCard, Sparkles } from 'lucide-svelte';
 
 	let { children, data }: { children: Snippet; data: import('./$types').LayoutData } = $props();
 
@@ -51,6 +51,12 @@
 			url: `/${agencySlug}/settings/payments`,
 			icon: CreditCard,
 			description: 'Stripe Connect & online payments'
+		},
+		{
+			label: 'Demo Data',
+			url: `/${agencySlug}/settings/demo`,
+			icon: Sparkles,
+			description: 'Load or clear sample data'
 		}
 	]);
 
