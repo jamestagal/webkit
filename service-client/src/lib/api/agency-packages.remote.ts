@@ -28,7 +28,7 @@ const CreatePackageSchema = v.object({
 	monthlyPrice: v.optional(v.pipe(v.string(), v.regex(/^\d+(\.\d{1,2})?$/))),
 	oneTimePrice: v.optional(v.pipe(v.string(), v.regex(/^\d+(\.\d{1,2})?$/))),
 	hostingFee: v.optional(v.pipe(v.string(), v.regex(/^\d+(\.\d{1,2})?$/))),
-	minimumTermMonths: v.optional(v.pipe(v.number(), v.minValue(1))),
+	minimumTermMonths: v.optional(v.pipe(v.number(), v.minValue(0))), // 0 = no minimum term (month-to-month or one-time)
 	cancellationFeeType: v.optional(v.picklist(['none', 'fixed', 'remaining_balance'])),
 	cancellationFeeAmount: v.optional(v.pipe(v.string(), v.regex(/^\d+(\.\d{1,2})?$/))),
 	includedFeatures: v.optional(v.array(v.string())),
@@ -47,7 +47,7 @@ const UpdatePackageSchema = v.object({
 	monthlyPrice: v.optional(v.pipe(v.string(), v.regex(/^\d+(\.\d{1,2})?$/))),
 	oneTimePrice: v.optional(v.pipe(v.string(), v.regex(/^\d+(\.\d{1,2})?$/))),
 	hostingFee: v.optional(v.pipe(v.string(), v.regex(/^\d+(\.\d{1,2})?$/))),
-	minimumTermMonths: v.optional(v.pipe(v.number(), v.minValue(1))),
+	minimumTermMonths: v.optional(v.pipe(v.number(), v.minValue(0))), // 0 = no minimum term (month-to-month or one-time)
 	cancellationFeeType: v.optional(v.nullable(v.picklist(['none', 'fixed', 'remaining_balance']))),
 	cancellationFeeAmount: v.optional(v.pipe(v.string(), v.regex(/^\d+(\.\d{1,2})?$/))),
 	includedFeatures: v.optional(v.array(v.string())),
