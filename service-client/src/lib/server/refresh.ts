@@ -40,12 +40,17 @@ export async function refresh(
 		refresh_token = new_cookies.match(/refresh_token=([^;]+)/)?.[1] ?? "";
 		access_token = new_cookies.match(/access_token=([^;]+)/)?.[1] ?? "";
 
+		// Token expiration constants (must match Go backend config/config.go)
+		const ACCESS_TOKEN_MAX_AGE = 15 * 60; // 15 minutes in seconds
+		const REFRESH_TOKEN_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
+
 		event.cookies.set("access_token", access_token, {
 			path: "/",
 			sameSite: "lax",
 			secure: true,
 			httpOnly: true,
 			domain: env.DOMAIN,
+			maxAge: ACCESS_TOKEN_MAX_AGE,
 		});
 		event.cookies.set("refresh_token", refresh_token, {
 			path: "/",
@@ -53,6 +58,7 @@ export async function refresh(
 			secure: true,
 			httpOnly: true,
 			domain: env.DOMAIN,
+			maxAge: REFRESH_TOKEN_MAX_AGE,
 		});
 		end();
 		return access_token;
