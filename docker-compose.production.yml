@@ -101,9 +101,20 @@ services:
       NODE_ENV: production
       PORT: 3000
       ORIGIN: https://app.webkit.au
+      # Server-side URLs (for SSR/hooks - uses internal Docker network)
+      CORE_URL: http://webkit-core:4001
+      DOMAIN: webkit.au
+      # Client-side URLs (for browser requests)
       PUBLIC_CORE_URL: https://api.webkit.au
+      PUBLIC_CLIENT_URL: https://app.webkit.au
       PUBLIC_APP_DOMAIN: webkit.au
-      # Database for Drizzle (direct connection)
+      # Database for Drizzle (individual vars for pg.Pool)
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-webkit}
+      POSTGRES_USER: ${POSTGRES_USER:-webkit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Connection strings (for compatibility)
       DATABASE_URL: postgres://${POSTGRES_USER:-webkit}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-webkit}
       DIRECT_URL: postgres://${POSTGRES_USER:-webkit}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-webkit}
     networks:
