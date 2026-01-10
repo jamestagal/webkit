@@ -5,7 +5,14 @@ import (
 	"errors"
 	"net/http"
 	"service-core/domain/login"
+	"strings"
 )
+
+// isSecureCookie returns true if cookies should have Secure flag set.
+// Secure cookies only work with HTTPS, so we disable it for localhost development.
+func isSecureCookie(domain string) bool {
+	return !strings.HasPrefix(domain, "localhost")
+}
 
 func (h *Handler) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	refreshToken, err := r.Cookie("refresh_token")
@@ -26,7 +33,7 @@ func (h *Handler) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		Name:     "access_token",
 		Value:    response.AccessToken,
-		Secure:   true,
+		Secure:   isSecureCookie(h.cfg.Domain),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Domain:   h.cfg.Domain,
@@ -36,7 +43,7 @@ func (h *Handler) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		Name:     "refresh_token",
 		Value:    response.RefreshToken,
-		Secure:   true,
+		Secure:   isSecureCookie(h.cfg.Domain),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Domain:   h.cfg.Domain,
@@ -56,7 +63,7 @@ func (h *Handler) handleLogout(w http.ResponseWriter, r *http.Request) {
 		Name:     "access_token",
 		Value:    "",
 		MaxAge:   -1,
-		Secure:   true,
+		Secure:   isSecureCookie(h.cfg.Domain),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Domain:   h.cfg.Domain,
@@ -66,7 +73,7 @@ func (h *Handler) handleLogout(w http.ResponseWriter, r *http.Request) {
 		Name:     "refresh_token",
 		Value:    "",
 		MaxAge:   -1,
-		Secure:   true,
+		Secure:   isSecureCookie(h.cfg.Domain),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Domain:   h.cfg.Domain,
@@ -76,7 +83,7 @@ func (h *Handler) handleLogout(w http.ResponseWriter, r *http.Request) {
 		Name:     "session_token",
 		Value:    "",
 		MaxAge:   -1,
-		Secure:   true,
+		Secure:   isSecureCookie(h.cfg.Domain),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Domain:   h.cfg.Domain,
@@ -117,7 +124,7 @@ func (h *Handler) handleLoginCallback(w http.ResponseWriter, r *http.Request) {
 			Name:     "session_token",
 			Path:     "/",
 			Value:    response.SessionToken,
-			Secure:   true,
+			Secure:   isSecureCookie(h.cfg.Domain),
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
 			Domain:   h.cfg.Domain,
@@ -134,7 +141,7 @@ func (h *Handler) handleLoginCallback(w http.ResponseWriter, r *http.Request) {
 			Path:     "/",
 			Name:     "access_token",
 			Value:    response.AccessToken,
-			Secure:   true,
+			Secure:   isSecureCookie(h.cfg.Domain),
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
 			Domain:   h.cfg.Domain,
@@ -144,7 +151,7 @@ func (h *Handler) handleLoginCallback(w http.ResponseWriter, r *http.Request) {
 			Path:     "/",
 			Name:     "refresh_token",
 			Value:    response.RefreshToken,
-			Secure:   true,
+			Secure:   isSecureCookie(h.cfg.Domain),
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
 			Domain:   h.cfg.Domain,
@@ -181,7 +188,7 @@ func (h *Handler) handleLoginPhone(w http.ResponseWriter, r *http.Request) {
 		Name:     "session_token",
 		Path:     "/",
 		Value:    s,
-		Secure:   true,
+		Secure:   isSecureCookie(h.cfg.Domain),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Domain:   h.cfg.Domain,
@@ -218,7 +225,7 @@ func (h *Handler) handleLoginVerify(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		Name:     "access_token",
 		Value:    tokens.AccessToken,
-		Secure:   true,
+		Secure:   isSecureCookie(h.cfg.Domain),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Domain:   h.cfg.Domain,
@@ -228,7 +235,7 @@ func (h *Handler) handleLoginVerify(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		Name:     "refresh_token",
 		Value:    tokens.RefreshToken,
-		Secure:   true,
+		Secure:   isSecureCookie(h.cfg.Domain),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Domain:   h.cfg.Domain,

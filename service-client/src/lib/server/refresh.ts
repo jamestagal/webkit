@@ -1,11 +1,24 @@
 import { env } from "$env/dynamic/private";
-import { redirect, type RequestEvent } from "@sveltejs/kit";
+import { type RequestEvent } from "@sveltejs/kit";
 import { logger, perf } from "./logger";
 
 export type AuthResponse = {
 	access_token: string;
 	refresh_token: string;
 };
+
+/**
+ * Custom error for token refresh failures.
+ * This is thrown instead of redirect() to allow proper handling in different contexts:
+ * - Page requests: hooks.server.ts converts this to a redirect
+ * - Remote function commands: error propagates and client handles it
+ */
+export class TokenRefreshError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "TokenRefreshError";
+	}
+}
 
 export async function refresh(
 	event: RequestEvent,
@@ -45,6 +58,6 @@ export async function refresh(
 		return access_token;
 	} catch (e) {
 		logger.error(`Error refreshing token: ${e}`);
-		throw redirect(302, "/login");
+		throw new TokenRefreshError("Session expired. Please log in again.");
 	}
 }

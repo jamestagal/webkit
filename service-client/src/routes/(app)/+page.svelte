@@ -18,7 +18,7 @@
 				You don't have an agency yet. Create one to get started with consultations and proposals.
 			</p>
 			<div class="mt-6 flex flex-col gap-3 w-full">
-				<a href="/agencies/new" class="btn btn-primary">
+				<a href="/agencies/create" class="btn btn-primary">
 					<Plus class="h-4 w-4" />
 					Create Agency
 				</a>
