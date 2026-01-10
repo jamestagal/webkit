@@ -5,7 +5,7 @@
  * Used by email service to attach PDFs to emails.
  */
 
-import { PUBLIC_CLIENT_URL } from '$env/static/public';
+import { env } from '$env/dynamic/public';
 
 // =============================================================================
 // Types
@@ -58,7 +58,7 @@ async function fetchPdf(
 	cookies: string
 ): Promise<PdfFetchResult> {
 	try {
-		const baseUrl = PUBLIC_CLIENT_URL || 'http://localhost:3004';
+		const baseUrl = env.PUBLIC_CLIENT_URL || 'http://localhost:3004';
 		const url = `${baseUrl}${endpoint}`;
 
 		const response = await fetch(url, {

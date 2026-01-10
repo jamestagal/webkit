@@ -13,7 +13,7 @@
 	import { quintOut } from "svelte/easing";
 	import { onMount } from "svelte";
 	import { tweened } from "svelte/motion";
-	import { PUBLIC_APP_NAME } from "$env/static/public";
+	import { env } from "$env/dynamic/public";
 
 	let {
 		rating = 5,
@@ -107,7 +107,7 @@
 			</span>
 		</div>
 
-		<p class="text-xs font-bold">{count} Developers already ship with {PUBLIC_APP_NAME}</p>
+		<p class="text-xs font-bold">{count} Developers already ship with {env.PUBLIC_APP_NAME || 'Webkit'}</p>
 	</div>
 </div>
 

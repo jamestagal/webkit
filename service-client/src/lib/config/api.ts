@@ -1,4 +1,4 @@
-import { PUBLIC_CORE_URL } from "$env/static/public";
+import { env } from "$env/dynamic/public";
 import { browser } from "$app/environment";
 
 export interface ApiConfig {
@@ -23,7 +23,7 @@ export interface ApiEndpoints {
  */
 export function getApiConfig(): ApiConfig {
 	// Use browser-accessible PUBLIC_CORE_URL for client-side requests
-	const baseUrl = PUBLIC_CORE_URL || "http://localhost:4001";
+	const baseUrl = env.PUBLIC_CORE_URL || "http://localhost:4001";
 
 	return {
 		baseUrl: `${baseUrl}/api/v1`,
