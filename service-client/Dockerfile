@@ -20,6 +20,7 @@ COPY package.json /service/package.json
 COPY package-lock.json /service/package-lock.json
 RUN npm install
 
+COPY ./public.pem /public.pem
 COPY . /service
 RUN npm run build
 
