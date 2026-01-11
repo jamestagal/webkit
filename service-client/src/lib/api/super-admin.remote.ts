@@ -311,7 +311,7 @@ export const getUsers = query(UsersFilterSchema, async (filters) => {
 
 	const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-	// Get users with agency count
+	// Get users with agency count using explicit SQL for the correlated subquery
 	const userList = await db
 		.select({
 			id: users.id,
@@ -319,9 +319,9 @@ export const getUsers = query(UsersFilterSchema, async (filters) => {
 			access: users.access,
 			created: users.created,
 			agencyCount: sql<number>`(
-				SELECT COUNT(*) FROM ${agencyMemberships}
-				WHERE ${agencyMemberships.userId} = ${users.id}
-				AND ${agencyMemberships.status} = 'active'
+				SELECT COUNT(*) FROM agency_memberships am
+				WHERE am.user_id = ${users.id}
+				AND am.status = 'active'
 			)`
 		})
 		.from(users)
