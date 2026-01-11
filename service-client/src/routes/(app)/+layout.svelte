@@ -23,6 +23,15 @@
 
 	let current = $derived(page.url.pathname);
 
+	// Check if we're on an agency route - if so, hide this layout's navigation
+	// Agency routes have the pattern /[agencySlug]/... where agencySlug is not a reserved word
+	const reservedPaths = ['consultation', 'notes', 'payments', 'files', 'emails', 'agencies', 'api', 'auth'];
+	let isAgencyRoute = $derived(() => {
+		const pathParts = page.url.pathname.split('/').filter(Boolean);
+		// If path has at least one segment and it's not a reserved path, it's likely an agency route
+		return pathParts.length > 0 && !reservedPaths.includes(pathParts[0]);
+	});
+
 	const nav = [
 		{ label: "Dashboard", url: "/", icon: House },
 		{ label: "Consultation", url: "/consultation", icon: MessageCircle },
@@ -43,9 +52,10 @@
 </script>
 
 <div id="content" class="h-full">
-	<!-- Desktop menu -->
+	{#if !isAgencyRoute()}
+	<!-- Desktop menu - only show for client portal routes -->
 	<div
-		class="lg:bg-base-300 hidden !overflow-visible lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-20 lg:flex-col lg:overflow-y-auto lg:pb-4"
+		class="lg:bg-base-300 hidden overflow-visible! lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-20 lg:flex-col lg:overflow-y-auto lg:pb-4"
 	>
 		<div class="flex grow flex-col">
 			<a href="/" class="mt-4 flex h-8 shrink-0 items-center justify-center">
@@ -67,7 +77,7 @@
 							</div>
 						</li>
 					{/each}
-					<li class="!mt-auto">
+					<li class="mt-auto!">
 						<div class="tooltip tooltip-right" data-tip="Logout">
 							<form
 								action={env.PUBLIC_CORE_URL + "/logout"}
@@ -86,7 +96,7 @@
 			</nav>
 		</div>
 	</div>
-	<!-- Mobile menu -->
+	<!-- Mobile menu - only show for client portal routes -->
 	<div
 		class="bg-base-300 sticky top-0 z-30 flex items-center gap-x-6 px-4 py-4 shadow-sm sm:px-6 lg:hidden"
 	>
@@ -157,8 +167,9 @@
 			<button>close</button>
 		</form>
 	</dialog>
-	<main class="min-h-full lg:pl-20">
-		<div class="px-4 py-10 sm:px-6 lg:px-8 lg:py-6">
+	{/if}
+	<main class={isAgencyRoute() ? 'min-h-full' : 'min-h-full lg:pl-20'}>
+		<div class={isAgencyRoute() ? '' : 'px-4 py-10 sm:px-6 lg:px-8 lg:py-6'}>
 			{@render children()}
 		</div>
 	</main>

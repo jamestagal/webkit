@@ -103,60 +103,64 @@
 		<div class="space-y-4">
 			{#each consultations as consultation}
 				<div class="card bg-base-100 border border-base-300 transition-shadow hover:shadow-md">
-					<div class="card-body">
-						<div class="flex items-start justify-between">
-							<div class="flex-1">
-								<div class="flex items-center gap-3">
-									<h3 class="text-lg font-semibold">
-										{consultation.contactInfo?.business_name || 'Untitled Consultation'}
-									</h3>
-									<span class="badge {getStatusBadgeClass(consultation.status)}">
-										{consultation.status === 'completed' ? 'Completed' : consultation.status === 'draft' ? 'Draft' : consultation.status}
-									</span>
-								</div>
+					<div class="card-body p-4 sm:p-6">
+						<!-- Header with title and badge -->
+						<div class="flex flex-wrap items-center gap-2">
+							<h3 class="text-lg font-semibold">
+								{consultation.contactInfo?.business_name || 'Untitled Consultation'}
+							</h3>
+							<span class="badge {getStatusBadgeClass(consultation.status)} whitespace-nowrap">
+								{consultation.status === 'completed' ? 'Completed' : consultation.status === 'draft' ? 'Draft' : consultation.status}
+							</span>
+						</div>
 
-								<div class="mt-2 grid grid-cols-2 gap-4 text-sm text-base-content/70">
-									<div>
-										<span class="font-medium">Contact:</span>
-										{consultation.contactInfo?.contact_person || 'N/A'}
-									</div>
-									<div>
-										<span class="font-medium">Industry:</span>
-										{consultation.businessContext?.industry || 'N/A'}
-									</div>
-									<div>
-										<span class="font-medium">Created:</span>
-										{formatDate(consultation.createdAt)}
-									</div>
-									<div>
-										<span class="font-medium">Last Updated:</span>
-										{formatDate(consultation.updatedAt)}
-									</div>
-								</div>
-
-								<!-- Progress Bar -->
-								<div class="mt-4">
-									<div class="flex items-center justify-between text-xs text-base-content/60">
-										<span>Completion</span>
-										<span>{consultation.completionPercentage}%</span>
-									</div>
-									<progress
-										class="progress w-full mt-1 {consultation.status === 'completed' ? 'progress-success' : 'progress-primary'}"
-										value={consultation.completionPercentage}
-										max="100"
-									></progress>
-								</div>
+						<!-- Details grid -->
+						<div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 text-sm text-base-content/70">
+							<div>
+								<span class="font-medium">Contact:</span>{' '}
+								{consultation.contactInfo?.contact_person || 'N/A'}
 							</div>
-
-							<!-- Actions -->
-							<div class="ml-6 flex flex-col gap-2">
-								<button class="btn btn-ghost btn-sm" onclick={() => viewConsultation(consultation.id)}>
-									View
-								</button>
-								<button class="btn btn-primary btn-sm" onclick={() => editConsultation(consultation.id)}>
-									{consultation.status === 'draft' ? 'Continue' : 'Edit'}
-								</button>
+							<div>
+								<span class="font-medium">Industry:</span>{' '}
+								{consultation.businessContext?.industry || 'N/A'}
 							</div>
+							<div>
+								<span class="font-medium">Created:</span>{' '}
+								{formatDate(consultation.createdAt)}
+							</div>
+							<div>
+								<span class="font-medium">Updated:</span>{' '}
+								{formatDate(consultation.updatedAt)}
+							</div>
+						</div>
+
+						<!-- Progress Bar -->
+						<div class="mt-4">
+							<div class="flex items-center justify-between text-xs text-base-content/60">
+								<span>Completion</span>
+								<span>{consultation.completionPercentage}%</span>
+							</div>
+							<progress
+								class="progress w-full mt-1 {consultation.status === 'completed' ? 'progress-success' : 'progress-primary'}"
+								value={consultation.completionPercentage}
+								max="100"
+							></progress>
+						</div>
+
+						<!-- Actions - below content on mobile, better visibility -->
+						<div class="mt-4 pt-4 border-t border-base-200 flex gap-2">
+							<button
+								class="btn btn-outline btn-sm flex-1 sm:flex-none"
+								onclick={() => viewConsultation(consultation.id)}
+							>
+								View Details
+							</button>
+							<button
+								class="btn btn-primary btn-sm flex-1 sm:flex-none"
+								onclick={() => editConsultation(consultation.id)}
+							>
+								{consultation.status === 'draft' ? 'Continue' : 'Edit'}
+							</button>
 						</div>
 					</div>
 				</div>

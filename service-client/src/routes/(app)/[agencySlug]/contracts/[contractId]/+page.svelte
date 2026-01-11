@@ -33,7 +33,8 @@
 		AlertCircle,
 		LayoutDashboard,
 		Settings2,
-		FileDown
+		FileDown,
+		MoreHorizontal
 	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
@@ -367,109 +368,134 @@
 
 <div class="flex min-h-screen flex-col">
 	<!-- Header -->
-	<div class="navbar bg-base-100 border-b px-4">
-		<div class="flex-1 gap-4">
-			<button type="button" class="btn btn-ghost btn-sm" onclick={goBack}>
-				<ChevronLeft class="h-4 w-4" />
-				Back
-			</button>
-			<div>
-				<div class="flex items-center gap-2">
-					<h1 class="text-lg font-semibold">{contract.contractNumber}</h1>
-					{#if true}
-						{@const StatusIcon = statusInfo.icon}
-						<div class="badge {statusInfo.class} gap-1">
-							<StatusIcon class="h-3 w-3" />
-							{statusInfo.label}
+	<div class="bg-base-100 border-b border-base-300">
+		<div class="card-body p-4">
+				<!-- Top row: Back button + Title -->
+				<div class="flex items-start gap-3">
+					<button type="button" class="btn btn-ghost btn-sm btn-square shrink-0" onclick={goBack}>
+						<ChevronLeft class="h-4 w-4" />
+					</button>
+					<div class="min-w-0 flex-1">
+						<div class="flex items-center gap-2 flex-wrap">
+							<h1 class="text-lg font-semibold">{contract.contractNumber}</h1>
+							{#if true}
+								{@const StatusIcon = statusInfo.icon}
+								<div class="badge {statusInfo.class} gap-1 whitespace-nowrap">
+									<StatusIcon class="h-3 w-3" />
+									{statusInfo.label}
+								</div>
+							{/if}
 						</div>
-					{/if}
+						<p class="text-base-content/60 text-sm truncate">{contract.clientBusinessName || 'No client'}</p>
+					</div>
 				</div>
-				<p class="text-base-content/60 text-sm">{contract.clientBusinessName || 'No client'}</p>
+				<!-- Bottom row: Action buttons -->
+				<div class="flex flex-wrap items-center justify-center sm:justify-between gap-2 mt-3 pt-3 border-t border-base-200">
+					<!-- Primary actions always visible -->
+					<div class="flex flex-wrap items-center justify-center gap-2">
+						{#if isEditable}
+							<button
+								type="button"
+								class="btn btn-outline btn-sm"
+								onclick={handleSave}
+								disabled={isSubmitting}
+							>
+								{#if isSubmitting}
+									<span class="loading loading-spinner loading-sm"></span>
+								{:else}
+									<Save class="h-4 w-4" />
+								{/if}
+								Save
+							</button>
+							{#if canSend}
+								<button
+									type="button"
+									class="btn btn-primary btn-sm"
+									onclick={handleSend}
+									disabled={isSending || !clientEmail}
+								>
+									{#if isSending}
+										<span class="loading loading-spinner loading-sm"></span>
+									{:else}
+										<Send class="h-4 w-4" />
+									{/if}
+									Send
+								</button>
+							{:else if canResend}
+								<button
+									type="button"
+									class="btn btn-primary btn-sm"
+									onclick={handleSend}
+									disabled={isSending || !clientEmail}
+								>
+									{#if isSending}
+										<span class="loading loading-spinner loading-sm"></span>
+									{:else}
+										<Send class="h-4 w-4" />
+									{/if}
+									Resend
+								</button>
+							{/if}
+						{/if}
+					</div>
+					<!-- Secondary actions in dropdown -->
+					<div class="dropdown dropdown-end">
+						<button type="button" tabindex="0" class="btn btn-outline btn-sm gap-1">
+							<MoreHorizontal class="h-4 w-4" />
+							More
+						</button>
+						<ul class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300">
+							<li>
+								<button type="button" onclick={() => (activeSection = 'preview')}>
+									<Eye class="h-4 w-4" />
+									Preview
+								</button>
+							</li>
+							<li>
+								<button type="button" onclick={downloadPdf} disabled={isDownloadingPdf}>
+									<FileDown class="h-4 w-4" />
+									Download PDF
+								</button>
+							</li>
+							{#if contract.status !== 'draft'}
+								<li>
+									<button type="button" onclick={viewPublic}>
+										<ExternalLink class="h-4 w-4" />
+										View Public Page
+									</button>
+								</li>
+								<li>
+									<button type="button" onclick={copyPublicUrl}>
+										<Copy class="h-4 w-4" />
+										Copy Link
+									</button>
+								</li>
+							{/if}
+						</ul>
+					</div>
+				</div>
 			</div>
 		</div>
-		<div class="flex-none gap-2">
-			<!-- Preview - always available -->
-			<button
-				type="button"
-				class="btn btn-ghost btn-sm"
-				onclick={() => (activeSection = 'preview')}
-			>
-				<Eye class="h-4 w-4" />
-				Preview
-			</button>
-			<!-- PDF - always available -->
-			<button
-				type="button"
-				class="btn btn-ghost btn-sm"
-				onclick={downloadPdf}
-				disabled={isDownloadingPdf}
-			>
-				{#if isDownloadingPdf}
-					<span class="loading loading-spinner loading-sm"></span>
-				{:else}
-					<FileDown class="h-4 w-4" />
-				{/if}
-				PDF
-			</button>
-			{#if contract.status !== 'draft'}
-				<button type="button" class="btn btn-ghost btn-sm" onclick={viewPublic}>
-					<ExternalLink class="h-4 w-4" />
-					View
-				</button>
-				<button type="button" class="btn btn-ghost btn-sm" onclick={copyPublicUrl}>
-					<Copy class="h-4 w-4" />
-					Copy Link
-				</button>
-			{/if}
-			{#if isEditable}
+
+	<!-- Mobile Section Navigation -->
+	<div class="lg:hidden border-b border-base-300 bg-base-100">
+		<div class="flex overflow-x-auto px-2 py-2 gap-1 scrollbar-none">
+			{#each sections as section}
+				{@const SectionIcon = section.icon}
 				<button
 					type="button"
-					class="btn btn-outline btn-sm"
-					onclick={handleSave}
-					disabled={isSubmitting}
+					class="btn btn-sm shrink-0 gap-1 {activeSection === section.id ? 'btn-primary' : 'btn-ghost'}"
+					onclick={() => (activeSection = section.id)}
 				>
-					{#if isSubmitting}
-						<span class="loading loading-spinner loading-sm"></span>
-					{:else}
-						<Save class="h-4 w-4" />
-					{/if}
-					Save
+					<SectionIcon class="h-3.5 w-3.5" />
+					{section.label}
 				</button>
-				{#if canSend}
-					<button
-						type="button"
-						class="btn btn-primary btn-sm"
-						onclick={handleSend}
-						disabled={isSending || !clientEmail}
-					>
-						{#if isSending}
-							<span class="loading loading-spinner loading-sm"></span>
-						{:else}
-							<Send class="h-4 w-4" />
-						{/if}
-						Send
-					</button>
-				{:else if canResend}
-					<button
-						type="button"
-						class="btn btn-primary btn-sm"
-						onclick={handleSend}
-						disabled={isSending || !clientEmail}
-					>
-						{#if isSending}
-							<span class="loading loading-spinner loading-sm"></span>
-						{:else}
-							<Send class="h-4 w-4" />
-						{/if}
-						Resend
-					</button>
-				{/if}
-			{/if}
+			{/each}
 		</div>
 	</div>
 
 	<div class="flex flex-1">
-		<!-- Sidebar Navigation -->
+		<!-- Sidebar Navigation (Desktop only) -->
 		<aside class="bg-base-200 hidden w-48 shrink-0 p-4 lg:block">
 			<nav class="space-y-1">
 				{#each sections as section}
@@ -499,12 +525,12 @@
 		</aside>
 
 		<!-- Main Content -->
-		<main class="flex-1 overflow-y-auto p-6">
-			<div class="mx-auto max-w-3xl space-y-8">
+		<main class="flex-1 overflow-y-auto py-4 lg:p-6">
+			<div class="mx-auto max-w-3xl space-y-4 lg:space-y-6">
 				<!-- Overview Section -->
 				{#if activeSection === 'overview'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Overview</h2>
 
 							<!-- Status Banner -->
@@ -584,18 +610,18 @@
 
 				<!-- Preview Section -->
 				{#if activeSection === 'preview'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
-							<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-								<h2 class="card-title">Contract Preview</h2>
-								<div class="flex gap-2">
+					<section class="bg-base-100 shadow-sm lg:rounded-lg lg:mx-0">
+						<div class="p-3 sm:p-4">
+							<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+								<h2 class="font-semibold">Contract Preview</h2>
+								<div class="flex flex-wrap gap-2">
 									<button
 										type="button"
 										class="btn btn-outline btn-sm"
 										onclick={openPreviewNewTab}
 									>
 										<ExternalLink class="h-4 w-4" />
-										Open in New Tab
+										New Tab
 									</button>
 									<button
 										type="button"
@@ -608,33 +634,33 @@
 										{:else}
 											<FileDown class="h-4 w-4" />
 										{/if}
-										Download PDF
+										PDF
 									</button>
 								</div>
 							</div>
 
-							<div class="alert alert-info mt-4">
-								<AlertCircle class="h-5 w-5" />
-								<span>This is a preview of how the contract will appear to your client. Save any changes before previewing.</span>
+							<div class="alert alert-info py-2 mt-3 text-sm">
+								<AlertCircle class="h-4 w-4" />
+								<span>Preview of how clients will see the contract. Save changes first.</span>
 							</div>
+						</div>
 
-							<!-- Inline Preview iframe -->
-							<div class="border border-base-300 rounded-lg mt-4 overflow-hidden bg-base-200">
-								<iframe
-									src="/c/{contract.slug}?preview=true"
-									class="w-full bg-white"
-									style="height: 800px;"
-									title="Contract Preview"
-								></iframe>
-							</div>
+						<!-- Inline Preview iframe - full width -->
+						<div class="border-t border-base-300 overflow-hidden bg-base-200">
+							<iframe
+								src="/c/{contract.slug}?preview=true"
+								class="w-full bg-white"
+								style="height: 75vh; min-height: 500px;"
+								title="Contract Preview"
+							></iframe>
 						</div>
 					</section>
 				{/if}
 
 				<!-- Client Section -->
 				{#if activeSection === 'client'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Client Information</h2>
 							<div class="grid gap-4 sm:grid-cols-2">
 								<div class="form-control">
@@ -709,8 +735,8 @@
 
 				<!-- Agreement Section -->
 				{#if activeSection === 'agreement'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Agreement Details</h2>
 							<p class="text-base-content/60 text-sm">
 								Configure which fields appear on the public contract view.
@@ -870,8 +896,8 @@
 
 				<!-- Schedule Section -->
 				{#if activeSection === 'schedule'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Schedule A Sections</h2>
 							<p class="text-base-content/60 text-sm">
 								Select which schedule sections to include in this contract. These appear after the core agreement.
@@ -939,8 +965,8 @@
 
 				<!-- Signatures Section -->
 				{#if activeSection === 'signatures'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Signatures</h2>
 
 							<!-- Agency Signature -->
@@ -1014,8 +1040,8 @@
 
 				<!-- History Section -->
 				{#if activeSection === 'history'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Activity & History</h2>
 
 							<!-- Activity Stats -->

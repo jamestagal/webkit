@@ -292,8 +292,122 @@
 			</div>
 		</div>
 	{:else}
-		<!-- Invoices Table -->
-		<div class="overflow-visible">
+		<!-- Mobile Card Layout -->
+		<div class="space-y-3 md:hidden">
+			{#each filteredInvoices() as invoice (invoice.id)}
+				{@const statusInfo = getStatusBadge(invoice.status)}
+				<div class="card bg-base-100 border border-base-300">
+					<div class="card-body p-4">
+						<div class="flex items-start justify-between gap-2">
+							<a href="/{agencySlug}/invoices/{invoice.id}" class="flex-1 min-w-0">
+								<div class="flex items-center gap-2 flex-wrap">
+									<span class="font-medium font-mono">{invoice.invoiceNumber}</span>
+									<div class="badge {statusInfo.class} badge-sm gap-1">
+										<statusInfo.icon class="h-3 w-3" />
+										{statusInfo.label}
+									</div>
+								</div>
+								<p class="text-sm text-base-content/70 mt-1 truncate">
+									{invoice.clientBusinessName || 'No client'}
+								</p>
+							</a>
+							<div class="flex items-start gap-2">
+								<div class="text-right shrink-0">
+									<div class="font-semibold">{formatCurrency(invoice.total)}</div>
+									{#if parseFloat(invoice.gstAmount as string) > 0}
+										<div class="text-xs text-base-content/60">inc. GST</div>
+									{/if}
+								</div>
+								<div class="dropdown dropdown-end">
+									<button type="button" tabindex="0" class="btn btn-ghost btn-sm btn-square">
+										<MoreVertical class="h-4 w-4" />
+									</button>
+									<ul class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-56 border border-base-300">
+										<li>
+											<a href="/{agencySlug}/invoices/{invoice.id}">
+												<Eye class="h-4 w-4" />
+												View / Edit
+											</a>
+										</li>
+										<li>
+											<button type="button" onclick={() => downloadPdf(invoice.id)}>
+												<Download class="h-4 w-4" />
+												Download PDF
+											</button>
+										</li>
+										{#if invoice.status === 'draft'}
+											<li>
+												<button type="button" onclick={() => handleSend(invoice.id, invoice.clientEmail)}>
+													<Send class="h-4 w-4" />
+													Send to Client
+												</button>
+											</li>
+										{/if}
+										{#if ['sent', 'viewed', 'overdue'].includes(invoice.status)}
+											<li>
+												<button type="button" onclick={() => handleResend(invoice.id, invoice.clientEmail)}>
+													<RefreshCw class="h-4 w-4" />
+													Resend Email
+												</button>
+											</li>
+											<li>
+												<button type="button" onclick={() => handleSendReminder(invoice.id, invoice.clientEmail)}>
+													<Bell class="h-4 w-4" />
+													Send Reminder
+												</button>
+											</li>
+										{/if}
+										{#if !['draft', 'cancelled', 'refunded'].includes(invoice.status)}
+											<li>
+												<a href={getPublicUrl(invoice.slug)} target="_blank">
+													<ExternalLink class="h-4 w-4" />
+													View Public Page
+												</a>
+											</li>
+											<li>
+												<button type="button" onclick={() => copyPublicUrl(invoice.slug)}>
+													<Copy class="h-4 w-4" />
+													Copy Link
+												</button>
+											</li>
+										{/if}
+										{#if !['paid', 'cancelled', 'refunded'].includes(invoice.status)}
+											<li class="border-t border-base-300 mt-1 pt-1">
+												{#if invoice.status === 'draft'}
+													<button type="button" class="text-error" onclick={() => handleDelete(invoice.id)}>
+														<Trash2 class="h-4 w-4" />
+														Delete
+													</button>
+												{:else}
+													<button type="button" class="text-error" onclick={() => handleCancel(invoice.id)}>
+														<XCircle class="h-4 w-4" />
+														Cancel Invoice
+													</button>
+												{/if}
+											</li>
+										{/if}
+									</ul>
+								</div>
+							</div>
+						</div>
+						<a href="/{agencySlug}/invoices/{invoice.id}" class="block">
+							<div class="flex items-center justify-between mt-2 pt-2 border-t border-base-200 text-sm text-base-content/60">
+								<span>Issued {formatDate(invoice.issueDate)}</span>
+								<span>Due {formatDate(invoice.dueDate)}</span>
+							</div>
+							{#if invoice.viewCount > 0 && invoice.status !== 'draft'}
+								<div class="text-xs text-base-content/50 mt-1">
+									{invoice.viewCount} view{invoice.viewCount > 1 ? 's' : ''}
+								</div>
+							{/if}
+						</a>
+					</div>
+				</div>
+			{/each}
+		</div>
+
+		<!-- Desktop Table Layout -->
+		<div class="hidden md:block overflow-visible">
 			<table class="table table-zebra">
 				<thead>
 					<tr>

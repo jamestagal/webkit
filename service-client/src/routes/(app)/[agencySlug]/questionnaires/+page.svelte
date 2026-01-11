@@ -181,8 +181,97 @@
 			</div>
 		</div>
 	{:else}
-		<!-- Questionnaires Table -->
-		<div class="overflow-visible">
+		<!-- Mobile Card Layout -->
+		<div class="space-y-3 md:hidden">
+			{#each filteredQuestionnaires() as questionnaire (questionnaire.id)}
+				{@const statusInfo = getStatusBadge(questionnaire.status)}
+				{@const linkedInfo = getLinkedEntityInfo(questionnaire)}
+				{@const cardHref = questionnaire.status === 'completed' ? `/${agencySlug}/questionnaires/${questionnaire.id}` : getPublicUrl(questionnaire.slug)}
+				{@const cardTarget = questionnaire.status === 'completed' ? '_self' : '_blank'}
+				<div class="card bg-base-100 border border-base-300">
+					<div class="card-body p-4">
+						<div class="flex items-start justify-between gap-2">
+							<a href={cardHref} target={cardTarget} class="flex-1 min-w-0">
+								<div class="flex items-center gap-2 flex-wrap">
+									<span class="font-medium truncate">{questionnaire.clientBusinessName || 'No client'}</span>
+									<div class="badge {statusInfo.class} badge-sm gap-1">
+										<statusInfo.icon class="h-3 w-3" />
+										{statusInfo.label}
+									</div>
+								</div>
+								<p class="text-sm text-base-content/70 mt-1 truncate">
+									{questionnaire.clientEmail || 'No email'}
+								</p>
+							</a>
+							<div class="flex items-start gap-2">
+								<div class="text-right shrink-0">
+									<div class="font-semibold">{questionnaire.completionPercentage}%</div>
+									{#if linkedInfo}
+										<div class="flex items-center gap-1 text-xs text-base-content/60 justify-end">
+											<linkedInfo.icon class="h-3 w-3" />
+											{linkedInfo.type}
+										</div>
+									{/if}
+								</div>
+								<div class="dropdown dropdown-end">
+									<button type="button" tabindex="0" class="btn btn-ghost btn-sm btn-square">
+										<MoreVertical class="h-4 w-4" />
+									</button>
+									<ul class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300">
+										<li>
+											<a href={getPublicUrl(questionnaire.slug)} target="_blank">
+												<ExternalLink class="h-4 w-4" />
+												View Public Form
+											</a>
+										</li>
+										<li>
+											<button type="button" onclick={() => copyPublicUrl(questionnaire.slug)}>
+												<Copy class="h-4 w-4" />
+												Copy Link
+											</button>
+										</li>
+										{#if questionnaire.status === 'completed'}
+											<li>
+												<a href="/{agencySlug}/questionnaires/{questionnaire.id}">
+													<Eye class="h-4 w-4" />
+													View Responses
+												</a>
+											</li>
+										{/if}
+										{#if questionnaire.status !== 'completed'}
+											<li class="border-t border-base-300 mt-1 pt-1">
+												<button type="button" class="text-error" onclick={() => handleDelete(questionnaire.id)}>
+													<Trash2 class="h-4 w-4" />
+													Delete
+												</button>
+											</li>
+										{/if}
+									</ul>
+								</div>
+							</div>
+						</div>
+						<a href={cardHref} target={cardTarget} class="block">
+							<div class="mt-2">
+								<progress
+									class="progress progress-primary w-full h-2"
+									value={questionnaire.completionPercentage}
+									max="100"
+								></progress>
+							</div>
+							<div class="flex items-center justify-between mt-2 pt-2 border-t border-base-200 text-sm text-base-content/60">
+								<span>Created {formatDate(questionnaire.createdAt)}</span>
+								{#if !linkedInfo}
+									<span>Standalone</span>
+								{/if}
+							</div>
+						</a>
+					</div>
+				</div>
+			{/each}
+		</div>
+
+		<!-- Desktop Table Layout -->
+		<div class="hidden md:block overflow-visible">
 			<table class="table table-zebra">
 				<thead>
 					<tr>

@@ -66,6 +66,13 @@
 		}
 		return undefined;
 	}
+
+	function closeModal(): void {
+		const modal = document.getElementById('sidebar') as HTMLDialogElement;
+		if (modal) {
+			modal.close();
+		}
+	}
 </script>
 
 <div id="content" class="h-full">
@@ -201,6 +208,7 @@
 							<li>
 								<a
 									href={item.url}
+									onclick={closeModal}
 									class="group relative flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold transition-all duration-200
 										{active ? 'bg-base-200' : 'hover:bg-base-200 hover:opacity-80'}"
 								>
@@ -228,6 +236,7 @@
 								<li>
 									<a
 										href={item.url}
+										onclick={closeModal}
 										class="group relative flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold transition-all duration-200
 											{active ? 'bg-base-200' : 'hover:bg-base-200 hover:opacity-80'}"
 									>

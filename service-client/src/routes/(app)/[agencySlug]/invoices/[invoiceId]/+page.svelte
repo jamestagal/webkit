@@ -30,7 +30,8 @@
 		Plus,
 		Save,
 		CreditCard,
-		Link
+		Link,
+		MoreHorizontal
 	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
@@ -430,117 +431,125 @@
 
 <div class="space-y-6">
 	<!-- Page Header -->
-	<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-		<div class="flex items-center gap-4">
-			<a href="/{agencySlug}/invoices" class="btn btn-ghost btn-sm btn-square">
-				<ArrowLeft class="h-4 w-4" />
-			</a>
-			<div>
-				<div class="flex items-center gap-3">
-					<h1 class="text-2xl font-bold font-mono">{invoice.invoiceNumber}</h1>
-					<div class="badge {statusInfo.class} gap-1">
-						<statusInfo.icon class="h-3 w-3" />
-						{statusInfo.label}
+	<div class="card bg-base-100 border border-base-300">
+		<div class="card-body p-4">
+			<!-- Top row: Back + Title -->
+			<div class="flex items-start gap-3">
+				<a href="/{agencySlug}/invoices" class="btn btn-ghost btn-sm btn-square shrink-0">
+					<ArrowLeft class="h-4 w-4" />
+				</a>
+				<div class="min-w-0 flex-1">
+					<div class="flex items-center gap-2 flex-wrap">
+						<h1 class="text-xl font-bold font-mono">{invoice.invoiceNumber}</h1>
+						<div class="badge {statusInfo.class} gap-1 whitespace-nowrap">
+							<statusInfo.icon class="h-3 w-3" />
+							{statusInfo.label}
+						</div>
 					</div>
+					<p class="text-base-content/70 text-sm truncate">
+						{invoice.clientBusinessName}
+					</p>
 				</div>
-				<p class="text-base-content/70">
-					{invoice.clientBusinessName}
-				</p>
 			</div>
-		</div>
 
-		<div class="flex flex-wrap gap-2">
-			<button type="button" class="btn btn-outline btn-sm" onclick={downloadPdf}>
-				<Download class="h-4 w-4" />
-				PDF
-			</button>
-
-			{#if !['paid', 'cancelled', 'refunded'].includes(invoice.status) && !isEditing}
-				<button type="button" class="btn btn-outline btn-sm" onclick={startEditing}>
-					<Edit class="h-4 w-4" />
-					Edit
-				</button>
-			{/if}
-
-			{#if invoice.status === 'draft'}
-				<button type="button" class="btn btn-primary btn-sm" onclick={handleSend} disabled={sending}>
-					{#if sending}
-						<Loader2 class="h-4 w-4 animate-spin" />
-						Sending...
-					{:else}
-						<Send class="h-4 w-4" />
-						Send
-					{/if}
-				</button>
-			{/if}
-
-			{#if ['sent', 'viewed', 'overdue'].includes(invoice.status)}
-				{#if canGeneratePaymentLink}
-					<button
-						type="button"
-						class="btn btn-primary btn-sm"
-						onclick={handleGeneratePaymentLink}
-						disabled={generatingPaymentLink}
-					>
-						{#if generatingPaymentLink}
-							<Loader2 class="h-4 w-4 animate-spin" />
-						{:else}
-							<CreditCard class="h-4 w-4" />
-						{/if}
-						Generate Pay Link
-					</button>
-				{:else if hasPaymentLink}
-					<button type="button" class="btn btn-outline btn-sm" onclick={copyPaymentLink}>
-						<Link class="h-4 w-4" />
-						Copy Pay Link
+			<!-- Bottom row: Actions -->
+			<div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-base-200">
+				<!-- Primary actions -->
+				{#if !['paid', 'cancelled', 'refunded'].includes(invoice.status) && !isEditing}
+					<button type="button" class="btn btn-outline btn-sm" onclick={startEditing}>
+						<Edit class="h-4 w-4" />
+						Edit
 					</button>
 				{/if}
-				<button type="button" class="btn btn-success btn-sm" onclick={() => (showPaymentModal = true)}>
-					<DollarSign class="h-4 w-4" />
-					Record Payment
-				</button>
-				<a href="/i/{invoice.slug}" target="_blank" class="btn btn-outline btn-sm">
-					<ExternalLink class="h-4 w-4" />
-					View
-				</a>
-				<button type="button" class="btn btn-outline btn-sm" onclick={copyPublicUrl}>
-					<Copy class="h-4 w-4" />
-					Copy Link
-				</button>
-			{/if}
 
-			{#if invoice.status === 'paid'}
-				<a href="/i/{invoice.slug}" target="_blank" class="btn btn-outline btn-sm">
-					<ExternalLink class="h-4 w-4" />
-					View
-				</a>
-			{/if}
+				{#if invoice.status === 'draft'}
+					<button type="button" class="btn btn-primary btn-sm" onclick={handleSend} disabled={sending}>
+						{#if sending}
+							<Loader2 class="h-4 w-4 animate-spin" />
+						{:else}
+							<Send class="h-4 w-4" />
+						{/if}
+						Send
+					</button>
+				{/if}
 
-			<div class="dropdown dropdown-end">
-				<button type="button" tabindex="0" class="btn btn-ghost btn-sm">More</button>
-				<ul class="dropdown-content z-10 menu p-2 shadow-lg bg-base-100 rounded-box w-48 border border-base-300">
-					<li>
-						<button type="button" onclick={handleDuplicate}>
-							<Plus class="h-4 w-4" />
-							Duplicate
-						</button>
-					</li>
-					{#if !['paid', 'cancelled', 'refunded'].includes(invoice.status)}
-						<li class="border-t border-base-300 mt-1 pt-1">
-							{#if invoice.status === 'draft'}
-								<button type="button" class="text-error" onclick={handleDelete}>
-									<Trash2 class="h-4 w-4" />
-									Delete
-								</button>
+				{#if ['sent', 'viewed', 'overdue'].includes(invoice.status)}
+					{#if canGeneratePaymentLink}
+						<button
+							type="button"
+							class="btn btn-primary btn-sm"
+							onclick={handleGeneratePaymentLink}
+							disabled={generatingPaymentLink}
+						>
+							{#if generatingPaymentLink}
+								<Loader2 class="h-4 w-4 animate-spin" />
 							{:else}
-								<button type="button" class="text-error" onclick={handleCancel}>
-									<XCircle class="h-4 w-4" />
-									Cancel
-								</button>
+								<CreditCard class="h-4 w-4" />
 							{/if}
-						</li>
+							Pay Link
+						</button>
+					{:else if hasPaymentLink}
+						<button type="button" class="btn btn-outline btn-sm" onclick={copyPaymentLink}>
+							<Link class="h-4 w-4" />
+							Pay Link
+						</button>
 					{/if}
-				</ul>
+					<button type="button" class="btn btn-success btn-sm" onclick={() => (showPaymentModal = true)}>
+						<DollarSign class="h-4 w-4" />
+						Payment
+					</button>
+				{/if}
+
+				<!-- More dropdown with secondary actions -->
+				<div class="dropdown dropdown-end ml-auto">
+					<button type="button" tabindex="0" class="btn btn-outline btn-sm gap-1">
+						<MoreHorizontal class="h-4 w-4" />
+						More
+					</button>
+					<ul class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300">
+						<li>
+							<button type="button" onclick={downloadPdf}>
+								<Download class="h-4 w-4" />
+								Download PDF
+							</button>
+						</li>
+						{#if ['sent', 'viewed', 'overdue', 'paid'].includes(invoice.status)}
+							<li>
+								<a href="/i/{invoice.slug}" target="_blank">
+									<ExternalLink class="h-4 w-4" />
+									View Public Page
+								</a>
+							</li>
+							<li>
+								<button type="button" onclick={copyPublicUrl}>
+									<Copy class="h-4 w-4" />
+									Copy Link
+								</button>
+							</li>
+						{/if}
+						<li>
+							<button type="button" onclick={handleDuplicate}>
+								<Plus class="h-4 w-4" />
+								Duplicate
+							</button>
+						</li>
+						{#if !['paid', 'cancelled', 'refunded'].includes(invoice.status)}
+							<li class="border-t border-base-300 mt-1 pt-1">
+								{#if invoice.status === 'draft'}
+									<button type="button" class="text-error" onclick={handleDelete}>
+										<Trash2 class="h-4 w-4" />
+										Delete
+									</button>
+								{:else}
+									<button type="button" class="text-error" onclick={handleCancel}>
+										<XCircle class="h-4 w-4" />
+										Cancel Invoice
+									</button>
+								{/if}
+							</li>
+						{/if}
+					</ul>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -550,7 +559,7 @@
 		<form onsubmit={handleSave} class="space-y-6">
 			<!-- Client Details -->
 			<div class="card bg-base-100 border border-base-300">
-				<div class="card-body">
+				<div class="card-body p-4 sm:p-6">
 					<h2 class="card-title text-lg">Client Details</h2>
 					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 						<div class="form-control">
@@ -628,7 +637,7 @@
 
 			<!-- Dates & Payment Terms -->
 			<div class="card bg-base-100 border border-base-300">
-				<div class="card-body">
+				<div class="card-body p-4 sm:p-6">
 					<h2 class="card-title text-lg">Dates & Payment Terms</h2>
 					<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 						<div class="form-control">
@@ -692,7 +701,7 @@
 
 			<!-- Line Items -->
 			<div class="card bg-base-100 border border-base-300">
-				<div class="card-body">
+				<div class="card-body p-4 sm:p-6">
 					<div class="flex items-center justify-between">
 						<h2 class="card-title text-lg">Line Items</h2>
 						<button type="button" class="btn btn-sm btn-outline" onclick={addLineItem}>
@@ -779,7 +788,7 @@
 
 			<!-- Financials -->
 			<div class="card bg-base-100 border border-base-300">
-				<div class="card-body">
+				<div class="card-body p-4 sm:p-6">
 					<h2 class="card-title text-lg">Discount & Totals</h2>
 					<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 						<div class="space-y-4">
@@ -840,7 +849,7 @@
 
 			<!-- Notes -->
 			<div class="card bg-base-100 border border-base-300">
-				<div class="card-body">
+				<div class="card-body p-4 sm:p-6">
 					<h2 class="card-title text-lg">Notes</h2>
 					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 						<div class="form-control">
@@ -885,7 +894,7 @@
 	{:else}
 		<!-- View Mode - Invoice Preview -->
 		<div class="card bg-base-100 border border-base-300">
-			<div class="card-body">
+			<div class="card-body p-4 sm:p-6">
 				<!-- Header -->
 				<div class="flex flex-col sm:flex-row justify-between gap-4 pb-6 border-b border-base-300">
 					<div>
@@ -1137,7 +1146,7 @@
 
 		<!-- Email History -->
 		<div class="card bg-base-100 border border-base-300">
-			<div class="card-body">
+			<div class="card-body p-4 sm:p-6">
 				<EmailHistory invoiceId={invoice.id} />
 			</div>
 		</div>

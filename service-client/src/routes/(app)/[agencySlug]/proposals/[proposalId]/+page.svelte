@@ -36,7 +36,8 @@
 		FileSignature,
 		ListChecks,
 		Lightbulb,
-		CheckCircle2
+		CheckCircle2,
+		MoreHorizontal
 	} from 'lucide-svelte';
 	import type {
 		ChecklistItem,
@@ -266,68 +267,83 @@
 
 <div class="flex min-h-screen flex-col">
 	<!-- Header -->
-	<div class="navbar bg-base-100 border-b px-4">
-		<div class="flex-1 gap-4">
-			<button type="button" class="btn btn-ghost btn-sm" onclick={goBack}>
-				<ChevronLeft class="h-4 w-4" />
-				Back
-			</button>
-			<div>
-				<h1 class="text-lg font-semibold">{proposal.proposalNumber}</h1>
-				<p class="text-base-content/60 text-sm">{formData.title}</p>
+	<div class="bg-base-100 border-b border-base-300">
+		<div class="card-body p-4">
+				<!-- Top row: Back button + Title -->
+				<div class="flex items-start gap-3">
+					<button type="button" class="btn btn-ghost btn-sm btn-square shrink-0" onclick={goBack}>
+						<ChevronLeft class="h-4 w-4" />
+					</button>
+					<div class="min-w-0 flex-1">
+						<h1 class="text-lg font-semibold">{proposal.proposalNumber}</h1>
+						<p class="text-base-content/60 text-sm line-clamp-2">{formData.title}</p>
+					</div>
+				</div>
+				<!-- Bottom row: Action buttons -->
+				<div class="flex flex-wrap items-center justify-center sm:justify-between gap-2 mt-3 pt-3 border-t border-base-200">
+					<div class="flex flex-wrap items-center justify-center gap-2">
+						<button
+							type="button"
+							class="btn btn-outline btn-sm"
+							onclick={handleSave}
+							disabled={isSaving}
+						>
+							{#if isSaving}
+								<span class="loading loading-spinner loading-sm"></span>
+							{:else}
+								<Save class="h-4 w-4" />
+							{/if}
+							Save
+						</button>
+						{#if proposal.status === 'draft'}
+							<button
+								type="button"
+								class="btn btn-outline btn-sm"
+								onclick={handleMarkReady}
+								disabled={isMarkingReady}
+							>
+								{#if isMarkingReady}
+									<span class="loading loading-spinner loading-sm"></span>
+								{:else}
+									<CheckCircle2 class="h-4 w-4" />
+								{/if}
+								Ready
+							</button>
+						{/if}
+						{#if proposal.status === 'draft' || proposal.status === 'ready' || proposal.status === 'revision_requested'}
+							<button
+								type="button"
+								class="btn btn-primary btn-sm"
+								onclick={handleSend}
+								disabled={isSending}
+							>
+								{#if isSending}
+									<span class="loading loading-spinner loading-sm"></span>
+								{:else}
+									<Send class="h-4 w-4" />
+								{/if}
+								{proposal.status === 'revision_requested' ? 'Resend' : 'Send'}
+							</button>
+						{/if}
+					</div>
+					<!-- Preview in dropdown -->
+					<div class="dropdown dropdown-end">
+						<button type="button" tabindex="0" class="btn btn-outline btn-sm gap-1">
+							<MoreHorizontal class="h-4 w-4" />
+							More
+						</button>
+						<ul class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300">
+							<li>
+								<button type="button" onclick={viewPublic}>
+									<Eye class="h-4 w-4" />
+									Preview
+								</button>
+							</li>
+						</ul>
+					</div>
+				</div>
 			</div>
 		</div>
-		<div class="flex-none gap-2">
-			<!-- Preview button - always available -->
-			<button type="button" class="btn btn-ghost btn-sm" onclick={viewPublic}>
-				<Eye class="h-4 w-4" />
-				Preview
-			</button>
-			<button
-				type="button"
-				class="btn btn-outline btn-sm"
-				onclick={handleSave}
-				disabled={isSaving}
-			>
-				{#if isSaving}
-					<span class="loading loading-spinner loading-sm"></span>
-				{:else}
-					<Save class="h-4 w-4" />
-				{/if}
-				Save
-			</button>
-			{#if proposal.status === 'draft'}
-				<button
-					type="button"
-					class="btn btn-outline btn-sm"
-					onclick={handleMarkReady}
-					disabled={isMarkingReady}
-				>
-					{#if isMarkingReady}
-						<span class="loading loading-spinner loading-sm"></span>
-					{:else}
-						<CheckCircle2 class="h-4 w-4" />
-					{/if}
-					Mark Ready
-				</button>
-			{/if}
-			{#if proposal.status === 'draft' || proposal.status === 'ready' || proposal.status === 'revision_requested'}
-				<button
-					type="button"
-					class="btn btn-primary btn-sm"
-					onclick={handleSend}
-					disabled={isSending}
-				>
-					{#if isSending}
-						<span class="loading loading-spinner loading-sm"></span>
-					{:else}
-						<Send class="h-4 w-4" />
-					{/if}
-					{proposal.status === 'revision_requested' ? 'Resend' : 'Send'}
-				</button>
-			{/if}
-		</div>
-	</div>
 
 	<!-- Status Banner for revision_requested (PART 2) -->
 	{#if proposal.status === 'revision_requested'}
@@ -346,8 +362,24 @@
 		</div>
 	{/if}
 
+	<!-- Mobile Section Navigation -->
+	<div class="lg:hidden border-b border-base-300 bg-base-100">
+		<div class="flex overflow-x-auto px-2 py-2 gap-1 scrollbar-none">
+			{#each sections as section}
+				<button
+					type="button"
+					class="btn btn-sm shrink-0 gap-1 {activeSection === section.id ? 'btn-primary' : 'btn-ghost'}"
+					onclick={() => (activeSection = section.id)}
+				>
+					<svelte:component this={section.icon} class="h-3.5 w-3.5" />
+					{section.label}
+				</button>
+			{/each}
+		</div>
+	</div>
+
 	<div class="flex flex-1">
-		<!-- Sidebar Navigation -->
+		<!-- Sidebar Navigation (Desktop only) -->
 		<aside class="bg-base-200 hidden w-48 shrink-0 p-4 lg:block">
 			<nav class="space-y-1">
 				{#each sections as section}
@@ -364,12 +396,12 @@
 		</aside>
 
 		<!-- Main Content -->
-		<main class="flex-1 overflow-y-auto p-6">
-			<div class="mx-auto max-w-3xl space-y-8">
+		<main class="flex-1 overflow-y-auto py-4 lg:p-6">
+			<div class="mx-auto max-w-3xl space-y-4 lg:space-y-6">
 				<!-- Client Info Section -->
 				{#if activeSection === 'client'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Client Information</h2>
 							<div class="grid gap-4 sm:grid-cols-2">
 								<div class="form-control">
@@ -433,8 +465,8 @@
 					</section>
 
 					<!-- Cover Section -->
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Cover</h2>
 							<div class="form-control">
 								<label class="label" for="proposal-title">
@@ -464,8 +496,8 @@
 
 				<!-- Executive Summary Section (PART 2) -->
 				{#if activeSection === 'summary'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">
 								<FileSignature class="h-5 w-5" />
 								Executive Summary
@@ -484,8 +516,8 @@
 
 				<!-- Performance Section -->
 				{#if activeSection === 'performance'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Current Website Performance</h2>
 							<p class="text-base-content/60 text-sm">
 								Enter PageSpeed Insights scores from analyzing the client's current website.
@@ -603,8 +635,8 @@
 
 				<!-- Content Section -->
 				{#if activeSection === 'content'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">The Opportunity</h2>
 							<p class="text-base-content/60 text-sm">
 								Research about the client's industry and business opportunity.
@@ -617,8 +649,8 @@
 						</div>
 					</section>
 
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Current Issues We'll Solve</h2>
 							<div class="space-y-2">
 								{#each formData.currentIssues as issue, index}
@@ -659,8 +691,8 @@
 						</div>
 					</section>
 
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">ROI Analysis</h2>
 							<div class="grid gap-4 sm:grid-cols-2">
 								<div class="form-control">
@@ -712,8 +744,8 @@
 						</div>
 					</section>
 
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Local Advantage</h2>
 							<textarea
 								class="textarea textarea-bordered min-h-24"
@@ -726,8 +758,8 @@
 
 				<!-- Package Section -->
 				{#if activeSection === 'package'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Package Selection</h2>
 
 							<div class="form-control">
@@ -781,8 +813,8 @@
 
 				<!-- Timeline Section -->
 				{#if activeSection === 'timeline'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Implementation Timeline</h2>
 
 							<div class="space-y-4">
@@ -844,8 +876,8 @@
 
 				<!-- Architecture Section -->
 				{#if activeSection === 'architecture'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Proposed Site Architecture</h2>
 
 							<div class="space-y-4">
@@ -899,8 +931,8 @@
 
 				<!-- Next Steps Section (PART 2) -->
 				{#if activeSection === 'nextsteps'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">
 								<ListChecks class="h-5 w-5" />
 								Next Steps
@@ -953,8 +985,8 @@
 
 				<!-- Closing Section -->
 				{#if activeSection === 'closing'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Closing Message</h2>
 							<textarea
 								class="textarea textarea-bordered min-h-32"
@@ -967,8 +999,8 @@
 
 				<!-- Client Feedback Section (PART 2: Proposal Improvements) -->
 				{#if activeSection === 'feedback' && hasClientFeedback}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">
 								<MessageSquare class="h-5 w-5" />
 								Client Feedback
@@ -1036,8 +1068,8 @@
 
 				<!-- Consultation Insights Section (PART 2) -->
 				{#if activeSection === 'insights' && hasConsultationInsights}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
+					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">
 								<Lightbulb class="h-5 w-5" />
 								Consultation Insights
@@ -1128,8 +1160,8 @@
 				{/if}
 
 				<!-- Email History - Always visible -->
-				<section class="card bg-base-100 shadow">
-					<div class="card-body">
+				<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+					<div class="card-body p-4 sm:p-6">
 						<EmailHistory proposalId={proposal.id} />
 					</div>
 				</section>

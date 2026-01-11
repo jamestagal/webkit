@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ArrowLeft, Copy, ExternalLink, Mail, Building2, Download } from 'lucide-svelte';
+	import { ArrowLeft, Copy, ExternalLink, Mail, Building2, Download, MoreHorizontal } from 'lucide-svelte';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import QuestionnaireView from '$lib/components/questionnaire/QuestionnaireView.svelte';
 	import type { PageProps } from './$types';
@@ -33,41 +33,58 @@
 
 <div class="space-y-6">
 	<!-- Header with back button -->
-	<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-		<div class="flex items-start gap-4">
-			<a href="/{agencySlug}/questionnaires" class="btn btn-ghost btn-sm btn-square mt-1">
-				<ArrowLeft class="h-4 w-4" />
-			</a>
-			<div>
-				<h1 class="text-2xl font-bold">Questionnaire Details</h1>
-				<p class="text-base-content/70 mt-1">
-					View responses and manage questionnaire
-				</p>
+	<div class="card bg-base-100 border border-base-300">
+		<div class="card-body p-4">
+			<!-- Top row: Back + Title -->
+			<div class="flex items-start gap-3">
+				<a href="/{agencySlug}/questionnaires" class="btn btn-ghost btn-sm btn-square shrink-0">
+					<ArrowLeft class="h-4 w-4" />
+				</a>
+				<div class="min-w-0 flex-1">
+					<h1 class="text-xl font-bold">Questionnaire Details</h1>
+					<p class="text-base-content/70 text-sm">
+						View responses and manage questionnaire
+					</p>
+				</div>
 			</div>
-		</div>
-		<div class="flex gap-2">
-			<a
-				href="/api/questionnaires/{questionnaire.id}/pdf"
-				download
-				class="btn btn-outline btn-sm"
-			>
-				<Download class="h-4 w-4" />
-				Download PDF
-			</a>
-			<button type="button" class="btn btn-ghost btn-sm" onclick={copyPublicUrl}>
-				<Copy class="h-4 w-4" />
-				Copy Link
-			</button>
-			<a href="/q/{questionnaire.slug}" target="_blank" class="btn btn-ghost btn-sm">
-				<ExternalLink class="h-4 w-4" />
-				View Public Form
-			</a>
+
+			<!-- Bottom row: Actions -->
+			<div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-base-200">
+				<a
+					href="/api/questionnaires/{questionnaire.id}/pdf"
+					download
+					class="btn btn-outline btn-sm"
+				>
+					<Download class="h-4 w-4" />
+					PDF
+				</a>
+				<div class="dropdown dropdown-end ml-auto">
+					<button type="button" tabindex="0" class="btn btn-outline btn-sm gap-1">
+						<MoreHorizontal class="h-4 w-4" />
+						More
+					</button>
+					<ul class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300">
+						<li>
+							<button type="button" onclick={copyPublicUrl}>
+								<Copy class="h-4 w-4" />
+								Copy Link
+							</button>
+						</li>
+						<li>
+							<a href="/q/{questionnaire.slug}" target="_blank">
+								<ExternalLink class="h-4 w-4" />
+								View Public Form
+							</a>
+						</li>
+					</ul>
+				</div>
+			</div>
 		</div>
 	</div>
 
 	<!-- Client Info Card -->
 	<div class="card bg-base-100 border border-base-300">
-		<div class="card-body">
+		<div class="card-body p-4 sm:p-6">
 			<h3 class="font-semibold mb-4">Client Information</h3>
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 				<div class="flex items-center gap-3">
@@ -115,7 +132,7 @@
 
 	<!-- Questionnaire Responses -->
 	<div class="card bg-base-100 border border-base-300">
-		<div class="card-body">
+		<div class="card-body p-4 sm:p-6">
 			<QuestionnaireView {questionnaire} />
 		</div>
 	</div>

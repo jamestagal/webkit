@@ -221,8 +221,98 @@
 			</div>
 		</div>
 	{:else}
-		<!-- Contracts Table -->
-		<div class="overflow-visible">
+		<!-- Mobile Card Layout -->
+		<div class="space-y-3 md:hidden">
+			{#each filteredContracts() as contract (contract.id)}
+				{@const statusInfo = getStatusBadge(contract.status)}
+				<div class="card bg-base-100 border border-base-300">
+					<div class="card-body p-4">
+						<div class="flex items-start justify-between gap-2">
+							<a href="/{agencySlug}/contracts/{contract.id}" class="flex-1 min-w-0">
+								<div class="flex items-center gap-2 flex-wrap">
+									<span class="font-medium">{contract.contractNumber}</span>
+									<div class="badge {statusInfo.class} badge-sm gap-1">
+										<statusInfo.icon class="h-3 w-3" />
+										{statusInfo.label}
+									</div>
+								</div>
+								<p class="text-sm text-base-content/70 mt-1 truncate">
+									{contract.clientBusinessName || 'No client'}
+								</p>
+							</a>
+							<div class="flex items-start gap-2">
+								<div class="text-right shrink-0">
+									<div class="font-semibold">{formatCurrency(contract.totalPrice)}</div>
+									<div class="text-xs text-base-content/60">v{contract.version}</div>
+								</div>
+								<div class="dropdown dropdown-end">
+									<button type="button" tabindex="0" class="btn btn-ghost btn-sm btn-square">
+										<MoreVertical class="h-4 w-4" />
+									</button>
+									<ul class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300">
+										<li>
+											<a href="/{agencySlug}/contracts/{contract.id}">
+												<Eye class="h-4 w-4" />
+												View / Edit
+											</a>
+										</li>
+										{#if contract.status === 'draft'}
+											<li>
+												<button type="button" onclick={() => handleSend(contract.id, contract.clientEmail)}>
+													<Send class="h-4 w-4" />
+													Send to Client
+												</button>
+											</li>
+										{/if}
+										{#if ['sent', 'viewed'].includes(contract.status)}
+											<li>
+												<button type="button" onclick={() => handleResend(contract.id, contract.clientEmail)}>
+													<RefreshCw class="h-4 w-4" />
+													Resend Email
+												</button>
+											</li>
+										{/if}
+										{#if ['sent', 'viewed', 'signed', 'completed'].includes(contract.status)}
+											<li>
+												<a href={getPublicUrl(contract.slug)} target="_blank">
+													<ExternalLink class="h-4 w-4" />
+													View Public Page
+												</a>
+											</li>
+											<li>
+												<button type="button" onclick={() => copyPublicUrl(contract.slug)}>
+													<Copy class="h-4 w-4" />
+													Copy Link
+												</button>
+											</li>
+										{/if}
+										{#if !['signed', 'completed'].includes(contract.status)}
+											<li class="border-t border-base-300 mt-1 pt-1">
+												<button type="button" class="text-error" onclick={() => handleDelete(contract.id)}>
+													<Trash2 class="h-4 w-4" />
+													Delete
+												</button>
+											</li>
+										{/if}
+									</ul>
+								</div>
+							</div>
+						</div>
+						<a href="/{agencySlug}/contracts/{contract.id}" class="block">
+							<div class="flex items-center justify-between mt-2 pt-2 border-t border-base-200 text-sm text-base-content/60">
+								<span>Created {formatDate(contract.createdAt)}</span>
+								{#if contract.viewCount > 0}
+									<span>{contract.viewCount} view{contract.viewCount > 1 ? 's' : ''}</span>
+								{/if}
+							</div>
+						</a>
+					</div>
+				</div>
+			{/each}
+		</div>
+
+		<!-- Desktop Table Layout -->
+		<div class="hidden md:block overflow-visible">
 			<table class="table table-zebra">
 				<thead>
 					<tr>

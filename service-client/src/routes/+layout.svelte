@@ -9,7 +9,12 @@
 
 	let loaded = $state(false);
 	let checked = $state(false);
+	let isInIframe = $state(false);
+
 	$effect(() => {
+		// Check if we're inside an iframe (e.g., preview mode)
+		isInIframe = window !== window.parent;
+
 		const theme = localStorage.getItem("theme");
 		if (theme) {
 			document.documentElement.setAttribute("data-theme", theme);
@@ -47,7 +52,8 @@
 	</div>
 </div>
 
-<!-- Theme Controller -->
+<!-- Theme Controller (hidden when inside iframe/preview) -->
+{#if !isInIframe}
 <div class="fixed right-0 bottom-0 z-30 p-4">
 	<label class="swap swap-rotate">
 		<input
@@ -73,3 +79,4 @@
 		</svg>
 	</label>
 </div>
+{/if}
