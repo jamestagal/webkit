@@ -311,18 +311,13 @@ export const getUsers = query(UsersFilterSchema, async (filters) => {
 
 	const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-	// Get users with agency count using explicit SQL for the correlated subquery
+	// Get users first
 	const userList = await db
 		.select({
 			id: users.id,
 			email: users.email,
 			access: users.access,
-			created: users.created,
-			agencyCount: sql<number>`(
-				SELECT COUNT(*) FROM agency_memberships am
-				WHERE am.user_id = ${users.id}
-				AND am.status = 'active'
-			)`
+			created: users.created
 		})
 		.from(users)
 		.where(whereClause)
@@ -330,15 +325,38 @@ export const getUsers = query(UsersFilterSchema, async (filters) => {
 		.limit(limit)
 		.offset(offset);
 
+	// Get membership counts for these users (same approach as getUserDetails)
+	const userIds = userList.map((u) => u.id);
+	const membershipCounts =
+		userIds.length > 0
+			? await db
+					.select({
+						userId: agencyMemberships.userId,
+						count: count()
+					})
+					.from(agencyMemberships)
+					.where(
+						and(
+							sql`${agencyMemberships.userId} IN (${sql.join(
+								userIds.map((id) => sql`${id}`),
+								sql`, `
+							)})`,
+							eq(agencyMemberships.status, 'active')
+						)
+					)
+					.groupBy(agencyMemberships.userId)
+			: [];
+
+	// Create a map for quick lookup
+	const countMap = new Map(membershipCounts.map((mc) => [mc.userId, mc.count]));
+
 	// Get total count for pagination
-	const [totalResult] = await db
-		.select({ count: count() })
-		.from(users)
-		.where(whereClause);
+	const [totalResult] = await db.select({ count: count() }).from(users).where(whereClause);
 
 	return {
 		users: userList.map((u) => ({
 			...u,
+			agencyCount: countMap.get(u.id) ?? 0,
 			isSuperAdmin: (u.access & SUPER_ADMIN_FLAG) !== 0
 		})),
 		total: totalResult?.count ?? 0,
