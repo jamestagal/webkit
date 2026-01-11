@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ArrowLeft, Copy, ExternalLink, Mail, Building2 } from 'lucide-svelte';
+	import { ArrowLeft, Copy, ExternalLink, Mail, Building2, Download } from 'lucide-svelte';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import QuestionnaireView from '$lib/components/questionnaire/QuestionnaireView.svelte';
 	import type { PageProps } from './$types';
@@ -46,6 +46,14 @@
 			</div>
 		</div>
 		<div class="flex gap-2">
+			<a
+				href="/api/questionnaires/{questionnaire.id}/pdf"
+				download
+				class="btn btn-outline btn-sm"
+			>
+				<Download class="h-4 w-4" />
+				Download PDF
+			</a>
 			<button type="button" class="btn btn-ghost btn-sm" onclick={copyPublicUrl}>
 				<Copy class="h-4 w-4" />
 				Copy Link

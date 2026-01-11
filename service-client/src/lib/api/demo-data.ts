@@ -295,7 +295,8 @@ We specialize in helping trade businesses like yours succeed online. Our website
 	clientPhone: '0412 345 678',
 	clientWebsite: 'https://murraysplumbing.com.au',
 
-	selectedAddons: [] as string[],
+	// Note: selectedPackageId, selectedAddons, and customPricing are set dynamically
+	// in demo.remote.ts by querying the agency's actual packages and addons
 	validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
 	viewCount: 0
 };

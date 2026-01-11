@@ -16,10 +16,12 @@ import {
 	contracts,
 	questionnaireResponses,
 	invoices,
-	invoiceLineItems
+	invoiceLineItems,
+	agencyPackages,
+	agencyAddons
 } from '$lib/server/schema';
 import { getAgencyContext } from '$lib/server/agency';
-import { eq, and, inArray, sql } from 'drizzle-orm';
+import { eq, and, inArray, sql, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import {
 	DEMO_CONSULTATION,
@@ -96,6 +98,26 @@ export const loadDemoData = command(async () => {
 	const questionnaireSlug = `demo-questionnaire-${nanoid(8)}`;
 	const invoiceSlug = `demo-invoice-${nanoid(8)}`;
 
+	// Query for agency's packages (prefer featured, then by display order)
+	const availablePackages = await db
+		.select()
+		.from(agencyPackages)
+		.where(and(eq(agencyPackages.agencyId, agencyId), eq(agencyPackages.isActive, true)))
+		.orderBy(desc(agencyPackages.isFeatured), agencyPackages.displayOrder)
+		.limit(1);
+
+	const selectedPackage = availablePackages[0] ?? null;
+
+	// Query for agency's addons (first 2-3 active addons)
+	const availableAddons = await db
+		.select()
+		.from(agencyAddons)
+		.where(and(eq(agencyAddons.agencyId, agencyId), eq(agencyAddons.isActive, true)))
+		.orderBy(agencyAddons.displayOrder)
+		.limit(3);
+
+	const selectedAddonIds = availableAddons.map((addon) => addon.id);
+
 	// 1. Create consultation
 	await db.insert(consultations).values({
 		id: consultationId,
@@ -111,6 +133,18 @@ export const loadDemoData = command(async () => {
 	});
 
 	// 2. Create proposal linked to consultation
+	// Build custom pricing if package is selected (shows 10% demo discount)
+	const customPricing = selectedPackage
+		? {
+				setupFee: selectedPackage.setupFee,
+				monthlyPrice: selectedPackage.monthlyPrice,
+				oneTimePrice: selectedPackage.oneTimePrice,
+				hostingFee: selectedPackage.hostingFee,
+				discountPercent: 10,
+				discountNote: 'Demo: 10% new client discount'
+			}
+		: null;
+
 	await db.insert(proposals).values({
 		id: proposalId,
 		agencyId,
@@ -140,7 +174,10 @@ export const loadDemoData = command(async () => {
 		clientEmail: DEMO_PROPOSAL.clientEmail,
 		clientPhone: DEMO_PROPOSAL.clientPhone,
 		clientWebsite: DEMO_PROPOSAL.clientWebsite,
-		selectedAddons: DEMO_PROPOSAL.selectedAddons,
+		// Link to agency's package and addons (dynamically queried)
+		selectedPackageId: selectedPackage?.id ?? null,
+		selectedAddons: selectedAddonIds,
+		customPricing,
 		validUntil: DEMO_PROPOSAL.validUntil,
 		viewCount: 0,
 		createdBy: userId
@@ -250,7 +287,16 @@ export const loadDemoData = command(async () => {
 			contractId,
 			questionnaireId,
 			invoiceId
-		}
+		},
+		// Include info about linked packages/addons (helps user understand if they need to create these first)
+		linkedPackage: selectedPackage
+			? { id: selectedPackage.id, name: selectedPackage.name }
+			: null,
+		linkedAddons: availableAddons.map((a) => ({ id: a.id, name: a.name })),
+		note:
+			!selectedPackage && selectedAddonIds.length === 0
+				? 'No packages or addons found. Create packages in Settings > Packages to see them in the demo proposal.'
+				: undefined
 	};
 });
 

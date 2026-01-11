@@ -23,6 +23,9 @@
 	import PainPointsCapture from '$lib/components/consultation/PainPointsCapture.svelte';
 	import GoalsObjectives from '$lib/components/consultation/GoalsObjectives.svelte';
 	import { getToast } from '$lib/ui/toast_store.svelte';
+	import { FEATURES } from '$lib/config/features';
+
+	const feature = FEATURES.consultations;
 
 	const toast = getToast();
 	import {
@@ -264,13 +267,19 @@
 
 <svelte:window onbeforeunload={handleBeforeUnload} />
 
-<div class="min-h-screen bg-gray-50">
+<div class="space-y-6">
 	<!-- Header -->
-	<div class="border-b bg-white shadow-sm">
-		<div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-			<div class="py-6">
-				<h1 class="text-3xl font-bold text-gray-900">Project Consultation</h1>
-				<p class="mt-2 text-lg text-gray-600">
+	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+		<div class="flex items-start gap-4">
+			<div
+				class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+				style="background-color: {feature.colorLight}; color: {feature.color}"
+			>
+				<feature.icon class="h-6 w-6" />
+			</div>
+			<div>
+				<h1 class="text-2xl font-bold">New Consultation</h1>
+				<p class="text-base-content/70 mt-1">
 					Help us understand your needs so we can provide the best solution for your project.
 				</p>
 			</div>

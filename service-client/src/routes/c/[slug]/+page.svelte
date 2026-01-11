@@ -9,6 +9,7 @@
 	let agency = $derived(data.agency);
 	let profile = $derived(data.profile);
 	let includedSchedules = $derived(data.includedSchedules);
+	let isPreview = $derived(data.isPreview === true);
 
 	// Get visible fields from contract, with defaults
 	let visibleFields = $derived<string[]>(
@@ -68,7 +69,36 @@
 	<title>Contract {contract.contractNumber} | {agency?.name || 'Contract'}</title>
 </svelte:head>
 
+<style>
+	/* Override heading styles within schedule/terms content */
+	:global(.schedule-content h1),
+	:global(.schedule-content h2),
+	:global(.schedule-content h3),
+	:global(.schedule-content h4),
+	:global(.schedule-content h5),
+	:global(.schedule-content h6) {
+		font-size: 0.875rem !important;
+		font-weight: 500 !important;
+		margin-top: 1rem !important;
+		margin-bottom: 0.5rem !important;
+	}
+	/* Hide first heading in schedule content (it's a duplicate of schedule name) */
+	:global(.schedule-section .schedule-content > h1:first-child),
+	:global(.schedule-section .schedule-content > h2:first-child),
+	:global(.schedule-section .schedule-content > h3:first-child),
+	:global(.schedule-section .schedule-content > h4:first-child) {
+		display: none !important;
+	}
+</style>
+
 <div class="min-h-screen bg-base-200">
+	<!-- Preview Mode Banner -->
+	{#if isPreview}
+		<div class="bg-warning text-warning-content px-4 py-3 text-center">
+			<strong>Preview Mode</strong> - This is how your client will see the contract. Views are not being tracked.
+		</div>
+	{/if}
+
 	<!-- Header -->
 	<header class="bg-base-100 border-b border-base-300">
 		<div class="container mx-auto px-4 py-6">
@@ -216,7 +246,7 @@
 					<div class="card bg-base-100 border border-base-300">
 						<div class="card-body">
 							<h2 class="card-title">Terms & Conditions</h2>
-							<div class="prose prose-sm max-w-none mt-4">
+							<div class="prose prose-sm max-w-none mt-4 schedule-content">
 								{@html contract.generatedTermsHtml}
 							</div>
 						</div>
@@ -228,11 +258,13 @@
 					<div class="card bg-base-100 border border-base-300">
 						<div class="card-body">
 							<h2 class="card-title">Schedule A</h2>
-							<div class="prose prose-sm max-w-none mt-4 space-y-6">
+							<div class="mt-4 space-y-6">
 								{#each includedSchedules as schedule}
-									<div class="border-b border-base-200 pb-6 last:border-0 last:pb-0">
-										<h3 class="text-lg font-semibold mb-3">{schedule.name}</h3>
-										{@html schedule.content}
+									<div class="schedule-section border-b border-base-200 pb-6 last:border-0 last:pb-0">
+										<h3 class="text-sm font-medium mb-3 pb-2 border-b border-base-300">{schedule.name}</h3>
+										<div class="prose prose-sm max-w-none schedule-content">
+											{@html schedule.content}
+										</div>
 									</div>
 								{/each}
 							</div>
@@ -243,7 +275,7 @@
 					<div class="card bg-base-100 border border-base-300">
 						<div class="card-body">
 							<h2 class="card-title">Schedule A</h2>
-							<div class="prose prose-sm max-w-none mt-4">
+							<div class="prose prose-sm max-w-none mt-4 schedule-content">
 								{@html contract.generatedScheduleHtml}
 							</div>
 						</div>
@@ -339,7 +371,7 @@
 										</p>
 									</div>
 								</div>
-							{:else if canSign && !signatureSuccess}
+							{:else if canSign && !signatureSuccess && !isPreview}
 								<!-- Signature Form -->
 								<form
 									method="POST"
@@ -422,6 +454,10 @@
 										By signing, you agree to be legally bound by this contract.
 									</p>
 								</form>
+							{:else if isPreview}
+								<div class="bg-base-200 p-4 rounded-lg text-center">
+									<p class="text-base-content/60 text-sm">Signature form hidden in preview mode</p>
+								</div>
 							{:else if isExpired}
 								<p class="text-sm text-error italic">This contract has expired</p>
 							{:else}

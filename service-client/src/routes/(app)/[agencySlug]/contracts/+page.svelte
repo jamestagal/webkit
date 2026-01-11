@@ -3,9 +3,9 @@
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { deleteContract, updateContractStatus } from '$lib/api/contracts.remote';
 	import { sendContractEmail } from '$lib/api/email.remote';
+	import { FEATURES } from '$lib/config/features';
 	import {
 		Plus,
-		FileText,
 		MoreVertical,
 		Send,
 		Eye,
@@ -19,6 +19,7 @@
 	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
+	const feature = FEATURES.contracts;
 	const toast = getToast();
 	let { data }: PageProps = $props();
 
@@ -139,11 +140,17 @@
 <div class="space-y-6">
 	<!-- Page Header -->
 	<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-		<div>
-			<h1 class="text-2xl font-bold">Contracts</h1>
-			<p class="text-base-content/70 mt-1">
-				Manage client contracts generated from proposals
-			</p>
+		<div class="flex items-start gap-4">
+			<div
+				class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+				style="background-color: {feature.colorLight}; color: {feature.color}"
+			>
+				<feature.icon class="h-6 w-6" />
+			</div>
+			<div>
+				<h1 class="text-2xl font-bold">{feature.title}</h1>
+				<p class="text-base-content/70 mt-1">{feature.description}</p>
+			</div>
 		</div>
 		<a href="/{agencySlug}/contracts/new" class="btn btn-primary">
 			<Plus class="h-4 w-4" />
@@ -188,9 +195,10 @@
 		<div class="card bg-base-100 border border-base-300">
 			<div class="card-body items-center text-center py-12">
 				<div
-					class="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4"
+					class="flex h-16 w-16 items-center justify-center rounded-full mb-4"
+					style="background-color: {feature.colorLight}; color: {feature.color}"
 				>
-					<FileText class="h-8 w-8" />
+					<feature.icon class="h-8 w-8" />
 				</div>
 				<h3 class="text-lg font-semibold">No contracts yet</h3>
 				<p class="text-base-content/60 max-w-sm">

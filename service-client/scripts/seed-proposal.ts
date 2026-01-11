@@ -1,17 +1,59 @@
 /**
- * Seed script to populate a proposal with comprehensive test data
- * Run with: npx tsx scripts/seed-proposal.ts
+ * Seed script to create a demo proposal with comprehensive test data
+ *
+ * Prerequisites: You must have already created your agency through the UI
+ *
+ * Run with: npx tsx scripts/seed-proposal.ts <agency-slug>
+ * Example: npx tsx scripts/seed-proposal.ts plentify
  */
 
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pkg from 'pg';
 const { Pool } = pkg;
-import { eq } from 'drizzle-orm';
-import { pgTable, uuid, text, jsonb, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { eq, and } from 'drizzle-orm';
+import {
+	pgTable,
+	uuid,
+	text,
+	jsonb,
+	timestamp,
+	varchar,
+	integer,
+	decimal,
+	boolean
+} from 'drizzle-orm/pg-core';
 
-// Define just the proposals table schema we need
+// Define minimal schema for seeding
+const agencies = pgTable('agencies', {
+	id: uuid('id').primaryKey(),
+	name: text('name').notNull(),
+	slug: text('slug').notNull().unique()
+});
+
+const agencyProfiles = pgTable('agency_profiles', {
+	id: uuid('id').primaryKey(),
+	agencyId: uuid('agency_id').notNull(),
+	nextProposalNumber: integer('next_proposal_number').notNull().default(1),
+	proposalPrefix: varchar('proposal_prefix', { length: 20 }).notNull().default('PROP')
+});
+
+const agencyPackages = pgTable('agency_packages', {
+	id: uuid('id').primaryKey(),
+	agencyId: uuid('agency_id').notNull(),
+	name: varchar('name', { length: 100 }).notNull(),
+	slug: varchar('slug', { length: 50 }).notNull(),
+	isFeatured: boolean('is_featured').notNull().default(false),
+	displayOrder: integer('display_order').notNull().default(0)
+});
+
 const proposals = pgTable('proposals', {
 	id: uuid('id').primaryKey(),
+	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+	agencyId: uuid('agency_id').notNull(),
+	proposalNumber: varchar('proposal_number', { length: 50 }).notNull(),
+	slug: varchar('slug', { length: 100 }).notNull().unique(),
+	status: varchar('status', { length: 50 }).notNull().default('draft'),
 	title: text('title').notNull().default(''),
 	coverImage: text('cover_image'),
 	executiveSummary: text('executive_summary').notNull().default(''),
@@ -34,14 +76,17 @@ const proposals = pgTable('proposals', {
 	clientEmail: varchar('client_email', { length: 255 }).notNull().default(''),
 	clientPhone: varchar('client_phone', { length: 50 }).notNull().default(''),
 	clientWebsite: text('client_website').notNull().default(''),
+	selectedPackageId: uuid('selected_package_id'),
+	selectedAddons: jsonb('selected_addons').notNull().default([]),
 	validUntil: timestamp('valid_until', { withTimezone: true }),
-	status: varchar('status', { length: 50 }).notNull().default('draft'),
+	viewCount: integer('view_count').notNull().default(0),
 	sentAt: timestamp('sent_at', { withTimezone: true }),
-	slug: varchar('slug', { length: 100 }).notNull(),
-	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+	createdBy: uuid('created_by')
 });
 
-const PROPOSAL_ID = 'bbbbbbbb-2222-2222-2222-222222222222';
+// ============================================================================
+// MURRAY'S PLUMBING DEMO DATA
+// ============================================================================
 
 const seedData = {
 	title: 'Professional Website Redesign for Murrays Plumbing',
@@ -189,7 +234,7 @@ Within 6 months, we expect page 1 rankings for:
 		{
 			week: 'Week 3-4',
 			title: 'Design & Prototyping',
-			description: 'Create visual designs for all key pages. You\'ll review and approve designs before any development begins.'
+			description: "Create visual designs for all key pages. You'll review and approve designs before any development begins."
 		},
 		{
 			week: 'Week 5-7',
@@ -209,11 +254,11 @@ Within 6 months, we expect page 1 rankings for:
 		{
 			week: 'Week 10',
 			title: 'Launch & Support',
-			description: 'Go live with your new website. We\'ll monitor performance and make any necessary adjustments.'
+			description: "Go live with your new website. We'll monitor performance and make any necessary adjustments."
 		}
 	],
 
-	closingContent: `**Why Choose Plentify Web Designs?**
+	closingContent: `**Why Choose Us?**
 
 We specialize in websites for trade businesses. We understand that you need a website that generates leads while you're on the tools, not just a pretty brochure.
 
@@ -248,7 +293,7 @@ Click "Accept Proposal" below to get started, or "Request Changes" if you'd like
 		technical_issues: [
 			'Site is slow and crashes on mobile',
 			'Contact form not working properly',
-			'Can\'t update content ourselves'
+			"Can't update content ourselves"
 		],
 		solution_gaps: [
 			'No online booking system',
@@ -288,28 +333,98 @@ Click "Accept Proposal" below to get started, or "Request Changes" if you'd like
 	clientPhone: '0412 345 678',
 	clientWebsite: 'https://murraysplumbing.com.au',
 
-	validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+	validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 };
 
+// ============================================================================
+// SEED FUNCTION
+// ============================================================================
+
 async function seedProposal() {
+	const agencySlug = process.argv[2];
+
+	if (!agencySlug) {
+		console.error('Usage: npx tsx scripts/seed-proposal.ts <agency-slug>');
+		console.error('Example: npx tsx scripts/seed-proposal.ts plentify');
+		process.exit(1);
+	}
+
 	console.log('Connecting to database...');
 
 	const pool = new Pool({
-		host: 'localhost',
-		port: 5432,
-		database: 'postgres',
-		user: 'postgres',
-		password: 'postgres',
+		host: process.env.POSTGRES_HOST || 'localhost',
+		port: parseInt(process.env.POSTGRES_PORT || '5432'),
+		database: process.env.POSTGRES_DB || 'postgres',
+		user: process.env.POSTGRES_USER || 'postgres',
+		password: process.env.POSTGRES_PASSWORD || 'postgres'
 	});
 
 	const db = drizzle(pool);
 
-	console.log('Seeding proposal data...');
-
 	try {
-		const [updated] = await db
-			.update(proposals)
-			.set({
+		// 1. Find the agency
+		console.log(`\nLooking for agency: ${agencySlug}...`);
+		const [agency] = await db
+			.select()
+			.from(agencies)
+			.where(eq(agencies.slug, agencySlug))
+			.limit(1);
+
+		if (!agency) {
+			console.error(`\n❌ Agency not found with slug: ${agencySlug}`);
+			console.error('Please create your agency through the UI first.');
+			process.exit(1);
+		}
+
+		console.log(`✓ Found agency: ${agency.name} (${agency.id})`);
+
+		// 2. Get agency profile for proposal number
+		const [profile] = await db
+			.select()
+			.from(agencyProfiles)
+			.where(eq(agencyProfiles.agencyId, agency.id))
+			.limit(1);
+
+		const proposalNumber = profile
+			? `${profile.proposalPrefix}-${new Date().getFullYear()}-${String(profile.nextProposalNumber).padStart(4, '0')}`
+			: `PROP-${new Date().getFullYear()}-0001`;
+
+		// 3. Try to find a package to attach (optional)
+		const [featuredPackage] = await db
+			.select()
+			.from(agencyPackages)
+			.where(and(eq(agencyPackages.agencyId, agency.id), eq(agencyPackages.isFeatured, true)))
+			.limit(1);
+
+		const [firstPackage] = await db
+			.select()
+			.from(agencyPackages)
+			.where(eq(agencyPackages.agencyId, agency.id))
+			.orderBy(agencyPackages.displayOrder)
+			.limit(1);
+
+		const selectedPackage = featuredPackage || firstPackage;
+
+		if (selectedPackage) {
+			console.log(`✓ Will attach package: ${selectedPackage.name}`);
+		} else {
+			console.log('⚠️  No packages found - proposal will be created without a package');
+		}
+
+		// 4. Generate unique slug
+		const proposalSlug = 'murrays-plumbing-' + Date.now().toString(36);
+
+		// 5. Create the proposal
+		console.log('\nCreating proposal...');
+
+		const [created] = await db
+			.insert(proposals)
+			.values({
+				id: crypto.randomUUID(),
+				agencyId: agency.id,
+				proposalNumber,
+				slug: proposalSlug,
+				status: 'draft',
 				title: seedData.title,
 				coverImage: seedData.coverImage,
 				executiveSummary: seedData.executiveSummary,
@@ -332,29 +447,44 @@ async function seedProposal() {
 				clientEmail: seedData.clientEmail,
 				clientPhone: seedData.clientPhone,
 				clientWebsite: seedData.clientWebsite,
+				selectedPackageId: selectedPackage?.id || null,
+				selectedAddons: [],
 				validUntil: seedData.validUntil,
-				status: 'draft',
+				viewCount: 0,
 				sentAt: null,
+				createdAt: new Date(),
 				updatedAt: new Date()
 			})
-			.where(eq(proposals.id, PROPOSAL_ID))
 			.returning();
 
-		if (updated) {
-			console.log('✅ Proposal seeded successfully!');
-			console.log(`   Title: ${updated.title}`);
-			console.log(`   Status: ${updated.status}`);
-			console.log(`   Slug: ${updated.slug}`);
-			console.log(`\n   View at: http://localhost:3000/p/${updated.slug}`);
-		} else {
-			console.log('❌ Proposal not found with ID:', PROPOSAL_ID);
+		// 6. Update next proposal number in profile
+		if (profile) {
+			await db
+				.update(agencyProfiles)
+				.set({ nextProposalNumber: profile.nextProposalNumber + 1 })
+				.where(eq(agencyProfiles.id, profile.id));
 		}
-	} catch (error) {
-		console.error('Error seeding proposal:', error);
-	}
 
-	await pool.end();
-	process.exit(0);
+		// Success!
+		console.log('\n' + '='.repeat(60));
+		console.log('✅ PROPOSAL SEEDED SUCCESSFULLY!');
+		console.log('='.repeat(60));
+		console.log('\nProposal Details:');
+		console.log(`  Number: ${proposalNumber}`);
+		console.log(`  Client: ${seedData.clientBusinessName}`);
+		console.log(`  Contact: ${seedData.clientContactName}`);
+		console.log(`  Status: draft`);
+		console.log(`\nView at:`);
+		console.log(`  Admin: https://app.webkit.au/${agencySlug}/proposals`);
+		console.log(`  Public: https://app.webkit.au/p/${proposalSlug}`);
+		console.log('\n');
+
+	} catch (error) {
+		console.error('\n❌ Error seeding proposal:', error);
+		process.exit(1);
+	} finally {
+		await pool.end();
+	}
 }
 
 seedProposal();

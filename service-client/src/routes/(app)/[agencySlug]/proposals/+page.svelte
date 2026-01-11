@@ -10,8 +10,11 @@
 	import { page } from '$app/state';
 	import { getProposals, deleteProposal, duplicateProposal } from '$lib/api/proposals.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
-	import { FileText, Plus, Eye, Pencil, Copy, Trash2, Send, ExternalLink } from 'lucide-svelte';
+	import { FEATURES } from '$lib/config/features';
+	import { Plus, Eye, Pencil, Copy, Trash2, Send, ExternalLink } from 'lucide-svelte';
 	import type { ProposalStatus } from '$lib/server/schema';
+
+	const feature = FEATURES.proposals;
 
 	const toast = getToast();
 	const agencySlug = page.params.agencySlug;
@@ -128,9 +131,17 @@
 <div class="space-y-6">
 	<!-- Header -->
 	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-		<div>
-			<h1 class="text-2xl font-bold">Proposals</h1>
-			<p class="text-base-content/70 mt-1">Create and manage client proposals</p>
+		<div class="flex items-start gap-4">
+			<div
+				class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+				style="background-color: {feature.colorLight}; color: {feature.color}"
+			>
+				<feature.icon class="h-6 w-6" />
+			</div>
+			<div>
+				<h1 class="text-2xl font-bold">{feature.title}</h1>
+				<p class="text-base-content/70 mt-1">{feature.description}</p>
+			</div>
 		</div>
 		<button type="button" class="btn btn-primary" onclick={createProposal}>
 			<Plus class="h-4 w-4" />
@@ -195,7 +206,12 @@
 	{#if filteredProposals.length === 0}
 		<div class="card bg-base-100 shadow">
 			<div class="card-body items-center py-16 text-center">
-				<FileText class="h-16 w-16 text-base-content/30" />
+				<div
+					class="flex h-16 w-16 items-center justify-center rounded-full"
+					style="background-color: {feature.colorLight}; color: {feature.color}"
+				>
+					<feature.icon class="h-8 w-8" />
+				</div>
 				<h3 class="mt-4 text-lg font-semibold">No proposals yet</h3>
 				<p class="text-base-content/60 mt-1">
 					{statusFilter === 'all'

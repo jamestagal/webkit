@@ -1,21 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
-	import {
-		House,
-		File,
-		LogOut,
-		MessageCircle,
-		ClipboardList,
-		ClipboardCheck,
-		FileText,
-		Receipt,
-		Settings,
-		Users
-	} from 'lucide-svelte';
+	import { LogOut } from 'lucide-svelte';
 	import { env } from '$env/dynamic/public';
 	import { setAgencyConfig } from '$lib/stores/agency-config.svelte';
 	import AgencySwitcher from '$lib/components/AgencySwitcher.svelte';
+	import { FEATURES, NAV_FEATURES } from '$lib/config/features';
 
 	let { children, data }: { children: Snippet; data: import('./$types').LayoutData } = $props();
 
@@ -38,22 +28,36 @@
 	let agencySlug = $derived(data.agency.slug);
 	let canAdmin = $derived(data.membership.role === 'owner' || data.membership.role === 'admin');
 
-	// Navigation items scoped to agency
+	// Navigation items scoped to agency - using shared feature config for consistency
 	let nav = $derived([
-		{ label: 'Dashboard', url: `/${agencySlug}`, icon: House },
-		{ label: 'Consultation', url: `/${agencySlug}/consultation`, icon: MessageCircle },
-		{ label: 'My Consultations', url: `/${agencySlug}/consultation/history`, icon: ClipboardList },
-		{ label: 'Proposals', url: `/${agencySlug}/proposals`, icon: FileText },
-		{ label: 'Contracts', url: `/${agencySlug}/contracts`, icon: File },
-		{ label: 'Invoices', url: `/${agencySlug}/invoices`, icon: Receipt },
-		{ label: 'Questionnaires', url: `/${agencySlug}/questionnaires`, icon: ClipboardCheck }
+		{ label: 'Dashboard', url: `/${agencySlug}`, icon: NAV_FEATURES.dashboard.icon, color: NAV_FEATURES.dashboard.color },
+		{ label: 'New Consultation', url: `/${agencySlug}/consultation`, icon: FEATURES.consultations.icon, color: FEATURES.consultations.color },
+		{ label: 'My Consultations', url: `/${agencySlug}/consultation/history`, icon: NAV_FEATURES.consultationHistory.icon, color: FEATURES.consultations.color },
+		{ label: 'Proposals', url: `/${agencySlug}/proposals`, icon: FEATURES.proposals.icon, color: FEATURES.proposals.color },
+		{ label: 'Contracts', url: `/${agencySlug}/contracts`, icon: FEATURES.contracts.icon, color: FEATURES.contracts.color },
+		{ label: 'Invoices', url: `/${agencySlug}/invoices`, icon: FEATURES.invoices.icon, color: FEATURES.invoices.color },
+		{ label: 'Questionnaires', url: `/${agencySlug}/questionnaires`, icon: FEATURES.questionnaires.icon, color: FEATURES.questionnaires.color }
 	]);
 
 	// Admin navigation (only shown to owner/admin)
 	let adminNav = $derived([
-		{ label: 'Settings', url: `/${agencySlug}/settings`, icon: Settings },
-		{ label: 'Members', url: `/${agencySlug}/settings/members`, icon: Users }
+		{ label: 'Settings', url: `/${agencySlug}/settings`, icon: NAV_FEATURES.settings.icon, color: NAV_FEATURES.settings.color },
+		{ label: 'Members', url: `/${agencySlug}/settings/members`, icon: NAV_FEATURES.members.icon, color: NAV_FEATURES.members.color }
 	]);
+
+	// Helper to check if nav item is active
+	function isActive(itemUrl: string): boolean {
+		// Dashboard - exact match only
+		if (itemUrl === `/${agencySlug}`) {
+			return current === itemUrl;
+		}
+		// Consultation form page - exact match only (don't match /consultation/history)
+		if (itemUrl === `/${agencySlug}/consultation`) {
+			return current === itemUrl;
+		}
+		// All other pages - prefix match
+		return current.startsWith(itemUrl);
+	}
 
 	function showModal(): undefined {
 		const modal = document.getElementById('sidebar') as HTMLDialogElement;
@@ -86,15 +90,22 @@
 			<nav class="mt-8 flex flex-1 flex-col">
 				<ul role="list" class="flex flex-1 flex-col items-center space-y-1">
 					{#each nav as item (item.url)}
+						{@const active = isActive(item.url)}
 						<li>
 							<div class="tooltip tooltip-right" data-tip={item.label}>
 								<a
 									href={item.url}
-									class="group hover:bg-base-100 flex cursor-pointer gap-x-3 rounded-md p-3 text-sm/6 font-semibold hover:opacity-80
-                                            {current === item.url ? 'bg-base-100' : ''}"
+									class="group relative flex cursor-pointer gap-x-3 rounded-md p-3 text-sm/6 font-semibold transition-all duration-200
+										{active ? 'bg-base-100' : 'hover:bg-base-100 hover:opacity-80'}"
 								>
-									<item.icon class="h-6 w-6" />
+									<item.icon class="h-6 w-6" style="color: {item.color}" />
 									<span class="sr-only">{item.label}</span>
+									{#if active}
+										<span
+											class="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full"
+											style="background-color: {item.color}"
+										></span>
+									{/if}
 								</a>
 							</div>
 						</li>
@@ -106,15 +117,22 @@
 							<div class="border-base-100 mx-3 border-t"></div>
 						</li>
 						{#each adminNav as item (item.url)}
+							{@const active = isActive(item.url)}
 							<li>
 								<div class="tooltip tooltip-right" data-tip={item.label}>
 									<a
 										href={item.url}
-										class="group hover:bg-base-100 flex cursor-pointer gap-x-3 rounded-md p-3 text-sm/6 font-semibold hover:opacity-80
-                                            {current.startsWith(item.url) ? 'bg-base-100' : ''}"
+										class="group relative flex cursor-pointer gap-x-3 rounded-md p-3 text-sm/6 font-semibold transition-all duration-200
+											{active ? 'bg-base-100' : 'hover:bg-base-100 hover:opacity-80'}"
 									>
-										<item.icon class="h-6 w-6" />
+										<item.icon class="h-6 w-6" style="color: {item.color}" />
 										<span class="sr-only">{item.label}</span>
+										{#if active}
+											<span
+												class="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full"
+												style="background-color: {item.color}"
+											></span>
+										{/if}
 									</a>
 								</div>
 							</li>
@@ -179,14 +197,21 @@
 				<nav class="flex flex-1 flex-col">
 					<ul role="list" class="-mx-2 flex-1 space-y-1">
 						{#each nav as item (item.url)}
+							{@const active = isActive(item.url)}
 							<li>
 								<a
 									href={item.url}
-									class="group hover:bg-base-200 flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold hover:opacity-80
-                                    {current === item.url ? 'bg-base-200' : ''}"
+									class="group relative flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold transition-all duration-200
+										{active ? 'bg-base-200' : 'hover:bg-base-200 hover:opacity-80'}"
 								>
-									<item.icon class="h-6 w-6" />
+									<item.icon class="h-6 w-6" style="color: {item.color}" />
 									{item.label}
+									{#if active}
+										<span
+											class="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full"
+											style="background-color: {item.color}"
+										></span>
+									{/if}
 								</a>
 							</li>
 						{/each}
@@ -199,14 +224,21 @@
 								</div>
 							</li>
 							{#each adminNav as item (item.url)}
+								{@const active = isActive(item.url)}
 								<li>
 									<a
 										href={item.url}
-										class="group hover:bg-base-200 flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold hover:opacity-80
-                                        {current.startsWith(item.url) ? 'bg-base-200' : ''}"
+										class="group relative flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold transition-all duration-200
+											{active ? 'bg-base-200' : 'hover:bg-base-200 hover:opacity-80'}"
 									>
-										<item.icon class="h-6 w-6" />
+										<item.icon class="h-6 w-6" style="color: {item.color}" />
 										{item.label}
+										{#if active}
+											<span
+												class="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full"
+												style="background-color: {item.color}"
+											></span>
+										{/if}
 									</a>
 								</li>
 							{/each}

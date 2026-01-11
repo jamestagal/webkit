@@ -8,7 +8,6 @@
 	 * - Agreement section with field visibility toggles
 	 * - Schedule section for selecting included sections
 	 * - Signatures section
-	 * - Questionnaire section (always visible, not just for signed)
 	 * - History section with email tracking
 	 */
 
@@ -17,7 +16,6 @@
 	import { updateContract, sendContract, deleteContract } from '$lib/api/contracts.remote';
 	import { sendContractEmail } from '$lib/api/email.remote';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
-	import QuestionnaireView from '$lib/components/questionnaire/QuestionnaireView.svelte';
 	import {
 		Save,
 		Send,
@@ -26,7 +24,6 @@
 		User,
 		FileText,
 		PenTool,
-		ClipboardList,
 		History,
 		ExternalLink,
 		Copy,
@@ -35,7 +32,8 @@
 		Clock,
 		AlertCircle,
 		LayoutDashboard,
-		Settings2
+		Settings2,
+		FileDown
 	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
@@ -44,11 +42,11 @@
 
 	let agencySlug = $derived(data.agency.slug);
 	let contract = $derived(data.contract);
-	let questionnaire = $derived(data.questionnaire);
 	let availableSchedules = $derived(data.availableSchedules);
 
 	let isSubmitting = $state(false);
 	let isSending = $state(false);
+	let isDownloadingPdf = $state(false);
 	let activeSection = $state('overview');
 
 	// Form state - editable fields
@@ -111,9 +109,6 @@
 	// Editable: draft, sent, viewed - locked only after signing
 	let isEditable = $derived(!['signed', 'completed', 'expired', 'terminated'].includes(contract.status));
 
-	// Show questionnaire for all contracts (not just signed)
-	let showQuestionnaire = $derived(true);
-
 	// Can send: only draft
 	let canSend = $derived(contract.status === 'draft');
 
@@ -123,11 +118,11 @@
 	// Sections for navigation
 	const sections = [
 		{ id: 'overview', label: 'Overview', icon: LayoutDashboard },
+		{ id: 'preview', label: 'Preview', icon: Eye },
 		{ id: 'client', label: 'Client', icon: User },
 		{ id: 'agreement', label: 'Agreement', icon: FileText },
 		{ id: 'schedule', label: 'Schedule', icon: Settings2 },
 		{ id: 'signatures', label: 'Signatures', icon: PenTool },
-		{ id: 'questionnaire', label: 'Questionnaire', icon: ClipboardList },
 		{ id: 'history', label: 'History', icon: History }
 	];
 
@@ -297,6 +292,31 @@
 		window.open(`/c/${contract.slug}`, '_blank');
 	}
 
+	function openPreviewNewTab() {
+		window.open(`/c/${contract.slug}?preview=true`, '_blank');
+	}
+
+	async function downloadPdf() {
+		isDownloadingPdf = true;
+		try {
+			const response = await fetch(`/api/contracts/${contract.id}/pdf`);
+			if (!response.ok) throw new Error('Failed to generate PDF');
+
+			const blob = await response.blob();
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `${contract.contractNumber}.pdf`;
+			a.click();
+			URL.revokeObjectURL(url);
+			toast.success('PDF downloaded');
+		} catch (err) {
+			toast.error('Failed to download PDF', err instanceof Error ? err.message : '');
+		} finally {
+			isDownloadingPdf = false;
+		}
+	}
+
 	function goBack() {
 		goto(`/${agencySlug}/contracts`);
 	}
@@ -368,6 +388,29 @@
 			</div>
 		</div>
 		<div class="flex-none gap-2">
+			<!-- Preview - always available -->
+			<button
+				type="button"
+				class="btn btn-ghost btn-sm"
+				onclick={() => (activeSection = 'preview')}
+			>
+				<Eye class="h-4 w-4" />
+				Preview
+			</button>
+			<!-- PDF - always available -->
+			<button
+				type="button"
+				class="btn btn-ghost btn-sm"
+				onclick={downloadPdf}
+				disabled={isDownloadingPdf}
+			>
+				{#if isDownloadingPdf}
+					<span class="loading loading-spinner loading-sm"></span>
+				{:else}
+					<FileDown class="h-4 w-4" />
+				{/if}
+				PDF
+			</button>
 			{#if contract.status !== 'draft'}
 				<button type="button" class="btn btn-ghost btn-sm" onclick={viewPublic}>
 					<ExternalLink class="h-4 w-4" />
@@ -535,6 +578,55 @@
 									</div>
 								</div>
 							{/if}
+						</div>
+					</section>
+				{/if}
+
+				<!-- Preview Section -->
+				{#if activeSection === 'preview'}
+					<section class="card bg-base-100 shadow">
+						<div class="card-body">
+							<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+								<h2 class="card-title">Contract Preview</h2>
+								<div class="flex gap-2">
+									<button
+										type="button"
+										class="btn btn-outline btn-sm"
+										onclick={openPreviewNewTab}
+									>
+										<ExternalLink class="h-4 w-4" />
+										Open in New Tab
+									</button>
+									<button
+										type="button"
+										class="btn btn-outline btn-sm"
+										onclick={downloadPdf}
+										disabled={isDownloadingPdf}
+									>
+										{#if isDownloadingPdf}
+											<span class="loading loading-spinner loading-sm"></span>
+										{:else}
+											<FileDown class="h-4 w-4" />
+										{/if}
+										Download PDF
+									</button>
+								</div>
+							</div>
+
+							<div class="alert alert-info mt-4">
+								<AlertCircle class="h-5 w-5" />
+								<span>This is a preview of how the contract will appear to your client. Save any changes before previewing.</span>
+							</div>
+
+							<!-- Inline Preview iframe -->
+							<div class="border border-base-300 rounded-lg mt-4 overflow-hidden bg-base-200">
+								<iframe
+									src="/c/{contract.slug}?preview=true"
+									class="w-full bg-white"
+									style="height: 800px;"
+									title="Contract Preview"
+								></iframe>
+							</div>
 						</div>
 					</section>
 				{/if}
@@ -916,15 +1008,6 @@
 									{/if}
 								{/if}
 							</div>
-						</div>
-					</section>
-				{/if}
-
-				<!-- Questionnaire Section -->
-				{#if activeSection === 'questionnaire'}
-					<section class="card bg-base-100 shadow">
-						<div class="card-body">
-							<QuestionnaireView {questionnaire} contractSlug={contract.slug} />
 						</div>
 					</section>
 				{/if}

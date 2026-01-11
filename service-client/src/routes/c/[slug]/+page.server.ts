@@ -11,8 +11,9 @@ import { contracts, agencies, agencyProfiles, contractSchedules } from '$lib/ser
 import { eq, sql, inArray } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, url }) => {
 	const { slug } = params;
+	const isPreview = url.searchParams.get('preview') === 'true';
 
 	// Fetch contract by slug
 	const [contract] = await db
@@ -31,22 +32,24 @@ export const load: PageServerLoad = async ({ params }) => {
 		new Date(contract.validUntil) < new Date() &&
 		!['signed', 'completed'].includes(contract.status);
 
-	// Record view (fire-and-forget, don't await)
-	const updates: Record<string, unknown> = {
-		viewCount: sql`${contracts.viewCount} + 1`,
-		lastViewedAt: new Date()
-	};
+	// Record view only if NOT in preview mode (fire-and-forget, don't await)
+	if (!isPreview) {
+		const updates: Record<string, unknown> = {
+			viewCount: sql`${contracts.viewCount} + 1`,
+			lastViewedAt: new Date()
+		};
 
-	// If status is 'sent', change to 'viewed'
-	if (contract.status === 'sent') {
-		updates['status'] = 'viewed';
+		// If status is 'sent', change to 'viewed'
+		if (contract.status === 'sent') {
+			updates['status'] = 'viewed';
+		}
+
+		db.update(contracts)
+			.set(updates)
+			.where(eq(contracts.id, contract.id))
+			.then(() => {})
+			.catch(() => {});
 	}
-
-	db.update(contracts)
-		.set(updates)
-		.where(eq(contracts.id, contract.id))
-		.then(() => {})
-		.catch(() => {});
 
 	// Fetch agency
 	const [agency] = await db
@@ -91,7 +94,8 @@ export const load: PageServerLoad = async ({ params }) => {
 		},
 		agency,
 		profile,
-		includedSchedules
+		includedSchedules,
+		isPreview
 	};
 };
 
