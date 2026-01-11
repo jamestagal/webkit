@@ -352,7 +352,7 @@
 
 					<div class="form-control">
 						<div class="flex items-center justify-between mb-2">
-							<label class="label-text font-medium">Schedule Content</label>
+							<span class="label-text font-medium">Schedule Content</span>
 							<MergeFieldPicker onInsert={handleMergeFieldInsert} />
 						</div>
 						<RichTextEditor
@@ -380,6 +380,6 @@
 				</div>
 			</form>
 		</div>
-		<div class="modal-backdrop" onclick={closeModal}></div>
+		<button type="button" class="modal-backdrop" onclick={closeModal} aria-label="Close modal"></button>
 	</div>
 {/if}

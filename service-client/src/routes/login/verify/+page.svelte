@@ -3,7 +3,7 @@
 	import type { PageData } from "./$types";
 
 	let { data }: { data: PageData } = $props();
-	const masked = data.masked;
+	let masked = $derived(data.masked);
 </script>
 
 <main class="flex h-full place-items-center">

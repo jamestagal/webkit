@@ -23,10 +23,8 @@
 	let statusFilter = $state<ProposalStatus | 'all'>('all');
 	let isLoading = $state(false);
 
-	// Load proposals
-	const proposals = await getProposals(
-		statusFilter === 'all' ? undefined : { status: statusFilter }
-	);
+	// Load all proposals (client-side filtering handles status filter)
+	const proposals = await getProposals({});
 
 	// Derived: filtered proposals (client-side filter for quick switching)
 	let filteredProposals = $derived(

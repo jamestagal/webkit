@@ -121,18 +121,15 @@
 			</div>
 		</aside>
 
-		<!-- Mobile navigation -->
-		<div class="lg:hidden">
-			<div class="flex gap-2 overflow-x-auto pb-2">
+		<!-- Mobile Section Navigation -->
+		<div class="lg:hidden border-b border-base-300 bg-base-100 -mx-4 px-2 mb-4">
+			<div class="flex overflow-x-auto py-2 gap-1 scrollbar-none">
 				{#each settingsNav as item (item.url)}
 					<a
 						href={item.url}
-						class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap
-							{current.startsWith(item.url)
-							? 'bg-primary text-primary-content'
-							: 'bg-base-200 hover:bg-base-300'}"
+						class="btn btn-sm shrink-0 gap-1 {current.startsWith(item.url) ? 'btn-primary' : 'btn-ghost'}"
 					>
-						<item.icon class="h-4 w-4" />
+						<item.icon class="h-3.5 w-3.5" />
 						{item.label}
 					</a>
 				{/each}

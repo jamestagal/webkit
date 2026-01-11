@@ -366,12 +366,13 @@
 	<div class="lg:hidden border-b border-base-300 bg-base-100">
 		<div class="flex overflow-x-auto px-2 py-2 gap-1 scrollbar-none">
 			{#each sections as section}
+				{@const SectionIcon = section.icon}
 				<button
 					type="button"
 					class="btn btn-sm shrink-0 gap-1 {activeSection === section.id ? 'btn-primary' : 'btn-ghost'}"
 					onclick={() => (activeSection = section.id)}
 				>
-					<svelte:component this={section.icon} class="h-3.5 w-3.5" />
+					<SectionIcon class="h-3.5 w-3.5" />
 					{section.label}
 				</button>
 			{/each}
@@ -383,12 +384,13 @@
 		<aside class="bg-base-200 hidden w-48 shrink-0 p-4 lg:block">
 			<nav class="space-y-1">
 				{#each sections as section}
+					{@const SectionIcon = section.icon}
 					<button
 						type="button"
 						class="btn btn-ghost btn-sm w-full justify-start {activeSection === section.id ? 'btn-active' : ''}"
 						onclick={() => (activeSection = section.id)}
 					>
-						<svelte:component this={section.icon} class="h-4 w-4" />
+						<SectionIcon class="h-4 w-4" />
 						{section.label}
 					</button>
 				{/each}
@@ -780,9 +782,9 @@
 
 							{#if addons.length > 0}
 								<div class="form-control">
-									<label class="label">
+									<span class="label">
 										<span class="label-text">Add-ons</span>
-									</label>
+									</span>
 									<div class="flex flex-wrap gap-2">
 										{#each addons as addon}
 											<label class="label cursor-pointer gap-2">

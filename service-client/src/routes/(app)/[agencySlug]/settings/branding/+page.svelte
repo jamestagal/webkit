@@ -11,18 +11,20 @@
 
 	let { data }: PageProps = $props();
 
-	// Safe access to profile data
-	const profile = data.profile;
+	// Extract initial values (wrapped in function to signal intentional non-reactive capture)
+	function getInitialFormData() {
+		return {
+			tagline: data.profile?.tagline ?? '',
+			brandFont: data.profile?.brandFont ?? '',
+			socialLinkedin: data.profile?.socialLinkedin ?? '',
+			socialFacebook: data.profile?.socialFacebook ?? '',
+			socialInstagram: data.profile?.socialInstagram ?? '',
+			socialTwitter: data.profile?.socialTwitter ?? ''
+		};
+	}
 
-	// Form state
-	let formData = $state({
-		tagline: profile?.tagline ?? '',
-		brandFont: profile?.brandFont ?? '',
-		socialLinkedin: profile?.socialLinkedin ?? '',
-		socialFacebook: profile?.socialFacebook ?? '',
-		socialInstagram: profile?.socialInstagram ?? '',
-		socialTwitter: profile?.socialTwitter ?? ''
-	});
+	// Form state - initialized once, maintains user edits until save
+	let formData = $state(getInitialFormData());
 
 	let isSaving = $state(false);
 	let error = $state('');

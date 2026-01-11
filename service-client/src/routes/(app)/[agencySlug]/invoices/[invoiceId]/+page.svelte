@@ -425,7 +425,12 @@
 				</button>
 			</div>
 		</div>
-		<div class="modal-backdrop bg-black/50" onclick={() => (showPaymentModal = false)}></div>
+		<button
+			type="button"
+			class="modal-backdrop bg-black/50"
+			onclick={() => (showPaymentModal = false)}
+			aria-label="Close modal"
+		></button>
 	</div>
 {/if}
 

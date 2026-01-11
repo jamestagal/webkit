@@ -25,14 +25,11 @@
 
 	const BasicPlan = 0x0000000000004000;
 	const PremiumPlan = 0x0000000000008000;
-	let plan = $state("");
-	if (data.access & BasicPlan) {
-		plan = "Basic";
-	} else if (data.access & PremiumPlan) {
-		plan = "Premium";
-	} else {
-		plan = "Free";
-	}
+	let plan = $derived(
+		(data.access & BasicPlan) ? "Basic" :
+		(data.access & PremiumPlan) ? "Premium" :
+		"Free"
+	);
 </script>
 
 <section class="flex max-w-lg flex-col gap-6">

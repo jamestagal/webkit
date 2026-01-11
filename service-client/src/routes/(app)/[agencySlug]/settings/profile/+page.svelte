@@ -12,52 +12,55 @@
 
 	let { data }: PageProps = $props();
 
-	// Safe access to profile and agency data
-	const profile = data.profile;
-	const agency = data.agency;
+	// Extract initial values (wrapped in functions to signal intentional non-reactive capture)
+	function getInitialContactData() {
+		return {
+			email: data.agency?.email ?? '',
+			phone: data.agency?.phone ?? '',
+			website: data.agency?.website ?? ''
+		};
+	}
 
-	// Contact form state (from agency table)
-	let contactData = $state({
-		email: agency?.email ?? '',
-		phone: agency?.phone ?? '',
-		website: agency?.website ?? ''
-	});
+	function getInitialFormData() {
+		return {
+			// Business Registration
+			abn: data.profile?.abn ?? '',
+			acn: data.profile?.acn ?? '',
+			legalEntityName: data.profile?.legalEntityName ?? '',
+			tradingName: data.profile?.tradingName ?? '',
 
-	// Form state - initialized from server data
-	let formData = $state({
-		// Business Registration
-		abn: profile?.abn ?? '',
-		acn: profile?.acn ?? '',
-		legalEntityName: profile?.legalEntityName ?? '',
-		tradingName: profile?.tradingName ?? '',
+			// Address
+			addressLine1: data.profile?.addressLine1 ?? '',
+			addressLine2: data.profile?.addressLine2 ?? '',
+			city: data.profile?.city ?? '',
+			state: data.profile?.state ?? '',
+			postcode: data.profile?.postcode ?? '',
+			country: data.profile?.country ?? 'Australia',
 
-		// Address
-		addressLine1: profile?.addressLine1 ?? '',
-		addressLine2: profile?.addressLine2 ?? '',
-		city: profile?.city ?? '',
-		state: profile?.state ?? '',
-		postcode: profile?.postcode ?? '',
-		country: profile?.country ?? 'Australia',
+			// Banking
+			bankName: data.profile?.bankName ?? '',
+			bsb: data.profile?.bsb ?? '',
+			accountNumber: data.profile?.accountNumber ?? '',
+			accountName: data.profile?.accountName ?? '',
 
-		// Banking
-		bankName: profile?.bankName ?? '',
-		bsb: profile?.bsb ?? '',
-		accountNumber: profile?.accountNumber ?? '',
-		accountName: profile?.accountName ?? '',
+			// Tax & GST
+			gstRegistered: data.profile?.gstRegistered ?? true,
+			taxFileNumber: data.profile?.taxFileNumber ?? '',
+			gstRate: data.profile?.gstRate ?? '10.00',
 
-		// Tax & GST
-		gstRegistered: profile?.gstRegistered ?? true,
-		taxFileNumber: profile?.taxFileNumber ?? '',
-		gstRate: profile?.gstRate ?? '10.00',
+			// Document Defaults
+			defaultPaymentTerms: (data.profile?.defaultPaymentTerms as 'DUE_ON_RECEIPT' | 'NET_7' | 'NET_14' | 'NET_30') ?? 'NET_14',
+			invoicePrefix: data.profile?.invoicePrefix ?? 'INV',
+			invoiceFooter: data.profile?.invoiceFooter ?? '',
+			contractPrefix: data.profile?.contractPrefix ?? 'CON',
+			contractFooter: data.profile?.contractFooter ?? '',
+			proposalPrefix: data.profile?.proposalPrefix ?? 'PROP'
+		};
+	}
 
-		// Document Defaults
-		defaultPaymentTerms: (profile?.defaultPaymentTerms as 'DUE_ON_RECEIPT' | 'NET_7' | 'NET_14' | 'NET_30') ?? 'NET_14',
-		invoicePrefix: profile?.invoicePrefix ?? 'INV',
-		invoiceFooter: profile?.invoiceFooter ?? '',
-		contractPrefix: profile?.contractPrefix ?? 'CON',
-		contractFooter: profile?.contractFooter ?? '',
-		proposalPrefix: profile?.proposalPrefix ?? 'PROP'
-	});
+	// Form state - initialized once, maintains user edits until save
+	let contactData = $state(getInitialContactData());
+	let formData = $state(getInitialFormData());
 
 	let isSaving = $state(false);
 	let error = $state('');

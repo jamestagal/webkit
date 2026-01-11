@@ -402,6 +402,11 @@
 				</form>
 			</div>
 		</div>
-		<div class="modal-backdrop bg-black/50" onclick={() => (showDisconnectConfirm = false)}></div>
+		<button
+			type="button"
+			class="modal-backdrop bg-black/50"
+			onclick={() => (showDisconnectConfirm = false)}
+			aria-label="Close modal"
+		></button>
 	</div>
 {/if}

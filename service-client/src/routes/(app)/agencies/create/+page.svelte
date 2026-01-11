@@ -138,11 +138,11 @@
 				placeholder="My Agency"
 				required
 			/>
-			<label class="label">
+			<span class="label">
 				<span class="label-text-alt text-base-content/60">
 					This is how your agency will appear to clients.
 				</span>
-			</label>
+			</span>
 		</div>
 
 		<!-- Slug -->
@@ -182,7 +182,7 @@
 					{/if}
 				</div>
 			</div>
-			<label class="label">
+			<span class="label">
 				{#if slug.length >= 3 && !slugChecking}
 					{#if slugValid === false}
 						<span class="label-text-alt text-error">
@@ -200,7 +200,7 @@
 						This will be your agency's unique URL.
 					</span>
 				{/if}
-			</label>
+			</span>
 		</div>
 
 		<!-- Submit -->

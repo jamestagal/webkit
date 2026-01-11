@@ -937,9 +937,9 @@
 											required
 											minlength="10"
 										></textarea>
-										<label class="label">
+										<span class="label">
 											<span class="label-text-alt">Minimum 10 characters</span>
-										</label>
+										</span>
 									</div>
 									<div class="card-actions justify-end mt-4">
 										<button
