@@ -3,6 +3,7 @@ import { agencies, agencyMemberships, agencyFormOptions, users } from '$lib/serv
 import { eq, and, asc } from 'drizzle-orm';
 import { groupOptionsByCategory, mergeWithDefaults } from '$lib/stores/agency-config.svelte';
 import type { AgencyConfig } from '$lib/stores/agency-config.svelte';
+import { getImpersonatedAgencyId, isSuperAdmin, SUPER_ADMIN_FLAG } from '$lib/server/super-admin';
 
 export const load: import('./$types').LayoutServerLoad = async ({ locals }) => {
 	const userId = locals.user?.id;
@@ -117,11 +118,19 @@ export const load: import('./$types').LayoutServerLoad = async ({ locals }) => {
 		}
 	}
 
+	// Check for super admin impersonation
+	const userAccess = locals.user?.access ?? 0;
+	const isSuperAdminUser = isSuperAdmin(userAccess);
+	const impersonatedAgencyId = getImpersonatedAgencyId();
+
 	return {
-		access: locals.user?.access ?? 0,
+		access: userAccess,
 		subscription_active: locals.user?.subscription_active ?? false,
 		agencyConfig,
 		currentAgency,
-		userRole
+		userRole,
+		isSuperAdmin: isSuperAdminUser,
+		isImpersonating: isSuperAdminUser && !!impersonatedAgencyId,
+		impersonatedAgencyId: isSuperAdminUser ? impersonatedAgencyId : undefined
 	};
 };

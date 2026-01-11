@@ -12,6 +12,7 @@ import { eq, and, asc } from 'drizzle-orm';
 import { groupOptionsByCategory, mergeWithDefaults } from '$lib/stores/agency-config.svelte';
 import type { AgencyConfig } from '$lib/stores/agency-config.svelte';
 import type { LayoutServerLoad } from './$types';
+import { isSuperAdmin, getImpersonatedAgencyId } from '$lib/server/super-admin';
 
 export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 	const userId = locals.user?.id;
@@ -51,7 +52,13 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 		throw error(403, 'This agency is currently suspended');
 	}
 
-	// Verify user has access to this agency
+	// Check if user is super admin and impersonating this agency
+	const userAccess = locals.user?.access ?? 0;
+	const isUserSuperAdmin = isSuperAdmin(userAccess);
+	const impersonatedAgencyId = getImpersonatedAgencyId();
+	const isImpersonating = isUserSuperAdmin && impersonatedAgencyId === agency.id;
+
+	// Verify user has access to this agency (or is super admin impersonating)
 	const [membership] = await db
 		.select({
 			id: agencyMemberships.id,
@@ -69,9 +76,18 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 		)
 		.limit(1);
 
-	if (!membership) {
+	// Allow access if user has membership OR is super admin impersonating
+	if (!membership && !isImpersonating) {
 		throw error(403, 'You do not have access to this agency');
 	}
+
+	// For super admin impersonation, create virtual owner membership
+	const effectiveMembership = membership || {
+		id: 'virtual',
+		role: 'owner' as const,
+		status: 'active' as const,
+		displayName: 'Super Admin'
+	};
 
 	// Set the current agency cookie
 	cookies.set('current_agency_id', agency.id, {
@@ -144,14 +160,16 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 			accentColor: agency.accentColor
 		},
 		membership: {
-			role: membership.role as 'owner' | 'admin' | 'member',
-			displayName: membership.displayName
+			role: effectiveMembership.role as 'owner' | 'admin' | 'member',
+			displayName: effectiveMembership.displayName
 		},
 		agencyConfig,
 		isDefaultAgency: user?.defaultAgencyId === agency.id,
 		userAgencies: userAgencies.map((a) => ({
 			...a,
 			role: a.role as 'owner' | 'admin' | 'member'
-		}))
+		})),
+		isSuperAdmin: isUserSuperAdmin,
+		isImpersonating
 	};
 };

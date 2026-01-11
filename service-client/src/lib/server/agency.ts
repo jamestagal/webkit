@@ -14,6 +14,7 @@ import { agencies, agencyMemberships, users } from '$lib/server/schema';
 import { eq, and } from 'drizzle-orm';
 import { getUserId } from '$lib/server/auth';
 import type { AgencyRole } from '$lib/server/schema';
+import { getImpersonatedAgencyId, getVirtualOwnerContext, isSuperAdmin } from '$lib/server/super-admin';
 
 // Cookie name for storing current agency
 const CURRENT_AGENCY_COOKIE = 'current_agency_id';
@@ -53,6 +54,24 @@ export interface AgencyContext {
 export async function getAgencyContext(): Promise<AgencyContext> {
 	const userId = getUserId();
 	const event = getRequestEvent();
+
+	// Check for super admin impersonation first
+	const impersonatedAgencyId = getImpersonatedAgencyId();
+	if (impersonatedAgencyId) {
+		// Verify user is super admin
+		const [user] = await db
+			.select({ access: users.access })
+			.from(users)
+			.where(eq(users.id, userId))
+			.limit(1);
+
+		if (user && isSuperAdmin(user.access)) {
+			const virtualContext = await getVirtualOwnerContext(userId, impersonatedAgencyId);
+			if (virtualContext) {
+				return virtualContext;
+			}
+		}
+	}
 
 	// Try to get agency ID from cookie
 	let agencyId = event?.cookies.get(CURRENT_AGENCY_COOKIE);

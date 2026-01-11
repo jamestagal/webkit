@@ -194,6 +194,7 @@
 		<AgencySwitcher
 			currentAgency={currentAgencyForSwitcher}
 			agencies={data.userAgencies}
+			isSuperAdmin={data.isSuperAdmin}
 		/>
 	</div>
 
@@ -289,6 +290,7 @@
 			<AgencySwitcher
 				currentAgency={currentAgencyForSwitcher}
 				agencies={data.userAgencies}
+				isSuperAdmin={data.isSuperAdmin}
 			/>
 		</div>
 		<div class="px-4 py-10 sm:px-6 lg:px-8 xl:px-12 lg:py-6 max-w-[1600px]">

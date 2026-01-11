@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
-	import { Building2, ChevronDown, Check, Plus, Settings, Users, LogOut } from 'lucide-svelte';
+	import { Building2, ChevronDown, Check, Plus, Settings, Users, LogOut, Shield } from 'lucide-svelte';
 	import { switchAgency, setDefaultAgency } from '$lib/api/agency.remote';
 	import type { AgencyRole } from '$lib/server/schema';
 
@@ -17,9 +17,10 @@
 		currentAgency: Agency;
 		agencies: Agency[];
 		showManageLink?: boolean;
+		isSuperAdmin?: boolean;
 	}
 
-	let { currentAgency, agencies, showManageLink = true }: Props = $props();
+	let { currentAgency, agencies, showManageLink = true, isSuperAdmin = false }: Props = $props();
 
 	// Local state
 	let showDropdown = $state(false);
@@ -238,6 +239,18 @@
 					<a href="/agencies/create" onclick={closeDropdown}>
 						<Plus class="h-4 w-4" />
 						Create New Agency
+					</a>
+				</li>
+			{/if}
+
+			<!-- Super Admin Link -->
+			{#if isSuperAdmin}
+				<div class="divider my-1"></div>
+
+				<li>
+					<a href="/super-admin" class="text-error font-medium" onclick={closeDropdown}>
+						<Shield class="h-4 w-4" />
+						Super Admin
 					</a>
 				</li>
 			{/if}
