@@ -15,9 +15,13 @@
 		name: data.agency.name,
 		slug: data.agency.slug,
 		logoUrl: data.agency.logoUrl,
+		logoAvatarUrl: data.agency.logoAvatarUrl,
 		primaryColor: data.agency.primaryColor,
 		role: data.membership.role
 	});
+
+	// Helper to get the best logo for avatar display (prefer avatar, fallback to logoUrl)
+	let sidebarLogo = $derived(data.agency.logoAvatarUrl || data.agency.logoUrl || null);
 
 	// Set agency config context for child components
 	$effect(() => {
@@ -81,10 +85,10 @@
 		class="lg:bg-base-300 hidden !overflow-visible lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-20 lg:flex-col lg:overflow-y-auto lg:pb-4"
 	>
 		<div class="flex grow flex-col">
-			<!-- Agency Logo or Default -->
+			<!-- Agency Logo or Default (prefer avatar logo for compact display) -->
 			<a href="/{agencySlug}" class="mt-4 flex h-8 shrink-0 items-center justify-center">
-				{#if data.agency.logoUrl}
-					<img class="h-full" src={data.agency.logoUrl} alt={data.agency.name} />
+				{#if sidebarLogo}
+					<img class="h-8 w-8 rounded-lg object-cover" src={sidebarLogo} alt={data.agency.name} />
 				{:else}
 					<div
 						class="flex h-8 w-8 items-center justify-center rounded-lg text-white font-bold"

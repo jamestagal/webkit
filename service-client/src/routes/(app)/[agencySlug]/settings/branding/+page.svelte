@@ -26,7 +26,8 @@
 
 	function getInitialBrandingData() {
 		return {
-			logoUrl: data.agency?.logoUrl ?? '',
+			logoUrl: data.agency?.logoUrl ?? '', // Horizontal logo for documents
+			logoAvatarUrl: data.agency?.logoAvatarUrl ?? '', // Square avatar for nav/UI
 			primaryColor: data.agency?.primaryColor ?? '#3b82f6',
 			secondaryColor: data.agency?.secondaryColor ?? '#1e40af',
 			accentColor: data.agency?.accentColor ?? '#f59e0b',
@@ -42,10 +43,13 @@
 	let isSavingBranding = $state(false);
 	let error = $state('');
 
-	// Logo upload state
-	let logoPreview = $state<string | null>(null);
+	// Logo upload state - separate for each logo type
+	let logoPreview = $state<string | null>(null); // For horizontal logo
+	let avatarPreview = $state<string | null>(null); // For avatar logo
 	let isDragging = $state(false);
+	let isDraggingAvatar = $state(false);
 	let fileInput: HTMLInputElement;
+	let avatarFileInput: HTMLInputElement;
 
 	// Common font options
 	const fontOptions = [
@@ -119,6 +123,64 @@
 		}
 	}
 
+	// Avatar logo handling functions
+	function handleAvatarFileSelect(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (file) {
+			processAvatarFile(file);
+		}
+	}
+
+	function handleAvatarDrop(event: DragEvent) {
+		event.preventDefault();
+		isDraggingAvatar = false;
+		const file = event.dataTransfer?.files[0];
+		if (file && file.type.startsWith('image/')) {
+			processAvatarFile(file);
+		}
+	}
+
+	function handleAvatarDragOver(event: DragEvent) {
+		event.preventDefault();
+		isDraggingAvatar = true;
+	}
+
+	function handleAvatarDragLeave() {
+		isDraggingAvatar = false;
+	}
+
+	function processAvatarFile(file: File) {
+		// Validate file size (max 1MB for avatars)
+		if (file.size > 1 * 1024 * 1024) {
+			toast.error('File too large', 'Avatar must be under 1MB');
+			return;
+		}
+
+		// Validate file type
+		if (!file.type.startsWith('image/')) {
+			toast.error('Invalid file', 'Please upload an image file');
+			return;
+		}
+
+		// Read file as base64 data URL
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			const result = e.target?.result as string;
+			avatarPreview = result;
+			brandingData.logoAvatarUrl = result;
+		};
+		reader.readAsDataURL(file);
+	}
+
+	function removeAvatar() {
+		avatarPreview = null;
+		brandingData.logoAvatarUrl = '';
+		if (avatarFileInput) {
+			avatarFileInput.value = '';
+		}
+	}
+
 	async function handleSaveBranding() {
 		isSavingBranding = true;
 		error = '';
@@ -126,6 +188,7 @@
 		try {
 			await updateAgencyBranding({
 				logoUrl: brandingData.logoUrl,
+				logoAvatarUrl: brandingData.logoAvatarUrl,
 				primaryColor: brandingData.primaryColor,
 				secondaryColor: brandingData.secondaryColor,
 				accentColor: brandingData.accentColor,
@@ -133,7 +196,8 @@
 			});
 			await invalidateAll();
 			logoPreview = null; // Clear preview after successful save
-			toast.success('Branding updated', 'Logo and colors saved successfully');
+			avatarPreview = null; // Clear avatar preview after successful save
+			toast.success('Branding updated', 'Logos and colors saved successfully');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to save branding';
 			toast.error('Save failed', error);
@@ -161,6 +225,7 @@
 	// Derived: check if branding has changes
 	let brandingHasChanges = $derived(
 		brandingData.logoUrl !== (data.agency?.logoUrl ?? '') ||
+		brandingData.logoAvatarUrl !== (data.agency?.logoAvatarUrl ?? '') ||
 		brandingData.primaryColor !== (data.agency?.primaryColor ?? '#3b82f6') ||
 		brandingData.secondaryColor !== (data.agency?.secondaryColor ?? '#1e40af') ||
 		brandingData.accentColor !== (data.agency?.accentColor ?? '#f59e0b') ||
@@ -172,8 +237,25 @@
 		brandingData.accentGradient || brandingData.accentColor
 	);
 
-	// Current display logo (file preview takes precedence, then current URL input, then saved value)
-	let displayLogo = $derived(logoPreview || brandingData.logoUrl);
+	// Current display logos (file preview takes precedence, then form state, then server data)
+	// The fallback to data.agency ensures saved values display even if form state wasn't initialized properly
+	let displayLogo = $derived(logoPreview || brandingData.logoUrl || data.agency?.logoUrl);
+	let displayAvatar = $derived(avatarPreview || brandingData.logoAvatarUrl || data.agency?.logoAvatarUrl);
+
+	// Sync branding data with server data on initial load
+	// This ensures form state matches server after navigation or page reload
+	$effect(() => {
+		const serverLogoUrl = data.agency?.logoUrl ?? '';
+		const serverAvatarUrl = data.agency?.logoAvatarUrl ?? '';
+
+		// Sync logo URLs if form is empty but server has values
+		if (!brandingData.logoUrl && serverLogoUrl) {
+			brandingData.logoUrl = serverLogoUrl;
+		}
+		if (!brandingData.logoAvatarUrl && serverAvatarUrl) {
+			brandingData.logoAvatarUrl = serverAvatarUrl;
+		}
+	});
 </script>
 
 <div class="space-y-6">
@@ -289,10 +371,99 @@
 
 	<div class="divider"></div>
 
-	<!-- Logo Upload -->
+	<!-- Square Logo (Avatar) -->
 	<SettingsSection
-		title="Agency Logo"
-		description="Upload your agency logo for proposals, contracts, and invoices"
+		title="Square Logo (Avatar)"
+		description="Square logo for navigation and compact UI elements"
+		icon={Image}
+	>
+		<div class="flex flex-col gap-4 sm:flex-row sm:items-start">
+			<!-- Avatar Preview -->
+			<div class="flex flex-col items-center gap-3">
+				{#if displayAvatar}
+					<div class="relative">
+						<div class="flex h-16 w-16 items-center justify-center rounded-xl border-2 border-base-300 bg-base-200 p-1">
+							<img
+								src={displayAvatar}
+								alt="Avatar logo preview"
+								class="h-full w-full rounded-lg object-cover"
+							/>
+						</div>
+						<button
+							type="button"
+							class="btn btn-circle btn-error btn-xs absolute -right-2 -top-2"
+							onclick={removeAvatar}
+							title="Remove avatar"
+						>
+							<X class="h-3 w-3" />
+						</button>
+						{#if avatarPreview}
+							<span class="badge badge-warning badge-sm absolute -bottom-2 left-1/2 -translate-x-1/2">
+								Unsaved
+							</span>
+						{/if}
+					</div>
+				{:else}
+					<div class="flex h-16 w-16 items-center justify-center rounded-xl border-2 border-dashed border-base-300 bg-base-200">
+						<span class="text-2xl font-bold text-base-content/30">{data.agency?.name?.charAt(0) ?? 'A'}</span>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Upload Area -->
+			<div class="flex-1">
+				<div
+					class="relative rounded-lg border-2 border-dashed p-4 text-center transition-colors
+						{isDraggingAvatar ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-primary/50'}"
+					role="button"
+					tabindex="0"
+					ondrop={handleAvatarDrop}
+					ondragover={handleAvatarDragOver}
+					ondragleave={handleAvatarDragLeave}
+					onclick={() => avatarFileInput?.click()}
+					onkeydown={(e) => e.key === 'Enter' && avatarFileInput?.click()}
+				>
+					<input
+						bind:this={avatarFileInput}
+						type="file"
+						accept="image/*"
+						class="hidden"
+						onchange={handleAvatarFileSelect}
+					/>
+					<Upload class="mx-auto h-6 w-6 text-base-content/40" />
+					<p class="mt-1 text-sm font-medium">
+						{isDraggingAvatar ? 'Drop here' : 'Click or drag to upload'}
+					</p>
+					<p class="mt-1 text-xs text-base-content/60">
+						Square image (1:1). Recommended: 256x256px, PNG/SVG
+					</p>
+				</div>
+
+				<!-- Or enter URL -->
+				<div class="mt-3">
+					<FormField label="Or enter URL">
+						<input
+							type="url"
+							class="input input-bordered input-sm w-full"
+							placeholder="https://example.com/avatar.png"
+							bind:value={brandingData.logoAvatarUrl}
+						/>
+					</FormField>
+				</div>
+			</div>
+		</div>
+
+		<!-- Used in indicator -->
+		<div class="mt-4 flex items-start gap-2 text-xs text-base-content/60">
+			<span class="font-medium">Used in:</span>
+			<span>Sidebar navigation, Agency switcher, Mobile menu</span>
+		</div>
+	</SettingsSection>
+
+	<!-- Full Logo (Horizontal) -->
+	<SettingsSection
+		title="Full Logo (Horizontal)"
+		description="Horizontal logo for documents and email headers"
 		icon={Image}
 	>
 		<div class="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -300,10 +471,10 @@
 			<div class="flex flex-col items-center gap-3">
 				{#if displayLogo}
 					<div class="relative">
-						<div class="flex h-32 w-32 items-center justify-center rounded-xl border-2 border-base-300 bg-base-200 p-2">
+						<div class="flex h-16 w-48 items-center justify-center rounded-xl border-2 border-base-300 bg-base-200 p-2">
 							<img
 								src={displayLogo}
-								alt="Agency logo preview"
+								alt="Full logo preview"
 								class="max-h-full max-w-full object-contain"
 							/>
 						</div>
@@ -322,8 +493,8 @@
 						{/if}
 					</div>
 				{:else}
-					<div class="flex h-32 w-32 items-center justify-center rounded-xl border-2 border-dashed border-base-300 bg-base-200">
-						<Image class="h-12 w-12 text-base-content/30" />
+					<div class="flex h-16 w-48 items-center justify-center rounded-xl border-2 border-dashed border-base-300 bg-base-200">
+						<Image class="h-8 w-8 text-base-content/30" />
 					</div>
 				{/if}
 			</div>
@@ -331,7 +502,7 @@
 			<!-- Upload Area -->
 			<div class="flex-1">
 				<div
-					class="relative rounded-lg border-2 border-dashed p-6 text-center transition-colors
+					class="relative rounded-lg border-2 border-dashed p-4 text-center transition-colors
 						{isDragging ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-primary/50'}"
 					role="button"
 					tabindex="0"
@@ -348,27 +519,33 @@
 						class="hidden"
 						onchange={handleFileSelect}
 					/>
-					<Upload class="mx-auto h-8 w-8 text-base-content/40" />
-					<p class="mt-2 text-sm font-medium">
-						{isDragging ? 'Drop your logo here' : 'Click or drag to upload'}
+					<Upload class="mx-auto h-6 w-6 text-base-content/40" />
+					<p class="mt-1 text-sm font-medium">
+						{isDragging ? 'Drop here' : 'Click or drag to upload'}
 					</p>
 					<p class="mt-1 text-xs text-base-content/60">
-						PNG, JPG, SVG up to 2MB. Recommended: 400x400px or larger
+						Horizontal logo (e.g., 400x100px). PNG, JPG, SVG up to 2MB
 					</p>
 				</div>
 
 				<!-- Or enter URL -->
-				<div class="mt-4">
-					<FormField label="Or enter logo URL" hint="Direct link to your logo image">
+				<div class="mt-3">
+					<FormField label="Or enter URL">
 						<input
 							type="url"
-							class="input input-bordered w-full"
+							class="input input-bordered input-sm w-full"
 							placeholder="https://example.com/logo.png"
 							bind:value={brandingData.logoUrl}
 						/>
 					</FormField>
 				</div>
 			</div>
+		</div>
+
+		<!-- Used in indicator -->
+		<div class="mt-4 flex items-start gap-2 text-xs text-base-content/60">
+			<span class="font-medium">Used in:</span>
+			<span>Proposals, Contracts, Questionnaires, Invoices, Email headers, PDF documents</span>
 		</div>
 	</SettingsSection>
 
@@ -380,63 +557,72 @@
 	>
 		<div class="grid gap-6 sm:grid-cols-3">
 			<!-- Primary Color -->
-			<FormField label="Primary Color" hint="Main brand color for headings and accents">
-				<div class="flex items-center gap-3">
-					<input
-						type="color"
-						class="h-10 w-14 cursor-pointer rounded-lg border border-base-300"
-						bind:value={brandingData.primaryColor}
-					/>
-					<input
-						type="text"
-						class="input input-bordered flex-1 font-mono text-sm uppercase"
-						placeholder="#3b82f6"
-						bind:value={brandingData.primaryColor}
-						pattern="^#[0-9A-Fa-f]{6}$"
-					/>
-				</div>
-			</FormField>
+			<div>
+				<FormField label="Primary Color" hint="Main brand color">
+					<div class="flex items-center gap-3">
+						<input
+							type="color"
+							class="h-10 w-14 cursor-pointer rounded-lg border border-base-300"
+							bind:value={brandingData.primaryColor}
+						/>
+						<input
+							type="text"
+							class="input input-bordered flex-1 font-mono text-sm uppercase"
+							placeholder="#3b82f6"
+							bind:value={brandingData.primaryColor}
+							pattern="^#[0-9A-Fa-f]{6}$"
+						/>
+					</div>
+				</FormField>
+				<p class="mt-1 text-xs text-base-content/50">Used in: Email headers, CTA buttons, fallback text</p>
+			</div>
 
 			<!-- Secondary Color -->
-			<FormField label="Secondary Color" hint="Darker shade for contrast elements">
-				<div class="flex items-center gap-3">
-					<input
-						type="color"
-						class="h-10 w-14 cursor-pointer rounded-lg border border-base-300"
-						bind:value={brandingData.secondaryColor}
-					/>
-					<input
-						type="text"
-						class="input input-bordered flex-1 font-mono text-sm uppercase"
-						placeholder="#1e40af"
-						bind:value={brandingData.secondaryColor}
-						pattern="^#[0-9A-Fa-f]{6}$"
-					/>
-				</div>
-			</FormField>
+			<div>
+				<FormField label="Secondary Color" hint="Light background color">
+					<div class="flex items-center gap-3">
+						<input
+							type="color"
+							class="h-10 w-14 cursor-pointer rounded-lg border border-base-300"
+							bind:value={brandingData.secondaryColor}
+						/>
+						<input
+							type="text"
+							class="input input-bordered flex-1 font-mono text-sm uppercase"
+							placeholder="#1e40af"
+							bind:value={brandingData.secondaryColor}
+							pattern="^#[0-9A-Fa-f]{6}$"
+						/>
+					</div>
+				</FormField>
+				<p class="mt-1 text-xs text-base-content/50">Used in: Proposal cover background</p>
+			</div>
 
 			<!-- Accent Color -->
-			<FormField label="Accent Color" hint="Highlight color for CTAs and emphasis">
-				<div class="flex items-center gap-3">
-					<input
-						type="color"
-						class="h-10 w-14 cursor-pointer rounded-lg border border-base-300"
-						bind:value={brandingData.accentColor}
-					/>
-					<input
-						type="text"
-						class="input input-bordered flex-1 font-mono text-sm uppercase"
-						placeholder="#f59e0b"
-						bind:value={brandingData.accentColor}
-						pattern="^#[0-9A-Fa-f]{6}$"
-					/>
-				</div>
-			</FormField>
+			<div>
+				<FormField label="Accent Color" hint="Highlight color">
+					<div class="flex items-center gap-3">
+						<input
+							type="color"
+							class="h-10 w-14 cursor-pointer rounded-lg border border-base-300"
+							bind:value={brandingData.accentColor}
+						/>
+						<input
+							type="text"
+							class="input input-bordered flex-1 font-mono text-sm uppercase"
+							placeholder="#f59e0b"
+							bind:value={brandingData.accentColor}
+							pattern="^#[0-9A-Fa-f]{6}$"
+						/>
+					</div>
+				</FormField>
+				<p class="mt-1 text-xs text-base-content/50">Used in: PDF borders, section highlights, pricing cards</p>
+			</div>
 		</div>
 
 		<!-- Accent Gradient (Optional) -->
 		<div class="mt-6 pt-6 border-t border-base-300">
-			<FormField label="Accent Gradient (Optional)" hint="CSS gradient for backgrounds. Overrides accent color for gradient-capable elements.">
+			<FormField label="Accent Gradient (Optional)" hint="CSS gradient for premium elements">
 				<textarea
 					class="textarea textarea-bordered w-full font-mono text-sm"
 					rows="2"
@@ -444,8 +630,9 @@
 					bind:value={brandingData.accentGradient}
 				></textarea>
 			</FormField>
-			<p class="mt-2 text-xs text-base-content/60">
-				Tip: Use CSS gradient syntax. Leave empty to use the solid accent color everywhere.
+			<p class="mt-1 text-xs text-base-content/50">Used in: Proposal pricing section, premium UI elements</p>
+			<p class="mt-1 text-xs text-base-content/60">
+				Tip: Use CSS gradient syntax. Leave empty to use the solid accent color.
 			</p>
 		</div>
 

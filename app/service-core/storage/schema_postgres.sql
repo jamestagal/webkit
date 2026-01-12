@@ -42,7 +42,8 @@ create table if not exists agencies (
     slug text not null unique,  -- URL-friendly identifier (e.g., "acme-agency")
 
     -- Branding
-    logo_url text not null default '',
+    logo_url text not null default '',  -- Horizontal logo for documents
+    logo_avatar_url text not null default '',  -- Square avatar logo for nav/UI
     primary_color text not null default '#4F46E5',  -- Indigo-600
     secondary_color text not null default '#1E40AF',  -- Blue-800
     accent_color text not null default '#F59E0B',  -- Amber-500

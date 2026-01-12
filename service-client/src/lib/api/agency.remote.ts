@@ -173,7 +173,8 @@ const CreateAgencySchema = v.object({
 const UpdateAgencyBrandingSchema = v.object({
 	agencyId: v.optional(v.pipe(v.string(), v.uuid())),
 	name: v.optional(v.pipe(v.string(), v.minLength(2), v.maxLength(100))),
-	logoUrl: v.optional(v.string()),
+	logoUrl: v.optional(v.string()), // Horizontal logo for documents
+	logoAvatarUrl: v.optional(v.string()), // Square avatar logo for nav/UI
 	primaryColor: v.optional(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/))),
 	secondaryColor: v.optional(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/))),
 	accentColor: v.optional(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/))),
@@ -285,6 +286,7 @@ export const updateAgencyBranding = command(UpdateAgencyBrandingSchema, async (d
 
 	if (data.name !== undefined) updates['name'] = data.name;
 	if (data.logoUrl !== undefined) updates['logoUrl'] = data.logoUrl;
+	if (data.logoAvatarUrl !== undefined) updates['logoAvatarUrl'] = data.logoAvatarUrl;
 	if (data.primaryColor !== undefined) updates['primaryColor'] = data.primaryColor;
 	if (data.secondaryColor !== undefined) updates['secondaryColor'] = data.secondaryColor;
 	if (data.accentColor !== undefined) updates['accentColor'] = data.accentColor;

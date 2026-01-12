@@ -58,7 +58,8 @@ export const agencies = pgTable('agencies', {
 	slug: text('slug').notNull().unique(), // URL-friendly identifier
 
 	// Branding
-	logoUrl: text('logo_url').notNull().default(''),
+	logoUrl: text('logo_url').notNull().default(''), // Horizontal logo for documents
+	logoAvatarUrl: text('logo_avatar_url').notNull().default(''), // Square avatar logo for nav/UI
 	primaryColor: text('primary_color').notNull().default('#4F46E5'),
 	secondaryColor: text('secondary_color').notNull().default('#1E40AF'),
 	accentColor: text('accent_color').notNull().default('#F59E0B'),

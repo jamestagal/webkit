@@ -88,9 +88,11 @@ export const getAgencyProfile = query(async () => {
 			phone: agencies.phone,
 			website: agencies.website,
 			logoUrl: agencies.logoUrl,
+			logoAvatarUrl: agencies.logoAvatarUrl,
 			primaryColor: agencies.primaryColor,
 			secondaryColor: agencies.secondaryColor,
-			accentColor: agencies.accentColor
+			accentColor: agencies.accentColor,
+			accentGradient: agencies.accentGradient
 		})
 		.from(agencies)
 		.where(eq(agencies.id, context.agencyId))

@@ -30,6 +30,7 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 			name: agencies.name,
 			slug: agencies.slug,
 			logoUrl: agencies.logoUrl,
+			logoAvatarUrl: agencies.logoAvatarUrl,
 			primaryColor: agencies.primaryColor,
 			secondaryColor: agencies.secondaryColor,
 			accentColor: agencies.accentColor,
@@ -135,6 +136,7 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 			name: agencies.name,
 			slug: agencies.slug,
 			logoUrl: agencies.logoUrl,
+			logoAvatarUrl: agencies.logoAvatarUrl,
 			primaryColor: agencies.primaryColor,
 			role: agencyMemberships.role
 		})
@@ -155,6 +157,7 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 			name: agency.name,
 			slug: agency.slug,
 			logoUrl: agency.logoUrl,
+			logoAvatarUrl: agency.logoAvatarUrl,
 			primaryColor: agency.primaryColor,
 			secondaryColor: agency.secondaryColor,
 			accentColor: agency.accentColor

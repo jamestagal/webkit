@@ -9,8 +9,14 @@
 		name: string;
 		slug: string;
 		logoUrl: string | null;
+		logoAvatarUrl?: string | null; // Square avatar logo for nav/UI
 		primaryColor: string;
 		role: AgencyRole;
+	}
+
+	// Helper to get the best logo for avatar display (prefer avatar, fallback to logoUrl)
+	function getAvatarLogo(agency: Agency): string | null {
+		return agency.logoAvatarUrl || agency.logoUrl || null;
 	}
 
 	interface Props {
@@ -99,10 +105,10 @@
 		onclick={toggleDropdown}
 		disabled={isSwitching !== null}
 	>
-		<!-- Agency Avatar -->
-		{#if currentAgency.logoUrl}
+		<!-- Agency Avatar (prefer avatar logo, fallback to horizontal, then initial) -->
+		{#if getAvatarLogo(currentAgency)}
 			<img
-				src={currentAgency.logoUrl}
+				src={getAvatarLogo(currentAgency)}
 				alt={currentAgency.name}
 				class="h-8 w-8 rounded-lg object-cover"
 			/>
@@ -137,9 +143,9 @@
 			</div>
 
 			<div class="mx-1 mb-2 flex items-center gap-3 rounded-lg bg-primary/10 p-3">
-				{#if currentAgency.logoUrl}
+				{#if getAvatarLogo(currentAgency)}
 					<img
-						src={currentAgency.logoUrl}
+						src={getAvatarLogo(currentAgency)}
 						alt={currentAgency.name}
 						class="h-10 w-10 rounded-lg object-cover"
 					/>
@@ -199,9 +205,9 @@
 							onclick={() => handleAgencySelect(agency)}
 							disabled={isSwitching === agency.id}
 						>
-							{#if agency.logoUrl}
+							{#if getAvatarLogo(agency)}
 								<img
-									src={agency.logoUrl}
+									src={getAvatarLogo(agency)}
 									alt={agency.name}
 									class="h-8 w-8 rounded-lg object-cover"
 								/>

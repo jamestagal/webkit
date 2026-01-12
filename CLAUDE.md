@@ -366,3 +366,205 @@ See `docker-compose.yml` for the complete list.
 ## Hot Reload
 
 Both Go services use Air for hot reloading during development (configured via `.air.toml` files).
+
+## Production Deployment Architecture
+
+### Infrastructure Overview
+
+Production runs on a **Hostinger VPS** with the following stack:
+- **Traefik**: Reverse proxy with automatic Let's Encrypt SSL certificates
+- **Docker Compose**: Container orchestration
+- **GitHub Container Registry (GHCR)**: Image storage
+- **PostgreSQL 16**: Production database (pinned to v16-alpine)
+
+### Production URLs
+
+| Service | URL | Internal Port |
+|---------|-----|---------------|
+| Client App | https://app.webkit.au | 3000 |
+| Core API | https://api.webkit.au | 4001 |
+| Admin | https://admin.webkit.au | 3001 |
+
+### Docker Networks
+
+- `traefik-public`: External network connecting services to Traefik reverse proxy
+- `webkit-internal`: Internal network for service-to-service communication
+
+### Key Production Files
+
+- `docker-compose.production.yml` - Production container configuration
+- `.github/workflows/deploy-production.yml` - CI/CD pipeline
+
+## CI/CD Pipeline
+
+### One-Click Deployment (Fully Automated)
+
+**To deploy:** GitHub → Actions → "Deploy to Production" → "Run workflow"
+
+That's it! No SSH or manual scripts required. The workflow handles everything automatically.
+
+### Deployment Triggers
+
+1. **GitHub Release**: Publishing a new release
+2. **Manual Trigger**: `workflow_dispatch` in GitHub Actions
+
+### Pipeline Steps
+
+1. **Build Images** (parallel matrix build):
+   - Injects JWT keys from GitHub Secrets
+   - Builds Docker images for core, admin, and client services
+   - Pushes to GitHub Container Registry (ghcr.io)
+   - Cleans up sensitive key files
+
+2. **Deploy to VPS**:
+   - Syncs `docker-compose.production.yml` to VPS via SCP
+   - SSHs to VPS and pulls latest images
+   - Recreates containers with `docker compose up -d --force-recreate`
+   - Prunes old images
+   - Runs health check
+
+### Required GitHub Secrets
+
+| Secret | Purpose |
+|--------|---------|
+| `VPS_HOST` | Hostinger VPS IP/hostname |
+| `VPS_USER` | SSH username (typically `root`) |
+| `VPS_SSH_KEY` | Private SSH key for VPS access |
+| `VPS_SSH_PASSPHRASE` | SSH key passphrase (if applicable) |
+| `PRIVATE_KEY_PEM` | JWT private key for token signing |
+| `PUBLIC_KEY_PEM` | JWT public key for token verification |
+
+### Manual VPS Access
+
+```bash
+# SSH to production VPS
+ssh root@<VPS_HOST>
+
+# Navigate to webkit directory
+cd /opt/webkit
+
+# View running containers
+docker compose -f docker-compose.production.yml ps
+
+# View logs
+docker compose -f docker-compose.production.yml logs -f [service]
+
+# Manual database operations
+docker exec -it webkit-postgres psql -U webkit -d webkit
+```
+
+### Production Database Migrations
+
+Database migrations must be run manually on production:
+
+```bash
+# SSH to VPS
+ssh root@<VPS_HOST>
+
+# Connect to PostgreSQL
+docker exec -it webkit-postgres psql -U webkit -d webkit
+
+# Run ALTER TABLE or other migrations
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS accent_gradient TEXT;
+```
+
+## Authentication Architecture
+
+### JWT Token Flow
+
+1. **Login**: User authenticates via Magic Link or OAuth
+2. **Core Service**: Issues `access_token` (15 min) and `refresh_token` (30 days)
+3. **Cookies**: Tokens stored as HTTP-only cookies with domain scope
+4. **Refresh**: SvelteKit hooks automatically refresh expired access tokens
+
+### Cookie Security
+
+**Critical**: Cookie `secure` flag must be conditional on environment:
+
+```typescript
+// In refresh.ts and other cookie-setting code
+const isProduction = env.DOMAIN !== 'localhost';
+
+event.cookies.set("access_token", token, {
+  path: "/",
+  sameSite: "lax",
+  secure: isProduction,  // false for localhost, true for production
+  httpOnly: true,
+  domain: env.DOMAIN,
+  maxAge: ACCESS_TOKEN_MAX_AGE,
+});
+```
+
+**Why**: `secure: true` cookies only work over HTTPS. Using `secure: true` in local development (HTTP) causes cookies not to be sent, breaking authentication.
+
+### Key Authentication Files
+
+- `service-client/src/hooks.server.ts` - Auth middleware, token validation
+- `service-client/src/lib/server/refresh.ts` - Token refresh logic
+- `service-client/src/lib/server/jwt.ts` - JWT verification
+- `app/service-core/rest/login_route.go` - Login endpoints, cookie setting
+
+## Agency Branding
+
+### Brand Colors
+
+Agencies can customize their branding with:
+- `primaryColor` - Main brand color (buttons, links)
+- `secondaryColor` - Light background color
+- `accentColor` - Accent/highlight color
+- `accentGradient` - CSS gradient for premium visual effects (optional)
+- `logoUrl` - Agency logo (URL or base64 data URL)
+
+### Gradient Support
+
+The `accentGradient` field stores a complete CSS gradient string:
+
+```sql
+-- Example gradient value
+'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+```
+
+Used in proposals and UI elements for visual polish. Falls back to `accentColor` when not set.
+
+### Branding Files
+
+- `service-client/src/routes/(app)/[agencySlug]/settings/branding/+page.svelte` - Branding settings UI
+- `service-client/src/lib/api/agency-profile.remote.ts` - Save branding data
+
+## PostgreSQL Version Management
+
+### Version Pinning (CRITICAL)
+
+Always pin PostgreSQL to a specific major version to avoid data compatibility issues:
+
+```yaml
+# docker-compose.yml (development)
+postgres:
+  image: postgres:17-alpine  # Pinned to v17
+
+# docker-compose.production.yml
+postgres:
+  image: postgres:16-alpine  # Pinned to v16
+```
+
+**Why**: PostgreSQL data files are not compatible across major versions. If Docker pulls a newer version (e.g., v18 when data was created with v17), the database will fail to start.
+
+## Troubleshooting
+
+### Common Issues
+
+**Authentication redirect loop after login:**
+- Check cookie `secure` flag matches environment (false for localhost)
+- Clear browser cookies and retry
+
+**Database connection failures after Docker restart:**
+- Ensure PostgreSQL container is healthy before other services start
+- Check `depends_on` with `condition: service_healthy`
+
+**PostgreSQL won't start after Docker update:**
+- Check if Docker pulled a newer PostgreSQL version
+- Pin to the version matching your data (check `postgres_data` volume)
+
+**Services can't connect to each other:**
+- Use container names for internal communication (e.g., `webkit-core:4001`)
+- Ensure services are on the same Docker network
