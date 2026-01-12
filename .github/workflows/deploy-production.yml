@@ -95,6 +95,7 @@ jobs:
           source: "docker-compose.production.yml"
           target: "/opt/webkit/"
           overwrite: true
+          timeout: 120s
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
