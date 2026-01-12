@@ -2,8 +2,18 @@
 	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
 	import { Building2, Package, PlusSquare, Users, Palette, FileText, CreditCard, Sparkles } from 'lucide-svelte';
+	import SetupChecklist from '$lib/components/settings/SetupChecklist.svelte';
+	import { getSetupChecklist } from '$lib/api/agency-profile.remote';
 
 	let { children, data }: { children: Snippet; data: import('./$types').LayoutData } = $props();
+
+	// Load checklist data when on settings index
+	let checklistPromise = $derived.by(() => {
+		if (page.url.pathname === `/${data.agency.slug}/settings`) {
+			return getSetupChecklist();
+		}
+		return null;
+	});
 
 	let current = $derived(page.url.pathname);
 	let agencySlug = $derived(data.agency.slug);
@@ -71,6 +81,36 @@
 			<h1 class="text-2xl font-bold">Settings</h1>
 			<p class="text-base-content/70 mt-1">Manage your agency configuration</p>
 		</div>
+
+		<!-- Setup Checklist -->
+		{#if checklistPromise}
+			{#await checklistPromise}
+				<div class="mb-6">
+					<div class="card bg-base-100 border border-base-300 animate-pulse">
+						<div class="card-body">
+							<div class="h-6 bg-base-300 rounded w-1/3 mb-4"></div>
+							<div class="h-4 bg-base-300 rounded w-2/3 mb-2"></div>
+							<div class="h-2 bg-base-300 rounded w-full"></div>
+						</div>
+					</div>
+				</div>
+			{:then checklist}
+				{#if checklist}
+					<div class="mb-6">
+						<SetupChecklist
+							items={checklist.items}
+							completionPercent={checklist.completionPercent}
+							totalRequired={checklist.totalRequired}
+							completedRequired={checklist.completedRequired}
+							isReady={checklist.isReady}
+							agencySlug={agencySlug}
+						/>
+					</div>
+				{/if}
+			{:catch}
+				<!-- Silently fail if checklist can't load -->
+			{/await}
+		{/if}
 
 		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{#each settingsNav as item (item.url)}

@@ -171,9 +171,9 @@
 		<!-- Cover Section -->
 		<header
 			class="relative flex min-h-[50vh] items-center justify-center px-8 py-16"
-			style="background-color: {agency?.primaryColor || '#4F46E5'}"
+			style="background: {agency?.secondaryColor || '#E3EDF7'}"
 		>
-			<div class="relative z-10 text-center text-white">
+			<div class="relative z-10 text-center">
 				{#if agency?.logoUrl}
 					<img
 						src={agency.logoUrl}
@@ -181,19 +181,19 @@
 						class="mx-auto mb-8 h-16 w-auto object-contain"
 					/>
 				{:else}
-					<h2 class="mb-8 text-xl font-medium opacity-90">{agency?.name}</h2>
+					<h2 class="mb-8 text-xl font-medium text-base-content/80">{agency?.name}</h2>
 				{/if}
 
-				<h1 class="text-4xl font-bold md:text-5xl">{proposal.title}</h1>
+				<h1 class="text-4xl font-bold md:text-5xl text-base-content">{proposal.title}</h1>
 
-				<p class="mt-4 text-xl opacity-90">
+				<p class="mt-4 text-xl text-base-content/80">
 					Prepared for {proposal.clientBusinessName || 'Valued Client'}
 				</p>
 
-				<p class="mt-2 opacity-70">{formatDate(proposal.createdAt)}</p>
+				<p class="mt-2 text-base-content/60">{formatDate(proposal.createdAt)}</p>
 
 				{#if proposal.validUntil}
-					<p class="mt-4 text-sm opacity-60">
+					<p class="mt-4 text-sm text-base-content/50">
 						Valid until {formatDate(proposal.validUntil)}
 					</p>
 				{/if}
@@ -373,7 +373,7 @@
 		{#if selectedPackage || customPricing}
 			<section
 				class="px-8 py-16 text-white"
-				style="background-color: {agency?.primaryColor || '#4F46E5'}"
+				style="background: {agency?.accentGradient || agency?.primaryColor || '#4F46E5'}"
 			>
 				<div class="mx-auto max-w-4xl">
 					<h2 class="mb-8 text-3xl font-bold">
@@ -710,7 +710,7 @@
 						<!-- Gradient header -->
 						<div
 							class="px-8 py-6"
-							style="background: linear-gradient(135deg, {agency?.primaryColor || '#4F46E5'} 0%, {agency?.secondaryColor || '#1E40AF'} 100%);"
+							style="background: {agency?.accentGradient || `linear-gradient(135deg, ${agency?.primaryColor || '#4F46E5'} 0%, ${agency?.accentColor || '#1E40AF'} 100%)`};"
 						>
 							<div class="text-white text-center">
 								<p class="text-sm font-medium opacity-80 uppercase tracking-wider">
@@ -1022,8 +1022,8 @@
 
 		<!-- Contact / Footer -->
 		<footer
-			class="px-8 py-16 text-white"
-			style="background-color: {agency?.secondaryColor || '#1E40AF'}"
+			class="px-8 py-16"
+			style="background-color: {agency?.secondaryColor || '#E3EDF7'}"
 		>
 			<div class="mx-auto max-w-4xl text-center">
 				{#if agency?.logoUrl}
@@ -1033,22 +1033,22 @@
 						class="mx-auto mb-6 h-12 w-auto object-contain"
 					/>
 				{:else}
-					<h2 class="mb-6 text-2xl font-bold">{agency?.name}</h2>
+					<h2 class="mb-6 text-2xl font-bold text-base-content">{agency?.name}</h2>
 				{/if}
 
 				{#if profile?.tagline}
-					<p class="mb-8 text-lg opacity-90">{profile.tagline}</p>
+					<p class="mb-8 text-lg text-base-content/80">{profile.tagline}</p>
 				{/if}
 
-				<div class="flex flex-wrap justify-center gap-6">
+				<div class="flex flex-wrap justify-center gap-6 text-base-content/80">
 					{#if agency?.phone}
-						<a href="tel:{agency.phone}" class="flex items-center gap-2 hover:underline">
+						<a href="tel:{agency.phone}" class="flex items-center gap-2 hover:underline" style="color: {agency?.primaryColor || '#9C27B0'}">
 							<Phone class="h-5 w-5" />
 							{agency.phone}
 						</a>
 					{/if}
 					{#if agency?.email}
-						<a href="mailto:{agency.email}" class="flex items-center gap-2 hover:underline">
+						<a href="mailto:{agency.email}" class="flex items-center gap-2 hover:underline" style="color: {agency?.primaryColor || '#9C27B0'}">
 							<Mail class="h-5 w-5" />
 							{agency.email}
 						</a>
@@ -1059,6 +1059,7 @@
 							target="_blank"
 							rel="noopener noreferrer"
 							class="flex items-center gap-2 hover:underline"
+							style="color: {agency?.primaryColor || '#9C27B0'}"
 						>
 							<Globe class="h-5 w-5" />
 							{agency.website.replace(/^https?:\/\//, '')}
@@ -1067,7 +1068,7 @@
 				</div>
 
 				{#if profile?.addressLine1}
-					<p class="mt-6 flex items-center justify-center gap-2 opacity-80">
+					<p class="mt-6 flex items-center justify-center gap-2 text-base-content/70">
 						<MapPin class="h-5 w-5" />
 						{[profile.addressLine1, profile.city, profile.state, profile.postcode]
 							.filter(Boolean)
@@ -1075,7 +1076,7 @@
 					</p>
 				{/if}
 
-				<p class="mt-8 text-sm opacity-60">
+				<p class="mt-8 text-sm text-base-content/50">
 					Proposal {proposal.proposalNumber} &bull; Generated {formatDate(proposal.createdAt)}
 				</p>
 			</div>

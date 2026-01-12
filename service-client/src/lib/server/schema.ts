@@ -62,6 +62,7 @@ export const agencies = pgTable('agencies', {
 	primaryColor: text('primary_color').notNull().default('#4F46E5'),
 	secondaryColor: text('secondary_color').notNull().default('#1E40AF'),
 	accentColor: text('accent_color').notNull().default('#F59E0B'),
+	accentGradient: text('accent_gradient').notNull().default(''), // CSS gradient for backgrounds
 
 	// Contact
 	email: text('email').notNull().default(''),

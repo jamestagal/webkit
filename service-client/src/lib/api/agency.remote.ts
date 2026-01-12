@@ -176,7 +176,8 @@ const UpdateAgencyBrandingSchema = v.object({
 	logoUrl: v.optional(v.string()),
 	primaryColor: v.optional(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/))),
 	secondaryColor: v.optional(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/))),
-	accentColor: v.optional(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/)))
+	accentColor: v.optional(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/))),
+	accentGradient: v.optional(v.string()) // CSS gradient string for backgrounds
 });
 
 const UpdateAgencyContactSchema = v.object({
@@ -287,6 +288,7 @@ export const updateAgencyBranding = command(UpdateAgencyBrandingSchema, async (d
 	if (data.primaryColor !== undefined) updates['primaryColor'] = data.primaryColor;
 	if (data.secondaryColor !== undefined) updates['secondaryColor'] = data.secondaryColor;
 	if (data.accentColor !== undefined) updates['accentColor'] = data.accentColor;
+	if (data.accentGradient !== undefined) updates['accentGradient'] = data.accentGradient;
 
 	await db.update(agencies).set(updates).where(eq(agencies.id, context.agencyId));
 

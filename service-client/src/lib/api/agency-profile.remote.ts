@@ -10,10 +10,10 @@
 import { query, command } from '$app/server';
 import * as v from 'valibot';
 import { db } from '$lib/server/db';
-import { agencyProfiles, agencies } from '$lib/server/schema';
-import { requireAgencyRole } from '$lib/server/agency';
+import { agencyProfiles, agencies, agencyPackages, agencyAddons, contractTemplates } from '$lib/server/schema';
+import { requireAgencyRole, getAgencyContext } from '$lib/server/agency';
 import { logActivity } from '$lib/server/db-helpers';
-import { eq } from 'drizzle-orm';
+import { eq, and, count } from 'drizzle-orm';
 
 // =============================================================================
 // Validation Schemas
@@ -303,4 +303,159 @@ export const getNextDocumentNumber = command(
 		};
 	}
 );
+
+// =============================================================================
+// Setup Status Query
+// =============================================================================
+
+import type { SetupChecklistItem } from './agency-profile.types';
+
+/**
+ * Get the agency setup checklist status.
+ * Returns a list of setup items with their completion status.
+ */
+export const getSetupChecklist = query(async () => {
+	const context = await getAgencyContext();
+	const agencyId = context.agencyId;
+
+	// Get agency with branding info
+	const [agency] = await db
+		.select({
+			logoUrl: agencies.logoUrl,
+			primaryColor: agencies.primaryColor,
+			email: agencies.email,
+			phone: agencies.phone
+		})
+		.from(agencies)
+		.where(eq(agencies.id, agencyId))
+		.limit(1);
+
+	// Get profile
+	const [profile] = await db
+		.select()
+		.from(agencyProfiles)
+		.where(eq(agencyProfiles.agencyId, agencyId))
+		.limit(1);
+
+	// Count packages
+	const [packagesResult] = await db
+		.select({ count: count() })
+		.from(agencyPackages)
+		.where(and(eq(agencyPackages.agencyId, agencyId), eq(agencyPackages.isActive, true)));
+
+	// Count addons
+	const [addonsResult] = await db
+		.select({ count: count() })
+		.from(agencyAddons)
+		.where(and(eq(agencyAddons.agencyId, agencyId), eq(agencyAddons.isActive, true)));
+
+	// Count contract templates
+	const [templatesResult] = await db
+		.select({ count: count() })
+		.from(contractTemplates)
+		.where(and(eq(contractTemplates.agencyId, agencyId), eq(contractTemplates.isActive, true)));
+
+	const packageCount = packagesResult?.count ?? 0;
+	const addonCount = addonsResult?.count ?? 0;
+	const templateCount = templatesResult?.count ?? 0;
+
+	// Check profile completeness
+	const hasBusinessInfo = !!(profile?.tradingName || profile?.legalEntityName);
+	const hasAddress = !!(profile?.addressLine1 && profile?.city && profile?.postcode);
+	const hasBanking = !!(profile?.bankName && profile?.bsb && profile?.accountNumber);
+	const hasContact = !!(agency?.email || agency?.phone);
+	const hasLogo = !!agency?.logoUrl;
+	const hasProposalPrefix = !!profile?.proposalPrefix;
+
+	const checklist: SetupChecklistItem[] = [
+		{
+			id: 'profile',
+			label: 'Business Details',
+			description: 'Trading name, ABN, and legal entity',
+			status: hasBusinessInfo ? 'complete' : 'incomplete',
+			required: true,
+			link: 'profile'
+		},
+		{
+			id: 'contact',
+			label: 'Contact Information',
+			description: 'Email and phone number',
+			status: hasContact ? 'complete' : 'incomplete',
+			required: true,
+			link: 'profile'
+		},
+		{
+			id: 'address',
+			label: 'Business Address',
+			description: 'Street address for invoices and contracts',
+			status: hasAddress ? 'complete' : 'incomplete',
+			required: true,
+			link: 'profile'
+		},
+		{
+			id: 'branding',
+			label: 'Agency Logo',
+			description: 'Logo for proposals, contracts, and invoices',
+			status: hasLogo ? 'complete' : 'incomplete',
+			required: false,
+			link: 'branding'
+		},
+		{
+			id: 'banking',
+			label: 'Banking Details',
+			description: 'Bank account for invoice payments',
+			status: hasBanking ? 'complete' : 'incomplete',
+			required: true,
+			link: 'profile'
+		},
+		{
+			id: 'packages',
+			label: 'Service Packages',
+			description: 'Pricing packages for proposals',
+			status: packageCount > 0 ? 'complete' : 'incomplete',
+			required: true,
+			link: 'packages',
+			count: packageCount
+		},
+		{
+			id: 'addons',
+			label: 'Add-on Services',
+			description: 'Optional services to include in proposals',
+			status: addonCount > 0 ? 'complete' : 'optional',
+			required: false,
+			link: 'addons',
+			count: addonCount
+		},
+		{
+			id: 'contracts',
+			label: 'Contract Templates',
+			description: 'Terms and conditions for contracts',
+			status: templateCount > 0 ? 'complete' : 'incomplete',
+			required: true,
+			link: 'contracts',
+			count: templateCount
+		},
+		{
+			id: 'numbering',
+			label: 'Document Numbering',
+			description: 'Prefixes for proposals, contracts, invoices',
+			status: hasProposalPrefix ? 'complete' : 'optional',
+			required: false,
+			link: 'profile'
+		}
+	];
+
+	// Calculate completion percentage (required items only)
+	const requiredItems = checklist.filter((item) => item.required);
+	const completedRequired = requiredItems.filter((item) => item.status === 'complete');
+	const completionPercent = Math.round((completedRequired.length / requiredItems.length) * 100);
+
+	return {
+		items: checklist,
+		completionPercent,
+		totalRequired: requiredItems.length,
+		completedRequired: completedRequired.length,
+		isReady: completedRequired.length === requiredItems.length
+	};
+});
 

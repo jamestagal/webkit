@@ -5,12 +5,12 @@ package login
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
+import "github.com/a-h/templ"
+import templruntime "github.com/a-h/templ/runtime"
+
 import (
 	"service-admin/config"
 	"service-admin/web"
-
-	"github.com/a-h/templ"
-	templruntime "github.com/a-h/templ/runtime"
 )
 
 func Login(cfg *config.Config, err string) templ.Component {

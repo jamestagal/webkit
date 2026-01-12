@@ -46,6 +46,7 @@ create table if not exists agencies (
     primary_color text not null default '#4F46E5',  -- Indigo-600
     secondary_color text not null default '#1E40AF',  -- Blue-800
     accent_color text not null default '#F59E0B',  -- Amber-500
+    accent_gradient text not null default '',  -- CSS gradient for backgrounds
 
     -- Contact
     email text not null default '',
