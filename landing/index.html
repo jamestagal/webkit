@@ -155,6 +155,46 @@
             width: 2px;
         }
 
+        /* Step number animation - progressive highlighting */
+        .step-number {
+            background: #18181b;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: none;
+            transform: scale(1);
+            transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .step-number.highlighted {
+            background: linear-gradient(135deg, #ff6b35 0%, #ff8c5a 100%);
+            border: none;
+            box-shadow: 0 10px 40px -10px rgba(255, 107, 53, 0.5);
+            transform: scale(1.08);
+        }
+
+        .step-item {
+            opacity: 0.4;
+            transform: translateX(0);
+            transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .step-item.highlighted {
+            opacity: 1;
+        }
+
+        .step-item.highlighted h3 {
+            color: #ff6b35;
+        }
+
+        .step-item h3 {
+            transition: color 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        /* Current step gets extra emphasis */
+        .step-item.current .step-number {
+            transform: scale(1.15);
+            box-shadow: 0 15px 50px -10px rgba(255, 107, 53, 0.6);
+        }
+
         /* Button styles */
         .btn-primary {
             background: linear-gradient(135deg, #ff6b35 0%, #ff8c5a 100%);
@@ -491,15 +531,15 @@
             </div>
 
             <!-- Steps -->
-            <div class="relative reveal">
+            <div class="relative reveal max-w-2xl mx-auto">
                 <!-- Connector line -->
                 <div class="absolute left-8 top-0 bottom-0 step-line hidden md:block"></div>
 
-                <div class="space-y-12 md:space-y-16">
+                <div class="space-y-12 md:space-y-16" id="steps-container">
                     <!-- Step 1 -->
-                    <div class="flex gap-8 items-start">
+                    <div class="step-item flex gap-8 items-start" data-step="1">
                         <div class="relative flex-shrink-0">
-                            <div class="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center font-display font-bold text-xl text-white shadow-lg shadow-accent/30">
+                            <div class="step-number w-16 h-16 rounded-2xl flex items-center justify-center font-display font-bold text-xl text-white">
                                 1
                             </div>
                         </div>
@@ -513,9 +553,9 @@
                     </div>
 
                     <!-- Step 2 -->
-                    <div class="flex gap-8 items-start">
+                    <div class="step-item flex gap-8 items-start" data-step="2">
                         <div class="relative flex-shrink-0">
-                            <div class="w-16 h-16 rounded-2xl bg-surface-100 border border-surface-200 flex items-center justify-center font-display font-bold text-xl text-white">
+                            <div class="step-number w-16 h-16 rounded-2xl flex items-center justify-center font-display font-bold text-xl text-white">
                                 2
                             </div>
                         </div>
@@ -529,9 +569,9 @@
                     </div>
 
                     <!-- Step 3 -->
-                    <div class="flex gap-8 items-start">
+                    <div class="step-item flex gap-8 items-start" data-step="3">
                         <div class="relative flex-shrink-0">
-                            <div class="w-16 h-16 rounded-2xl bg-surface-100 border border-surface-200 flex items-center justify-center font-display font-bold text-xl text-white">
+                            <div class="step-number w-16 h-16 rounded-2xl flex items-center justify-center font-display font-bold text-xl text-white">
                                 3
                             </div>
                         </div>
@@ -545,9 +585,9 @@
                     </div>
 
                     <!-- Step 4 -->
-                    <div class="flex gap-8 items-start">
+                    <div class="step-item flex gap-8 items-start" data-step="4">
                         <div class="relative flex-shrink-0">
-                            <div class="w-16 h-16 rounded-2xl bg-surface-100 border border-surface-200 flex items-center justify-center font-display font-bold text-xl text-white">
+                            <div class="step-number w-16 h-16 rounded-2xl flex items-center justify-center font-display font-bold text-xl text-white">
                                 4
                             </div>
                         </div>
@@ -640,6 +680,96 @@
         }, observerOptions);
 
         document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        // Progressive steps scroll animation
+        const stepItems = document.querySelectorAll('.step-item');
+        const stepsSection = document.getElementById('how-it-works');
+        let currentHighestStep = 0;
+        let sectionInView = false;
+
+        function updateSteps(targetStep) {
+            stepItems.forEach((item, index) => {
+                const stepNum = index + 1;
+                const stepNumber = item.querySelector('.step-number');
+
+                // Remove current class from all
+                item.classList.remove('current');
+
+                if (stepNum <= targetStep) {
+                    // Highlight this step and all previous
+                    item.classList.add('highlighted');
+                    stepNumber.classList.add('highlighted');
+
+                    // Mark the current (latest) step
+                    if (stepNum === targetStep) {
+                        item.classList.add('current');
+                    }
+                } else {
+                    // Unhighlight steps after target
+                    item.classList.remove('highlighted');
+                    stepNumber.classList.remove('highlighted');
+                }
+            });
+        }
+
+        // Watch the entire section to know when we're in/out of it
+        const sectionObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                sectionInView = entry.isIntersecting;
+
+                if (entry.isIntersecting) {
+                    // Entering section - ensure at least step 1 is highlighted
+                    if (currentHighestStep === 0) {
+                        currentHighestStep = 1;
+                        updateSteps(1);
+                    }
+                } else {
+                    // Leaving section completely
+                    const rect = entry.boundingClientRect;
+                    if (rect.top > 0) {
+                        // Scrolled up past section - reset
+                        currentHighestStep = 0;
+                        updateSteps(0);
+                    }
+                    // If rect.top < 0, we scrolled down past section - keep all highlighted
+                }
+            });
+        }, { threshold: 0, rootMargin: '0px 0px -10% 0px' });
+
+        if (stepsSection) sectionObserver.observe(stepsSection);
+
+        // Observer to detect when each step enters viewport center
+        const stepObserverOptions = {
+            threshold: [0, 0.2, 0.5],
+            rootMargin: '-25% 0px -35% 0px'
+        };
+
+        const stepObserver = new IntersectionObserver((entries) => {
+            if (!sectionInView) return; // Don't process if section not in view
+
+            entries.forEach(entry => {
+                const stepNum = parseInt(entry.target.dataset.step);
+
+                if (entry.isIntersecting && entry.intersectionRatio >= 0.2) {
+                    // Step is entering center zone - highlight up to this step
+                    if (stepNum >= currentHighestStep) {
+                        currentHighestStep = stepNum;
+                        updateSteps(currentHighestStep);
+                    }
+                } else if (!entry.isIntersecting && stepNum > 1) {
+                    // Step is leaving center zone
+                    const rect = entry.boundingClientRect;
+
+                    // If step is below viewport center (scrolling back up)
+                    if (rect.top > window.innerHeight * 0.4 && stepNum <= currentHighestStep) {
+                        currentHighestStep = stepNum - 1;
+                        updateSteps(currentHighestStep);
+                    }
+                }
+            });
+        }, stepObserverOptions);
+
+        stepItems.forEach(step => stepObserver.observe(step));
 
         // Smooth scroll for anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
