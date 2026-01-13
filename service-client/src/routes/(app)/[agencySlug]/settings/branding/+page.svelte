@@ -3,14 +3,28 @@
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { updateAgencyProfile } from '$lib/api/agency-profile.remote';
 	import { updateAgencyBranding } from '$lib/api/agency.remote';
+	import { updateDocumentBranding } from '$lib/api/document-branding.remote';
+	import type { DocumentType } from '$lib/server/schema';
 
 	const toast = getToast();
 	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
 	import FormField from '$lib/components/settings/FormField.svelte';
-	import { Share2, Type, Quote, Image, Palette, Upload, X, Check } from 'lucide-svelte';
+	import { Share2, Type, Quote, Image, Palette, Upload, X, Check, FileText, Mail, Receipt, ClipboardList } from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+
+	// Tab state
+	type TabId = 'defaults' | 'contracts' | 'invoices' | 'questionnaires' | 'emails';
+	let activeTab = $state<TabId>('defaults');
+
+	const tabs: { id: TabId; label: string; icon: typeof FileText; docType?: DocumentType }[] = [
+		{ id: 'defaults', label: 'Agency Defaults', icon: Palette },
+		{ id: 'contracts', label: 'Contracts', icon: FileText, docType: 'contract' },
+		{ id: 'invoices', label: 'Invoices', icon: Receipt, docType: 'invoice' },
+		{ id: 'questionnaires', label: 'Questionnaires', icon: ClipboardList, docType: 'questionnaire' },
+		{ id: 'emails', label: 'Emails', icon: Mail, docType: 'email' }
+	];
 
 	// Extract initial values (wrapped in function to signal intentional non-reactive capture)
 	function getInitialFormData() {
@@ -41,7 +55,36 @@
 
 	let isSaving = $state(false);
 	let isSavingBranding = $state(false);
+	let isSavingDocBranding = $state(false);
 	let error = $state('');
+
+	// Document-specific branding state
+	interface DocBrandingState {
+		useCustomBranding: boolean;
+		logoUrl: string;
+		primaryColor: string;
+		accentColor: string;
+		accentGradient: string;
+	}
+
+	function getInitialDocBranding(docType: DocumentType): DocBrandingState {
+		const override = data.documentBrandings?.[docType];
+		return {
+			useCustomBranding: override?.useCustomBranding ?? false,
+			logoUrl: override?.logoUrl ?? '',
+			primaryColor: override?.primaryColor ?? '',
+			accentColor: override?.accentColor ?? '',
+			accentGradient: override?.accentGradient ?? ''
+		};
+	}
+
+	let docBrandings = $state<Record<DocumentType, DocBrandingState>>({
+		contract: getInitialDocBranding('contract'),
+		invoice: getInitialDocBranding('invoice'),
+		questionnaire: getInitialDocBranding('questionnaire'),
+		proposal: getInitialDocBranding('proposal'),
+		email: getInitialDocBranding('email')
+	});
 
 	// Logo upload state - separate for each logo type
 	let logoPreview = $state<string | null>(null); // For horizontal logo
@@ -222,6 +265,30 @@
 		}
 	}
 
+	async function handleSaveDocBranding(docType: DocumentType) {
+		isSavingDocBranding = true;
+		error = '';
+
+		try {
+			const branding = docBrandings[docType];
+			await updateDocumentBranding({
+				documentType: docType,
+				useCustomBranding: branding.useCustomBranding,
+				logoUrl: branding.logoUrl || null,
+				primaryColor: branding.primaryColor || null,
+				accentColor: branding.accentColor || null,
+				accentGradient: branding.accentGradient || null
+			});
+			await invalidateAll();
+			toast.success('Document branding updated', `${docType.charAt(0).toUpperCase() + docType.slice(1)} branding saved`);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to save document branding';
+			toast.error('Save failed', error);
+		} finally {
+			isSavingDocBranding = false;
+		}
+	}
+
 	// Derived: check if branding has changes
 	let brandingHasChanges = $derived(
 		brandingData.logoUrl !== (data.agency?.logoUrl ?? '') ||
@@ -270,6 +337,23 @@
 			<span>{error}</span>
 		</div>
 	{/if}
+
+	<!-- Tabs -->
+	<div class="tabs tabs-boxed bg-base-200 p-1">
+		{#each tabs as tab}
+			<button
+				class="tab gap-2 {activeTab === tab.id ? 'tab-active' : ''}"
+				onclick={() => activeTab = tab.id}
+			>
+				<svelte:component this={tab.icon} class="h-4 w-4" />
+				<span class="hidden sm:inline">{tab.label}</span>
+			</button>
+		{/each}
+	</div>
+
+	<!-- Tab Content -->
+	{#if activeTab === 'defaults'}
+	<!-- Agency Defaults Tab -->
 
 	<!-- Tagline -->
 	<SettingsSection
@@ -703,4 +787,164 @@
 			Save Logo & Colors
 		</button>
 	</div>
+
+	{:else}
+	<!-- Document-Specific Branding Tabs -->
+	{@const tab = tabs.find(t => t.id === activeTab)}
+	{@const docType = tab?.docType}
+
+	{#if docType}
+		{@const branding = docBrandings[docType]}
+
+		<SettingsSection
+			title="{tab.label} Branding"
+			description="Override branding for {tab.label.toLowerCase()} only"
+			icon={tab.icon}
+		>
+			<!-- Toggle: Use Custom Branding -->
+			<div class="mb-6">
+				<label class="flex items-center gap-3 cursor-pointer">
+					<input
+						type="checkbox"
+						class="toggle toggle-primary"
+						bind:checked={branding.useCustomBranding}
+					/>
+					<span class="font-medium">Use custom branding for {tab.label.toLowerCase()}</span>
+				</label>
+				<p class="text-sm text-base-content/60 mt-2">
+					When disabled, {tab.label.toLowerCase()} will use your agency's default branding.
+				</p>
+			</div>
+
+			{#if branding.useCustomBranding}
+				<div class="space-y-6 animate-in fade-in duration-200">
+					<!-- Logo Override -->
+					<FormField label="Logo Override" hint="Leave empty to use agency logo">
+						<input
+							type="url"
+							class="input input-bordered w-full"
+							placeholder="https://example.com/logo.png"
+							bind:value={branding.logoUrl}
+						/>
+					</FormField>
+
+					<!-- Color Overrides -->
+					<div class="grid gap-4 sm:grid-cols-2">
+						<FormField label="Primary Color" hint="Leave empty for agency default">
+							<div class="flex items-center gap-3">
+								<input
+									type="color"
+									class="h-10 w-14 cursor-pointer rounded-lg border border-base-300"
+									bind:value={branding.primaryColor}
+								/>
+								<input
+									type="text"
+									class="input input-bordered flex-1 font-mono text-sm uppercase"
+									placeholder={data.agency?.primaryColor ?? '#4F46E5'}
+									bind:value={branding.primaryColor}
+									pattern="^#[0-9A-Fa-f]{6}$"
+								/>
+								{#if branding.primaryColor}
+									<button
+										type="button"
+										class="btn btn-ghost btn-sm btn-square"
+										onclick={() => branding.primaryColor = ''}
+										title="Clear override"
+									>
+										<X class="h-4 w-4" />
+									</button>
+								{/if}
+							</div>
+						</FormField>
+
+						{#if docType === 'contract' || docType === 'proposal'}
+							<FormField label="Accent Color" hint="For borders and highlights">
+								<div class="flex items-center gap-3">
+									<input
+										type="color"
+										class="h-10 w-14 cursor-pointer rounded-lg border border-base-300"
+										bind:value={branding.accentColor}
+									/>
+									<input
+										type="text"
+										class="input input-bordered flex-1 font-mono text-sm uppercase"
+										placeholder={data.agency?.accentColor ?? '#F59E0B'}
+										bind:value={branding.accentColor}
+										pattern="^#[0-9A-Fa-f]{6}$"
+									/>
+									{#if branding.accentColor}
+										<button
+											type="button"
+											class="btn btn-ghost btn-sm btn-square"
+											onclick={() => branding.accentColor = ''}
+											title="Clear override"
+										>
+											<X class="h-4 w-4" />
+										</button>
+									{/if}
+								</div>
+							</FormField>
+						{/if}
+					</div>
+
+					<!-- Preview -->
+					<div class="rounded-lg border border-base-300 p-4">
+						<p class="mb-3 text-sm font-medium text-base-content/70">Effective Branding Preview</p>
+						<div class="flex flex-wrap items-center gap-4">
+							<div class="flex items-center gap-2">
+								{#if branding.logoUrl || data.agency?.logoUrl}
+									<img
+										src={branding.logoUrl || data.agency?.logoUrl}
+										alt="Logo"
+										class="h-10 max-w-[120px] object-contain"
+									/>
+								{:else}
+									<div
+										class="flex h-10 w-10 items-center justify-center rounded-lg text-white font-bold"
+										style="background-color: {branding.primaryColor || data.agency?.primaryColor || '#4F46E5'}"
+									>
+										{data.agency?.name?.charAt(0) ?? 'A'}
+									</div>
+								{/if}
+							</div>
+							<div class="flex items-center gap-2">
+								<div
+									class="h-8 w-8 rounded shadow-sm"
+									style="background-color: {branding.primaryColor || data.agency?.primaryColor || '#4F46E5'}"
+								></div>
+								<span class="text-sm">{branding.primaryColor || 'Agency default'}</span>
+							</div>
+							{#if docType === 'contract' || docType === 'proposal'}
+								<div class="flex items-center gap-2">
+									<div
+										class="h-8 w-8 rounded shadow-sm"
+										style="background-color: {branding.accentColor || data.agency?.accentColor || '#F59E0B'}"
+									></div>
+									<span class="text-sm">{branding.accentColor || 'Agency default'}</span>
+								</div>
+							{/if}
+						</div>
+					</div>
+				</div>
+			{/if}
+		</SettingsSection>
+
+		<!-- Save Document Branding Button -->
+		<div class="flex justify-end">
+			<button
+				type="button"
+				class="btn btn-primary"
+				onclick={() => handleSaveDocBranding(docType)}
+				disabled={isSavingDocBranding}
+			>
+				{#if isSavingDocBranding}
+					<span class="loading loading-spinner loading-sm"></span>
+				{:else}
+					<Check class="h-4 w-4" />
+				{/if}
+				Save {tab.label} Branding
+			</button>
+		</div>
+	{/if}
+	{/if}
 </div>

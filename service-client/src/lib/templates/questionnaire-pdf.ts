@@ -6,11 +6,14 @@
  */
 
 import type { QuestionnaireResponse, Agency, AgencyProfile } from '$lib/server/schema';
+import type { EffectiveBranding } from '$lib/server/document-branding';
 
 export interface QuestionnairePdfData {
 	questionnaire: QuestionnaireResponse;
 	agency: Agency;
 	profile: AgencyProfile | null;
+	/** Optional branding override - if provided, takes precedence over agency branding */
+	brandingOverride?: EffectiveBranding;
 }
 
 /**
@@ -114,10 +117,13 @@ function renderSection(number: number, title: string, content: string, accentCol
  * Generate questionnaire PDF HTML
  */
 export function generateQuestionnairePdfHtml(data: QuestionnairePdfData): string {
-	const { questionnaire, agency, profile } = data;
+	const { questionnaire, agency, profile, brandingOverride } = data;
 	const responses = (questionnaire.responses || {}) as Record<string, unknown>;
 	const statusStyle = getStatusStyle(questionnaire.status);
-	const accentColor = agency.primaryColor || '#6366f1';
+
+	// Use branding override if provided, otherwise fall back to agency branding
+	const logoUrl = brandingOverride?.logoUrl || agency.logoUrl;
+	const accentColor = brandingOverride?.primaryColor || agency.primaryColor || '#6366f1';
 
 	// Section 1: Personal Information
 	const section1 = [
@@ -225,8 +231,8 @@ export function generateQuestionnairePdfHtml(data: QuestionnairePdfData): string
 		<div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; margin-bottom: 24px; border-bottom: 3px solid ${accentColor};">
 			<div>
 				${
-					agency.logoUrl
-						? `<img src="${agency.logoUrl}" alt="${agency.name}" style="max-height: 50px; max-width: 180px; object-fit: contain; margin-bottom: 8px;">`
+					logoUrl
+						? `<img src="${logoUrl}" alt="${agency.name}" style="max-height: 50px; max-width: 180px; object-fit: contain; margin-bottom: 8px;">`
 						: `<div style="font-size: 22px; font-weight: bold; color: ${accentColor};">${agency.name}</div>`
 				}
 			</div>

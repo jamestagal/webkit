@@ -349,6 +349,37 @@ export const agencyAddons = pgTable(
 	})
 );
 
+// Document branding overrides per agency
+export const agencyDocumentBranding = pgTable(
+	'agency_document_branding',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+
+		agencyId: uuid('agency_id')
+			.notNull()
+			.references(() => agencies.id, { onDelete: 'cascade' }),
+
+		// Document type: 'contract', 'invoice', 'questionnaire', 'proposal', 'email'
+		documentType: varchar('document_type', { length: 50 }).notNull(),
+
+		// Toggle: use custom branding vs agency defaults
+		useCustomBranding: boolean('use_custom_branding').notNull().default(false),
+
+		// Branding overrides (null = use agency default)
+		logoUrl: text('logo_url'),
+		primaryColor: text('primary_color'),
+		accentColor: text('accent_color'),
+		accentGradient: text('accent_gradient')
+	},
+	(table) => ({
+		uniqueAgencyDocType: unique().on(table.agencyId, table.documentType)
+	})
+);
+
+export type DocumentType = 'contract' | 'invoice' | 'questionnaire' | 'proposal' | 'email';
+
 // =============================================================================
 // PROPOSALS (V2 Document Generation)
 // =============================================================================

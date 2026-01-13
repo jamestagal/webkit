@@ -6,12 +6,15 @@
  */
 
 import type { Contract, ContractSchedule, Agency, AgencyProfile } from '$lib/server/schema';
+import type { EffectiveBranding } from '$lib/server/document-branding';
 
 export interface ContractPdfData {
 	contract: Contract;
 	agency: Agency;
 	profile: AgencyProfile | null;
 	includedSchedules: ContractSchedule[];
+	/** Optional branding override - if provided, takes precedence over agency branding */
+	brandingOverride?: EffectiveBranding;
 }
 
 /**
@@ -119,10 +122,13 @@ function escapeHtml(text: string): string {
  * Generate contract PDF HTML
  */
 export function generateContractPdfHtml(data: ContractPdfData): string {
-	const { contract, agency, profile, includedSchedules } = data;
+	const { contract, agency, profile, includedSchedules, brandingOverride } = data;
 	const statusColor = getStatusColor(contract.status);
 	const isSigned = contract.status === 'signed' || contract.status === 'completed';
-	const accentColor = agency.primaryColor || '#6366f1';
+
+	// Use branding override if provided, otherwise fall back to agency branding
+	const logoUrl = brandingOverride?.logoUrl || agency.logoUrl;
+	const accentColor = brandingOverride?.primaryColor || agency.primaryColor || '#6366f1';
 
 	// Get visible fields
 	const visibleFields = (contract.visibleFields as string[]) || [
@@ -227,8 +233,8 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 		<div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 3px solid ${accentColor};">
 			<div>
 				${
-					agency.logoUrl
-						? `<img src="${agency.logoUrl}" alt="${escapeHtml(agency.name)}" style="max-height: 60px; max-width: 200px; object-fit: contain; margin-bottom: 8px;">`
+					logoUrl
+						? `<img src="${logoUrl}" alt="${escapeHtml(agency.name)}" style="max-height: 60px; max-width: 200px; object-fit: contain; margin-bottom: 8px;">`
 						: `<div style="font-size: 24px; font-weight: bold; color: ${accentColor};">${escapeHtml(agency.name)}</div>`
 				}
 			</div>

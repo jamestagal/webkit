@@ -376,6 +376,34 @@ create index if not exists idx_agency_addons_slug on agency_addons(agency_id, sl
 create index if not exists idx_agency_addons_active on agency_addons(agency_id, is_active);
 create index if not exists idx_agency_addons_display_order on agency_addons(agency_id, display_order);
 
+-- create "agency_document_branding" table - Per-document branding overrides
+create table if not exists agency_document_branding (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    agency_id uuid not null references agencies(id) on delete cascade,
+
+    -- Document type: 'contract', 'invoice', 'questionnaire', 'proposal', 'email'
+    document_type varchar(50) not null,
+
+    -- Toggle: use custom branding vs agency defaults
+    use_custom_branding boolean not null default false,
+
+    -- Branding overrides (null = use agency default)
+    logo_url text,
+    primary_color text,
+    accent_color text,
+    accent_gradient text,
+
+    unique(agency_id, document_type),
+    constraint valid_document_type check (document_type in ('contract', 'invoice', 'questionnaire', 'proposal', 'email'))
+);
+
+-- Indexes for agency_document_branding
+create index if not exists idx_agency_document_branding_agency_id on agency_document_branding(agency_id);
+create index if not exists idx_agency_document_branding_type on agency_document_branding(agency_id, document_type);
+
 -- create "files" table
 create table if not exists files (
     id uuid primary key not null,

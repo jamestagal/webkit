@@ -6,12 +6,15 @@
  */
 
 import type { Invoice, InvoiceLineItem, Agency, AgencyProfile } from '$lib/server/schema';
+import type { EffectiveBranding } from '$lib/server/document-branding';
 
 export interface InvoicePdfData {
 	invoice: Invoice;
 	lineItems: InvoiceLineItem[];
 	agency: Agency;
 	profile: AgencyProfile | null;
+	/** Optional branding override - if provided, takes precedence over agency branding */
+	brandingOverride?: EffectiveBranding;
 }
 
 /**
@@ -103,9 +106,13 @@ function buildClientAddress(invoice: Invoice): string {
  * Generate invoice PDF HTML
  */
 export function generateInvoicePdfHtml(data: InvoicePdfData): string {
-	const { invoice, lineItems, agency, profile } = data;
+	const { invoice, lineItems, agency, profile, brandingOverride } = data;
 	const statusColor = getStatusColor(invoice.status);
 	const isPaid = invoice.status === 'paid';
+
+	// Use branding override if provided, otherwise fall back to agency branding
+	const logoUrl = brandingOverride?.logoUrl || agency.logoUrl;
+	const primaryColor = brandingOverride?.primaryColor || agency.primaryColor || '#111827';
 
 	// Calculate line item display values
 	const lineItemRows = lineItems
@@ -208,9 +215,9 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 		<div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 2px solid #111827;">
 			<div>
 				${
-					agency.logoUrl
-						? `<img src="${agency.logoUrl}" alt="${agency.name}" style="max-height: 60px; max-width: 200px; object-fit: contain; margin-bottom: 8px;">`
-						: `<div style="font-size: 24px; font-weight: bold; color: ${agency.primaryColor || '#111827'};">${agency.name}</div>`
+					logoUrl
+						? `<img src="${logoUrl}" alt="${agency.name}" style="max-height: 60px; max-width: 200px; object-fit: contain; margin-bottom: 8px;">`
+						: `<div style="font-size: 24px; font-weight: bold; color: ${primaryColor};">${agency.name}</div>`
 				}
 			</div>
 			<div style="text-align: right;">
