@@ -5,23 +5,40 @@
 		height = "h-auto",
 		position = "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
 		showCloseButton = true,
+		isOpen = $bindable(false),
 		children,
 	} = $props();
 
 	let modalElement = $state();
 
+	// Sync isOpen prop with dialog state
+	$effect(() => {
+		if (!modalElement) return;
+		if (isOpen && !modalElement.open) {
+			modalElement.showModal();
+		} else if (!isOpen && modalElement.open) {
+			modalElement.close();
+		}
+	});
+
+	// Handle dialog close events (ESC key, backdrop click)
+	function handleClose() {
+		isOpen = false;
+	}
+
 	export function close() {
-		modalElement.close();
+		isOpen = false;
 	}
 
 	export function showModal() {
-		modalElement.showModal();
+		isOpen = true;
 	}
 </script>
 
 <dialog
 	bind:this={modalElement}
-	class={`${maxWidth} ${position} bg-main text-secondary fixed z-50 max-h-svh w-11/12 overflow-x-hidden rounded-xl shadow-xl`}
+	onclose={handleClose}
+	class={`${maxWidth} ${position} bg-base-100 text-base-content fixed z-50 max-h-svh w-11/12 overflow-x-hidden rounded-xl shadow-xl border border-base-300`}
 >
 	{#if title || showCloseButton}
 		<div class="flex h-14 items-center px-4 {title ? 'justify-between' : 'justify-end'}">
@@ -76,7 +93,7 @@
 	}
 
 	dialog::backdrop {
-		background-color: color-mix(in srgb, var(--color-secondary-2) 50%, transparent);
+		background-color: rgba(0, 0, 0, 0.5);
 		backdrop-filter: blur(4px);
 	}
 

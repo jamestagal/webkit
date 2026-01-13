@@ -519,3 +519,98 @@ export const setDefaultAgency = command(SwitchAgencySchema, async (agencyId: str
 	await db.update(users).set({ defaultAgencyId: agencyId }).where(eq(users.id, userId));
 });
 
+// =============================================================================
+// User Profile Functions
+// =============================================================================
+
+/**
+ * Get current user's profile for the account page.
+ * Returns user data (email, avatar) and membership data (displayName).
+ */
+export const getCurrentUserProfile = query(async () => {
+	const userId = getUserId();
+	const context = await getAgencyContext();
+
+	const [user] = await db
+		.select({
+			id: users.id,
+			email: users.email,
+			avatar: users.avatar
+		})
+		.from(users)
+		.where(eq(users.id, userId))
+		.limit(1);
+
+	if (!user) {
+		throw new Error('User not found');
+	}
+
+	const [membership] = await db
+		.select({
+			displayName: agencyMemberships.displayName
+		})
+		.from(agencyMemberships)
+		.where(
+			and(
+				eq(agencyMemberships.userId, userId),
+				eq(agencyMemberships.agencyId, context.agencyId)
+			)
+		)
+		.limit(1);
+
+	return {
+		id: user.id,
+		email: user.email,
+		avatar: user.avatar,
+		displayName: membership?.displayName || ''
+	};
+});
+
+/**
+ * Update current user's display name for this agency.
+ */
+const UpdateDisplayNameSchema = v.object({
+	displayName: v.pipe(v.string(), v.minLength(1), v.maxLength(100))
+});
+
+export const updateMyDisplayName = command(UpdateDisplayNameSchema, async (data) => {
+	const userId = getUserId();
+	const context = await getAgencyContext();
+
+	await db
+		.update(agencyMemberships)
+		.set({ displayName: data.displayName, updatedAt: new Date() })
+		.where(
+			and(
+				eq(agencyMemberships.userId, userId),
+				eq(agencyMemberships.agencyId, context.agencyId)
+			)
+		);
+
+	// Log activity
+	await logActivity('profile.displayName.updated', 'membership', undefined, {
+		newValues: { displayName: data.displayName }
+	});
+});
+
+/**
+ * Update current user's avatar URL.
+ */
+const UpdateAvatarSchema = v.object({
+	avatarUrl: v.pipe(v.string(), v.maxLength(2048))
+});
+
+export const updateMyAvatar = command(UpdateAvatarSchema, async (data) => {
+	const userId = getUserId();
+
+	await db
+		.update(users)
+		.set({ avatar: data.avatarUrl })
+		.where(eq(users.id, userId));
+
+	// Log activity
+	await logActivity('profile.avatar.updated', 'user', userId, {
+		newValues: { hasAvatar: data.avatarUrl.length > 0 }
+	});
+});
+

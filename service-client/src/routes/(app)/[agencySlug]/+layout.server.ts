@@ -163,6 +163,7 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 			accentColor: agency.accentColor
 		},
 		membership: {
+			id: effectiveMembership.id,
 			role: effectiveMembership.role as 'owner' | 'admin' | 'member',
 			displayName: effectiveMembership.displayName
 		},
