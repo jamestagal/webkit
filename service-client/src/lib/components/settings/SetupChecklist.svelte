@@ -40,9 +40,9 @@
 <div class="card bg-base-100 border border-base-300">
 	<div class="card-body">
 		<!-- Header with progress -->
-		<div class="flex items-center justify-between mb-4">
+		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
 			<div class="flex items-center gap-3">
-				<div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+				<div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
 					<Sparkles class="h-5 w-5" />
 				</div>
 				<div>
@@ -54,12 +54,12 @@
 			</div>
 
 			{#if isReady}
-				<div class="badge badge-success gap-1">
+				<div class="badge badge-success gap-1 shrink-0">
 					<CheckCircle2 class="h-3 w-3" />
 					Ready
 				</div>
 			{:else}
-				<div class="badge badge-warning gap-1">
+				<div class="badge badge-outline border-amber-500 text-amber-600 gap-1 shrink-0">
 					<AlertCircle class="h-3 w-3" />
 					{totalRequired - completedRequired} remaining
 				</div>

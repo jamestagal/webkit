@@ -161,7 +161,8 @@
 			</div>
 		</div>
 	{:else}
-		<div class="card bg-base-100 border border-base-300 overflow-hidden">
+		<!-- Desktop Table View -->
+		<div class="card bg-base-100 border border-base-300 overflow-hidden hidden sm:block">
 			<div class="overflow-x-auto">
 				<table class="table">
 					<thead>
@@ -263,6 +264,97 @@
 					</tbody>
 				</table>
 			</div>
+		</div>
+
+		<!-- Mobile Card View -->
+		<div class="space-y-3 sm:hidden">
+			{#each members as member}
+				<div class="card bg-base-100 border border-base-300">
+					<div class="card-body p-4">
+						<div class="flex items-start gap-3">
+							<!-- Avatar -->
+							<div class="avatar placeholder">
+								<div
+									class="bg-primary/10 text-primary w-12 h-12 rounded-full flex items-center justify-center"
+								>
+									{#if member.userAvatar}
+										<img
+											src={member.userAvatar}
+											alt={member.displayName || member.userEmail}
+										/>
+									{:else}
+										<span class="text-base">
+											{(member.displayName || member.userEmail || '?').charAt(0).toUpperCase()}
+										</span>
+									{/if}
+								</div>
+							</div>
+
+							<!-- Member Info -->
+							<div class="flex-1 min-w-0">
+								<div class="flex items-center gap-2 flex-wrap">
+									<span class="font-semibold">
+										{member.displayName || 'Unnamed'}
+									</span>
+									{#if isCurrentUser(member)}
+										<button
+											class="btn btn-ghost btn-xs btn-square"
+											onclick={() => openNameModal(member)}
+											title="Edit your display name"
+										>
+											<Pencil class="h-3 w-3" />
+										</button>
+										<span class="badge badge-outline badge-xs">You</span>
+									{/if}
+								</div>
+								<p class="text-sm text-base-content/60 truncate">{member.userEmail}</p>
+								<div class="flex items-center gap-2 mt-2">
+									<span class="badge {getRoleBadgeClass(member.role)} badge-sm capitalize">
+										{member.role}
+									</span>
+									<span
+										class="badge {member.status === 'active' ? 'badge-success' : 'badge-warning'} badge-sm"
+									>
+										{member.status}
+									</span>
+								</div>
+							</div>
+
+							<!-- Actions -->
+							{#if canManageMember(member) && member.role !== 'owner'}
+								<div class="dropdown dropdown-end">
+									<div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-square">
+										<MoreVertical class="h-4 w-4" />
+									</div>
+									<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+									<ul
+										tabindex="0"
+										class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow-lg border border-base-300"
+									>
+										{#if canChangeRole()}
+											<li>
+												<button onclick={() => openRoleModal(member)}>
+													<UserCog class="h-4 w-4" />
+													Change Role
+												</button>
+											</li>
+										{/if}
+										<li>
+											<button
+												class="text-error"
+												onclick={() => handleRemoveMember(member)}
+											>
+												<Trash2 class="h-4 w-4" />
+												Remove
+											</button>
+										</li>
+									</ul>
+								</div>
+							{/if}
+						</div>
+					</div>
+				</div>
+			{/each}
 		</div>
 	{/if}
 

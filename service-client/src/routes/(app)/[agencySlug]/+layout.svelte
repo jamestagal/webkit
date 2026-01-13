@@ -194,6 +194,11 @@
 				></path>
 			</svg>
 		</button>
+		<!-- Mobile branding -->
+		<a href="/{agencySlug}" class="flex flex-col">
+			<span class="text-sm font-semibold leading-tight">Webkit</span>
+			<span class="text-xs text-base-content/60 leading-tight truncate max-w-40">{data.agency.name}</span>
+		</a>
 		<div class="flex-1"></div>
 		<AgencySwitcher
 			currentAgency={currentAgencyForSwitcher}
@@ -283,10 +288,13 @@
 	<main class="min-h-full lg:pl-20">
 		<!-- Desktop header with agency switcher -->
 		<div class="hidden lg:flex items-center justify-between border-b border-base-300 bg-base-100 px-8 py-3">
-			<div class="flex items-center gap-3">
-				<h1 class="text-lg font-semibold">{data.agency.name}</h1>
+			<div class="flex items-center gap-4">
+				<div class="flex flex-col">
+					<span class="text-lg font-bold leading-tight">Webkit</span>
+					<span class="text-xs text-base-content/60 leading-tight">{data.agency.name}</span>
+				</div>
 				{#if data.membership.displayName}
-					<span class="text-sm text-base-content/60">
+					<span class="text-sm text-base-content/60 border-l border-base-300 pl-4">
 						Welcome, {data.membership.displayName}
 					</span>
 				{/if}
