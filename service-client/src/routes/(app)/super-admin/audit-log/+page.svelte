@@ -97,6 +97,15 @@
 		});
 	}
 
+	function formatShortDate(date: Date | string): string {
+		return new Date(date).toLocaleDateString('en-AU', {
+			day: 'numeric',
+			month: 'short',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
+	}
+
 	function toggleExpanded(id: string) {
 		if (expandedRows.has(id)) {
 			expandedRows.delete(id);
@@ -132,9 +141,9 @@
 	</div>
 
 	<!-- Filters -->
-	<div class="mb-6 flex flex-wrap items-center gap-4">
+	<div class="mb-6 space-y-3">
 		<select
-			class="select select-bordered"
+			class="select select-bordered w-full"
 			bind:value={agencyFilter}
 			onchange={handleFilterChange}
 		>
@@ -144,7 +153,7 @@
 			{/each}
 		</select>
 
-		<div class="relative flex-1 min-w-[200px] max-w-sm">
+		<div class="relative">
 			<Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-base-content/40" />
 			<input
 				type="text"
@@ -171,8 +180,70 @@
 			<p class="text-base-content/60">Try adjusting your filters</p>
 		</div>
 	{:else}
-		<!-- Table -->
-		<div class="overflow-x-auto rounded-lg border border-base-300">
+		<!-- Mobile: Card Layout -->
+		<div class="space-y-3 lg:hidden">
+			{#each logs as log (log.id)}
+				<div class="rounded-lg border border-base-300 overflow-hidden">
+					<button
+						class="w-full text-left p-4 hover:bg-base-200/50 transition-colors"
+						onclick={() => toggleExpanded(log.id)}
+					>
+						<div class="flex items-start justify-between gap-3">
+							<div class="min-w-0 flex-1">
+								<span class="badge {getActionBadgeClass(log.action)} badge-sm">
+									{log.action}
+								</span>
+								<p class="text-sm text-base-content/60 mt-1 truncate">
+									{log.entityType}
+									{#if log.entityId}
+										<span class="text-xs">({log.entityId.slice(0, 8)}...)</span>
+									{/if}
+								</p>
+							</div>
+							<div class="flex items-center gap-2 shrink-0">
+								{#if expandedRows.has(log.id)}
+									<ChevronUp class="h-4 w-4 text-base-content/40" />
+								{:else}
+									<ChevronDown class="h-4 w-4 text-base-content/40" />
+								{/if}
+							</div>
+						</div>
+						<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-base-content/60">
+							<span>{formatShortDate(log.createdAt)}</span>
+							{#if log.agencyName}
+								<span class="truncate max-w-[120px]">{log.agencyName}</span>
+							{/if}
+							{#if log.userEmail}
+								<span class="truncate max-w-[120px]">{log.userEmail}</span>
+							{:else}
+								<span>System</span>
+							{/if}
+						</div>
+					</button>
+
+					{#if expandedRows.has(log.id)}
+						<div class="border-t border-base-300 bg-base-200/30 p-4 space-y-3">
+							<div>
+								<p class="text-xs font-medium text-base-content/60 mb-1">Old Values</p>
+								<pre class="text-xs bg-base-300 p-2 rounded overflow-auto max-h-32">{formatJson(log.oldValues)}</pre>
+							</div>
+							<div>
+								<p class="text-xs font-medium text-base-content/60 mb-1">New Values</p>
+								<pre class="text-xs bg-base-300 p-2 rounded overflow-auto max-h-32">{formatJson(log.newValues)}</pre>
+							</div>
+							{#if log.ipAddress}
+								<p class="text-xs text-base-content/50">
+									IP: {log.ipAddress}
+								</p>
+							{/if}
+						</div>
+					{/if}
+				</div>
+			{/each}
+		</div>
+
+		<!-- Desktop: Table Layout -->
+		<div class="hidden lg:block overflow-x-auto rounded-lg border border-base-300">
 			<table class="table">
 				<thead class="bg-base-200">
 					<tr>
@@ -253,7 +324,7 @@
 
 		<!-- Pagination -->
 		{#if totalPages > 1}
-			<div class="mt-4 flex items-center justify-between">
+			<div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
 				<p class="text-sm text-base-content/60">
 					Showing {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, total)} of {total}
 				</p>
@@ -267,10 +338,10 @@
 						}}
 					>
 						<ChevronLeft class="h-4 w-4" />
-						Previous
+						<span class="hidden sm:inline">Previous</span>
 					</button>
 					<span class="text-sm">
-						Page {currentPage} of {totalPages}
+						{currentPage} / {totalPages}
 					</span>
 					<button
 						class="btn btn-ghost btn-sm"
@@ -280,7 +351,7 @@
 							loadLogs();
 						}}
 					>
-						Next
+						<span class="hidden sm:inline">Next</span>
 						<ChevronRight class="h-4 w-4" />
 					</button>
 				</div>

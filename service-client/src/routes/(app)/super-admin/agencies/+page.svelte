@@ -112,8 +112,9 @@
 	</div>
 
 	<!-- Filters -->
-	<div class="mb-6 flex flex-wrap items-center gap-4">
-		<div class="relative flex-1 min-w-[200px] max-w-sm">
+	<div class="mb-6 space-y-3">
+		<!-- Search - full width on mobile -->
+		<div class="relative">
 			<Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-base-content/40" />
 			<input
 				type="text"
@@ -124,10 +125,11 @@
 			/>
 		</div>
 
+		<!-- Filter dropdowns - row on mobile -->
 		<div class="flex items-center gap-2">
-			<Filter class="h-4 w-4 text-base-content/60" />
+			<Filter class="h-4 w-4 text-base-content/60 shrink-0" />
 			<select
-				class="select select-bordered select-sm"
+				class="select select-bordered select-sm flex-1"
 				bind:value={statusFilter}
 				onchange={handleFilterChange}
 			>
@@ -138,7 +140,7 @@
 			</select>
 
 			<select
-				class="select select-bordered select-sm"
+				class="select select-bordered select-sm flex-1"
 				bind:value={tierFilter}
 				onchange={handleFilterChange}
 			>
@@ -166,8 +168,37 @@
 			<p class="text-base-content/60">Try adjusting your search or filters</p>
 		</div>
 	{:else}
-		<!-- Table -->
-		<div class="overflow-x-auto rounded-lg border border-base-300">
+		<!-- Mobile: Card Layout -->
+		<div class="space-y-3 lg:hidden">
+			{#each agencies as agency (agency.id)}
+				<button
+					class="w-full text-left rounded-lg border border-base-300 p-4 hover:bg-base-200/50 transition-colors"
+					onclick={() => goto(`/super-admin/agencies/${agency.id}`)}
+				>
+					<div class="flex items-start justify-between gap-3">
+						<div class="min-w-0 flex-1">
+							<p class="font-medium truncate">{agency.name}</p>
+							<p class="text-sm text-base-content/60 truncate">/{agency.slug}</p>
+						</div>
+						<div class="flex flex-col items-end gap-1">
+							<span class="badge {getStatusBadgeClass(agency.status)} badge-sm capitalize">
+								{agency.status}
+							</span>
+							<span class="badge {getTierBadgeClass(agency.subscriptionTier)} badge-sm capitalize">
+								{agency.subscriptionTier}
+							</span>
+						</div>
+					</div>
+					<div class="mt-3 flex items-center justify-between text-sm text-base-content/60">
+						<span>{agency.memberCount} member{agency.memberCount !== 1 ? 's' : ''}</span>
+						<span>{formatDate(agency.createdAt)}</span>
+					</div>
+				</button>
+			{/each}
+		</div>
+
+		<!-- Desktop: Table Layout -->
+		<div class="hidden lg:block overflow-x-auto rounded-lg border border-base-300">
 			<table class="table">
 				<thead class="bg-base-200">
 					<tr>
@@ -210,7 +241,7 @@
 
 		<!-- Pagination -->
 		{#if totalPages > 1}
-			<div class="mt-4 flex items-center justify-between">
+			<div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
 				<p class="text-sm text-base-content/60">
 					Showing {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, total)} of {total}
 				</p>
@@ -224,10 +255,10 @@
 						}}
 					>
 						<ChevronLeft class="h-4 w-4" />
-						Previous
+						<span class="hidden sm:inline">Previous</span>
 					</button>
 					<span class="text-sm">
-						Page {currentPage} of {totalPages}
+						{currentPage} / {totalPages}
 					</span>
 					<button
 						class="btn btn-ghost btn-sm"
@@ -237,7 +268,7 @@
 							loadAgencies();
 						}}
 					>
-						Next
+						<span class="hidden sm:inline">Next</span>
 						<ChevronRight class="h-4 w-4" />
 					</button>
 				</div>

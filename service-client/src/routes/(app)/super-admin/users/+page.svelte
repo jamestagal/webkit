@@ -150,6 +150,16 @@
 		}
 	}
 
+	// Truncate email for mobile display
+	function truncateEmail(email: string, maxLength: number = 24): string {
+		if (email.length <= maxLength) return email;
+		const [local, domain] = email.split('@');
+		if (!domain) return email.slice(0, maxLength) + '...';
+		const maxLocal = maxLength - domain.length - 4; // 4 for "...@"
+		if (maxLocal < 4) return email.slice(0, maxLength) + '...';
+		return local.slice(0, maxLocal) + '...@' + domain;
+	}
+
 	let totalPages = $derived(Math.ceil(total / pageSize));
 </script>
 
@@ -160,8 +170,9 @@
 	</div>
 
 	<!-- Filters -->
-	<div class="mb-6 flex flex-wrap items-center gap-4">
-		<div class="relative flex-1 min-w-[200px] max-w-sm">
+	<div class="mb-6 space-y-3">
+		<!-- Search - full width -->
+		<div class="relative">
 			<Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-base-content/40" />
 			<input
 				type="text"
@@ -172,7 +183,8 @@
 			/>
 		</div>
 
-		<label class="label cursor-pointer gap-2">
+		<!-- Filter checkbox -->
+		<label class="label cursor-pointer justify-start gap-2">
 			<input
 				type="checkbox"
 				class="checkbox checkbox-sm checkbox-error"
@@ -198,8 +210,36 @@
 			<p class="text-base-content/60">Try adjusting your search</p>
 		</div>
 	{:else}
-		<!-- Table -->
-		<div class="overflow-x-auto rounded-lg border border-base-300">
+		<!-- Mobile: Card Layout -->
+		<div class="space-y-3 lg:hidden">
+			{#each users as user (user.id)}
+				<button
+					class="w-full text-left rounded-lg border border-base-300 p-4 hover:bg-base-200/50 transition-colors"
+					onclick={() => openUserDetails(user.id)}
+				>
+					<div class="flex items-start justify-between gap-3">
+						<div class="min-w-0 flex-1">
+							<p class="font-medium text-sm truncate">{user.email}</p>
+							<p class="text-xs text-base-content/60 mt-1">
+								{user.agencyCount} {user.agencyCount === 1 ? 'agency' : 'agencies'}
+							</p>
+						</div>
+						{#if user.isSuperAdmin}
+							<span class="badge badge-error badge-sm gap-1 shrink-0">
+								<Shield class="h-3 w-3" />
+								Admin
+							</span>
+						{/if}
+					</div>
+					<div class="mt-2 text-xs text-base-content/60">
+						Created {formatDate(user.created)}
+					</div>
+				</button>
+			{/each}
+		</div>
+
+		<!-- Desktop: Table Layout -->
+		<div class="hidden lg:block overflow-x-auto rounded-lg border border-base-300">
 			<table class="table">
 				<thead class="bg-base-200">
 					<tr>
@@ -244,7 +284,7 @@
 
 		<!-- Pagination -->
 		{#if totalPages > 1}
-			<div class="mt-4 flex items-center justify-between">
+			<div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
 				<p class="text-sm text-base-content/60">
 					Showing {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, total)} of {total}
 				</p>
@@ -258,10 +298,10 @@
 						}}
 					>
 						<ChevronLeft class="h-4 w-4" />
-						Previous
+						<span class="hidden sm:inline">Previous</span>
 					</button>
 					<span class="text-sm">
-						Page {currentPage} of {totalPages}
+						{currentPage} / {totalPages}
 					</span>
 					<button
 						class="btn btn-ghost btn-sm"
@@ -271,7 +311,7 @@
 							loadUsers();
 						}}
 					>
-						Next
+						<span class="hidden sm:inline">Next</span>
 						<ChevronRight class="h-4 w-4" />
 					</button>
 				</div>
@@ -292,13 +332,13 @@
 				<h3 class="text-lg font-bold">User Details</h3>
 
 				<div class="mt-4 space-y-4">
-					<div class="flex items-center justify-between">
-						<div>
+					<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+						<div class="min-w-0">
 							<p class="text-sm text-base-content/60">Email</p>
-							<p class="font-medium">{selectedUser.user.email}</p>
+							<p class="font-medium break-all">{selectedUser.user.email}</p>
 						</div>
 						{#if selectedUser.user.isSuperAdmin}
-							<span class="badge badge-error gap-1">
+							<span class="badge badge-error gap-1 shrink-0 self-start sm:self-center">
 								<Shield class="h-3 w-3" />
 								Super Admin
 							</span>
@@ -320,8 +360,8 @@
 						{#if selectedUser.memberships.length > 0}
 							<div class="mt-2 space-y-2">
 								{#each selectedUser.memberships as membership (membership.id)}
-									<div class="flex items-center justify-between rounded-lg border border-base-300 p-3">
-										<div>
+									<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-base-300 p-3">
+										<div class="min-w-0">
 											<a
 												href="/super-admin/agencies/{membership.agencyId}"
 												class="font-medium hover:text-primary"
@@ -330,7 +370,7 @@
 											</a>
 											<p class="text-sm text-base-content/60">/{membership.agencySlug}</p>
 										</div>
-										<span class="badge {getRoleBadgeClass(membership.role)} badge-sm capitalize">
+										<span class="badge {getRoleBadgeClass(membership.role)} badge-sm capitalize shrink-0 self-start sm:self-center">
 											{membership.role}
 										</span>
 									</div>

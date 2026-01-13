@@ -175,14 +175,14 @@
 								{#each stats.recentAgencies.slice(0, 5) as agency (agency.id)}
 									<a
 										href="/super-admin/agencies/{agency.id}"
-										class="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-base-200"
+										class="flex items-center justify-between gap-3 rounded-lg p-2 transition-colors hover:bg-base-200"
 									>
-										<div>
-											<p class="font-medium">{agency.name}</p>
-											<p class="text-sm text-base-content/60">/{agency.slug}</p>
+										<div class="min-w-0 flex-1">
+											<p class="font-medium truncate">{agency.name}</p>
+											<p class="text-sm text-base-content/60 truncate">/{agency.slug}</p>
 										</div>
-										<div class="text-right">
-											<span class="badge {getTierBadgeClass(agency.subscriptionTier)} badge-sm">
+										<div class="text-right shrink-0">
+											<span class="badge {getTierBadgeClass(agency.subscriptionTier)} badge-sm capitalize">
 												{agency.subscriptionTier}
 											</span>
 											<p class="mt-1 text-xs text-base-content/60">

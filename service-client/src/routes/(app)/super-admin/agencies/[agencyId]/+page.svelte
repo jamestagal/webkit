@@ -21,6 +21,7 @@
 			createdAt: Date;
 			updatedAt: Date;
 			logoUrl: string;
+			logoAvatarUrl: string;
 		};
 		members: Array<{
 			id: string;
@@ -178,16 +179,48 @@
 			<div class="lg:col-span-2 space-y-6">
 				<div class="card bg-base-100 border border-base-300">
 					<div class="card-body">
-						<div class="flex items-start justify-between">
+						<!-- Mobile: Stacked layout -->
+						<div class="flex flex-col gap-4 sm:hidden">
 							<div class="flex items-center gap-4">
-								{#if details.agency.logoUrl}
+								{#if details.agency.logoAvatarUrl || details.agency.logoUrl}
 									<img
-										src={details.agency.logoUrl}
+										src={details.agency.logoAvatarUrl || details.agency.logoUrl}
 										alt={details.agency.name}
-										class="h-16 w-16 rounded-lg object-cover"
+										class="h-16 w-16 shrink-0 rounded-lg object-cover"
 									/>
 								{:else}
-									<div class="flex h-16 w-16 items-center justify-center rounded-lg bg-primary/10">
+									<div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+										<span class="text-2xl font-bold text-primary">
+											{details.agency.name.charAt(0)}
+										</span>
+									</div>
+								{/if}
+								<div class="min-w-0 flex-1">
+									<h2 class="text-xl font-bold truncate">{details.agency.name}</h2>
+									<p class="text-base-content/60 truncate">/{details.agency.slug}</p>
+								</div>
+							</div>
+							<div class="flex gap-2">
+								<span class="badge {getStatusBadgeClass(details.agency.status)} capitalize">
+									{details.agency.status}
+								</span>
+								<span class="badge {getTierBadgeClass(details.agency.subscriptionTier)} capitalize">
+									{details.agency.subscriptionTier}
+								</span>
+							</div>
+						</div>
+
+						<!-- Desktop: Side-by-side layout -->
+						<div class="hidden sm:flex sm:items-start sm:justify-between">
+							<div class="flex items-center gap-4">
+								{#if details.agency.logoAvatarUrl || details.agency.logoUrl}
+									<img
+										src={details.agency.logoAvatarUrl || details.agency.logoUrl}
+										alt={details.agency.name}
+										class="h-16 w-16 shrink-0 rounded-lg object-cover"
+									/>
+								{:else}
+									<div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-primary/10">
 										<span class="text-2xl font-bold text-primary">
 											{details.agency.name.charAt(0)}
 										</span>
@@ -198,7 +231,7 @@
 									<p class="text-base-content/60">/{details.agency.slug}</p>
 								</div>
 							</div>
-							<div class="flex gap-2">
+							<div class="flex gap-2 shrink-0">
 								<span class="badge {getStatusBadgeClass(details.agency.status)} capitalize">
 									{details.agency.status}
 								</span>
@@ -213,7 +246,7 @@
 						<div class="grid gap-4 sm:grid-cols-2">
 							<div>
 								<p class="text-sm text-base-content/60">Email</p>
-								<p>{details.agency.email || '-'}</p>
+								<p class="break-all">{details.agency.email || '-'}</p>
 							</div>
 							<div>
 								<p class="text-sm text-base-content/60">Phone</p>
@@ -221,7 +254,7 @@
 							</div>
 							<div>
 								<p class="text-sm text-base-content/60">Website</p>
-								<p>{details.agency.website || '-'}</p>
+								<p class="break-all">{details.agency.website || '-'}</p>
 							</div>
 							<div>
 								<p class="text-sm text-base-content/60">Created</p>
@@ -276,7 +309,26 @@
 							Members ({details.members.length})
 						</h3>
 						{#if details.members.length > 0}
-							<div class="overflow-x-auto">
+							<!-- Mobile: Card layout -->
+							<div class="space-y-3 lg:hidden">
+								{#each details.members as member (member.id)}
+									<div class="rounded-lg border border-base-300 p-3">
+										<div class="flex items-start justify-between gap-2">
+											<p class="font-medium text-sm break-all">{member.userEmail}</p>
+											<span class="badge {getRoleBadgeClass(member.role)} badge-sm capitalize shrink-0">
+												{member.role}
+											</span>
+										</div>
+										<div class="mt-2 flex items-center justify-between text-xs text-base-content/60">
+											<span class="badge badge-ghost badge-xs capitalize">{member.status}</span>
+											<span>{formatDate(member.createdAt)}</span>
+										</div>
+									</div>
+								{/each}
+							</div>
+
+							<!-- Desktop: Table layout -->
+							<div class="hidden lg:block overflow-x-auto">
 								<table class="table table-sm">
 									<thead>
 										<tr>
