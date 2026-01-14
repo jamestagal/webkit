@@ -10,7 +10,7 @@
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import { consultations, agencyProfiles } from '$lib/server/schema';
-import { eq, and, sql, count } from 'drizzle-orm';
+import { eq, and, like, count } from 'drizzle-orm';
 
 export const load: PageServerLoad = async ({ parent }) => {
 	// Get agency context from layout
@@ -30,7 +30,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 		.where(
 			and(
 				eq(consultations.agencyId, agencyId),
-				sql`${consultations.contactInfo}->>'business_name' LIKE 'Demo:%'`
+				like(consultations.businessName, 'Demo:%')
 			)
 		)
 		.limit(1);

@@ -62,9 +62,7 @@ export async function withUserAgencyScope<T>(
 
 /**
  * Get all consultations for the current agency.
- * Respects role permissions:
- * - owner/admin: see all consultations
- * - member: see only their own
+ * In v2, all agency members can see all consultations.
  */
 export async function getConsultationsForAgency(options?: {
 	limit?: number;
@@ -73,13 +71,10 @@ export async function getConsultationsForAgency(options?: {
 	orderBy?: 'created' | 'updated';
 	orderDir?: 'asc' | 'desc';
 }) {
-	return withUserAgencyScope(async (agencyId, userId, context) => {
+	return withUserAgencyScope(async (agencyId, _userId, _context) => {
 		const conditions: SQL[] = [eq(consultations.agencyId, agencyId)];
 
-		// Members can only see their own consultations
-		if (context.role === 'member') {
-			conditions.push(eq(consultations.userId, userId));
-		}
+		// v2: All agency members can see all consultations
 
 		if (options?.status) {
 			conditions.push(eq(consultations.status, options.status));
@@ -113,16 +108,13 @@ export async function getConsultationsForAgency(options?: {
  * Throws 404 if not found or not accessible.
  */
 export async function getConsultationById(consultationId: string) {
-	return withUserAgencyScope(async (agencyId, userId, context) => {
+	return withUserAgencyScope(async (agencyId, _userId, _context) => {
 		const conditions: SQL[] = [
 			eq(consultations.id, consultationId),
 			eq(consultations.agencyId, agencyId)
 		];
 
-		// Members can only access their own consultations
-		if (context.role === 'member') {
-			conditions.push(eq(consultations.userId, userId));
-		}
+		// v2: All agency members can access all consultations
 
 		const [consultation] = await db
 			.select()
@@ -187,17 +179,16 @@ export async function getConsultationVersions(consultationId: string) {
 
 /**
  * Verify that a consultation belongs to the current agency.
- * For members, also verifies they own the consultation.
+ * In v2, all agency members can access all consultations.
  * Throws 403/404 if access denied.
  */
 export async function verifyConsultationAccess(consultationId: string): Promise<{
 	agencyId: string;
-	userId: string;
 }> {
 	const context = await getAgencyContext();
 
 	const [result] = await db
-		.select({ agencyId: consultations.agencyId, userId: consultations.userId })
+		.select({ agencyId: consultations.agencyId })
 		.from(consultations)
 		.where(eq(consultations.id, consultationId))
 		.limit(1);
@@ -210,12 +201,9 @@ export async function verifyConsultationAccess(consultationId: string): Promise<
 		throw error(403, 'Access denied: Consultation does not belong to your agency');
 	}
 
-	// For members, also verify user ownership
-	if (context.role === 'member' && result.userId !== context.userId) {
-		throw error(403, 'Access denied: You do not own this consultation');
-	}
+	// v2: All agency members can access all consultations
 
-	return { agencyId: result.agencyId, userId: result.userId };
+	return { agencyId: result.agencyId };
 }
 
 /**

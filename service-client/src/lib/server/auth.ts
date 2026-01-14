@@ -78,3 +78,17 @@ export function getAccessToken(): string | undefined {
 	const event = getRequestEvent();
 	return event?.locals.token;
 }
+
+/**
+ * Get the current agency ID from the agency context.
+ * Throws 403 if no agency context is available.
+ *
+ * This is an async wrapper that calls getAgencyContext() internally.
+ * Use for remote functions that need the agency ID.
+ */
+export async function getAgencyId(): Promise<string> {
+	// Import dynamically to avoid circular dependencies
+	const { getAgencyContext } = await import('./agency');
+	const context = await getAgencyContext();
+	return context.agencyId;
+}

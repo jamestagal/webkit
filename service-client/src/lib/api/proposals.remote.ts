@@ -17,8 +17,7 @@ import {
 	agencyPackages,
 	agencyAddons,
 	consultations,
-	contracts,
-	type ContactInfo
+	contracts
 } from '$lib/server/schema';
 import { getAgencyContext } from '$lib/server/agency';
 import { logActivity } from '$lib/server/db-helpers';
@@ -428,38 +427,24 @@ export const createProposal = command(CreateProposalSchema, async (data) => {
 			.limit(1);
 
 		if (consultation) {
-			const contactInfo = consultation.contactInfo as ContactInfo;
-
-			// Extract pain points data
-			const painPoints = consultation.painPoints as {
-				primary_challenges?: string[];
-				technical_issues?: string[];
-				solution_gaps?: string[];
-			} | null;
-
-			// Extract goals data
-			const goalsObjectives = consultation.goalsObjectives as {
-				primary_goals?: string[];
-				secondary_goals?: string[];
-				success_metrics?: string[];
-			} | null;
-
-			// Build challenges array from pain points
-			const challenges = [
-				...(painPoints?.primary_challenges || []),
-				...(painPoints?.technical_issues || [])
-			];
-
+			// v2 flat columns - extract client data directly
 			clientData = {
-				clientBusinessName: contactInfo?.business_name || '',
-				clientContactName: contactInfo?.contact_person || '',
-				clientEmail: contactInfo?.email || '',
-				clientPhone: contactInfo?.phone || '',
-				clientWebsite: contactInfo?.website || '',
+				clientBusinessName: consultation.businessName || '',
+				clientContactName: consultation.contactPerson || '',
+				clientEmail: consultation.email || '',
+				clientPhone: consultation.phone || '',
+				clientWebsite: consultation.website || '',
 				// Cache consultation insights for display in proposal editor (PART 2)
-				consultationPainPoints: painPoints || {},
-				consultationGoals: goalsObjectives || {},
-				consultationChallenges: challenges
+				consultationPainPoints: {
+					primary_challenges: consultation.primaryChallenges || [],
+					urgency_level: consultation.urgencyLevel || ''
+				},
+				consultationGoals: {
+					primary_goals: consultation.primaryGoals || [],
+					conversion_goal: consultation.conversionGoal || '',
+					budget_range: consultation.budgetRange || ''
+				},
+				consultationChallenges: consultation.primaryChallenges || []
 			};
 		}
 	}

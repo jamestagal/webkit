@@ -406,7 +406,7 @@
 					</label>
 					<textarea
 						id="paymentNotes"
-						class="textarea textarea-bordered"
+						class="textarea textarea-bordered w-full"
 						rows="2"
 						bind:value={paymentNotes}
 					></textarea>
@@ -619,7 +619,7 @@
 							</label>
 							<textarea
 								id="edit-clientAddress"
-								class="textarea textarea-bordered"
+								class="textarea textarea-bordered w-full"
 								rows="2"
 								bind:value={editClientAddress}
 							></textarea>
@@ -863,7 +863,7 @@
 							</label>
 							<textarea
 								id="edit-notes"
-								class="textarea textarea-bordered"
+								class="textarea textarea-bordered w-full"
 								rows="3"
 								bind:value={editNotes}
 								placeholder="Notes only visible to your team"
@@ -875,7 +875,7 @@
 							</label>
 							<textarea
 								id="edit-publicNotes"
-								class="textarea textarea-bordered"
+								class="textarea textarea-bordered w-full"
 								rows="3"
 								bind:value={editPublicNotes}
 								placeholder="Notes visible on the invoice"

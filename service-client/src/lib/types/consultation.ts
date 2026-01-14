@@ -1,237 +1,277 @@
-import { z } from "zod";
+/**
+ * Consultation Form v2 Types
+ *
+ * Clean TypeScript interfaces for the streamlined 4-step consultation form.
+ * Uses flat structure instead of nested JSONB.
+ *
+ * Steps:
+ * 1. Contact & Business
+ * 2. Situation & Challenges
+ * 3. Goals & Budget
+ * 4. Preferences & Notes
+ */
 
-// Enums matching backend
-export const ConsultationStatus = z.enum(["draft", "completed", "archived"]);
-export type ConsultationStatus = z.infer<typeof ConsultationStatus>;
+// =============================================================================
+// Enums and Constants
+// =============================================================================
 
-export const UrgencyLevel = z.enum(["low", "medium", "high", "critical"]);
-export type UrgencyLevel = z.infer<typeof UrgencyLevel>;
+export type ConsultationStatus = 'draft' | 'completed' | 'converted';
+export type UrgencyLevel = 'low' | 'medium' | 'high' | 'critical';
+export type WebsiteStatus = 'none' | 'refresh' | 'rebuild';
+export type Timeline = 'asap' | '1-3-months' | '3-6-months' | 'flexible';
 
-// Contact Information Schema
-export const ContactInfoSchema = z.object({
-	business_name: z.string().optional(),
-	contact_person: z.string().optional(),
-	email: z.string().email().optional(),
-	phone: z.string().optional(),
-	website: z.string().url().optional(),
-	social_media: z.record(z.string(), z.any()).optional(),
-});
-export type ContactInfo = z.infer<typeof ContactInfoSchema>;
+// =============================================================================
+// Social Media Structure
+// =============================================================================
 
-// Business Context Schema
-export const BusinessContextSchema = z.object({
-	industry: z.string().optional(),
-	business_type: z.string().optional(),
-	team_size: z.number().int().positive().optional(),
-	current_platform: z.string().optional(),
-	digital_presence: z.array(z.string()).optional(),
-	marketing_channels: z.array(z.string()).optional(),
-});
-export type BusinessContext = z.infer<typeof BusinessContextSchema>;
+export interface SocialMedia {
+	linkedin?: string;
+	facebook?: string;
+	instagram?: string;
+}
 
-// Timeline Schema
-export const TimelineSchema = z.object({
-	desired_start: z.string().optional(),
-	target_completion: z.string().optional(),
-	milestones: z.array(z.string()).optional(),
-});
-export type Timeline = z.infer<typeof TimelineSchema>;
+// =============================================================================
+// Step 1: Contact & Business
+// =============================================================================
 
-// Pain Points Schema
-export const PainPointsSchema = z.object({
-	primary_challenges: z.array(z.string()).optional(),
-	technical_issues: z.array(z.string()).optional(),
-	urgency_level: UrgencyLevel.optional(),
-	impact_assessment: z.string().optional(),
-	current_solution_gaps: z.array(z.string()).optional(),
-});
-export type PainPoints = z.infer<typeof PainPointsSchema>;
+export interface ContactBusiness {
+	business_name?: string;
+	contact_person?: string;
+	email: string;
+	phone?: string;
+	website?: string;
+	social_media: SocialMedia;
+	industry: string;
+	business_type: string;
+}
 
-// Goals and Objectives Schema
-export const GoalsObjectivesSchema = z.object({
-	primary_goals: z.array(z.string()).optional(),
-	secondary_goals: z.array(z.string()).optional(),
-	success_metrics: z.array(z.string()).optional(),
-	kpis: z.array(z.string()).optional(),
-	timeline: TimelineSchema.optional(),
-	budget_range: z.string().optional(),
-	budget_constraints: z.array(z.string()).optional(),
-});
-export type GoalsObjectives = z.infer<typeof GoalsObjectivesSchema>;
+// =============================================================================
+// Step 2: Situation & Challenges
+// =============================================================================
 
-// Main Consultation Schema
-export const ConsultationSchema = z.object({
-	id: z.string().uuid(),
-	user_id: z.string().uuid(),
-	contact_info: z.any(), // JSONB raw data
-	business_context: z.any(), // JSONB raw data
-	pain_points: z.any(), // JSONB raw data
-	goals_objectives: z.any(), // JSONB raw data
-	status: ConsultationStatus,
-	completion_percentage: z.number().int().min(0).max(100).optional(),
-	created_at: z.string().datetime(),
-	updated_at: z.string().datetime(),
-	completed_at: z.string().datetime().optional(),
-	// Parsed fields for frontend consumption
-	parsed_contact_info: ContactInfoSchema.optional(),
-	parsed_business_context: BusinessContextSchema.optional(),
-	parsed_pain_points: PainPointsSchema.optional(),
-	parsed_goals_objectives: GoalsObjectivesSchema.optional(),
-});
-export type Consultation = z.infer<typeof ConsultationSchema>;
+export interface Situation {
+	website_status: WebsiteStatus;
+	primary_challenges: string[];
+	urgency_level: UrgencyLevel;
+}
 
-// Consultation Summary Schema (for list views)
-export const ConsultationSummarySchema = z.object({
-	id: z.string().uuid(),
-	user_id: z.string().uuid(),
-	business_name: z.string().optional(),
-	contact_person: z.string().optional(),
-	email: z.string().email().optional(),
-	industry: z.string().optional(),
-	status: ConsultationStatus,
-	completion_percentage: z.number().int().min(0).max(100),
-	created_at: z.string().datetime(),
-	updated_at: z.string().datetime(),
-	completed_at: z.string().datetime().optional(),
-});
-export type ConsultationSummary = z.infer<typeof ConsultationSummarySchema>;
+// =============================================================================
+// Step 3: Goals & Budget
+// =============================================================================
 
-// Draft Schema
-export const ConsultationDraftSchema = z.object({
-	id: z.string().uuid(),
-	consultation_id: z.string().uuid(),
-	user_id: z.string().uuid(),
-	contact_info: z.any().optional(),
-	business_context: z.any().optional(),
-	pain_points: z.any().optional(),
-	goals_objectives: z.any().optional(),
-	created_at: z.string().datetime(),
-	updated_at: z.string().datetime(),
-	// Parsed fields
-	parsed_contact_info: ContactInfoSchema.optional(),
-	parsed_business_context: BusinessContextSchema.optional(),
-	parsed_pain_points: PainPointsSchema.optional(),
-	parsed_goals_objectives: GoalsObjectivesSchema.optional(),
-});
-export type ConsultationDraft = z.infer<typeof ConsultationDraftSchema>;
+export interface GoalsBudget {
+	primary_goals: string[];
+	conversion_goal?: string;
+	budget_range: string;
+	timeline?: Timeline;
+}
 
-// Version Schema
-export const ConsultationVersionSchema = z.object({
-	id: z.string().uuid(),
-	consultation_id: z.string().uuid(),
-	user_id: z.string().uuid(),
-	version_number: z.number().int().positive(),
-	contact_info: z.any().optional(),
-	business_context: z.any().optional(),
-	pain_points: z.any().optional(),
-	goals_objectives: z.any().optional(),
-	status: ConsultationStatus,
-	completion_percentage: z.number().int().min(0).max(100),
-	change_summary: z.string().optional(),
-	changed_fields: z.array(z.string()).optional(),
-	created_at: z.string().datetime(),
-	// Parsed fields
-	parsed_contact_info: ContactInfoSchema.optional(),
-	parsed_business_context: BusinessContextSchema.optional(),
-	parsed_pain_points: PainPointsSchema.optional(),
-	parsed_goals_objectives: GoalsObjectivesSchema.optional(),
-	parsed_changed_fields: z.array(z.string()).optional(),
-});
-export type ConsultationVersion = z.infer<typeof ConsultationVersionSchema>;
+// =============================================================================
+// Step 4: Preferences & Notes
+// =============================================================================
 
-// API Input Schemas
-export const CreateConsultationInputSchema = z.object({
-	contact_info: ContactInfoSchema.optional(),
-	business_context: BusinessContextSchema.optional(),
-	pain_points: PainPointsSchema.optional(),
-	goals_objectives: GoalsObjectivesSchema.optional(),
-});
-export type CreateConsultationInput = z.infer<typeof CreateConsultationInputSchema>;
+export interface PreferencesNotes {
+	design_styles?: string[];
+	admired_websites?: string;
+	consultation_notes?: string;
+}
 
-export const UpdateConsultationInputSchema = z.object({
-	contact_info: ContactInfoSchema.optional(),
-	business_context: BusinessContextSchema.optional(),
-	pain_points: PainPointsSchema.optional(),
-	goals_objectives: GoalsObjectivesSchema.optional(),
-	status: ConsultationStatus.optional(),
-});
-export type UpdateConsultationInput = z.infer<typeof UpdateConsultationInputSchema>;
+// =============================================================================
+// Complete Consultation Data (for form state)
+// =============================================================================
 
-// API Response Schemas
-export const ListConsultationsResponseSchema = z.object({
-	consultations: z.array(ConsultationSummarySchema),
-	total: z.number().int().min(0),
-	page: z.number().int().min(1),
-	limit: z.number().int().min(1),
-	has_more: z.boolean(),
-});
-export type ListConsultationsResponse = z.infer<typeof ListConsultationsResponseSchema>;
+export interface ConsultationData {
+	contact_business: ContactBusiness;
+	situation: Situation;
+	goals_budget: GoalsBudget;
+	preferences_notes: PreferencesNotes;
+}
 
-export const VersionHistoryResponseSchema = z.object({
-	versions: z.array(ConsultationVersionSchema),
-	total: z.number().int().min(0),
-	page: z.number().int().min(1),
-	limit: z.number().int().min(1),
-	has_more: z.boolean(),
-});
-export type VersionHistoryResponse = z.infer<typeof VersionHistoryResponseSchema>;
+// =============================================================================
+// API Response Type (flat structure from database)
+// =============================================================================
 
-// API Error Schema
-export const APIErrorSchema = z.object({
-	message: z.string(),
-	code: z.number().optional(),
-	details: z.any().optional(),
-});
-export type APIError = z.infer<typeof APIErrorSchema>;
+export interface Consultation {
+	id: string;
+	agency_id: string;
 
-// Safe API Response wrapper
-export const SafeResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
-	z.discriminatedUnion("success", [
-		z.object({
-			success: z.literal(true),
-			data: dataSchema,
-			message: z.string(),
-		}),
-		z.object({
-			success: z.literal(false),
-			message: z.string(),
-			code: z.number().optional(),
-		}),
-	]);
+	// Step 1: Contact & Business (flattened)
+	business_name?: string;
+	contact_person?: string;
+	email: string;
+	phone?: string;
+	website?: string;
+	social_linkedin?: string;
+	social_facebook?: string;
+	social_instagram?: string;
+	industry: string;
+	business_type: string;
 
-export type SafeResponse<T> =
-	| { success: true; data: T; message: string }
-	| { success: false; message: string; code?: number };
+	// Step 2: Situation & Challenges
+	website_status: WebsiteStatus;
+	primary_challenges: string[];
+	urgency_level: UrgencyLevel;
 
-// List Parameters Schema
-export const ListConsultationsParamsSchema = z.object({
-	page: z.number().int().min(1).default(1),
-	limit: z.number().int().min(1).max(100).default(20),
-	status: ConsultationStatus.optional(),
-	search: z.string().optional(),
-});
-export type ListConsultationsParams = z.infer<typeof ListConsultationsParamsSchema>;
+	// Step 3: Goals & Budget
+	primary_goals: string[];
+	conversion_goal?: string;
+	budget_range: string;
+	timeline?: Timeline;
 
-// Form Section Types for multi-step form
+	// Step 4: Preferences & Notes
+	design_styles?: string[];
+	admired_websites?: string;
+	consultation_notes?: string;
+
+	// Metadata
+	status: ConsultationStatus;
+	created_at: string;
+	updated_at: string;
+}
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Convert API response (flat) to structured form data
+ */
+export function toConsultationData(c: Consultation): ConsultationData {
+	return {
+		contact_business: {
+			business_name: c.business_name,
+			contact_person: c.contact_person,
+			email: c.email,
+			phone: c.phone,
+			website: c.website,
+			social_media: {
+				linkedin: c.social_linkedin,
+				facebook: c.social_facebook,
+				instagram: c.social_instagram
+			},
+			industry: c.industry,
+			business_type: c.business_type
+		},
+		situation: {
+			website_status: c.website_status,
+			primary_challenges: c.primary_challenges,
+			urgency_level: c.urgency_level
+		},
+		goals_budget: {
+			primary_goals: c.primary_goals,
+			conversion_goal: c.conversion_goal,
+			budget_range: c.budget_range,
+			timeline: c.timeline
+		},
+		preferences_notes: {
+			design_styles: c.design_styles,
+			admired_websites: c.admired_websites,
+			consultation_notes: c.consultation_notes
+		}
+	};
+}
+
+/**
+ * Convert structured form data to flat API request
+ */
+export function toFlatConsultation(
+	data: ConsultationData
+): Omit<Consultation, 'id' | 'agency_id' | 'status' | 'created_at' | 'updated_at'> {
+	return {
+		business_name: data.contact_business.business_name,
+		contact_person: data.contact_business.contact_person,
+		email: data.contact_business.email,
+		phone: data.contact_business.phone,
+		website: data.contact_business.website,
+		social_linkedin: data.contact_business.social_media.linkedin,
+		social_facebook: data.contact_business.social_media.facebook,
+		social_instagram: data.contact_business.social_media.instagram,
+		industry: data.contact_business.industry,
+		business_type: data.contact_business.business_type,
+
+		website_status: data.situation.website_status,
+		primary_challenges: data.situation.primary_challenges,
+		urgency_level: data.situation.urgency_level,
+
+		primary_goals: data.goals_budget.primary_goals,
+		conversion_goal: data.goals_budget.conversion_goal,
+		budget_range: data.goals_budget.budget_range,
+		timeline: data.goals_budget.timeline,
+
+		design_styles: data.preferences_notes.design_styles,
+		admired_websites: data.preferences_notes.admired_websites,
+		consultation_notes: data.preferences_notes.consultation_notes
+	};
+}
+
+/**
+ * Create empty form data for new consultation
+ */
+export function createEmptyConsultationData(): ConsultationData {
+	return {
+		contact_business: {
+			business_name: '',
+			contact_person: '',
+			email: '',
+			phone: '',
+			website: '',
+			social_media: {},
+			industry: '',
+			business_type: ''
+		},
+		situation: {
+			website_status: 'none',
+			primary_challenges: [],
+			urgency_level: 'low'
+		},
+		goals_budget: {
+			primary_goals: [],
+			conversion_goal: '',
+			budget_range: '',
+			timeline: undefined
+		},
+		preferences_notes: {
+			design_styles: [],
+			admired_websites: '',
+			consultation_notes: ''
+		}
+	};
+}
+
+// =============================================================================
+// Form State Types
+// =============================================================================
+
 export type ConsultationFormSection =
-	| "contact_info"
-	| "business_context"
-	| "pain_points"
-	| "goals_objectives";
+	| 'contact_business'
+	| 'situation'
+	| 'goals_budget'
+	| 'preferences_notes';
 
 export interface ConsultationFormState {
 	currentStep: number;
 	completedSteps: number[];
-	data: Partial<CreateConsultationInput>;
+	data: ConsultationData;
+	consultationId?: string;
 	isDirty: boolean;
-	isAutoSaving: boolean;
+	isSaving: boolean;
 	lastSaved?: Date;
-	errors: Record<string, string[]>;
+	errors: Record<string, string>;
 }
 
-// Utility type for draft save payloads
-export interface DraftSavePayload {
-	section?: ConsultationFormSection;
-	data: Record<string, any>;
-	auto_save?: boolean;
+// =============================================================================
+// List/Summary Types
+// =============================================================================
+
+export interface ConsultationSummary {
+	id: string;
+	agency_id: string;
+	business_name?: string;
+	contact_person?: string;
+	email: string;
+	industry: string;
+	urgency_level: UrgencyLevel;
+	status: ConsultationStatus;
+	created_at: string;
+	updated_at: string;
 }

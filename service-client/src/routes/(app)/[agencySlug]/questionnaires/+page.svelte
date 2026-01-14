@@ -14,7 +14,8 @@
 		Clock,
 		AlertCircle,
 		FileText,
-		FileCheck
+		FileCheck,
+		Play
 	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
@@ -112,10 +113,16 @@
 				<p class="text-base-content/70 mt-1">{feature.description}</p>
 			</div>
 		</div>
-		<a href="/{agencySlug}/questionnaires/new" class="btn btn-primary">
-			<Plus class="h-4 w-4" />
-			New Questionnaire
-		</a>
+		<div class="flex gap-2">
+			<a href="/{agencySlug}/questionnaires/preview" class="btn btn-outline">
+				<Play class="h-4 w-4" />
+				Preview Form
+			</a>
+			<a href="/{agencySlug}/questionnaires/new" class="btn btn-primary">
+				<Plus class="h-4 w-4" />
+				New Questionnaire
+			</a>
+		</div>
 	</div>
 
 	<!-- Status Filters -->

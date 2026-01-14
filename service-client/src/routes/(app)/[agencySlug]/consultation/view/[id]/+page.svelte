@@ -1,11 +1,23 @@
 <script lang="ts">
 	/**
-	 * Agency-Scoped Consultation View Page
+	 * Agency-Scoped Consultation View Page v2
 	 */
 
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { getConsultation } from '$lib/api/consultation.remote';
+	import {
+		INDUSTRY_OPTIONS,
+		BUSINESS_TYPE_OPTIONS,
+		WEBSITE_STATUS_OPTIONS,
+		URGENCY_LEVEL_OPTIONS,
+		URGENCY_COLORS,
+		PRIMARY_GOALS_OPTIONS,
+		CONVERSION_GOAL_OPTIONS,
+		BUDGET_RANGE_OPTIONS,
+		TIMELINE_OPTIONS,
+		DESIGN_STYLE_OPTIONS
+	} from '$lib/config/consultation-options';
 	import Button from '$lib/components/Button.svelte';
 
 	// Get agency slug and consultation ID from URL params
@@ -30,22 +42,13 @@
 		return `${datePart} at ${timePart}`;
 	}
 
-	function formatTimelineDate(date: string | null | undefined): string {
-		if (!date) return 'N/A';
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'long',
-			year: 'numeric'
-		});
-	}
-
 	function getStatusBadgeClass(status: string): string {
 		switch (status) {
 			case 'completed':
 				return 'bg-green-100 text-green-800';
 			case 'draft':
 				return 'bg-yellow-100 text-yellow-800';
-			case 'in_review':
+			case 'converted':
 				return 'bg-blue-100 text-blue-800';
 			default:
 				return 'bg-gray-100 text-gray-800';
@@ -60,55 +63,19 @@
 		goto(`/${agencySlug}/consultation/edit/${consultationId}`);
 	}
 
-	// Type helpers for JSONB fields
-	type ContactInfo = {
-		business_name?: string;
-		contact_person?: string;
-		email?: string;
-		phone?: string;
-		website?: string;
-		social_media?: Record<string, string>;
-	};
+	// Helper functions to get labels from option values
+	function getLabel(options: { value: string; label: string }[], value: string | null): string {
+		if (!value) return 'N/A';
+		return options.find((o) => o.value === value)?.label ?? value;
+	}
 
-	type BusinessContext = {
-		industry?: string;
-		business_type?: string;
-		team_size?: number;
-		current_platform?: string;
-		digital_presence?: string[];
-		marketing_channels?: string[];
-	};
-
-	type PainPoints = {
-		primary_challenges?: string[];
-		technical_issues?: string[];
-		urgency_level?: string;
-		impact_assessment?: string;
-		current_solution_gaps?: string[];
-	};
-
-	type GoalsObjectives = {
-		primary_goals?: string[];
-		secondary_goals?: string[];
-		success_metrics?: string[];
-		kpis?: string[];
-		timeline?: {
-			desired_start?: string;
-			target_completion?: string;
-			milestones?: string[];
-		};
-		budget_range?: string;
-		budget_constraints?: string[];
-	};
-
-	const contactInfo = consultation.contactInfo as ContactInfo;
-	const businessContext = consultation.businessContext as BusinessContext;
-	const painPoints = consultation.painPoints as PainPoints;
-	const goalsObjectives = consultation.goalsObjectives as GoalsObjectives;
+	function getLabels(options: { value: string; label: string }[], values: string[]): string[] {
+		return values.map((v) => options.find((o) => o.value === v)?.label ?? v);
+	}
 </script>
 
 <svelte:head>
-	<title>{contactInfo?.business_name || 'Consultation'} | Webkit</title>
+	<title>{consultation.businessName || 'Consultation'} | Webkit</title>
 </svelte:head>
 
 <div class="min-h-screen bg-gray-50 py-8">
@@ -129,11 +96,13 @@
 			<div class="flex items-start justify-between">
 				<div>
 					<h1 class="text-3xl font-bold text-gray-900">
-						{contactInfo?.business_name || 'Consultation Details'}
+						{consultation.businessName || 'Consultation Details'}
 					</h1>
 					<div class="mt-2 flex items-center gap-4">
 						<span
-							class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium {getStatusBadgeClass(consultation.status)}"
+							class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium {getStatusBadgeClass(
+								consultation.status
+							)}"
 						>
 							{consultation.status === 'completed' ? 'Completed' : consultation.status}
 						</span>
@@ -145,240 +114,205 @@
 			</div>
 		</div>
 
-		<!-- Contact Information -->
+		<!-- Step 1: Contact & Business -->
 		<section class="mb-6 rounded-lg bg-white p-6 shadow">
-			<h2 class="mb-4 text-lg font-semibold text-gray-900">Contact Information</h2>
+			<h2 class="mb-4 text-lg font-semibold text-gray-900">Contact & Business</h2>
 			<div class="grid gap-4 sm:grid-cols-2">
 				<div>
 					<dt class="text-sm font-medium text-gray-500">Business Name</dt>
-					<dd class="mt-1 text-sm text-gray-900">{contactInfo?.business_name || 'N/A'}</dd>
+					<dd class="mt-1 text-sm text-gray-900">{consultation.businessName || 'N/A'}</dd>
 				</div>
 				<div>
 					<dt class="text-sm font-medium text-gray-500">Contact Person</dt>
-					<dd class="mt-1 text-sm text-gray-900">{contactInfo?.contact_person || 'N/A'}</dd>
+					<dd class="mt-1 text-sm text-gray-900">{consultation.contactPerson || 'N/A'}</dd>
 				</div>
 				<div>
 					<dt class="text-sm font-medium text-gray-500">Email</dt>
 					<dd class="mt-1 text-sm text-gray-900">
-						{#if contactInfo?.email}
-							<a href="mailto:{contactInfo.email}" class="text-indigo-600 hover:text-indigo-800">
-								{contactInfo.email}
-							</a>
-						{:else}
-							N/A
-						{/if}
+						<a href="mailto:{consultation.email}" class="text-indigo-600 hover:text-indigo-800">
+							{consultation.email}
+						</a>
 					</dd>
 				</div>
 				<div>
 					<dt class="text-sm font-medium text-gray-500">Phone</dt>
-					<dd class="mt-1 text-sm text-gray-900">{contactInfo?.phone || 'N/A'}</dd>
+					<dd class="mt-1 text-sm text-gray-900">{consultation.phone || 'N/A'}</dd>
 				</div>
 				<div>
 					<dt class="text-sm font-medium text-gray-500">Website</dt>
 					<dd class="mt-1 text-sm text-gray-900">
-						{#if contactInfo?.website}
+						{#if consultation.website}
 							<a
-								href={contactInfo.website}
+								href={consultation.website}
 								target="_blank"
 								rel="noopener noreferrer"
 								class="text-indigo-600 hover:text-indigo-800"
 							>
-								{contactInfo.website}
+								{consultation.website}
 							</a>
 						{:else}
 							N/A
 						{/if}
 					</dd>
 				</div>
-			</div>
-		</section>
-
-		<!-- Business Context -->
-		<section class="mb-6 rounded-lg bg-white p-6 shadow">
-			<h2 class="mb-4 text-lg font-semibold text-gray-900">Business Context</h2>
-			<div class="grid gap-4 sm:grid-cols-2">
 				<div>
 					<dt class="text-sm font-medium text-gray-500">Industry</dt>
-					<dd class="mt-1 text-sm text-gray-900">{businessContext?.industry || 'N/A'}</dd>
-				</div>
-				<div>
-					<dt class="text-sm font-medium text-gray-500">Business Type</dt>
-					<dd class="mt-1 text-sm text-gray-900">{businessContext?.business_type || 'N/A'}</dd>
-				</div>
-				<div>
-					<dt class="text-sm font-medium text-gray-500">Team Size</dt>
 					<dd class="mt-1 text-sm text-gray-900">
-						{businessContext?.team_size ? `${businessContext.team_size} employees` : 'N/A'}
+						{getLabel(INDUSTRY_OPTIONS, consultation.industry)}
 					</dd>
 				</div>
 				<div>
-					<dt class="text-sm font-medium text-gray-500">Current Platform</dt>
-					<dd class="mt-1 text-sm text-gray-900">{businessContext?.current_platform || 'N/A'}</dd>
+					<dt class="text-sm font-medium text-gray-500">Business Type</dt>
+					<dd class="mt-1 text-sm text-gray-900">
+						{getLabel(BUSINESS_TYPE_OPTIONS, consultation.businessType)}
+					</dd>
 				</div>
-				{#if businessContext?.digital_presence?.length}
-					<div class="sm:col-span-2">
-						<dt class="text-sm font-medium text-gray-500">Digital Presence</dt>
-						<dd class="mt-1 flex flex-wrap gap-2">
-							{#each businessContext.digital_presence as item}
-								<span class="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700">{item}</span>
-							{/each}
-						</dd>
-					</div>
-				{/if}
-				{#if businessContext?.marketing_channels?.length}
-					<div class="sm:col-span-2">
-						<dt class="text-sm font-medium text-gray-500">Marketing Channels</dt>
-						<dd class="mt-1 flex flex-wrap gap-2">
-							{#each businessContext.marketing_channels as channel}
-								<span class="rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-700">{channel}</span>
-							{/each}
-						</dd>
-					</div>
-				{/if}
 			</div>
+			<!-- Social Media -->
+			{#if consultation.socialLinkedin || consultation.socialFacebook || consultation.socialInstagram}
+				<div class="mt-4 border-t pt-4">
+					<dt class="text-sm font-medium text-gray-500">Social Media</dt>
+					<dd class="mt-2 flex flex-wrap gap-3 text-sm">
+						{#if consultation.socialLinkedin}
+							<a
+								href={consultation.socialLinkedin}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="text-indigo-600 hover:text-indigo-800"
+							>
+								LinkedIn
+							</a>
+						{/if}
+						{#if consultation.socialFacebook}
+							<a
+								href={consultation.socialFacebook}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="text-indigo-600 hover:text-indigo-800"
+							>
+								Facebook
+							</a>
+						{/if}
+						{#if consultation.socialInstagram}
+							<a
+								href={consultation.socialInstagram}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="text-indigo-600 hover:text-indigo-800"
+							>
+								Instagram
+							</a>
+						{/if}
+					</dd>
+				</div>
+			{/if}
 		</section>
 
-		<!-- Pain Points -->
+		<!-- Step 2: Situation & Challenges -->
 		<section class="mb-6 rounded-lg bg-white p-6 shadow">
-			<h2 class="mb-4 text-lg font-semibold text-gray-900">Pain Points & Challenges</h2>
+			<h2 class="mb-4 text-lg font-semibold text-gray-900">Situation & Challenges</h2>
 			<div class="space-y-4">
-				{#if painPoints?.primary_challenges?.length}
-					<div>
-						<dt class="text-sm font-medium text-gray-500">Primary Challenges</dt>
-						<dd class="mt-2">
-							<ul class="list-inside list-disc space-y-1 text-sm text-gray-900">
-								{#each painPoints.primary_challenges as challenge}
-									<li>{challenge}</li>
-								{/each}
-							</ul>
-						</dd>
-					</div>
-				{/if}
-				{#if painPoints?.technical_issues?.length}
-					<div>
-						<dt class="text-sm font-medium text-gray-500">Technical Issues</dt>
-						<dd class="mt-2">
-							<ul class="list-inside list-disc space-y-1 text-sm text-gray-900">
-								{#each painPoints.technical_issues as issue}
-									<li>{issue}</li>
-								{/each}
-							</ul>
-						</dd>
-					</div>
-				{/if}
 				<div class="grid gap-4 sm:grid-cols-2">
+					<div>
+						<dt class="text-sm font-medium text-gray-500">Website Status</dt>
+						<dd class="mt-1 text-sm text-gray-900">
+							{getLabel(WEBSITE_STATUS_OPTIONS, consultation.websiteStatus)}
+						</dd>
+					</div>
 					<div>
 						<dt class="text-sm font-medium text-gray-500">Urgency Level</dt>
 						<dd class="mt-1">
 							<span
-								class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
-								{painPoints?.urgency_level === 'critical' ? 'bg-red-100 text-red-800' : ''}
-								{painPoints?.urgency_level === 'high' ? 'bg-orange-100 text-orange-800' : ''}
-								{painPoints?.urgency_level === 'medium' ? 'bg-yellow-100 text-yellow-800' : ''}
-								{painPoints?.urgency_level === 'low' ? 'bg-green-100 text-green-800' : ''}"
+								class="badge {URGENCY_COLORS[consultation.urgencyLevel] || 'badge-ghost'}"
 							>
-								{painPoints?.urgency_level || 'N/A'}
+								{getLabel(URGENCY_LEVEL_OPTIONS, consultation.urgencyLevel)}
 							</span>
 						</dd>
 					</div>
 				</div>
-				{#if painPoints?.impact_assessment}
+				{#if consultation.primaryChallenges?.length}
 					<div>
-						<dt class="text-sm font-medium text-gray-500">Impact Assessment</dt>
-						<dd class="mt-1 text-sm text-gray-900">{painPoints.impact_assessment}</dd>
-					</div>
-				{/if}
-				{#if painPoints?.current_solution_gaps?.length}
-					<div>
-						<dt class="text-sm font-medium text-gray-500">Current Solution Gaps</dt>
-						<dd class="mt-2">
-							<ul class="list-inside list-disc space-y-1 text-sm text-gray-900">
-								{#each painPoints.current_solution_gaps as gap}
-									<li>{gap}</li>
-								{/each}
-							</ul>
+						<dt class="text-sm font-medium text-gray-500">Primary Challenges</dt>
+						<dd class="mt-2 flex flex-wrap gap-2">
+							{#each consultation.primaryChallenges as challenge}
+								<span class="rounded-full bg-red-100 px-3 py-1 text-sm text-red-700"
+									>{challenge}</span
+								>
+							{/each}
 						</dd>
 					</div>
 				{/if}
 			</div>
 		</section>
 
-		<!-- Goals & Objectives -->
+		<!-- Step 3: Goals & Budget -->
 		<section class="mb-6 rounded-lg bg-white p-6 shadow">
-			<h2 class="mb-4 text-lg font-semibold text-gray-900">Goals & Objectives</h2>
+			<h2 class="mb-4 text-lg font-semibold text-gray-900">Goals & Budget</h2>
 			<div class="space-y-4">
-				{#if goalsObjectives?.primary_goals?.length}
+				{#if consultation.primaryGoals?.length}
 					<div>
 						<dt class="text-sm font-medium text-gray-500">Primary Goals</dt>
-						<dd class="mt-2">
-							<ul class="list-inside list-disc space-y-1 text-sm text-gray-900">
-								{#each goalsObjectives.primary_goals as goal}
-									<li>{goal}</li>
-								{/each}
-							</ul>
-						</dd>
-					</div>
-				{/if}
-				{#if goalsObjectives?.secondary_goals?.length}
-					<div>
-						<dt class="text-sm font-medium text-gray-500">Secondary Goals</dt>
-						<dd class="mt-2">
-							<ul class="list-inside list-disc space-y-1 text-sm text-gray-900">
-								{#each goalsObjectives.secondary_goals as goal}
-									<li>{goal}</li>
-								{/each}
-							</ul>
-						</dd>
-					</div>
-				{/if}
-				{#if goalsObjectives?.success_metrics?.length}
-					<div>
-						<dt class="text-sm font-medium text-gray-500">Success Metrics</dt>
 						<dd class="mt-2 flex flex-wrap gap-2">
-							{#each goalsObjectives.success_metrics as metric}
-								<span class="rounded-full bg-green-100 px-3 py-1 text-sm text-green-700">{metric}</span>
+							{#each consultation.primaryGoals as goal}
+								<span class="rounded-full bg-green-100 px-3 py-1 text-sm text-green-700"
+									>{goal}</span
+								>
 							{/each}
 						</dd>
 					</div>
 				{/if}
-				{#if goalsObjectives?.kpis?.length}
+				<div class="grid gap-4 sm:grid-cols-3">
 					<div>
-						<dt class="text-sm font-medium text-gray-500">KPIs</dt>
-						<dd class="mt-2 flex flex-wrap gap-2">
-							{#each goalsObjectives.kpis as kpi}
-								<span class="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">{kpi}</span>
-							{/each}
+						<dt class="text-sm font-medium text-gray-500">Conversion Goal</dt>
+						<dd class="mt-1 text-sm text-gray-900">
+							{getLabel(CONVERSION_GOAL_OPTIONS, consultation.conversionGoal ?? '')}
 						</dd>
 					</div>
-				{/if}
-				<div class="grid gap-4 sm:grid-cols-2">
 					<div>
 						<dt class="text-sm font-medium text-gray-500">Budget Range</dt>
-						<dd class="mt-1 text-sm text-gray-900">{goalsObjectives?.budget_range || 'N/A'}</dd>
+						<dd class="mt-1 text-sm text-gray-900">
+							{getLabel(BUDGET_RANGE_OPTIONS, consultation.budgetRange)}
+						</dd>
 					</div>
-					{#if goalsObjectives?.timeline}
-						<div>
-							<dt class="text-sm font-medium text-gray-500">Timeline</dt>
-							<dd class="mt-1 text-sm text-gray-900">
-								{#if goalsObjectives.timeline.desired_start}
-									<span class="font-medium">Start:</span> {formatTimelineDate(goalsObjectives.timeline.desired_start)}
-								{/if}
-								{#if goalsObjectives.timeline.target_completion}
-									<br /><span class="font-medium">Target:</span> {formatTimelineDate(goalsObjectives.timeline.target_completion)}
-								{/if}
-							</dd>
-						</div>
-					{/if}
-				</div>
-				{#if goalsObjectives?.budget_constraints?.length}
 					<div>
-						<dt class="text-sm font-medium text-gray-500">Budget Constraints</dt>
-						<dd class="mt-2">
-							<ul class="list-inside list-disc space-y-1 text-sm text-gray-900">
-								{#each goalsObjectives.budget_constraints as constraint}
-									<li>{constraint}</li>
-								{/each}
-							</ul>
+						<dt class="text-sm font-medium text-gray-500">Timeline</dt>
+						<dd class="mt-1 text-sm text-gray-900">
+							{getLabel(TIMELINE_OPTIONS, consultation.timeline ?? '')}
+						</dd>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Step 4: Preferences & Notes -->
+		<section class="mb-6 rounded-lg bg-white p-6 shadow">
+			<h2 class="mb-4 text-lg font-semibold text-gray-900">Preferences & Notes</h2>
+			<div class="space-y-4">
+				{#if consultation.designStyles?.length}
+					<div>
+						<dt class="text-sm font-medium text-gray-500">Design Styles</dt>
+						<dd class="mt-2 flex flex-wrap gap-2">
+							{#each getLabels(DESIGN_STYLE_OPTIONS, consultation.designStyles) as style}
+								<span class="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700"
+									>{style}</span
+								>
+							{/each}
+						</dd>
+					</div>
+				{/if}
+				{#if consultation.admiredWebsites}
+					<div>
+						<dt class="text-sm font-medium text-gray-500">Admired Websites</dt>
+						<dd class="mt-1 whitespace-pre-line text-sm text-gray-900">
+							{consultation.admiredWebsites}
+						</dd>
+					</div>
+				{/if}
+				{#if consultation.consultationNotes}
+					<div>
+						<dt class="text-sm font-medium text-gray-500">Consultation Notes</dt>
+						<dd class="mt-1 whitespace-pre-line text-sm text-gray-900">
+							{consultation.consultationNotes}
 						</dd>
 					</div>
 				{/if}
@@ -403,16 +337,6 @@
 					<dt class="font-medium text-gray-500">Last Updated</dt>
 					<dd class="mt-1 text-gray-700">{formatDate(consultation.updatedAt)}</dd>
 				</div>
-				{#if consultation.completedAt}
-					<div>
-						<dt class="font-medium text-gray-500">Completed</dt>
-						<dd class="mt-1 text-gray-700">{formatDate(consultation.completedAt)}</dd>
-					</div>
-				{/if}
-				<div>
-					<dt class="font-medium text-gray-500">Completion</dt>
-					<dd class="mt-1 text-gray-700">{consultation.completionPercentage}%</dd>
-				</div>
 			</div>
 		</section>
 
@@ -421,7 +345,12 @@
 			<Button variant="outline" onclick={goBack}>Back to My Consultations</Button>
 			<Button variant="primary" onclick={editConsultation}>
 				<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+					/>
 				</svg>
 				Edit Consultation
 			</Button>

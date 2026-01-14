@@ -28,7 +28,7 @@ import {
 import { getAgencyContext } from '$lib/server/agency';
 import { requirePermission } from '$lib/server/permissions';
 import { logActivity, AUDIT_ACTIONS, ENTITY_TYPES } from '$lib/server/db-helpers';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
 
 // =============================================================================
@@ -208,22 +208,31 @@ export const exportAgencyData = query(async () => {
 		consultations: allConsultations.map((c) => ({
 			id: c.id,
 			status: c.status,
-			completionPercentage: c.completionPercentage,
-			contactInfo: c.contactInfo,
-			businessContext: c.businessContext,
-			painPoints: c.painPoints,
-			goalsObjectives: c.goalsObjectives,
+			// v2 flat columns
+			businessName: c.businessName,
+			contactPerson: c.contactPerson,
+			email: c.email,
+			phone: c.phone,
+			website: c.website,
+			industry: c.industry,
+			businessType: c.businessType,
+			websiteStatus: c.websiteStatus,
+			primaryChallenges: c.primaryChallenges,
+			urgencyLevel: c.urgencyLevel,
+			primaryGoals: c.primaryGoals,
+			conversionGoal: c.conversionGoal,
+			budgetRange: c.budgetRange,
+			timeline: c.timeline,
+			designStyles: c.designStyles,
+			admiredWebsites: c.admiredWebsites,
+			consultationNotes: c.consultationNotes,
 			createdAt: c.createdAt,
-			updatedAt: c.updatedAt,
-			completedAt: c.completedAt
+			updatedAt: c.updatedAt
 		})),
 		drafts: drafts.map((d) => ({
 			id: d.id,
 			consultationId: d.consultationId,
-			contactInfo: d.contactInfo,
-			businessContext: d.businessContext,
-			painPoints: d.painPoints,
-			goalsObjectives: d.goalsObjectives,
+			// v2 drafts may have different structure - include available fields
 			draftNotes: d.draftNotes,
 			createdAt: d.createdAt,
 			updatedAt: d.updatedAt
@@ -485,16 +494,20 @@ export const exportUserData = query(async () => {
 		.innerJoin(agencies, eq(agencyMemberships.agencyId, agencies.id))
 		.where(eq(agencyMemberships.userId, context.userId));
 
-	// Get consultations created by user
-	const userConsultations = await db
-		.select({
-			id: consultations.id,
-			agencyId: consultations.agencyId,
-			status: consultations.status,
-			createdAt: consultations.createdAt
-		})
-		.from(consultations)
-		.where(eq(consultations.userId, context.userId));
+	// Get consultations from all agencies user is a member of (v2: agency-scoped)
+	const userAgencyIds = memberships.map((m) => m.agencyId);
+	const userConsultations =
+		userAgencyIds.length > 0
+			? await db
+					.select({
+						id: consultations.id,
+						agencyId: consultations.agencyId,
+						status: consultations.status,
+						createdAt: consultations.createdAt
+					})
+					.from(consultations)
+					.where(inArray(consultations.agencyId, userAgencyIds))
+			: [];
 
 	return {
 		exportedAt: new Date().toISOString(),

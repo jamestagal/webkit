@@ -9,7 +9,7 @@
 
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getUserConsultations } from '$lib/api/consultation.remote';
+	import { getCompletedConsultations } from '$lib/api/consultation.remote';
 	import { getActivePackages } from '$lib/api/agency-packages.remote';
 	import { createProposal } from '$lib/api/proposals.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
@@ -25,14 +25,9 @@
 	let isCreating = $state(false);
 	let step = $state<'consultation' | 'package' | 'confirm'>('consultation');
 
-	// Load data
-	const consultations = await getUserConsultations();
+	// Load data - getCompletedConsultations returns only completed consultations
+	const completedConsultations = await getCompletedConsultations();
 	const packages = await getActivePackages();
-
-	// Filter to completed consultations for proposals
-	const completedConsultations = consultations.filter(
-		(c) => c.status === 'completed' || c.completionPercentage >= 50
-	);
 
 	// Selected data
 	let selectedConsultation = $derived(
@@ -157,16 +152,14 @@
 							</div>
 							<div class="flex-1 text-left">
 								<h3 class="font-semibold">
-									{consultation.contactInfo?.business_name || 'Untitled'}
+									{consultation.businessName || 'Untitled'}
 								</h3>
 								<p class="text-base-content/60 text-sm">
-									{consultation.contactInfo?.contact_person || 'No contact'} &bull;
+									{consultation.contactPerson || 'No contact'} &bull;
 									{formatDate(consultation.createdAt)}
 								</p>
 							</div>
-							<div class="badge {consultation.status === 'completed' ? 'badge-success' : 'badge-warning'}">
-								{consultation.completionPercentage}%
-							</div>
+							<div class="badge badge-success">Completed</div>
 							<ArrowRight class="h-5 w-5 text-base-content/40" />
 						</div>
 					</button>
@@ -275,7 +268,7 @@
 							<dt class="text-base-content/60">Client</dt>
 							<dd class="font-medium">
 								{selectedConsultation
-									? selectedConsultation.contactInfo?.business_name || 'Untitled'
+									? selectedConsultation.businessName || 'Untitled'
 									: 'Standalone (manual entry)'}
 							</dd>
 						</div>

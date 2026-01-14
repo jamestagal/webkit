@@ -722,7 +722,7 @@
 									</label>
 									<textarea
 										id="clientAddress"
-										class="textarea textarea-bordered"
+										class="textarea textarea-bordered w-full"
 										rows="2"
 										bind:value={clientAddress}
 										disabled={!isEditable}
@@ -849,7 +849,7 @@
 									</label>
 									<textarea
 										id="servicesDescription"
-										class="textarea textarea-bordered"
+										class="textarea textarea-bordered w-full"
 										rows="3"
 										placeholder="Brief description of the services..."
 										bind:value={servicesDescription}
@@ -866,7 +866,7 @@
 									</label>
 									<textarea
 										id="paymentTerms"
-										class="textarea textarea-bordered"
+										class="textarea textarea-bordered w-full"
 										rows="2"
 										bind:value={paymentTerms}
 										disabled={!isEditable}
@@ -882,7 +882,7 @@
 									</label>
 									<textarea
 										id="specialConditions"
-										class="textarea textarea-bordered"
+										class="textarea textarea-bordered w-full"
 										rows="3"
 										placeholder="Any special conditions for this contract..."
 										bind:value={specialConditions}

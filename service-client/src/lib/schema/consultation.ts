@@ -1,123 +1,233 @@
 /**
- * Valibot Schemas for Consultation Forms
+ * Valibot Schemas for Consultation Form v2
  *
+ * Streamlined 4-step consultation form validation.
  * Used by remote functions for form validation.
- * Follows the remote functions guide requirement to use Valibot, not Zod.
  */
 
 import * as v from 'valibot';
 
-// Base consultation ID schema (used across all forms)
+// =============================================================================
+// Common Schemas
+// =============================================================================
+
+// Base consultation ID schema (used for updates)
 export const ConsultationIdSchema = v.pipe(v.string(), v.uuid());
 
-// Contact Information Schema
+// Social media schema
+export const SocialMediaSchema = v.object({
+	linkedin: v.optional(v.string()),
+	facebook: v.optional(v.string()),
+	instagram: v.optional(v.string())
+});
+
+// =============================================================================
+// Step 1: Contact & Business Schema
+// =============================================================================
+
+export const ContactBusinessSchema = v.object({
+	business_name: v.optional(v.pipe(v.string(), v.maxLength(255))),
+	contact_person: v.optional(v.pipe(v.string(), v.maxLength(255))),
+	email: v.pipe(v.string(), v.email('Valid email required')),
+	phone: v.optional(v.pipe(v.string(), v.maxLength(50))),
+	website: v.optional(
+		v.pipe(
+			v.string(),
+			v.transform((val) => {
+				// Auto-add https if missing
+				if (val && !val.match(/^https?:\/\//)) {
+					return 'https://' + val;
+				}
+				return val;
+			})
+		)
+	),
+	social_media: v.optional(SocialMediaSchema),
+	industry: v.pipe(v.string(), v.minLength(1, 'Industry is required')),
+	business_type: v.pipe(v.string(), v.minLength(1, 'Business type is required'))
+});
+
+export type ContactBusinessInput = v.InferInput<typeof ContactBusinessSchema>;
+export type ContactBusinessOutput = v.InferOutput<typeof ContactBusinessSchema>;
+
+// =============================================================================
+// Step 2: Situation & Challenges Schema
+// =============================================================================
+
+export const SituationSchema = v.object({
+	website_status: v.picklist(['none', 'refresh', 'rebuild'], 'Website status is required'),
+	primary_challenges: v.pipe(
+		v.array(v.string()),
+		v.minLength(1, 'Select at least one challenge')
+	),
+	urgency_level: v.picklist(
+		['low', 'medium', 'high', 'critical'],
+		'Urgency level is required'
+	)
+});
+
+export type SituationInput = v.InferInput<typeof SituationSchema>;
+export type SituationOutput = v.InferOutput<typeof SituationSchema>;
+
+// =============================================================================
+// Step 3: Goals & Budget Schema
+// =============================================================================
+
+export const GoalsBudgetSchema = v.object({
+	primary_goals: v.pipe(v.array(v.string()), v.minLength(1, 'Select at least one goal')),
+	conversion_goal: v.optional(v.string()),
+	budget_range: v.pipe(v.string(), v.minLength(1, 'Budget range is required')),
+	timeline: v.optional(v.picklist(['asap', '1-3-months', '3-6-months', 'flexible']))
+});
+
+export type GoalsBudgetInput = v.InferInput<typeof GoalsBudgetSchema>;
+export type GoalsBudgetOutput = v.InferOutput<typeof GoalsBudgetSchema>;
+
+// =============================================================================
+// Step 4: Preferences & Notes Schema
+// =============================================================================
+
+export const PreferencesNotesSchema = v.object({
+	design_styles: v.optional(v.array(v.string())),
+	admired_websites: v.optional(v.pipe(v.string(), v.maxLength(2000))),
+	consultation_notes: v.optional(v.pipe(v.string(), v.maxLength(5000)))
+});
+
+export type PreferencesNotesInput = v.InferInput<typeof PreferencesNotesSchema>;
+export type PreferencesNotesOutput = v.InferOutput<typeof PreferencesNotesSchema>;
+
+// =============================================================================
+// Complete Consultation Schema (all steps combined)
+// =============================================================================
+
+export const ConsultationDataSchema = v.object({
+	contact_business: ContactBusinessSchema,
+	situation: SituationSchema,
+	goals_budget: GoalsBudgetSchema,
+	preferences_notes: PreferencesNotesSchema
+});
+
+export type ConsultationDataInput = v.InferInput<typeof ConsultationDataSchema>;
+export type ConsultationDataOutput = v.InferOutput<typeof ConsultationDataSchema>;
+
+// =============================================================================
+// Remote Function Schemas (with consultationId for updates)
+// =============================================================================
+
+// Create consultation (Step 1 - no ID yet)
+export const CreateConsultationSchema = v.object({
+	agencyId: v.pipe(v.string(), v.uuid()),
+	...ContactBusinessSchema.entries
+});
+
+export type CreateConsultationInput = v.InferInput<typeof CreateConsultationSchema>;
+
+// Update Step 1
+export const UpdateContactBusinessSchema = v.object({
+	consultationId: ConsultationIdSchema,
+	...ContactBusinessSchema.entries
+});
+
+export type UpdateContactBusinessInput = v.InferInput<typeof UpdateContactBusinessSchema>;
+
+// Update Step 2
+export const UpdateSituationSchema = v.object({
+	consultationId: ConsultationIdSchema,
+	...SituationSchema.entries
+});
+
+export type UpdateSituationInput = v.InferInput<typeof UpdateSituationSchema>;
+
+// Update Step 3
+export const UpdateGoalsBudgetSchema = v.object({
+	consultationId: ConsultationIdSchema,
+	...GoalsBudgetSchema.entries
+});
+
+export type UpdateGoalsBudgetInput = v.InferInput<typeof UpdateGoalsBudgetSchema>;
+
+// Update Step 4
+export const UpdatePreferencesNotesSchema = v.object({
+	consultationId: ConsultationIdSchema,
+	...PreferencesNotesSchema.entries
+});
+
+export type UpdatePreferencesNotesInput = v.InferInput<typeof UpdatePreferencesNotesSchema>;
+
+// Complete Consultation
+export const CompleteConsultationSchema = v.object({
+	consultationId: ConsultationIdSchema
+});
+
+export type CompleteConsultationInput = v.InferInput<typeof CompleteConsultationSchema>;
+
+// =============================================================================
+// Backward Compatibility Exports (for existing code)
+// These will be removed after migration
+// =============================================================================
+
+// Legacy v1 schemas - deprecated
+/** @deprecated Use ContactBusinessSchema instead */
 export const ContactInfoSchema = v.object({
 	consultationId: ConsultationIdSchema,
 	business_name: v.optional(v.pipe(v.string(), v.maxLength(255))),
 	contact_person: v.optional(v.pipe(v.string(), v.maxLength(255))),
 	email: v.optional(v.pipe(v.string(), v.email())),
 	phone: v.optional(v.pipe(v.string(), v.maxLength(50))),
-	website: v.optional(
-		v.pipe(
-			v.string(),
-			v.transform((val) => {
-				// Auto-add https if missing
-				if (val && !val.match(/^https?:\/\//)) {
-					return 'https://' + val;
-				}
-				return val;
-			}),
-			v.url()
-		)
-	),
+	website: v.optional(v.string()),
 	social_media: v.optional(v.record(v.string(), v.string()))
 });
 
-export type ContactInfoInput = v.InferInput<typeof ContactInfoSchema>;
-export type ContactInfoOutput = v.InferOutput<typeof ContactInfoSchema>;
+/** @deprecated Use SituationSchema instead */
+export const PainPointsSchema = v.object({
+	consultationId: ConsultationIdSchema,
+	primary_challenges: v.optional(v.array(v.string())),
+	technical_issues: v.optional(v.array(v.string())),
+	urgency_level: v.optional(v.picklist(['low', 'medium', 'high', 'critical'])),
+	impact_assessment: v.optional(v.string()),
+	current_solution_gaps: v.optional(v.array(v.string()))
+});
 
-// Business Context Schema
+/** @deprecated Use GoalsBudgetSchema instead */
+export const GoalsObjectivesSchema = v.object({
+	consultationId: ConsultationIdSchema,
+	primary_goals: v.optional(v.array(v.string())),
+	secondary_goals: v.optional(v.array(v.string())),
+	success_metrics: v.optional(v.array(v.string())),
+	kpis: v.optional(v.array(v.string())),
+	timeline: v.optional(
+		v.object({
+			desired_start: v.optional(v.string()),
+			target_completion: v.optional(v.string()),
+			milestones: v.optional(v.array(v.string()))
+		})
+	),
+	budget_range: v.optional(v.string()),
+	budget_constraints: v.optional(v.array(v.string()))
+});
+
+/** @deprecated Use ContactBusinessSchema instead */
 export const BusinessContextSchema = v.object({
 	consultationId: ConsultationIdSchema,
-	industry: v.optional(v.pipe(v.string(), v.maxLength(100))),
-	business_type: v.optional(v.pipe(v.string(), v.maxLength(100))),
-	team_size: v.optional(v.pipe(v.number(), v.minValue(0), v.maxValue(100000))),
-	current_platform: v.optional(v.pipe(v.string(), v.maxLength(255))),
+	industry: v.optional(v.string()),
+	business_type: v.optional(v.string()),
+	team_size: v.optional(v.number()),
+	current_platform: v.optional(v.string()),
 	digital_presence: v.optional(v.array(v.string())),
 	marketing_channels: v.optional(v.array(v.string()))
 });
 
-export type BusinessContextInput = v.InferInput<typeof BusinessContextSchema>;
-export type BusinessContextOutput = v.InferOutput<typeof BusinessContextSchema>;
-
-// Pain Points Schema
-export const PainPointsSchema = v.object({
-	consultationId: ConsultationIdSchema,
-	primary_challenges: v.optional(v.array(v.pipe(v.string(), v.maxLength(500)))),
-	technical_issues: v.optional(v.array(v.pipe(v.string(), v.maxLength(500)))),
-	urgency_level: v.optional(v.picklist(['low', 'medium', 'high', 'critical'])),
-	impact_assessment: v.optional(v.pipe(v.string(), v.maxLength(2000))),
-	current_solution_gaps: v.optional(v.array(v.pipe(v.string(), v.maxLength(500))))
-});
-
-export type PainPointsInput = v.InferInput<typeof PainPointsSchema>;
-export type PainPointsOutput = v.InferOutput<typeof PainPointsSchema>;
-
-// Timeline Schema (nested within Goals & Objectives)
-export const TimelineSchema = v.object({
-	desired_start: v.optional(v.string()),
-	target_completion: v.optional(v.string()),
-	milestones: v.optional(v.array(v.string()))
-});
-
-// Goals & Objectives Schema
-export const GoalsObjectivesSchema = v.object({
-	consultationId: ConsultationIdSchema,
-	primary_goals: v.optional(v.array(v.pipe(v.string(), v.maxLength(500)))),
-	secondary_goals: v.optional(v.array(v.pipe(v.string(), v.maxLength(500)))),
-	success_metrics: v.optional(v.array(v.pipe(v.string(), v.maxLength(500)))),
-	kpis: v.optional(v.array(v.pipe(v.string(), v.maxLength(500)))),
-	timeline: v.optional(TimelineSchema),
-	budget_range: v.optional(v.pipe(v.string(), v.maxLength(100))),
-	budget_constraints: v.optional(v.array(v.pipe(v.string(), v.maxLength(500))))
-});
-
-export type GoalsObjectivesInput = v.InferInput<typeof GoalsObjectivesSchema>;
-export type GoalsObjectivesOutput = v.InferOutput<typeof GoalsObjectivesSchema>;
-
-// Complete Consultation Schema (for form completion)
-export const CompleteConsultationSchema = v.object({
-	consultationId: ConsultationIdSchema
-});
-
-// Create Consultation with Contact Info Schema (for lazy creation)
-// Used when creating a NEW consultation - no consultationId yet
+/** @deprecated */
 export const CreateConsultationWithContactInfoSchema = v.object({
-	business_name: v.optional(v.pipe(v.string(), v.maxLength(255))),
-	contact_person: v.optional(v.pipe(v.string(), v.maxLength(255))),
+	business_name: v.optional(v.string()),
+	contact_person: v.optional(v.string()),
 	email: v.optional(v.pipe(v.string(), v.email())),
-	phone: v.optional(v.pipe(v.string(), v.maxLength(50))),
-	website: v.optional(
-		v.pipe(
-			v.string(),
-			v.transform((val) => {
-				// Auto-add https if missing
-				if (val && !val.match(/^https?:\/\//)) {
-					return 'https://' + val;
-				}
-				return val;
-			}),
-			v.url()
-		)
-	),
+	phone: v.optional(v.string()),
+	website: v.optional(v.string()),
 	social_media: v.optional(v.record(v.string(), v.string()))
 });
 
-export type CreateConsultationWithContactInfoInput = v.InferInput<
-	typeof CreateConsultationWithContactInfoSchema
->;
-
-// Draft Auto-save Schema
+/** @deprecated */
 export const AutoSaveDraftSchema = v.object({
 	consultationId: ConsultationIdSchema,
 	contact_info: v.optional(v.record(v.string(), v.any())),
@@ -126,5 +236,3 @@ export const AutoSaveDraftSchema = v.object({
 	goals_objectives: v.optional(v.record(v.string(), v.any())),
 	draft_notes: v.optional(v.string())
 });
-
-export type AutoSaveDraftInput = v.InferInput<typeof AutoSaveDraftSchema>;

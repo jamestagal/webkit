@@ -9,135 +9,64 @@
  */
 
 // ============================================================================
-// CONSULTATION DATA
+// CONSULTATION DATA (v2 - Flat Columns)
 // ============================================================================
 
 export const DEMO_CONSULTATION = {
-	contactInfo: {
-		business_name: "Demo: Murray's Plumbing",
-		contact_person: 'Steve Murray',
-		email: 'steve@murraysplumbing.com.au',
-		phone: '0412 345 678',
-		website: 'https://murraysplumbing.com.au',
-		social_media: {
-			facebook: 'facebook.com/murraysplumbing',
-			instagram: '@murrays_plumbing_brisbane',
-			google_business: "Murray's Plumbing Brisbane"
-		}
-	},
+	// Step 1: Contact & Business
+	businessName: "Demo: Murray's Plumbing",
+	contactPerson: 'Steve Murray',
+	email: 'steve@murraysplumbing.com.au',
+	phone: '0412 345 678',
+	website: 'https://murraysplumbing.com.au',
+	socialLinkedin: null as string | null,
+	socialFacebook: 'https://facebook.com/murraysplumbing',
+	socialInstagram: 'https://instagram.com/murrays_plumbing_brisbane',
+	industry: 'construction', // Maps to v2 industry options
+	businessType: 'small-business', // Maps to v2 business type options
 
-	businessContext: {
-		industry: 'trades_services',
-		business_type: 'established_business',
-		team_size: 8,
-		years_in_business: 15,
-		annual_revenue: '$800,000 - $1,200,000',
-		current_platform: 'WordPress (outdated theme)',
-		platform_age_years: 8,
-		service_areas: [
-			'Brisbane CBD',
-			'Northside',
-			'Southside',
-			'Western Suburbs',
-			'Ipswich'
-		],
-		digital_presence: ['website', 'google_business', 'facebook', 'instagram'],
-		marketing_channels: [
-			'google_ads',
-			'word_of_mouth',
-			'vehicle_signage',
-			'local_sponsorships'
-		],
-		competitors: ['Brisbane Plumbing Co', 'Jet Plumbing', 'Salmon Plumbing'],
-		unique_selling_points: [
-			'15 years local experience',
-			'24/7 emergency service',
-			'Licensed gas fitter',
-			'Family-owned business',
-			'4.8 star Google rating (127 reviews)'
-		],
-		services_offered: [
-			'Emergency plumbing',
-			'Hot water system installation & repairs',
-			'Blocked drains & drain cleaning',
-			'Gas fitting & gas leak detection',
-			'Bathroom renovations',
-			'Commercial plumbing maintenance',
-			'Backflow prevention testing',
-			'Water leak detection'
-		]
-	},
+	// Step 2: Situation & Challenges
+	websiteStatus: 'rebuild' as const,
+	primaryChallenges: [
+		'lead-generation',
+		'seo-issues',
+		'outdated-website',
+		'poor-mobile',
+		'competition'
+	],
+	urgencyLevel: 'high' as const,
 
-	painPoints: {
-		primary_challenges: [
-			'Not getting enough leads from website - currently only 5-10 per month',
-			'Competitors ranking higher on Google for key search terms',
-			'Website looks outdated and unprofessional compared to competitors',
-			'Spending $2,000/month on Google Ads with 2% conversion rate',
-			'Losing potential commercial contracts due to poor online presence'
-		],
-		technical_issues: [
-			'Site takes 6+ seconds to load on mobile devices',
-			'Contact form submissions often go to spam folder',
-			'Cannot update content ourselves - need to pay developer each time',
-			'Website crashes when traffic spikes during emergencies',
-			'Images are not optimized - homepage is 4MB+',
-			'No SSL certificate - shows "Not Secure" warning'
-		],
-		urgency_level: 'high',
-		impact_assessment:
-			'Estimating $18,000-$27,000 in lost monthly revenue due to website issues. Lost 3 large commercial contracts ($15,000+) in past 6 months to competitors with better websites.',
-		current_solution_gaps: [
-			'No online booking system - must call during business hours only',
-			'No way to showcase 127 Google reviews on website',
-			'Missing emergency contact button - buried in footer',
-			'No service area pages for local SEO',
-			'No way to display before/after project photos',
-			'Cannot accept online payments for deposits'
-		]
-	},
+	// Step 3: Goals & Budget
+	primaryGoals: [
+		'generate-leads',
+		'build-brand',
+		'improve-conversion',
+		'digital-presence'
+	],
+	conversionGoal: 'form-submissions',
+	budgetRange: '5k-10k',
+	timeline: '1-3-months' as const,
 
-	goalsObjectives: {
-		primary_goals: [
-			'Generate 50+ qualified leads per month from website',
-			'Rank on first page of Google for "plumber Brisbane" and related terms',
-			'Look more professional than top 3 competitors',
-			'Reduce dependency on paid advertising over time'
-		],
-		secondary_goals: [
-			'Reduce phone calls for basic questions',
-			'Showcase 15 years of experience and trusted reputation',
-			'Enable online booking for non-emergency jobs',
-			'Build email list for seasonal maintenance reminders'
-		],
-		success_metrics: [
-			'50+ new leads per month within 6 months',
-			'Top 3 ranking for "emergency plumber Brisbane"',
-			'90+ Google PageSpeed score',
-			'5% conversion rate on website traffic'
-		],
-		kpis: [
-			'Monthly website leads',
-			'Google search ranking positions',
-			'Website conversion rate',
-			'Cost per lead'
-		],
-		timeline: {
-			desired_start: 'As soon as possible',
-			target_completion: 'Within 10 weeks',
-			milestones: [
-				'Design approval within 2 weeks',
-				'Development complete within 6 weeks',
-				'Launch and training within 10 weeks'
-			]
-		},
-		budget_range: '$5,000 - $10,000',
-		budget_constraints: [
-			'Prefer lower upfront with monthly payments over lump sum',
-			'Need to see clear ROI justification',
-			'Monthly ongoing costs must be under $300'
-		]
-	}
+	// Step 4: Preferences & Notes
+	designStyles: ['modern-clean', 'corporate-professional'],
+	admiredWebsites: 'https://brisbane-plumbing.com.au\nhttps://jetplumbing.com.au',
+	consultationNotes: `15 years in business, 8 employees. Family-owned with 4.8 star Google rating (127 reviews).
+
+Services: Emergency plumbing, hot water systems, blocked drains, gas fitting, bathroom renovations, commercial maintenance.
+
+Service areas: Brisbane CBD, Northside, Southside, Western Suburbs, Ipswich.
+
+Pain points:
+- Only getting 5-10 leads/month from website
+- Competitors ranking higher on Google
+- Site takes 6+ seconds to load on mobile
+- Lost 3 large commercial contracts to competitors with better websites
+
+Goals:
+- 50+ qualified leads per month from website
+- Rank on first page of Google for "plumber Brisbane"
+- Look more professional than top 3 competitors
+- Reduce dependency on paid advertising`
 };
 
 // ============================================================================
@@ -314,29 +243,21 @@ export const DEMO_CONTRACT = {
 	clientPhone: '0412 345 678',
 	clientAddress: '42 Trade Street\nEight Mile Plains QLD 4113',
 
-	servicesDescription: `## Website Design & Development Services
+	servicesDescription: `Website Design & Development Services
 
-### Package: Growth Package
+Package: Growth Package
 
-This agreement covers the design, development, and launch of a professional business website including:
-
-- Up to 12 custom-designed pages
-- Mobile-responsive design
-- Online booking integration
-- Google Business Profile setup
-- Advanced SEO optimization
-- Monthly content updates (2 hrs)
-- Monthly performance reports`,
+This agreement covers the design, development, and launch of a professional business website including up to 12 custom-designed pages, mobile-responsive design, online booking integration, Google Business Profile setup, advanced SEO optimization, monthly content updates (2 hrs), and monthly performance reports.`,
 
 	commencementDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
 	completionDate: new Date(Date.now() + 77 * 24 * 60 * 60 * 1000),
 
-	specialConditions: `## Additional Terms for Murray's Plumbing
+	specialConditions: `Additional Terms for Murray's Plumbing
 
-1. Client to provide all content (text, images) within 2 weeks of project start
-2. Up to 3 rounds of design revisions included
-3. Training session (2 hours) included for content management
-4. 12-month hosting and support included`,
+1. Client to provide all content (text, images) within 2 weeks of project start.
+2. Up to 3 rounds of design revisions included.
+3. Training session (2 hours) included for content management.
+4. 12-month hosting and support included.`,
 
 	totalPrice: '4838.00',
 	priceIncludesGst: true,
@@ -369,78 +290,60 @@ export const DEMO_QUESTIONNAIRE = {
 	clientBusinessName: "Demo: Murray's Plumbing",
 	clientEmail: 'steve@murraysplumbing.com.au',
 	responses: {
-		// Section 1: Business Overview
-		business_name: "Murray's Plumbing",
-		business_tagline: "Brisbane's Most Trusted Plumber Since 2010",
-		business_description: `Murray's Plumbing is a family-owned plumbing business serving the Greater Brisbane area for over 15 years. We specialize in residential and commercial plumbing services with a team of 8 licensed plumbers providing 24/7 emergency services.`,
-		years_in_business: '15',
-		number_of_employees: '8',
-		target_audience: `Primary customers: Homeowners in Brisbane suburbs (ages 35-65), property managers, small to medium commercial businesses.`,
-		unique_selling_points: `24/7 Emergency Response, 15 Years Experience, Transparent Pricing, Licensed Gas Fitters, Family Values`,
-		main_services: [
-			'Emergency plumbing (24/7)',
-			'Hot water system installation',
-			'Blocked drain clearing',
-			'Gas fitting',
-			'Bathroom renovations'
-		],
-		service_areas:
-			'Greater Brisbane including CBD, Northside, Southside, Western Suburbs, and Ipswich',
+		// Section 1: Personal Information
+		first_name: 'Steve',
+		last_name: 'Murray',
+		email: 'steve@murraysplumbing.com.au',
 
-		// Section 2: Brand Identity
-		existing_logo: 'yes',
-		logo_satisfaction: 'satisfied_minor_updates',
-		brand_colors: 'Primary Blue: #0066CC, Accent Orange: #FF6600, White: #FFFFFF',
-		brand_personality:
-			'Trustworthy, Professional, Approachable, Family-oriented, Responsive',
-		brand_tone_of_voice: 'friendly_professional',
+		// Section 2: Company Details
+		company_name: "Murray's Plumbing Pty Ltd",
+		registered_address: '42 Trade Street, Eight Mile Plains QLD 4113',
 
-		// Section 3: Current Website
-		has_current_website: 'yes',
-		current_website_url: 'https://murraysplumbing.com.au',
-		current_website_likes: 'Phone number displayed, basic contact form, Google Maps',
-		current_website_dislikes:
-			'Slow loading (6+ seconds), not mobile friendly, outdated design, broken forms',
-		domain_hosting_access: 'yes',
+		// Section 3: Display Information
+		displayed_business_name: "Murray's Plumbing",
+		displayed_address: '42 Trade Street, Eight Mile Plains QLD 4113',
+		displayed_phone: '0412 345 678',
+		displayed_email: 'info@murraysplumbing.com.au',
+		social_media_accounts: 'Facebook: facebook.com/murraysplumbing\nInstagram: @murrays_plumbing_brisbane',
+		opening_hours: 'Mon-Fri: 7am-6pm\nSat: 8am-2pm\nEmergency: 24/7',
 
-		// Section 4: Website Goals
-		primary_website_goal: 'lead_generation',
-		secondary_website_goals: ['brand_awareness', 'customer_support'],
-		target_monthly_leads: '50+',
-		success_metrics:
-			'50+ leads/month, Top 3 Google ranking, 5% conversion rate, 90+ PageSpeed score',
+		// Section 4: Domain & Technical
+		has_domain: 'yes',
+		domain_name: 'murraysplumbing.com.au',
+		has_google_business: 'yes',
 
-		// Section 5: Content & Features
-		required_pages: [
-			'Home',
-			'About Us',
-			'Services',
-			'Contact',
-			'Book Online'
-		],
-		must_have_features: [
-			'Click-to-call button',
-			'Online booking',
-			'Google Reviews',
-			'Service area map'
-		],
+		// Section 5: About Your Business
+		business_story: `Murray's Plumbing is a family-owned plumbing business serving the Greater Brisbane area for over 15 years. Founded by Steve Murray, we've grown from a one-man operation to a team of 8 licensed plumbers providing 24/7 emergency services. Our 4.8 star Google rating (127 reviews) reflects our commitment to quality workmanship and customer satisfaction.`,
+		business_emails: 'info@murraysplumbing.com.au, quotes@murraysplumbing.com.au',
+		areas_served: 'Greater Brisbane including CBD, Northside, Southside, Western Suburbs, and Ipswich',
+		target_customers: 'Homeowners in Brisbane suburbs (ages 35-65), property managers, small to medium commercial businesses',
+		top_services: 'Emergency plumbing (24/7), Hot water system installation, Blocked drain clearing, Gas fitting, Bathroom renovations',
+		other_services: 'Commercial maintenance, Pipe relining, Water leak detection',
+		differentiators: '24/7 Emergency Response, 15 Years Experience, Transparent Pricing, Licensed Gas Fitters, Family Values',
+		statistics_awards: '15 years in business, 8 licensed plumbers, 4.8 star rating (127 reviews), Master Plumbers Association member',
+		additional_business_details: 'We pride ourselves on transparent pricing - no hidden fees. All our plumbers are fully licensed and insured.',
 
-		// Section 6: Design Preferences
-		design_style_preference: 'modern_professional',
-		mobile_importance: '10_critical',
+		// Section 6: Website Content
+		pages_wanted: 'Home, About Us, Services (with sub-pages for each service), Contact, Book Online, Testimonials',
+		customer_actions: 'Request a quote, Book an appointment online, Call for emergency service',
+		key_information: 'Service areas, Pricing guide, Emergency contact, Licensed and insured credentials',
+		calls_to_action: 'Book Now, Get a Free Quote, Call 24/7 Emergency Line',
+		regularly_updated_content: 'Blog posts about plumbing tips, seasonal specials and promotions',
+		additional_content_details: 'Would like to showcase before/after photos of bathroom renovations',
 
-		// Section 7: Technical Requirements
-		cms_preference: 'open_to_recommendation',
-		integrations_required: [
-			'Google Analytics',
-			'Google Business',
-			'Live chat'
-		],
+		// Section 7: Website Design
+		competitor_websites: 'brisbane-plumbing.com.au, jetplumbing.com.au',
+		reference_websites: 'We like the clean, professional look of jetplumbing.com.au',
+		aesthetic_description: 'Modern, professional, trustworthy. Blue and orange color scheme. Clean and easy to navigate.',
+		branding_guidelines: 'Primary Blue: #0066CC, Accent Orange: #FF6600, White: #FFFFFF. We have an existing logo.',
+		additional_design_details: 'Mobile-first design is critical - most of our customers find us on their phones during emergencies',
 
-		// Section 8: Timeline & Budget
-		ideal_launch_date: 'Within 10 weeks',
-		budget_range: '$5,000 - $10,000',
-		decision_makers: 'Steve Murray (Owner), Karen Murray (Office Manager)'
+		// Section 8: Final Details
+		timeline: 'Within 10 weeks',
+		google_analytics: 'yes',
+		referral_source: 'Google search',
+		other_services_interest: 'SEO, Google Ads management',
+		marketing_permissions: 'yes'
 	},
 	currentSection: 8,
 	completionPercentage: 100,
@@ -478,10 +381,9 @@ export const DEMO_INVOICE = {
 	paymentTermsCustom: '',
 
 	notes: 'Deposit invoice for website project',
-	publicNotes: `## Payment Details
+	publicNotes: `Payment Details
 
-**Bank Transfer:**
-Please use your invoice number as the reference.`,
+Bank Transfer: Please use your invoice number as the reference.`,
 
 	viewCount: 0,
 	onlinePaymentEnabled: true

@@ -9,7 +9,7 @@
 import type { PageServerLoad, Actions } from './$types';
 import { db } from '$lib/server/db';
 import { proposals, agencies, agencyProfiles, agencyPackages, agencyAddons } from '$lib/server/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, inArray } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 import {
 	acceptProposal,
@@ -83,7 +83,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		selectedAddons = await db
 			.select()
 			.from(agencyAddons)
-			.where(sql`${agencyAddons.id} = ANY(${addonIds})`);
+			.where(inArray(agencyAddons.id, addonIds));
 	}
 
 	return {

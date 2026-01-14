@@ -1,83 +1,106 @@
 <script lang="ts">
 	/**
-	 * Consultation Form Page - Remote Functions Implementation
+	 * Consultation Form Page v2 - Remote Functions Implementation
 	 *
-	 * Pattern: Multi-Step Form with Remote Functions
-	 * Cognitive Load: 18
-	 * - Component imports: 4
-	 * - State management (step tracking): 3
-	 * - Navigation handlers: 4
-	 * - Initialization: 2
-	 * - Progress tracking: 3
-	 * - Completion handler: 2
-	 *
-	 * This is the NEW implementation using SvelteKit remote functions.
-	 * Feature flag: VITE_USE_REMOTE_FUNCTIONS controls which version loads.
+	 * Streamlined 4-step consultation form with flat column structure.
+	 * Steps:
+	 * 1. Contact & Business
+	 * 2. Situation & Challenges
+	 * 3. Goals & Budget
+	 * 4. Preferences & Notes
 	 */
 
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
-	import ClientInfoForm from '$lib/components/consultation/ClientInfoForm.svelte';
-	import BusinessContext from '$lib/components/consultation/BusinessContext.svelte';
-	import PainPointsCapture from '$lib/components/consultation/PainPointsCapture.svelte';
-	import GoalsObjectives from '$lib/components/consultation/GoalsObjectives.svelte';
+	import ContactBusinessForm from '$lib/components/consultation/ContactBusinessForm.svelte';
+	import SituationChallenges from '$lib/components/consultation/SituationChallenges.svelte';
+	import GoalsBudget from '$lib/components/consultation/GoalsBudget.svelte';
+	import PreferencesNotes from '$lib/components/consultation/PreferencesNotes.svelte';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { FEATURES } from '$lib/config/features';
+	import {
+		createConsultation,
+		updateContactBusiness,
+		updateSituation,
+		updateGoalsBudget,
+		updatePreferencesNotes,
+		completeConsultation
+	} from '$lib/api/consultation.remote';
+	import type { consultations } from '$lib/server/schema';
+	import type {
+		ContactBusiness,
+		Situation,
+		GoalsBudget as GoalsBudgetType,
+		PreferencesNotes as PreferencesNotesType,
+		toConsultationData
+	} from '$lib/types/consultation';
+	import { safeParse } from 'valibot';
+	import {
+		ContactBusinessSchema,
+		SituationSchema,
+		GoalsBudgetSchema,
+		PreferencesNotesSchema
+	} from '$lib/schema/consultation';
+
+	type Consultation = typeof consultations.$inferSelect;
 
 	const feature = FEATURES.consultations;
-
 	const toast = getToast();
-	import {
-		saveContactInfo,
-		saveBusinessContext,
-		savePainPoints,
-		saveGoalsObjectives,
-		completeConsultation,
-		createConsultationWithContactInfo
-	} from '$lib/api/consultation.remote';
-	import type { Consultation } from '$lib/server/schema';
-	import type { ConsultationDraft } from '$lib/api/consultation.remote';
 
 	// Props from server - consultation can be null (lazy creation pattern)
-	let {
-		consultation,
-		draft
-	}: { consultation: Consultation | null; draft: ConsultationDraft | null } = $props();
+	let { consultation, agencyId }: { consultation: Consultation | null; agencyId: string } =
+		$props();
 
 	// Get agency slug from route params for navigation
 	let agencySlug = $derived(page.params.agencySlug);
 
-	// Debug: Log loaded consultation data
-	console.log('ConsultationPage loaded:', {
-		id: consultation?.id ?? 'NEW (not created yet)',
-		contactInfo: consultation?.contactInfo,
-		businessContext: consultation?.businessContext,
-		painPoints: consultation?.painPoints,
-		goalsObjectives: consultation?.goalsObjectives
-	});
-
 	// State
 	let currentStep = $state(0);
-	// consultationId is null until the consultation is created (lazy creation)
 	let consultationId = $state<string | null>(consultation?.id ?? null);
 	let loading = $state(false);
-	let isInitializing = $state(false);
-	let isSaving = $state(false);
-	let autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
+	let errors = $state<Record<string, string>>({});
 
 	// Form data state - will be bound to child components
-	let contactInfoData = $state(consultation?.contactInfo || {});
-	let businessContextData = $state(consultation?.businessContext || {});
-	let painPointsData = $state(consultation?.painPoints || {});
-	let goalsObjectivesData = $state(consultation?.goalsObjectives || {});
+	let contactBusinessData = $state<ContactBusiness>({
+		business_name: consultation?.businessName ?? '',
+		contact_person: consultation?.contactPerson ?? '',
+		email: consultation?.email ?? '',
+		phone: consultation?.phone ?? '',
+		website: consultation?.website ?? '',
+		social_media: {
+			linkedin: consultation?.socialLinkedin ?? '',
+			facebook: consultation?.socialFacebook ?? '',
+			instagram: consultation?.socialInstagram ?? ''
+		},
+		industry: consultation?.industry ?? '',
+		business_type: consultation?.businessType ?? ''
+	});
+
+	let situationData = $state<Situation>({
+		website_status: (consultation?.websiteStatus as Situation['website_status']) ?? 'none',
+		primary_challenges: consultation?.primaryChallenges ?? [],
+		urgency_level: (consultation?.urgencyLevel as Situation['urgency_level']) ?? 'low'
+	});
+
+	let goalsBudgetData = $state<GoalsBudgetType>({
+		primary_goals: consultation?.primaryGoals ?? [],
+		conversion_goal: consultation?.conversionGoal ?? '',
+		budget_range: consultation?.budgetRange ?? '',
+		timeline: (consultation?.timeline as GoalsBudgetType['timeline']) ?? undefined
+	});
+
+	let preferencesNotesData = $state<PreferencesNotesType>({
+		design_styles: consultation?.designStyles ?? [],
+		admired_websites: consultation?.admiredWebsites ?? '',
+		consultation_notes: consultation?.consultationNotes ?? ''
+	});
 
 	// Step configuration
 	const steps = [
-		{ id: 'contact_info', title: 'Contact Information' },
-		{ id: 'business_context', title: 'Business Context' },
-		{ id: 'pain_points', title: 'Pain Points' },
-		{ id: 'goals_objectives', title: 'Goals & Objectives' }
+		{ id: 'contact_business', title: 'Contact & Business' },
+		{ id: 'situation', title: 'Situation & Challenges' },
+		{ id: 'goals_budget', title: 'Goals & Budget' },
+		{ id: 'preferences_notes', title: 'Preferences & Notes' }
 	];
 
 	// Derived state
@@ -87,66 +110,84 @@
 	const isLastStep = $derived(currentStep === totalSteps - 1);
 	const progressPercentage = $derived(Math.round(((currentStep + 1) / totalSteps) * 100));
 
-	// Initialize from props
-	if (draft) {
-		// TODO: Populate form fields from draft
-		console.log('Draft loaded:', draft);
+	// Validate current step
+	function validateCurrentStep(): boolean {
+		errors = {};
+
+		if (currentStep === 0) {
+			const result = safeParse(ContactBusinessSchema, contactBusinessData);
+			if (!result.success) {
+				errors = Object.fromEntries(
+					result.issues.map((i) => [i.path?.[0]?.key ?? 'form', i.message])
+				);
+				return false;
+			}
+		} else if (currentStep === 1) {
+			const result = safeParse(SituationSchema, situationData);
+			if (!result.success) {
+				errors = Object.fromEntries(
+					result.issues.map((i) => [i.path?.[0]?.key ?? 'form', i.message])
+				);
+				return false;
+			}
+		} else if (currentStep === 2) {
+			const result = safeParse(GoalsBudgetSchema, goalsBudgetData);
+			if (!result.success) {
+				errors = Object.fromEntries(
+					result.issues.map((i) => [i.path?.[0]?.key ?? 'form', i.message])
+				);
+				return false;
+			}
+		} else if (currentStep === 3) {
+			const result = safeParse(PreferencesNotesSchema, preferencesNotesData);
+			if (!result.success) {
+				errors = Object.fromEntries(
+					result.issues.map((i) => [i.path?.[0]?.key ?? 'form', i.message])
+				);
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	// Save current step data to database
-	// Returns the consultationId (important for lazy creation on step 0)
 	async function saveCurrentStep(): Promise<string> {
-		console.log('Saving step', currentStep, 'with data:', {
-			step: currentStep,
-			consultationId,
-			contactInfoData,
-			businessContextData,
-			painPointsData,
-			goalsObjectivesData
-		});
-
 		try {
 			if (currentStep === 0) {
 				// LAZY CREATION: If no consultationId, create the consultation now
 				if (!consultationId) {
-					console.log('Creating new consultation with contact info (lazy creation)');
-					const result = await createConsultationWithContactInfo(contactInfoData);
+					const result = await createConsultation({
+						agencyId,
+						...contactBusinessData
+					});
 					consultationId = result.consultationId;
-					console.log('Consultation created with ID:', consultationId);
 					return consultationId;
 				}
 
 				// Update existing consultation
-				console.log('Calling saveContactInfo with:', { consultationId, ...contactInfoData });
-				await saveContactInfo({
+				await updateContactBusiness({
 					consultationId,
-					...contactInfoData
+					...contactBusinessData
 				});
-				console.log('saveContactInfo completed');
 			} else if (currentStep === 1) {
 				if (!consultationId) throw new Error('No consultation ID - cannot save step 1');
-				console.log('Calling saveBusinessContext with:', { consultationId, ...businessContextData });
-				await saveBusinessContext({
+				await updateSituation({
 					consultationId,
-					...businessContextData
+					...situationData
 				});
-				console.log('saveBusinessContext completed');
 			} else if (currentStep === 2) {
 				if (!consultationId) throw new Error('No consultation ID - cannot save step 2');
-				console.log('Calling savePainPoints with:', { consultationId, ...painPointsData });
-				await savePainPoints({
+				await updateGoalsBudget({
 					consultationId,
-					...painPointsData
+					...goalsBudgetData
 				});
-				console.log('savePainPoints completed');
 			} else if (currentStep === 3) {
 				if (!consultationId) throw new Error('No consultation ID - cannot save step 3');
-				console.log('Calling saveGoalsObjectives with:', { consultationId, ...goalsObjectivesData });
-				await saveGoalsObjectives({
+				await updatePreferencesNotes({
 					consultationId,
-					...goalsObjectivesData
+					...preferencesNotesData
 				});
-				console.log('saveGoalsObjectives completed');
 			}
 			return consultationId!;
 		} catch (error) {
@@ -155,52 +196,21 @@
 		}
 	}
 
-	// Auto-save with debounce (saves 2 seconds after last change)
-	function triggerAutoSave(): void {
-		if (autoSaveTimeout) {
-			clearTimeout(autoSaveTimeout);
-		}
-		autoSaveTimeout = setTimeout(async () => {
-			if (!isSaving && !loading) {
-				isSaving = true;
-				try {
-					await saveCurrentStep();
-					console.log('Auto-save completed for step', currentStep);
-				} catch (error) {
-					console.error('Auto-save failed:', error);
-				} finally {
-					isSaving = false;
-				}
-			}
-		}, 2000);
-	}
-
-	// Watch for form data changes and trigger auto-save
-	// Only auto-save if we have a consultationId (not for new forms)
-	$effect(() => {
-		// Track all form data
-		const _ = JSON.stringify({
-			contactInfoData,
-			businessContextData,
-			painPointsData,
-			goalsObjectivesData
-		});
-		// Only auto-save when we have a consultationId (after lazy creation)
-		// New forms should only be saved when user clicks "Next"
-		if (consultationId) {
-			triggerAutoSave();
-		}
-	});
-
 	// Navigation handlers
 	async function handleNext(): Promise<void> {
 		if (isLastStep) return;
 
+		// Validate before proceeding
+		if (!validateCurrentStep()) {
+			toast.error('Please fix the errors before continuing.');
+			return;
+		}
+
 		loading = true;
 		try {
-			// Save current step data before moving to next
 			await saveCurrentStep();
 			currentStep++;
+			errors = {};
 		} catch (error) {
 			console.error('Error saving step:', error);
 			toast.error('Failed to save. Please try again.');
@@ -223,6 +233,7 @@
 				}
 			}
 			currentStep--;
+			errors = {};
 		}
 	}
 
@@ -232,12 +243,18 @@
 			return;
 		}
 
+		// Validate final step
+		if (!validateCurrentStep()) {
+			toast.error('Please fix the errors before completing.');
+			return;
+		}
+
 		loading = true;
 		try {
-			// Save goals objectives first
-			await saveGoalsObjectives({
+			// Save preferences notes first
+			await updatePreferencesNotes({
 				consultationId,
-				...goalsObjectivesData
+				...preferencesNotesData
 			});
 
 			// Complete the consultation
@@ -255,11 +272,11 @@
 	}
 
 	// Handle browser navigation/close
-	// Only warn if user has created a consultation and not completed it
 	function handleBeforeUnload(event: BeforeUnloadEvent): void {
 		if (consultationId && !isLastStep) {
 			event.preventDefault();
-			event.returnValue = 'You have not completed the consultation. Are you sure you want to leave?';
+			event.returnValue =
+				'You have not completed the consultation. Are you sure you want to leave?';
 			return event.returnValue;
 		}
 	}
@@ -318,10 +335,10 @@
 								disabled={loading || index > currentStep}
 								class="flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors
                   {index === currentStep
-										? 'border-indigo-600 bg-indigo-600 text-white'
-										: index < currentStep
-											? 'border-indigo-600 bg-white text-indigo-600 hover:bg-indigo-50'
-											: 'border-gray-300 bg-white text-gray-400 cursor-not-allowed'}"
+									? 'border-indigo-600 bg-indigo-600 text-white'
+									: index < currentStep
+										? 'border-indigo-600 bg-white text-indigo-600 hover:bg-indigo-50'
+										: 'cursor-not-allowed border-gray-300 bg-white text-gray-400'}"
 							>
 								{index + 1}
 							</button>
@@ -368,20 +385,20 @@
 								d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
 							></path>
 						</svg>
-						<p class="text-lg text-gray-600">Loading consultation form...</p>
+						<p class="text-lg text-gray-600">Saving...</p>
 					</div>
 				</div>
 			{:else}
 				<!-- Current Form Step -->
 				<div class="p-6 sm:p-8">
 					{#if currentStep === 0}
-						<ClientInfoForm bind:data={contactInfoData} disabled={loading} />
+						<ContactBusinessForm bind:data={contactBusinessData} {errors} disabled={loading} />
 					{:else if currentStep === 1}
-						<BusinessContext bind:data={businessContextData} disabled={loading} />
+						<SituationChallenges bind:data={situationData} {errors} disabled={loading} />
 					{:else if currentStep === 2}
-						<PainPointsCapture bind:data={painPointsData} disabled={loading} />
+						<GoalsBudget bind:data={goalsBudgetData} {errors} disabled={loading} />
 					{:else if currentStep === 3}
-						<GoalsObjectives bind:data={goalsObjectivesData} disabled={loading} />
+						<PreferencesNotes bind:data={preferencesNotesData} {errors} disabled={loading} />
 					{/if}
 				</div>
 
@@ -413,7 +430,7 @@
 						<!-- Step Info -->
 						<div class="hidden items-center space-x-4 text-sm text-gray-500 sm:flex">
 							<span>Step {currentStep + 1} of {totalSteps}</span>
-							<span>•</span>
+							<span>&bull;</span>
 							<span>{currentStepInfo.title}</span>
 						</div>
 
@@ -426,23 +443,15 @@
 									onclick={handleComplete}
 									disabled={loading}
 								>
-									{#if loading}
-										<svg class="mr-2 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-											<path class="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-										</svg>
-										Completing...
-									{:else}
-										Complete Consultation
-										<svg class="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M5 13l4 4L19 7"
-											/>
-										</svg>
-									{/if}
+									Complete Consultation
+									<svg class="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M5 13l4 4L19 7"
+										/>
+									</svg>
 								</button>
 							{:else}
 								<button
@@ -451,23 +460,15 @@
 									onclick={handleNext}
 									disabled={loading}
 								>
-									{#if loading}
-										<svg class="mr-2 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-											<path class="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-										</svg>
-										Saving...
-									{:else}
-										Next
-										<svg class="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M9 5l7 7-7 7"
-											/>
-										</svg>
-									{/if}
+									Next
+									<svg class="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M9 5l7 7-7 7"
+										/>
+									</svg>
 								</button>
 							{/if}
 						</div>

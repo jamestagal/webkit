@@ -934,31 +934,50 @@ export type QuestionnaireResponseInsert = typeof questionnaireResponses.$inferIn
 export type QuestionnaireStatus = 'not_started' | 'in_progress' | 'completed';
 
 // =============================================================================
-// CONSULTATION TABLES
+// CONSULTATION TABLES (v2 - Flat Columns)
 // =============================================================================
 
-// Consultations table
+// Consultations table - v2 flat structure
 export const consultations = pgTable('consultations', {
 	id: uuid('id').primaryKey().defaultRandom(),
-	userId: uuid('user_id')
+	agencyId: uuid('agency_id')
 		.notNull()
-		.references(() => users.id, { onDelete: 'cascade' }),
-	agencyId: uuid('agency_id').references(() => agencies.id, { onDelete: 'cascade' }), // Added for multi-tenancy
+		.references(() => agencies.id, { onDelete: 'cascade' }),
 
-	// JSONB fields for form data
-	contactInfo: jsonb('contact_info').notNull().default({}),
-	businessContext: jsonb('business_context').notNull().default({}),
-	painPoints: jsonb('pain_points').notNull().default({}),
-	goalsObjectives: jsonb('goals_objectives').notNull().default({}),
+	// Step 1: Contact & Business
+	businessName: text('business_name'),
+	contactPerson: text('contact_person'),
+	email: text('email').notNull(),
+	phone: text('phone'),
+	website: text('website'),
+	socialLinkedin: text('social_linkedin'),
+	socialFacebook: text('social_facebook'),
+	socialInstagram: text('social_instagram'),
+	industry: text('industry').notNull(),
+	businessType: text('business_type').notNull(),
+
+	// Step 2: Situation & Challenges
+	websiteStatus: text('website_status').notNull().default('none'), // 'none' | 'refresh' | 'rebuild'
+	primaryChallenges: text('primary_challenges').array().notNull().default([]),
+	urgencyLevel: text('urgency_level').notNull().default('low'), // 'low' | 'medium' | 'high' | 'critical'
+
+	// Step 3: Goals & Budget
+	primaryGoals: text('primary_goals').array().notNull().default([]),
+	conversionGoal: text('conversion_goal'),
+	budgetRange: text('budget_range').notNull().default('tbd'),
+	timeline: text('timeline'), // 'asap' | '1-3-months' | '3-6-months' | 'flexible'
+
+	// Step 4: Preferences & Notes
+	designStyles: text('design_styles').array(),
+	admiredWebsites: text('admired_websites'),
+	consultationNotes: text('consultation_notes'),
 
 	// Metadata
-	status: varchar('status', { length: 50 }).notNull().default('draft'),
-	completionPercentage: integer('completion_percentage').notNull().default(0),
+	status: varchar('status', { length: 50 }).notNull().default('draft'), // 'draft' | 'completed' | 'converted'
 
 	// Timestamps
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-	completedAt: timestamp('completed_at', { withTimezone: true })
+	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 });
 
 // Consultation drafts table
@@ -1147,24 +1166,26 @@ export interface SignatureConfig {
 	requireWitness?: boolean;
 }
 
-// Form option category type
+// Form option category type (v2 - streamlined categories)
 export type FormOptionCategory =
-	| 'budget_range'
 	| 'industry'
 	| 'business_type'
-	| 'digital_presence'
-	| 'marketing_channels'
-	| 'urgency'
-	| 'challenges'
-	| 'technical_issues'
-	| 'solution_gaps'
+	| 'website_status'
+	| 'primary_challenges'
+	| 'urgency_level'
 	| 'primary_goals'
-	| 'secondary_goals'
-	| 'success_metrics'
-	| 'kpis'
-	| 'budget_constraints';
+	| 'conversion_goal'
+	| 'budget_range'
+	| 'timeline'
+	| 'design_styles';
 
-// JSONB type definitions (matching Go backend)
+// =============================================================================
+// DEPRECATED: v1 JSONB type definitions
+// These are kept for backward compatibility with drafts/versions tables
+// New code should use the flat column types from consultations table
+// =============================================================================
+
+/** @deprecated Use flat columns from consultations table instead */
 export interface ContactInfo {
 	business_name?: string;
 	contact_person?: string;
@@ -1174,6 +1195,7 @@ export interface ContactInfo {
 	social_media?: Record<string, string>;
 }
 
+/** @deprecated Use flat columns from consultations table instead */
 export interface BusinessContext {
 	industry?: string;
 	business_type?: string;
@@ -1183,6 +1205,7 @@ export interface BusinessContext {
 	marketing_channels?: string[];
 }
 
+/** @deprecated Use flat columns from consultations table instead */
 export interface PainPoints {
 	primary_challenges?: string[];
 	technical_issues?: string[];
@@ -1191,6 +1214,7 @@ export interface PainPoints {
 	current_solution_gaps?: string[];
 }
 
+/** @deprecated Use flat columns from consultations table instead */
 export interface GoalsObjectives {
 	primary_goals?: string[];
 	secondary_goals?: string[];

@@ -128,7 +128,7 @@
 					<textarea
 						id="description"
 						bind:value={description}
-						class="textarea textarea-bordered"
+						class="textarea textarea-bordered w-full"
 						placeholder="Internal description for this template..."
 						rows="2"
 					></textarea>

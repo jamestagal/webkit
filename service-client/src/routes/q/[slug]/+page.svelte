@@ -16,6 +16,7 @@
 			agency: {
 				id: string;
 				name: string;
+				logoUrl?: string | null;
 			} | null;
 			agencyProfile: {
 				logoUrl?: string | null;
@@ -41,7 +42,7 @@
 	{@const agencyName = data.agency?.name}
 	<QuestionnaireWizard
 		questionnaire={data.questionnaire}
-		agencyLogoUrl={data.agencyProfile?.logoUrl ?? null}
+		agencyLogoUrl={data.agency?.logoUrl ?? null}
 		{...agencyName ? { agencyName } : {}}
 		onComplete={handleComplete}
 		readOnly={data.reason === 'already_completed'}
@@ -52,11 +53,11 @@
 		<div class="card bg-base-200 max-w-md w-full">
 			<div class="card-body items-center text-center">
 				<!-- Agency Logo -->
-				{#if data.agencyProfile?.logoUrl}
+				{#if data.agency?.logoUrl}
 					<img
-						src={data.agencyProfile.logoUrl}
+						src={data.agency.logoUrl}
 						alt="{data.agency?.name || 'Agency'} Logo"
-						class="h-12 max-w-[160px] object-contain mb-4"
+						class="h-12 max-w-40 object-contain mb-4"
 					/>
 				{:else if data.agency?.name}
 					<h2 class="text-lg font-bold text-base-content mb-4">{data.agency.name}</h2>

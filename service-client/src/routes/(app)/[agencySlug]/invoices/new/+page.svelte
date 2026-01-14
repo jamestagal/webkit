@@ -424,7 +424,7 @@
 							</label>
 							<textarea
 								id="clientAddress"
-								class="textarea textarea-bordered"
+								class="textarea textarea-bordered w-full"
 								rows="2"
 								bind:value={clientAddress}
 							></textarea>
@@ -685,7 +685,7 @@
 							</label>
 							<textarea
 								id="notes"
-								class="textarea textarea-bordered"
+								class="textarea textarea-bordered w-full"
 								rows="3"
 								placeholder="Notes for internal use only..."
 								bind:value={notes}
@@ -697,7 +697,7 @@
 							</label>
 							<textarea
 								id="publicNotes"
-								class="textarea textarea-bordered"
+								class="textarea textarea-bordered w-full"
 								rows="3"
 								placeholder="Notes visible on the invoice..."
 								bind:value={publicNotes}

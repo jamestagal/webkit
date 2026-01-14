@@ -1,98 +1,40 @@
 /**
- * Consultation Remote Functions
+ * Consultation Remote Functions v2
  *
- * Direct PostgreSQL access using drizzle-orm.
- * Follows the remote functions guide:
- * - Uses query() for read operations
- * - Uses command() for programmatic mutations (callable functions)
- * - Uses Valibot for validation (NOT Zod)
- * - Uses getRequestEvent() for auth context
+ * Streamlined 4-step consultation form with flat column structure.
+ * Uses SvelteKit remote functions with Drizzle ORM.
  */
 
 import { query, command } from '$app/server';
 import * as v from 'valibot';
 import { db } from '$lib/server/db';
-import { consultations, consultationDrafts, consultationVersions } from '$lib/server/schema';
-import { getUserId } from '$lib/server/auth';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { consultations } from '$lib/server/schema';
+import { getAgencyId } from '$lib/server/auth';
+import { eq, and, desc } from 'drizzle-orm';
 import {
-	ContactInfoSchema,
-	BusinessContextSchema,
-	PainPointsSchema,
-	GoalsObjectivesSchema,
-	CompleteConsultationSchema,
-	AutoSaveDraftSchema,
-	CreateConsultationWithContactInfoSchema
+	CreateConsultationSchema,
+	UpdateContactBusinessSchema,
+	UpdateSituationSchema,
+	UpdateGoalsBudgetSchema,
+	UpdatePreferencesNotesSchema,
+	CompleteConsultationSchema
 } from '$lib/schema/consultation';
-import type {
-	ContactInfo,
-	BusinessContext,
-	PainPoints,
-	GoalsObjectives
-} from '$lib/server/schema';
-
-// =============================================================================
-// Helper Functions
-// =============================================================================
-
-/**
- * Calculate completion percentage based on filled form sections.
- * Each section contributes 25% to the total.
- */
-function calculateCompletionPercentage(data: {
-	contactInfo: unknown;
-	businessContext: unknown;
-	painPoints: unknown;
-	goalsObjectives: unknown;
-}): number {
-	let percentage = 0;
-
-	const hasContent = (obj: unknown): boolean => {
-		if (!obj || typeof obj !== 'object') return false;
-		return Object.values(obj as Record<string, unknown>).some((v) => {
-			if (Array.isArray(v)) return v.length > 0;
-			if (typeof v === 'string') return v.trim().length > 0;
-			if (typeof v === 'number') return true;
-			if (typeof v === 'object' && v !== null) return hasContent(v);
-			return Boolean(v);
-		});
-	};
-
-	if (hasContent(data.contactInfo)) percentage += 25;
-	if (hasContent(data.businessContext)) percentage += 25;
-	if (hasContent(data.painPoints)) percentage += 25;
-	if (hasContent(data.goalsObjectives)) percentage += 25;
-
-	return percentage;
-}
-
-/**
- * Extract form data fields, excluding the consultationId.
- */
-function extractFormData<T extends { consultationId: string }>(
-	data: T
-): Omit<T, 'consultationId'> {
-	const { consultationId, ...rest } = data;
-	return rest;
-}
 
 // =============================================================================
 // Query Functions (Read Operations)
 // =============================================================================
 
 /**
- * Get existing draft consultation for the current user (READ-ONLY).
- * Returns null if no draft exists - does NOT create a new one.
- * Use this for the consultation page to implement lazy creation.
+ * Get existing draft consultation for the current agency.
+ * Returns null if no draft exists.
  */
 export const getExistingDraftConsultation = query(async () => {
-	const userId = getUserId();
+	const agencyId = await getAgencyId();
 
-	// Only return existing draft, never create
 	const [existing] = await db
 		.select()
 		.from(consultations)
-		.where(and(eq(consultations.userId, userId), eq(consultations.status, 'draft')))
+		.where(and(eq(consultations.agencyId, agencyId), eq(consultations.status, 'draft')))
 		.orderBy(desc(consultations.updatedAt))
 		.limit(1);
 
@@ -100,472 +42,287 @@ export const getExistingDraftConsultation = query(async () => {
 });
 
 /**
- * @deprecated Use getExistingDraftConsultation instead for lazy creation pattern.
- * Get or create a consultation for the current user.
- * Returns the most recent draft consultation, or creates a new one.
+ * Get a specific consultation by ID.
+ * Verifies agency ownership before returning.
  */
-export const getOrCreateConsultation = query(async () => {
-	const userId = getUserId();
+export const getConsultation = query(v.pipe(v.string(), v.uuid()), async (id: string) => {
+	const agencyId = await getAgencyId();
 
-	// Try to find existing draft consultation
-	const [existing] = await db
+	const [consultation] = await db
 		.select()
 		.from(consultations)
-		.where(and(eq(consultations.userId, userId), eq(consultations.status, 'draft')))
-		.orderBy(desc(consultations.updatedAt))
+		.where(and(eq(consultations.id, id), eq(consultations.agencyId, agencyId)))
 		.limit(1);
 
-	if (existing) {
-		return existing;
+	if (!consultation) {
+		throw new Error('Consultation not found');
 	}
 
-	// Create new consultation
-	const [created] = await db
-		.insert(consultations)
-		.values({
-			userId,
-			status: 'draft',
-			completionPercentage: 0
-		})
-		.returning();
-
-	return created;
+	return consultation;
 });
 
 /**
- * Get a specific consultation by ID.
- * Verifies ownership before returning.
+ * Get all consultations for the current agency.
  */
-export const getConsultation = query(
-	v.pipe(v.string(), v.uuid()),
-	async (id: string) => {
-		const userId = getUserId();
-
-		const [consultation] = await db
-			.select()
-			.from(consultations)
-			.where(and(eq(consultations.id, id), eq(consultations.userId, userId)))
-			.limit(1);
-
-		if (!consultation) {
-			throw new Error('Consultation not found');
-		}
-
-		return consultation;
-	}
-);
-
-/**
- * Get the draft for a specific consultation.
- * Returns null if no draft exists.
- */
-export const getDraft = query(
-	v.pipe(v.string(), v.uuid()),
-	async (consultationId: string) => {
-		const userId = getUserId();
-
-		const [draft] = await db
-			.select()
-			.from(consultationDrafts)
-			.where(
-				and(
-					eq(consultationDrafts.consultationId, consultationId),
-					eq(consultationDrafts.userId, userId)
-				)
-			)
-			.limit(1);
-
-		return draft || null;
-	}
-);
-
-/**
- * Get all consultations for the current user.
- */
-export const getUserConsultations = query(async () => {
-	const userId = getUserId();
+export const getAgencyConsultations = query(async () => {
+	const agencyId = await getAgencyId();
 
 	return await db
 		.select()
 		.from(consultations)
-		.where(eq(consultations.userId, userId))
+		.where(eq(consultations.agencyId, agencyId))
+		.orderBy(desc(consultations.updatedAt));
+});
+
+/**
+ * Get completed consultations for the current agency.
+ */
+export const getCompletedConsultations = query(async () => {
+	const agencyId = await getAgencyId();
+
+	return await db
+		.select()
+		.from(consultations)
+		.where(and(eq(consultations.agencyId, agencyId), eq(consultations.status, 'completed')))
 		.orderBy(desc(consultations.updatedAt));
 });
 
 // =============================================================================
-// Command Functions (Programmatic Mutations)
+// Command Functions (Mutations)
 // =============================================================================
 
 /**
- * Create a new consultation with contact information (lazy creation).
- * Used when user clicks "Next" on the first step for the first time.
- * Returns the new consultation ID.
+ * Create a new consultation with Step 1 data (Contact & Business).
+ * Used for lazy creation when user completes the first step.
  */
-export const createConsultationWithContactInfo = command(
-	CreateConsultationWithContactInfoSchema,
-	async (data) => {
-		const userId = getUserId();
+export const createConsultation = command(CreateConsultationSchema, async (data) => {
+	const agencyId = await getAgencyId();
 
-		// Build contact info object (only include defined fields)
-		const contactInfo: ContactInfo = {
-			business_name: data.business_name ?? '',
-			contact_person: data.contact_person ?? '',
-			email: data.email ?? '',
-			phone: data.phone ?? '',
-			website: data.website ?? '',
-			social_media: data.social_media ?? {}
-		};
-
-		// Calculate completion percentage (25% for contact info)
-		const completionPercentage = calculateCompletionPercentage({
-			contactInfo,
-			businessContext: null,
-			painPoints: null,
-			goalsObjectives: null
-		});
-
-		// Create consultation with contact info in one operation
-		const [created] = await db
-			.insert(consultations)
-			.values({
-				userId,
-				status: 'draft',
-				contactInfo,
-				completionPercentage
-			})
-			.returning();
-
-		if (!created) {
-			throw new Error('Failed to create consultation');
-		}
-
-		return { consultationId: created.id };
+	// Ensure agencyId matches
+	if (data.agencyId !== agencyId) {
+		throw new Error('Agency ID mismatch');
 	}
-);
+
+	const [created] = await db
+		.insert(consultations)
+		.values({
+			agencyId,
+			businessName: data.business_name || null,
+			contactPerson: data.contact_person || null,
+			email: data.email,
+			phone: data.phone || null,
+			website: data.website || null,
+			socialLinkedin: data.social_media?.linkedin || null,
+			socialFacebook: data.social_media?.facebook || null,
+			socialInstagram: data.social_media?.instagram || null,
+			industry: data.industry,
+			businessType: data.business_type,
+			// Defaults for subsequent steps
+			websiteStatus: 'none',
+			primaryChallenges: [],
+			urgencyLevel: 'low',
+			primaryGoals: [],
+			budgetRange: 'tbd',
+			status: 'draft'
+		})
+		.returning();
+
+	if (!created) {
+		throw new Error('Failed to create consultation');
+	}
+
+	return { consultationId: created.id };
+});
 
 /**
- * Save contact information for a consultation.
+ * Update Step 1: Contact & Business
  */
-export const saveContactInfo = command(ContactInfoSchema, async (data) => {
-	const userId = getUserId();
-	const formData = extractFormData(data);
+export const updateContactBusiness = command(UpdateContactBusinessSchema, async (data) => {
+	const agencyId = await getAgencyId();
 
 	// Verify ownership
 	const [existing] = await db
 		.select()
 		.from(consultations)
-		.where(and(eq(consultations.id, data.consultationId), eq(consultations.userId, userId)))
+		.where(and(eq(consultations.id, data.consultationId), eq(consultations.agencyId, agencyId)))
 		.limit(1);
 
 	if (!existing) {
 		throw new Error('Consultation not found');
 	}
 
-	// Build contact info object (use nullish coalescing for strict types)
-	const contactInfo: ContactInfo = {
-		business_name: formData.business_name ?? '',
-		contact_person: formData.contact_person ?? '',
-		email: formData.email ?? '',
-		phone: formData.phone ?? '',
-		website: formData.website ?? '',
-		social_media: formData.social_media ?? {}
-	};
-
-	// Calculate new completion percentage
-	const completionPercentage = calculateCompletionPercentage({
-		contactInfo,
-		businessContext: existing.businessContext,
-		painPoints: existing.painPoints,
-		goalsObjectives: existing.goalsObjectives
-	});
-
-	// Update the consultation
 	await db
 		.update(consultations)
 		.set({
-			contactInfo,
-			completionPercentage,
+			businessName: data.business_name || null,
+			contactPerson: data.contact_person || null,
+			email: data.email,
+			phone: data.phone || null,
+			website: data.website || null,
+			socialLinkedin: data.social_media?.linkedin || null,
+			socialFacebook: data.social_media?.facebook || null,
+			socialInstagram: data.social_media?.instagram || null,
+			industry: data.industry,
+			businessType: data.business_type,
 			updatedAt: new Date()
 		})
 		.where(eq(consultations.id, data.consultationId));
 
-	// Refresh the consultation query
+	// Refresh the query cache
 	getConsultation(data.consultationId).refresh();
 });
 
 /**
- * Save business context for a consultation.
+ * Update Step 2: Situation & Challenges
  */
-export const saveBusinessContext = command(BusinessContextSchema, async (data) => {
-	const userId = getUserId();
-	const formData = extractFormData(data);
+export const updateSituation = command(UpdateSituationSchema, async (data) => {
+	const agencyId = await getAgencyId();
 
 	// Verify ownership
 	const [existing] = await db
 		.select()
 		.from(consultations)
-		.where(and(eq(consultations.id, data.consultationId), eq(consultations.userId, userId)))
+		.where(and(eq(consultations.id, data.consultationId), eq(consultations.agencyId, agencyId)))
 		.limit(1);
 
 	if (!existing) {
 		throw new Error('Consultation not found');
 	}
 
-	// Build business context object (use nullish coalescing for strict types)
-	const businessContext: BusinessContext = {
-		industry: formData.industry ?? '',
-		business_type: formData.business_type ?? '',
-		team_size: formData.team_size ?? 0,
-		current_platform: formData.current_platform ?? '',
-		digital_presence: formData.digital_presence ?? [],
-		marketing_channels: formData.marketing_channels ?? []
-	};
-
-	// Calculate new completion percentage
-	const completionPercentage = calculateCompletionPercentage({
-		contactInfo: existing.contactInfo,
-		businessContext,
-		painPoints: existing.painPoints,
-		goalsObjectives: existing.goalsObjectives
-	});
-
-	// Update the consultation
 	await db
 		.update(consultations)
 		.set({
-			businessContext,
-			completionPercentage,
+			websiteStatus: data.website_status,
+			primaryChallenges: data.primary_challenges,
+			urgencyLevel: data.urgency_level,
 			updatedAt: new Date()
 		})
 		.where(eq(consultations.id, data.consultationId));
 
-	// Refresh the consultation query
 	getConsultation(data.consultationId).refresh();
 });
 
 /**
- * Save pain points for a consultation.
+ * Update Step 3: Goals & Budget
  */
-export const savePainPoints = command(PainPointsSchema, async (data) => {
-	const userId = getUserId();
-	const formData = extractFormData(data);
+export const updateGoalsBudget = command(UpdateGoalsBudgetSchema, async (data) => {
+	const agencyId = await getAgencyId();
 
 	// Verify ownership
 	const [existing] = await db
 		.select()
 		.from(consultations)
-		.where(and(eq(consultations.id, data.consultationId), eq(consultations.userId, userId)))
+		.where(and(eq(consultations.id, data.consultationId), eq(consultations.agencyId, agencyId)))
 		.limit(1);
 
 	if (!existing) {
 		throw new Error('Consultation not found');
 	}
 
-	// Build pain points object (use nullish coalescing for strict types)
-	const painPoints: PainPoints = {
-		primary_challenges: formData.primary_challenges ?? [],
-		technical_issues: formData.technical_issues ?? [],
-		urgency_level: formData.urgency_level ?? 'medium',
-		impact_assessment: formData.impact_assessment ?? '',
-		current_solution_gaps: formData.current_solution_gaps ?? []
-	};
-
-	// Calculate new completion percentage
-	const completionPercentage = calculateCompletionPercentage({
-		contactInfo: existing.contactInfo,
-		businessContext: existing.businessContext,
-		painPoints,
-		goalsObjectives: existing.goalsObjectives
-	});
-
-	// Update the consultation
 	await db
 		.update(consultations)
 		.set({
-			painPoints,
-			completionPercentage,
+			primaryGoals: data.primary_goals,
+			conversionGoal: data.conversion_goal || null,
+			budgetRange: data.budget_range,
+			timeline: data.timeline || null,
 			updatedAt: new Date()
 		})
 		.where(eq(consultations.id, data.consultationId));
 
-	// Refresh the consultation query
 	getConsultation(data.consultationId).refresh();
 });
 
 /**
- * Save goals and objectives for a consultation.
+ * Update Step 4: Preferences & Notes
  */
-export const saveGoalsObjectives = command(GoalsObjectivesSchema, async (data) => {
-	const userId = getUserId();
-	const formData = extractFormData(data);
+export const updatePreferencesNotes = command(UpdatePreferencesNotesSchema, async (data) => {
+	const agencyId = await getAgencyId();
 
 	// Verify ownership
 	const [existing] = await db
 		.select()
 		.from(consultations)
-		.where(and(eq(consultations.id, data.consultationId), eq(consultations.userId, userId)))
+		.where(and(eq(consultations.id, data.consultationId), eq(consultations.agencyId, agencyId)))
 		.limit(1);
 
 	if (!existing) {
 		throw new Error('Consultation not found');
 	}
 
-	// Build goals objectives object
-	// Using explicit build to handle exactOptionalPropertyTypes
-	const goalsObjectives: GoalsObjectives = {};
-	if (formData.primary_goals) goalsObjectives.primary_goals = formData.primary_goals;
-	if (formData.secondary_goals) goalsObjectives.secondary_goals = formData.secondary_goals;
-	if (formData.success_metrics) goalsObjectives.success_metrics = formData.success_metrics;
-	if (formData.kpis) goalsObjectives.kpis = formData.kpis;
-	if (formData.budget_range) goalsObjectives.budget_range = formData.budget_range;
-	if (formData.budget_constraints) goalsObjectives.budget_constraints = formData.budget_constraints;
-	if (formData.timeline) {
-		goalsObjectives.timeline = {};
-		if (formData.timeline.desired_start)
-			goalsObjectives.timeline.desired_start = formData.timeline.desired_start;
-		if (formData.timeline.target_completion)
-			goalsObjectives.timeline.target_completion = formData.timeline.target_completion;
-		if (formData.timeline.milestones)
-			goalsObjectives.timeline.milestones = formData.timeline.milestones;
-	}
-
-	// Calculate new completion percentage
-	const completionPercentage = calculateCompletionPercentage({
-		contactInfo: existing.contactInfo,
-		businessContext: existing.businessContext,
-		painPoints: existing.painPoints,
-		goalsObjectives
-	});
-
-	// Update the consultation
 	await db
 		.update(consultations)
 		.set({
-			goalsObjectives,
-			completionPercentage,
+			designStyles: data.design_styles || null,
+			admiredWebsites: data.admired_websites || null,
+			consultationNotes: data.consultation_notes || null,
 			updatedAt: new Date()
 		})
 		.where(eq(consultations.id, data.consultationId));
 
-	// Refresh the consultation query
 	getConsultation(data.consultationId).refresh();
 });
 
 /**
  * Complete a consultation.
- * Creates a version snapshot and marks as completed.
+ * Marks status as 'completed'.
  */
 export const completeConsultation = command(CompleteConsultationSchema, async (data) => {
-	const userId = getUserId();
+	const agencyId = await getAgencyId();
 
 	// Get the consultation
 	const [existing] = await db
 		.select()
 		.from(consultations)
-		.where(and(eq(consultations.id, data.consultationId), eq(consultations.userId, userId)))
+		.where(and(eq(consultations.id, data.consultationId), eq(consultations.agencyId, agencyId)))
 		.limit(1);
 
 	if (!existing) {
 		throw new Error('Consultation not found');
 	}
 
-	// Get the next version number
-	const [maxVersion] = await db
-		.select({ max: sql<number>`COALESCE(MAX(version_number), 0)` })
-		.from(consultationVersions)
-		.where(eq(consultationVersions.consultationId, data.consultationId));
-
-	const nextVersion = (maxVersion?.max || 0) + 1;
-
-	// Create version snapshot
-	await db.insert(consultationVersions).values({
-		consultationId: data.consultationId,
-		userId,
-		versionNumber: nextVersion,
-		contactInfo: existing.contactInfo,
-		businessContext: existing.businessContext,
-		painPoints: existing.painPoints,
-		goalsObjectives: existing.goalsObjectives,
-		status: 'completed',
-		completionPercentage: 100,
-		changeSummary: 'Consultation completed',
-		changedFields: ['status', 'completedAt']
-	});
-
-	// Update consultation status
+	// Mark as completed
 	await db
 		.update(consultations)
 		.set({
 			status: 'completed',
-			completionPercentage: 100,
-			completedAt: new Date(),
 			updatedAt: new Date()
 		})
 		.where(eq(consultations.id, data.consultationId));
 
-	// Delete any draft
-	await db
-		.delete(consultationDrafts)
-		.where(eq(consultationDrafts.consultationId, data.consultationId));
+	// Refresh caches
+	getConsultation(data.consultationId).refresh();
+	getExistingDraftConsultation().refresh();
+	getAgencyConsultations().refresh();
 
-	// Return success - client will handle the redirect
 	return { success: true, consultationId: data.consultationId };
 });
 
 /**
- * Auto-save draft data.
- * Uses UPSERT pattern to create or update draft.
+ * Delete a consultation.
  */
-export const autoSaveDraft = command(AutoSaveDraftSchema, async (data) => {
-	const userId = getUserId();
+export const deleteConsultation = command(
+	v.object({ consultationId: v.pipe(v.string(), v.uuid()) }),
+	async (data) => {
+		const agencyId = await getAgencyId();
 
-	// Verify consultation ownership
-	const [existing] = await db
-		.select()
-		.from(consultations)
-		.where(and(eq(consultations.id, data.consultationId), eq(consultations.userId, userId)))
-		.limit(1);
+		// Verify ownership
+		const [existing] = await db
+			.select()
+			.from(consultations)
+			.where(and(eq(consultations.id, data.consultationId), eq(consultations.agencyId, agencyId)))
+			.limit(1);
 
-	if (!existing) {
-		throw new Error('Consultation not found');
+		if (!existing) {
+			throw new Error('Consultation not found');
+		}
+
+		await db.delete(consultations).where(eq(consultations.id, data.consultationId));
+
+		// Refresh caches
+		getAgencyConsultations().refresh();
+		getExistingDraftConsultation().refresh();
+
+		return { success: true };
 	}
-
-	// Check if draft exists
-	const [existingDraft] = await db
-		.select()
-		.from(consultationDrafts)
-		.where(eq(consultationDrafts.consultationId, data.consultationId))
-		.limit(1);
-
-	if (existingDraft) {
-		// Update existing draft
-		await db
-			.update(consultationDrafts)
-			.set({
-				contactInfo: data.contact_info || existingDraft.contactInfo,
-				businessContext: data.business_context || existingDraft.businessContext,
-				painPoints: data.pain_points || existingDraft.painPoints,
-				goalsObjectives: data.goals_objectives || existingDraft.goalsObjectives,
-				draftNotes: data.draft_notes,
-				autoSaved: true,
-				updatedAt: new Date()
-			})
-			.where(eq(consultationDrafts.id, existingDraft.id));
-	} else {
-		// Create new draft
-		await db.insert(consultationDrafts).values({
-			consultationId: data.consultationId,
-			userId,
-			contactInfo: data.contact_info || {},
-			businessContext: data.business_context || {},
-			painPoints: data.pain_points || {},
-			goalsObjectives: data.goals_objectives || {},
-			draftNotes: data.draft_notes,
-			autoSaved: true
-		});
-	}
-
-	// Refresh draft query
-	getDraft(data.consultationId).refresh();
-});
-
+);

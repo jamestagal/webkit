@@ -879,7 +879,7 @@
 										<textarea
 											id="comments"
 											name="comments"
-											class="textarea textarea-bordered"
+											class="textarea textarea-bordered w-full"
 											rows="3"
 											placeholder="Add any notes or questions..."
 										></textarea>
@@ -931,7 +931,7 @@
 										<textarea
 											id="notes"
 											name="notes"
-											class="textarea textarea-bordered"
+											class="textarea textarea-bordered w-full"
 											rows="4"
 											placeholder="Please describe the changes or clarifications you'd like us to make..."
 											required
@@ -991,7 +991,7 @@
 										<textarea
 											id="reason"
 											name="reason"
-											class="textarea textarea-bordered"
+											class="textarea textarea-bordered w-full"
 											rows="3"
 											placeholder="Help us understand what we could do better..."
 										></textarea>

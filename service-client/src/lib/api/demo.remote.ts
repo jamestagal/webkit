@@ -21,7 +21,7 @@ import {
 	agencyAddons
 } from '$lib/server/schema';
 import { getAgencyContext } from '$lib/server/agency';
-import { eq, and, inArray, sql, desc } from 'drizzle-orm';
+import { eq, and, inArray, like, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import {
 	DEMO_CONSULTATION,
@@ -48,7 +48,7 @@ export const getDemoDataStatus = query(async () => {
 		.where(
 			and(
 				eq(consultations.agencyId, agencyId),
-				sql`${consultations.contactInfo}->>'business_name' LIKE 'Demo:%'`
+				like(consultations.businessName, 'Demo:%')
 			)
 		)
 		.limit(1);
@@ -76,7 +76,7 @@ export const loadDemoData = command(async () => {
 		.where(
 			and(
 				eq(consultations.agencyId, agencyId),
-				sql`${consultations.contactInfo}->>'business_name' LIKE 'Demo:%'`
+				like(consultations.businessName, 'Demo:%')
 			)
 		)
 		.limit(1);
@@ -118,18 +118,36 @@ export const loadDemoData = command(async () => {
 
 	const selectedAddonIds = availableAddons.map((addon) => addon.id);
 
-	// 1. Create consultation
+	// 1. Create consultation (v2 flat columns)
 	await db.insert(consultations).values({
 		id: consultationId,
-		userId,
 		agencyId,
-		contactInfo: DEMO_CONSULTATION.contactInfo,
-		businessContext: DEMO_CONSULTATION.businessContext,
-		painPoints: DEMO_CONSULTATION.painPoints,
-		goalsObjectives: DEMO_CONSULTATION.goalsObjectives,
-		status: 'completed',
-		completionPercentage: 100,
-		completedAt: new Date()
+		// Step 1: Contact & Business
+		businessName: DEMO_CONSULTATION.businessName,
+		contactPerson: DEMO_CONSULTATION.contactPerson,
+		email: DEMO_CONSULTATION.email,
+		phone: DEMO_CONSULTATION.phone,
+		website: DEMO_CONSULTATION.website,
+		socialLinkedin: DEMO_CONSULTATION.socialLinkedin,
+		socialFacebook: DEMO_CONSULTATION.socialFacebook,
+		socialInstagram: DEMO_CONSULTATION.socialInstagram,
+		industry: DEMO_CONSULTATION.industry,
+		businessType: DEMO_CONSULTATION.businessType,
+		// Step 2: Situation & Challenges
+		websiteStatus: DEMO_CONSULTATION.websiteStatus,
+		primaryChallenges: DEMO_CONSULTATION.primaryChallenges,
+		urgencyLevel: DEMO_CONSULTATION.urgencyLevel,
+		// Step 3: Goals & Budget
+		primaryGoals: DEMO_CONSULTATION.primaryGoals,
+		conversionGoal: DEMO_CONSULTATION.conversionGoal,
+		budgetRange: DEMO_CONSULTATION.budgetRange,
+		timeline: DEMO_CONSULTATION.timeline,
+		// Step 4: Preferences & Notes
+		designStyles: DEMO_CONSULTATION.designStyles,
+		admiredWebsites: DEMO_CONSULTATION.admiredWebsites,
+		consultationNotes: DEMO_CONSULTATION.consultationNotes,
+		// Metadata
+		status: 'completed'
 	});
 
 	// 2. Create proposal linked to consultation
@@ -315,7 +333,7 @@ export const clearDemoData = command(async () => {
 		.where(
 			and(
 				eq(consultations.agencyId, agencyId),
-				sql`${consultations.contactInfo}->>'business_name' LIKE 'Demo:%'`
+				like(consultations.businessName, 'Demo:%')
 			)
 		);
 

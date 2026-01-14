@@ -23,9 +23,10 @@
 		agencyName?: string;
 		onComplete?: () => void;
 		readOnly?: boolean;
+		isPreview?: boolean;
 	}
 
-	let { questionnaire, agencyLogoUrl, agencyName, onComplete, readOnly = false }: Props = $props();
+	let { questionnaire, agencyLogoUrl, agencyName, onComplete, readOnly = false, isPreview = false }: Props = $props();
 
 	const toast = getToast();
 
@@ -77,7 +78,8 @@
 
 	// Auto-save on section change
 	async function saveProgress() {
-		if (readOnly || !hasUnsavedChanges || questionnaire.status === 'completed') return;
+		// Skip saving in preview mode or read-only
+		if (isPreview || readOnly || !hasUnsavedChanges || questionnaire.status === 'completed') return;
 
 		saving = true;
 		try {
@@ -123,6 +125,12 @@
 	async function handleSubmit() {
 		if (submitting || questionnaire.status === 'completed') return;
 
+		// In preview mode, just show a message
+		if (isPreview) {
+			toast.info('This is a preview - submissions are disabled');
+			return;
+		}
+
 		// Save current progress first
 		await saveProgress();
 
@@ -158,25 +166,29 @@
 		hasUnsavedChanges = true;
 	}
 
-	// Warn about unsaved changes on navigation
+	// Warn about unsaved changes on navigation (skip in preview mode)
 	function handleBeforeUnload(event: BeforeUnloadEvent): string | void {
-		if (hasUnsavedChanges) {
+		if (hasUnsavedChanges && !isPreview) {
 			event.preventDefault();
 			return 'You have unsaved changes. Are you sure you want to leave?';
 		}
 	}
 
-	// Auto-save periodically
+	// Auto-save periodically (skip in preview mode)
 	let autoSaveInterval: ReturnType<typeof setInterval>;
 	onMount(() => {
-		autoSaveInterval = setInterval(() => {
-			if (hasUnsavedChanges && !readOnly) {
-				saveProgress();
-			}
-		}, 30000); // Auto-save every 30 seconds
+		if (!isPreview) {
+			autoSaveInterval = setInterval(() => {
+				if (hasUnsavedChanges && !readOnly) {
+					saveProgress();
+				}
+			}, 30000); // Auto-save every 30 seconds
+		}
 
 		return () => {
-			clearInterval(autoSaveInterval);
+			if (autoSaveInterval) {
+				clearInterval(autoSaveInterval);
+			}
 		};
 	});
 </script>

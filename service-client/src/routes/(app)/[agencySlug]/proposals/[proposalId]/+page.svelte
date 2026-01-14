@@ -508,7 +508,7 @@
 								A brief overview of the proposal highlighting key benefits and value proposition.
 							</p>
 							<textarea
-								class="textarea textarea-bordered min-h-48"
+								class="textarea textarea-bordered w-full min-h-48"
 								bind:value={formData.executiveSummary}
 								placeholder="Summarize the key points of this proposal: what problem you're solving, your recommended solution, expected outcomes, and why your agency is the right choice..."
 							></textarea>
@@ -644,7 +644,7 @@
 								Research about the client's industry and business opportunity.
 							</p>
 							<textarea
-								class="textarea textarea-bordered min-h-32"
+								class="textarea textarea-bordered w-full min-h-32"
 								bind:value={formData.opportunityContent}
 								placeholder="Write about the market opportunity, industry trends, and how a new website can help..."
 							></textarea>
@@ -750,7 +750,7 @@
 						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Local Advantage</h2>
 							<textarea
-								class="textarea textarea-bordered min-h-24"
+								class="textarea textarea-bordered w-full min-h-24"
 								bind:value={formData.localAdvantageContent}
 								placeholder="Describe local SEO benefits, community presence..."
 							></textarea>
@@ -859,7 +859,7 @@
 										</div>
 										<div class="form-control mt-2">
 											<textarea
-												class="textarea textarea-bordered textarea-sm"
+												class="textarea textarea-bordered w-full textarea-sm"
 												placeholder="What happens in this phase..."
 												bind:value={phase.description}
 											></textarea>
@@ -905,7 +905,7 @@
 													</label>
 													<textarea
 														id="page-desc-{index}"
-														class="textarea textarea-bordered textarea-sm"
+														class="textarea textarea-bordered w-full textarea-sm"
 														placeholder="What this page will include..."
 														bind:value={page.description}
 													></textarea>
@@ -991,7 +991,7 @@
 						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Closing Message</h2>
 							<textarea
-								class="textarea textarea-bordered min-h-32"
+								class="textarea textarea-bordered w-full min-h-32"
 								bind:value={formData.closingContent}
 								placeholder="A personal message to close the proposal..."
 							></textarea>

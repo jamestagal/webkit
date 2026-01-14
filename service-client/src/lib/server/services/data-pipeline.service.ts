@@ -12,15 +12,7 @@
  * - {{computed.full_address}} - Derived/calculated field
  */
 
-import type {
-	Agency,
-	AgencyProfile,
-	Consultation,
-	ContactInfo,
-	BusinessContext,
-	PainPoints,
-	GoalsObjectives
-} from '$lib/server/schema';
+import type { Agency, AgencyProfile, Consultation } from '$lib/server/schema';
 
 // =============================================================================
 // Type Definitions
@@ -73,51 +65,36 @@ export interface AgencyMergeFields {
 }
 
 export interface ClientMergeFields {
-	// Contact
+	// Contact & Business (Step 1)
 	business_name: string;
 	contact_person: string;
 	email: string;
 	phone: string;
 	website: string;
-
-	// Business context
 	industry: string;
 	business_type: string;
-	team_size: number | string;
-	current_platform: string;
-	digital_presence: string; // Comma-separated
-	digital_presence_list: string[];
-	marketing_channels: string; // Comma-separated
-	marketing_channels_list: string[];
+	social_linkedin: string;
+	social_facebook: string;
+	social_instagram: string;
 
-	// Pain points
+	// Situation & Challenges (Step 2)
+	website_status: string;
 	primary_challenges: string; // Comma-separated
 	primary_challenges_list: string[];
-	technical_issues: string;
-	technical_issues_list: string[];
 	urgency_level: string;
-	impact_assessment: string;
-	solution_gaps: string;
-	solution_gaps_list: string[];
 
-	// Goals
+	// Goals & Budget (Step 3)
 	primary_goals: string; // Comma-separated
 	primary_goals_list: string[];
-	secondary_goals: string;
-	secondary_goals_list: string[];
-	success_metrics: string;
-	success_metrics_list: string[];
-	kpis: string;
-	kpis_list: string[];
+	conversion_goal: string;
 	budget_range: string;
-	budget_constraints: string;
-	budget_constraints_list: string[];
+	timeline: string;
 
-	// Timeline
-	timeline_start: string;
-	timeline_end: string;
-	timeline_milestones: string;
-	timeline_milestones_list: string[];
+	// Preferences & Notes (Step 4)
+	design_styles: string; // Comma-separated
+	design_styles_list: string[];
+	admired_websites: string;
+	consultation_notes: string;
 }
 
 export interface ProposalMergeFields {
@@ -254,60 +231,40 @@ export class DataPipelineService {
 	}
 
 	/**
-	 * Build client merge fields from consultation data.
+	 * Build client merge fields from consultation data (v2 flat columns).
 	 */
 	buildClientMergeFields(consultation: Consultation): ClientMergeFields {
-		const contact = (consultation.contactInfo as ContactInfo) || {};
-		const business = (consultation.businessContext as BusinessContext) || {};
-		const pain = (consultation.painPoints as PainPoints) || {};
-		const goals = (consultation.goalsObjectives as GoalsObjectives) || {};
-
 		return {
-			// Contact
-			business_name: contact.business_name || '',
-			contact_person: contact.contact_person || '',
-			email: contact.email || '',
-			phone: contact.phone || '',
-			website: contact.website || '',
+			// Contact & Business (Step 1)
+			business_name: consultation.businessName || '',
+			contact_person: consultation.contactPerson || '',
+			email: consultation.email || '',
+			phone: consultation.phone || '',
+			website: consultation.website || '',
+			industry: consultation.industry || '',
+			business_type: consultation.businessType || '',
+			social_linkedin: consultation.socialLinkedin || '',
+			social_facebook: consultation.socialFacebook || '',
+			social_instagram: consultation.socialInstagram || '',
 
-			// Business context
-			industry: business.industry || '',
-			business_type: business.business_type || '',
-			team_size: business.team_size || '',
-			current_platform: business.current_platform || '',
-			digital_presence: this.formatAsCommaSeparated(business.digital_presence || []),
-			digital_presence_list: business.digital_presence || [],
-			marketing_channels: this.formatAsCommaSeparated(business.marketing_channels || []),
-			marketing_channels_list: business.marketing_channels || [],
+			// Situation & Challenges (Step 2)
+			website_status: consultation.websiteStatus || '',
+			primary_challenges: this.formatAsCommaSeparated(consultation.primaryChallenges || []),
+			primary_challenges_list: consultation.primaryChallenges || [],
+			urgency_level: consultation.urgencyLevel || '',
 
-			// Pain points
-			primary_challenges: this.formatAsCommaSeparated(pain.primary_challenges || []),
-			primary_challenges_list: pain.primary_challenges || [],
-			technical_issues: this.formatAsCommaSeparated(pain.technical_issues || []),
-			technical_issues_list: pain.technical_issues || [],
-			urgency_level: pain.urgency_level || '',
-			impact_assessment: pain.impact_assessment || '',
-			solution_gaps: this.formatAsCommaSeparated(pain.current_solution_gaps || []),
-			solution_gaps_list: pain.current_solution_gaps || [],
+			// Goals & Budget (Step 3)
+			primary_goals: this.formatAsCommaSeparated(consultation.primaryGoals || []),
+			primary_goals_list: consultation.primaryGoals || [],
+			conversion_goal: consultation.conversionGoal || '',
+			budget_range: consultation.budgetRange || '',
+			timeline: consultation.timeline || '',
 
-			// Goals
-			primary_goals: this.formatAsCommaSeparated(goals.primary_goals || []),
-			primary_goals_list: goals.primary_goals || [],
-			secondary_goals: this.formatAsCommaSeparated(goals.secondary_goals || []),
-			secondary_goals_list: goals.secondary_goals || [],
-			success_metrics: this.formatAsCommaSeparated(goals.success_metrics || []),
-			success_metrics_list: goals.success_metrics || [],
-			kpis: this.formatAsCommaSeparated(goals.kpis || []),
-			kpis_list: goals.kpis || [],
-			budget_range: goals.budget_range || '',
-			budget_constraints: this.formatAsCommaSeparated(goals.budget_constraints || []),
-			budget_constraints_list: goals.budget_constraints || [],
-
-			// Timeline
-			timeline_start: goals.timeline?.desired_start || '',
-			timeline_end: goals.timeline?.target_completion || '',
-			timeline_milestones: this.formatAsCommaSeparated(goals.timeline?.milestones || []),
-			timeline_milestones_list: goals.timeline?.milestones || []
+			// Preferences & Notes (Step 4)
+			design_styles: this.formatAsCommaSeparated(consultation.designStyles || []),
+			design_styles_list: consultation.designStyles || [],
+			admired_websites: consultation.admiredWebsites || '',
+			consultation_notes: consultation.consultationNotes || ''
 		};
 	}
 
@@ -571,6 +528,7 @@ export class DataPipelineService {
 				'social_twitter'
 			],
 			client: [
+				// Contact & Business
 				'business_name',
 				'contact_person',
 				'email',
@@ -578,24 +536,22 @@ export class DataPipelineService {
 				'website',
 				'industry',
 				'business_type',
-				'team_size',
-				'current_platform',
-				'digital_presence',
-				'marketing_channels',
+				'social_linkedin',
+				'social_facebook',
+				'social_instagram',
+				// Situation & Challenges
+				'website_status',
 				'primary_challenges',
-				'technical_issues',
 				'urgency_level',
-				'impact_assessment',
-				'solution_gaps',
+				// Goals & Budget
 				'primary_goals',
-				'secondary_goals',
-				'success_metrics',
-				'kpis',
+				'conversion_goal',
 				'budget_range',
-				'budget_constraints',
-				'timeline_start',
-				'timeline_end',
-				'timeline_milestones'
+				'timeline',
+				// Preferences & Notes
+				'design_styles',
+				'admired_websites',
+				'consultation_notes'
 			],
 			proposal: [
 				'number',
