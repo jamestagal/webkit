@@ -268,16 +268,83 @@ func (s *Service) Login(
 			v = append(v, validationError)
 			return nil, v
 		}
-		subject := "Magic link"
+		subject := "Sign in to Webkit"
+		loginURL := s.cfg.CoreURL + `/login-callback/email?state=` + state + `&email=` + userEmail
 		body := `<!DOCTYPE html>
-        <html>
-        <head>
-            <title>Magic Link</title>
-        </head>
-        <body>
-            Click <a href='` + s.cfg.CoreURL + `/login-callback/email?state=` + state + `&email=` + userEmail + `'>here</a> to login
-        </body>
-        </html>`
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in to Webkit</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <tr>
+            <td style="background-color: #ffffff; border-radius: 12px; padding: 40px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <!-- Logo/Brand -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                    <tr>
+                        <td style="padding-bottom: 24px; text-align: center;">
+                            <span style="font-size: 28px; font-weight: 700; color: #6366f1;">Webkit</span>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Main Content -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                    <tr>
+                        <td style="padding-bottom: 16px;">
+                            <h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #18181b; text-align: center;">Sign in to your account</h1>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 24px;">
+                            <p style="margin: 0; font-size: 16px; line-height: 24px; color: #52525b; text-align: center;">
+                                Click the button below to securely sign in to Webkit. This link will expire in 15 minutes.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 24px; text-align: center;">
+                            <a href="` + loginURL + `" style="display: inline-block; padding: 14px 32px; background-color: #6366f1; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 8px;">Sign In</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding-bottom: 24px;">
+                            <p style="margin: 0; font-size: 14px; line-height: 20px; color: #71717a; text-align: center;">
+                                If the button doesn't work, copy and paste this link into your browser:
+                            </p>
+                            <p style="margin: 8px 0 0 0; font-size: 12px; line-height: 18px; color: #a1a1aa; text-align: center; word-break: break-all;">
+                                ` + loginURL + `
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Security Notice -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                    <tr>
+                        <td style="border-top: 1px solid #e4e4e7; padding-top: 24px;">
+                            <p style="margin: 0; font-size: 13px; line-height: 20px; color: #a1a1aa; text-align: center;">
+                                If you didn't request this email, you can safely ignore it. Never share this link with anyone.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+            <td style="padding-top: 24px; text-align: center;">
+                <p style="margin: 0; font-size: 12px; color: #a1a1aa;">
+                    © 2025 Webkit. All rights reserved.
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`
 		_, err = s.emailService.SendEmail(ctx, uuid.Nil, userEmail, subject, body, nil)
 		if err != nil {
 			return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error sending email: %w", err)}

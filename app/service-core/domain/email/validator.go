@@ -47,11 +47,11 @@ func validate(data query.InsertEmailParams) error {
 		})
 	}
 
-	if data.EmailBody != "" && len(data.EmailBody) > 1000 {
+	if data.EmailBody != "" && len(data.EmailBody) > 50000 {
 		errors = append(errors, pkg.ValidationError{
 			Field: "email_body",
-			Tag:   "max1000",
-			Message: "Email body exceeds maximum length of 1000 characters",
+			Tag:   "max50000",
+			Message: "Email body exceeds maximum length of 50000 characters",
 		})
 	}
 
