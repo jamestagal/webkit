@@ -69,6 +69,7 @@ type Querier interface {
 	SelectToken(ctx context.Context, id string) (Token, error)
 	SelectUser(ctx context.Context, id uuid.UUID) (User, error)
 	SelectUserByCustomerID(ctx context.Context, customerID string) (User, error)
+	SelectUserByEmail(ctx context.Context, email string) (User, error)
 	SelectUserByEmailAndSub(ctx context.Context, arg SelectUserByEmailAndSubParams) (User, error)
 	SelectUsers(ctx context.Context) ([]User, error)
 	UpdateConsultation(ctx context.Context, arg UpdateConsultationParams) (Consultation, error)
@@ -82,6 +83,7 @@ type Querier interface {
 	UpdateUserActivity(ctx context.Context, id uuid.UUID) error
 	UpdateUserCustomerID(ctx context.Context, arg UpdateUserCustomerIDParams) error
 	UpdateUserPhone(ctx context.Context, arg UpdateUserPhoneParams) error
+	UpdateUserSub(ctx context.Context, arg UpdateUserSubParams) error
 	UpdateUserSubscription(ctx context.Context, arg UpdateUserSubscriptionParams) error
 	UpsertConsultationDraft(ctx context.Context, arg UpsertConsultationDraftParams) (ConsultationDraft, error)
 	UpsertSubscription(ctx context.Context, arg UpsertSubscriptionParams) (Subscription, error)

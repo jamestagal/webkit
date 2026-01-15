@@ -22,6 +22,12 @@ select * from users where customer_id = $1;
 -- name: SelectUserByEmailAndSub :one
 select * from users where email = $1 and sub = $2;
 
+-- name: SelectUserByEmail :one
+select * from users where email = $1;
+
+-- name: UpdateUserSub :exec
+update users set sub = $2 where id = $1;
+
 -- name: InsertUser :one
 insert into users (id, email, access, sub, avatar, api_key) values ($1, $2, $3, $4, $5, $6) returning *;
 

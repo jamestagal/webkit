@@ -24,11 +24,13 @@ type store interface {
 	InsertToken(ctx context.Context, params query.InsertTokenParams) (query.Token, error)
 	UpdateToken(ctx context.Context, params query.UpdateTokenParams) error
 	SelectUser(ctx context.Context, ID uuid.UUID) (query.User, error)
+	SelectUserByEmail(ctx context.Context, email string) (query.User, error)
 	SelectUserByEmailAndSub(ctx context.Context, params query.SelectUserByEmailAndSubParams) (query.User, error)
 	InsertUser(ctx context.Context, params query.InsertUserParams) (query.User, error)
 	UpdateUserActivity(ctx context.Context, ID uuid.UUID) error
 	UpdateUserAccess(ctx context.Context, params query.UpdateUserAccessParams) (query.User, error)
 	UpdateUserPhone(ctx context.Context, params query.UpdateUserPhoneParams) error
+	UpdateUserSub(ctx context.Context, params query.UpdateUserSubParams) error
 }
 
 type provider interface {
@@ -333,25 +335,21 @@ func (s *Service) LoginCallback(
 		userSub = fmt.Sprintf("%s:%s", provider, userInfo.Sub)
 		userAvatar = userInfo.Avatar
 	}
-	params := query.SelectUserByEmailAndSubParams{
-		Email: userEmail,
-		Sub:   userSub,
-	}
-	user, err = s.store.SelectUserByEmailAndSub(ctx, params)
-
-	// Create new user if not found
+	// First try to find user by email (allows same account across login methods)
+	user, err = s.store.SelectUserByEmail(ctx, userEmail)
 	if err != nil {
+		// User not found by email, create new user
 		id, err := uuid.NewV7()
 		if err != nil {
 			return nil, pkg.InternalError{Message: "Error generating UUID", Err: fmt.Errorf("error generating UUID: %w", err)}
 		}
-		
+
 		// Generate API key for new user
 		apiKey, err := str.GenerateRandomHexString()
 		if err != nil {
 			return nil, pkg.InternalError{Message: "Error generating API key", Err: fmt.Errorf("error generating API key: %w", err)}
 		}
-		
+
 		params := query.InsertUserParams{
 			ID:     id,
 			Email:  userEmail,
@@ -363,6 +361,11 @@ func (s *Service) LoginCallback(
 		user, err = s.store.InsertUser(ctx, params)
 		if err != nil {
 			return nil, pkg.InternalError{Message: "Error inserting user", Err: fmt.Errorf("error inserting user: %w", err)}
+		}
+	} else {
+		// User found by email - update avatar if provided and user doesn't have one
+		if userAvatar != "" && user.Avatar == "" {
+			// We could update avatar here if needed in future
 		}
 	}
 

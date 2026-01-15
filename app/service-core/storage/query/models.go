@@ -20,9 +20,11 @@ type Agency struct {
 	Name                 string       `json:"name"`
 	Slug                 string       `json:"slug"`
 	LogoUrl              string       `json:"logo_url"`
+	LogoAvatarUrl        string       `json:"logo_avatar_url"`
 	PrimaryColor         string       `json:"primary_color"`
 	SecondaryColor       string       `json:"secondary_color"`
 	AccentColor          string       `json:"accent_color"`
+	AccentGradient       string       `json:"accent_gradient"`
 	Email                string       `json:"email"`
 	Phone                string       `json:"phone"`
 	Website              string       `json:"website"`
@@ -63,6 +65,19 @@ type AgencyAddon struct {
 	AvailablePackages json.RawMessage `json:"available_packages"`
 	DisplayOrder      int32           `json:"display_order"`
 	IsActive          bool            `json:"is_active"`
+}
+
+type AgencyDocumentBranding struct {
+	ID                uuid.UUID      `json:"id"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
+	AgencyID          uuid.UUID      `json:"agency_id"`
+	DocumentType      string         `json:"document_type"`
+	UseCustomBranding bool           `json:"use_custom_branding"`
+	LogoUrl           sql.NullString `json:"logo_url"`
+	PrimaryColor      sql.NullString `json:"primary_color"`
+	AccentColor       sql.NullString `json:"accent_color"`
+	AccentGradient    sql.NullString `json:"accent_gradient"`
 }
 
 type AgencyFormOption struct {
@@ -117,42 +132,48 @@ type AgencyPackage struct {
 }
 
 type AgencyProfile struct {
-	ID                  uuid.UUID `json:"id"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
-	AgencyID            uuid.UUID `json:"agency_id"`
-	Abn                 string    `json:"abn"`
-	Acn                 string    `json:"acn"`
-	LegalEntityName     string    `json:"legal_entity_name"`
-	TradingName         string    `json:"trading_name"`
-	AddressLine1        string    `json:"address_line_1"`
-	AddressLine2        string    `json:"address_line_2"`
-	City                string    `json:"city"`
-	State               string    `json:"state"`
-	Postcode            string    `json:"postcode"`
-	Country             string    `json:"country"`
-	BankName            string    `json:"bank_name"`
-	Bsb                 string    `json:"bsb"`
-	AccountNumber       string    `json:"account_number"`
-	AccountName         string    `json:"account_name"`
-	GstRegistered       bool      `json:"gst_registered"`
-	TaxFileNumber       string    `json:"tax_file_number"`
-	GstRate             string    `json:"gst_rate"`
-	Tagline             string    `json:"tagline"`
-	SocialLinkedin      string    `json:"social_linkedin"`
-	SocialFacebook      string    `json:"social_facebook"`
-	SocialInstagram     string    `json:"social_instagram"`
-	SocialTwitter       string    `json:"social_twitter"`
-	BrandFont           string    `json:"brand_font"`
-	DefaultPaymentTerms string    `json:"default_payment_terms"`
-	InvoicePrefix       string    `json:"invoice_prefix"`
-	InvoiceFooter       string    `json:"invoice_footer"`
-	NextInvoiceNumber   int32     `json:"next_invoice_number"`
-	ContractPrefix      string    `json:"contract_prefix"`
-	ContractFooter      string    `json:"contract_footer"`
-	NextContractNumber  int32     `json:"next_contract_number"`
-	ProposalPrefix      string    `json:"proposal_prefix"`
-	NextProposalNumber  int32     `json:"next_proposal_number"`
+	ID                       uuid.UUID      `json:"id"`
+	CreatedAt                time.Time      `json:"created_at"`
+	UpdatedAt                time.Time      `json:"updated_at"`
+	AgencyID                 uuid.UUID      `json:"agency_id"`
+	Abn                      string         `json:"abn"`
+	Acn                      string         `json:"acn"`
+	LegalEntityName          string         `json:"legal_entity_name"`
+	TradingName              string         `json:"trading_name"`
+	AddressLine1             string         `json:"address_line_1"`
+	AddressLine2             string         `json:"address_line_2"`
+	City                     string         `json:"city"`
+	State                    string         `json:"state"`
+	Postcode                 string         `json:"postcode"`
+	Country                  string         `json:"country"`
+	BankName                 string         `json:"bank_name"`
+	Bsb                      string         `json:"bsb"`
+	AccountNumber            string         `json:"account_number"`
+	AccountName              string         `json:"account_name"`
+	GstRegistered            bool           `json:"gst_registered"`
+	TaxFileNumber            string         `json:"tax_file_number"`
+	GstRate                  string         `json:"gst_rate"`
+	Tagline                  string         `json:"tagline"`
+	SocialLinkedin           string         `json:"social_linkedin"`
+	SocialFacebook           string         `json:"social_facebook"`
+	SocialInstagram          string         `json:"social_instagram"`
+	SocialTwitter            string         `json:"social_twitter"`
+	BrandFont                string         `json:"brand_font"`
+	DefaultPaymentTerms      string         `json:"default_payment_terms"`
+	InvoicePrefix            string         `json:"invoice_prefix"`
+	InvoiceFooter            string         `json:"invoice_footer"`
+	NextInvoiceNumber        int32          `json:"next_invoice_number"`
+	ContractPrefix           string         `json:"contract_prefix"`
+	ContractFooter           string         `json:"contract_footer"`
+	NextContractNumber       int32          `json:"next_contract_number"`
+	ProposalPrefix           string         `json:"proposal_prefix"`
+	NextProposalNumber       int32          `json:"next_proposal_number"`
+	StripeAccountID          sql.NullString `json:"stripe_account_id"`
+	StripeAccountStatus      string         `json:"stripe_account_status"`
+	StripeOnboardingComplete bool           `json:"stripe_onboarding_complete"`
+	StripeConnectedAt        sql.NullTime   `json:"stripe_connected_at"`
+	StripePayoutsEnabled     bool           `json:"stripe_payouts_enabled"`
+	StripeChargesEnabled     bool           `json:"stripe_charges_enabled"`
 }
 
 type AgencyProposalTemplate struct {
@@ -215,6 +236,79 @@ type ConsultationVersion struct {
 	CreatedAt            time.Time       `json:"created_at"`
 }
 
+type Contract struct {
+	ID                       uuid.UUID       `json:"id"`
+	CreatedAt                time.Time       `json:"created_at"`
+	UpdatedAt                time.Time       `json:"updated_at"`
+	AgencyID                 uuid.UUID       `json:"agency_id"`
+	ProposalID               uuid.UUID       `json:"proposal_id"`
+	TemplateID               uuid.NullUUID   `json:"template_id"`
+	ContractNumber           string          `json:"contract_number"`
+	Slug                     string          `json:"slug"`
+	Version                  int32           `json:"version"`
+	Status                   string          `json:"status"`
+	ClientBusinessName       string          `json:"client_business_name"`
+	ClientContactName        string          `json:"client_contact_name"`
+	ClientEmail              string          `json:"client_email"`
+	ClientPhone              string          `json:"client_phone"`
+	ClientAddress            string          `json:"client_address"`
+	ServicesDescription      string          `json:"services_description"`
+	CommencementDate         sql.NullTime    `json:"commencement_date"`
+	CompletionDate           sql.NullTime    `json:"completion_date"`
+	SpecialConditions        string          `json:"special_conditions"`
+	TotalPrice               string          `json:"total_price"`
+	PriceIncludesGst         bool            `json:"price_includes_gst"`
+	PaymentTerms             string          `json:"payment_terms"`
+	GeneratedCoverHtml       sql.NullString  `json:"generated_cover_html"`
+	GeneratedTermsHtml       sql.NullString  `json:"generated_terms_html"`
+	GeneratedScheduleHtml    sql.NullString  `json:"generated_schedule_html"`
+	ValidUntil               sql.NullTime    `json:"valid_until"`
+	AgencySignatoryName      sql.NullString  `json:"agency_signatory_name"`
+	AgencySignatoryTitle     sql.NullString  `json:"agency_signatory_title"`
+	AgencySignedAt           sql.NullTime    `json:"agency_signed_at"`
+	ClientSignatoryName      sql.NullString  `json:"client_signatory_name"`
+	ClientSignatoryTitle     sql.NullString  `json:"client_signatory_title"`
+	ClientSignedAt           sql.NullTime    `json:"client_signed_at"`
+	ClientSignatureIp        sql.NullString  `json:"client_signature_ip"`
+	ClientSignatureUserAgent sql.NullString  `json:"client_signature_user_agent"`
+	ViewCount                int32           `json:"view_count"`
+	LastViewedAt             sql.NullTime    `json:"last_viewed_at"`
+	SentAt                   sql.NullTime    `json:"sent_at"`
+	SignedPdfUrl             sql.NullString  `json:"signed_pdf_url"`
+	VisibleFields            json.RawMessage `json:"visible_fields"`
+	IncludedScheduleIds      json.RawMessage `json:"included_schedule_ids"`
+	CreatedBy                uuid.NullUUID   `json:"created_by"`
+}
+
+type ContractSchedule struct {
+	ID              uuid.UUID     `json:"id"`
+	CreatedAt       time.Time     `json:"created_at"`
+	UpdatedAt       time.Time     `json:"updated_at"`
+	TemplateID      uuid.UUID     `json:"template_id"`
+	PackageID       uuid.NullUUID `json:"package_id"`
+	Name            string        `json:"name"`
+	DisplayOrder    int32         `json:"display_order"`
+	SectionCategory string        `json:"section_category"`
+	Content         string        `json:"content"`
+	IsActive        bool          `json:"is_active"`
+}
+
+type ContractTemplate struct {
+	ID              uuid.UUID       `json:"id"`
+	CreatedAt       time.Time       `json:"created_at"`
+	UpdatedAt       time.Time       `json:"updated_at"`
+	AgencyID        uuid.UUID       `json:"agency_id"`
+	Name            string          `json:"name"`
+	Description     string          `json:"description"`
+	Version         int32           `json:"version"`
+	CoverPageConfig json.RawMessage `json:"cover_page_config"`
+	TermsContent    string          `json:"terms_content"`
+	SignatureConfig json.RawMessage `json:"signature_config"`
+	IsDefault       bool            `json:"is_default"`
+	IsActive        bool            `json:"is_active"`
+	CreatedBy       uuid.NullUUID   `json:"created_by"`
+}
+
 type Email struct {
 	ID           uuid.UUID `json:"id"`
 	Created      time.Time `json:"created"`
@@ -234,6 +328,30 @@ type EmailAttachment struct {
 	ContentType string    `json:"content_type"`
 }
 
+type EmailLog struct {
+	ID                 uuid.UUID      `json:"id"`
+	CreatedAt          time.Time      `json:"created_at"`
+	AgencyID           uuid.UUID      `json:"agency_id"`
+	ProposalID         uuid.NullUUID  `json:"proposal_id"`
+	InvoiceID          uuid.NullUUID  `json:"invoice_id"`
+	ContractID         uuid.NullUUID  `json:"contract_id"`
+	EmailType          string         `json:"email_type"`
+	RecipientEmail     string         `json:"recipient_email"`
+	RecipientName      sql.NullString `json:"recipient_name"`
+	Subject            string         `json:"subject"`
+	BodyHtml           string         `json:"body_html"`
+	HasAttachment      bool           `json:"has_attachment"`
+	AttachmentFilename sql.NullString `json:"attachment_filename"`
+	ResendMessageID    sql.NullString `json:"resend_message_id"`
+	Status             string         `json:"status"`
+	SentAt             sql.NullTime   `json:"sent_at"`
+	DeliveredAt        sql.NullTime   `json:"delivered_at"`
+	OpenedAt           sql.NullTime   `json:"opened_at"`
+	ErrorMessage       sql.NullString `json:"error_message"`
+	RetryCount         int32          `json:"retry_count"`
+	SentBy             uuid.NullUUID  `json:"sent_by"`
+}
+
 type File struct {
 	ID          uuid.UUID `json:"id"`
 	Created     time.Time `json:"created"`
@@ -243,6 +361,68 @@ type File struct {
 	FileName    string    `json:"file_name"`
 	FileSize    int64     `json:"file_size"`
 	ContentType string    `json:"content_type"`
+}
+
+type Invoice struct {
+	ID                      uuid.UUID      `json:"id"`
+	CreatedAt               time.Time      `json:"created_at"`
+	UpdatedAt               time.Time      `json:"updated_at"`
+	AgencyID                uuid.UUID      `json:"agency_id"`
+	ProposalID              uuid.NullUUID  `json:"proposal_id"`
+	ContractID              uuid.NullUUID  `json:"contract_id"`
+	InvoiceNumber           string         `json:"invoice_number"`
+	Slug                    string         `json:"slug"`
+	Status                  string         `json:"status"`
+	ClientBusinessName      string         `json:"client_business_name"`
+	ClientContactName       string         `json:"client_contact_name"`
+	ClientEmail             string         `json:"client_email"`
+	ClientPhone             string         `json:"client_phone"`
+	ClientAddress           string         `json:"client_address"`
+	ClientAbn               string         `json:"client_abn"`
+	IssueDate               time.Time      `json:"issue_date"`
+	DueDate                 time.Time      `json:"due_date"`
+	Subtotal                string         `json:"subtotal"`
+	DiscountAmount          string         `json:"discount_amount"`
+	DiscountDescription     string         `json:"discount_description"`
+	GstAmount               string         `json:"gst_amount"`
+	Total                   string         `json:"total"`
+	GstRegistered           bool           `json:"gst_registered"`
+	GstRate                 string         `json:"gst_rate"`
+	PaymentTerms            string         `json:"payment_terms"`
+	PaymentTermsCustom      string         `json:"payment_terms_custom"`
+	Notes                   string         `json:"notes"`
+	PublicNotes             string         `json:"public_notes"`
+	ViewCount               int32          `json:"view_count"`
+	LastViewedAt            sql.NullTime   `json:"last_viewed_at"`
+	SentAt                  sql.NullTime   `json:"sent_at"`
+	PaidAt                  sql.NullTime   `json:"paid_at"`
+	PaymentMethod           sql.NullString `json:"payment_method"`
+	PaymentReference        sql.NullString `json:"payment_reference"`
+	PaymentNotes            sql.NullString `json:"payment_notes"`
+	PdfUrl                  sql.NullString `json:"pdf_url"`
+	PdfGeneratedAt          sql.NullTime   `json:"pdf_generated_at"`
+	StripePaymentLinkID     sql.NullString `json:"stripe_payment_link_id"`
+	StripePaymentLinkUrl    sql.NullString `json:"stripe_payment_link_url"`
+	StripePaymentIntentID   sql.NullString `json:"stripe_payment_intent_id"`
+	StripeCheckoutSessionID sql.NullString `json:"stripe_checkout_session_id"`
+	OnlinePaymentEnabled    bool           `json:"online_payment_enabled"`
+	CreatedBy               uuid.NullUUID  `json:"created_by"`
+}
+
+type InvoiceLineItem struct {
+	ID          uuid.UUID      `json:"id"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	InvoiceID   uuid.UUID      `json:"invoice_id"`
+	Description string         `json:"description"`
+	Quantity    string         `json:"quantity"`
+	UnitPrice   string         `json:"unit_price"`
+	Amount      string         `json:"amount"`
+	IsTaxable   bool           `json:"is_taxable"`
+	SortOrder   int32          `json:"sort_order"`
+	Category    sql.NullString `json:"category"`
+	PackageID   uuid.NullUUID  `json:"package_id"`
+	AddonID     uuid.NullUUID  `json:"addon_id"`
 }
 
 type Note struct {
@@ -256,41 +436,70 @@ type Note struct {
 }
 
 type Proposal struct {
-	ID                    uuid.UUID             `json:"id"`
-	CreatedAt             time.Time             `json:"created_at"`
-	UpdatedAt             time.Time             `json:"updated_at"`
-	AgencyID              uuid.UUID             `json:"agency_id"`
-	ConsultationID        uuid.NullUUID         `json:"consultation_id"`
-	ProposalNumber        string                `json:"proposal_number"`
-	Slug                  string                `json:"slug"`
-	Status                string                `json:"status"`
-	ClientBusinessName    string                `json:"client_business_name"`
-	ClientContactName     string                `json:"client_contact_name"`
-	ClientEmail           string                `json:"client_email"`
-	ClientPhone           string                `json:"client_phone"`
-	ClientWebsite         string                `json:"client_website"`
-	Title                 string                `json:"title"`
-	CoverImage            sql.NullString        `json:"cover_image"`
-	PerformanceData       json.RawMessage       `json:"performance_data"`
-	OpportunityContent    string                `json:"opportunity_content"`
-	CurrentIssues         json.RawMessage       `json:"current_issues"`
-	ComplianceIssues      json.RawMessage       `json:"compliance_issues"`
-	RoiAnalysis           json.RawMessage       `json:"roi_analysis"`
-	PerformanceStandards  json.RawMessage       `json:"performance_standards"`
-	LocalAdvantageContent string                `json:"local_advantage_content"`
-	ProposedPages         json.RawMessage       `json:"proposed_pages"`
-	Timeline              json.RawMessage       `json:"timeline"`
-	ClosingContent        string                `json:"closing_content"`
-	SelectedPackageID     uuid.NullUUID         `json:"selected_package_id"`
-	SelectedAddons        json.RawMessage       `json:"selected_addons"`
-	CustomPricing         pqtype.NullRawMessage `json:"custom_pricing"`
-	ValidUntil            sql.NullTime          `json:"valid_until"`
-	ViewCount             int32                 `json:"view_count"`
-	LastViewedAt          sql.NullTime          `json:"last_viewed_at"`
-	SentAt                sql.NullTime          `json:"sent_at"`
-	AcceptedAt            sql.NullTime          `json:"accepted_at"`
-	DeclinedAt            sql.NullTime          `json:"declined_at"`
-	CreatedBy             uuid.NullUUID         `json:"created_by"`
+	ID                     uuid.UUID             `json:"id"`
+	CreatedAt              time.Time             `json:"created_at"`
+	UpdatedAt              time.Time             `json:"updated_at"`
+	AgencyID               uuid.UUID             `json:"agency_id"`
+	ConsultationID         uuid.NullUUID         `json:"consultation_id"`
+	ProposalNumber         string                `json:"proposal_number"`
+	Slug                   string                `json:"slug"`
+	Status                 string                `json:"status"`
+	ClientBusinessName     string                `json:"client_business_name"`
+	ClientContactName      string                `json:"client_contact_name"`
+	ClientEmail            string                `json:"client_email"`
+	ClientPhone            string                `json:"client_phone"`
+	ClientWebsite          string                `json:"client_website"`
+	Title                  string                `json:"title"`
+	CoverImage             sql.NullString        `json:"cover_image"`
+	PerformanceData        json.RawMessage       `json:"performance_data"`
+	OpportunityContent     string                `json:"opportunity_content"`
+	CurrentIssues          json.RawMessage       `json:"current_issues"`
+	ComplianceIssues       json.RawMessage       `json:"compliance_issues"`
+	RoiAnalysis            json.RawMessage       `json:"roi_analysis"`
+	PerformanceStandards   json.RawMessage       `json:"performance_standards"`
+	LocalAdvantageContent  string                `json:"local_advantage_content"`
+	ProposedPages          json.RawMessage       `json:"proposed_pages"`
+	Timeline               json.RawMessage       `json:"timeline"`
+	ClosingContent         string                `json:"closing_content"`
+	SelectedPackageID      uuid.NullUUID         `json:"selected_package_id"`
+	SelectedAddons         json.RawMessage       `json:"selected_addons"`
+	CustomPricing          pqtype.NullRawMessage `json:"custom_pricing"`
+	ValidUntil             sql.NullTime          `json:"valid_until"`
+	ViewCount              int32                 `json:"view_count"`
+	LastViewedAt           sql.NullTime          `json:"last_viewed_at"`
+	SentAt                 sql.NullTime          `json:"sent_at"`
+	AcceptedAt             sql.NullTime          `json:"accepted_at"`
+	DeclinedAt             sql.NullTime          `json:"declined_at"`
+	ClientComments         string                `json:"client_comments"`
+	DeclineReason          string                `json:"decline_reason"`
+	RevisionRequestNotes   string                `json:"revision_request_notes"`
+	RevisionRequestedAt    sql.NullTime          `json:"revision_requested_at"`
+	ExecutiveSummary       string                `json:"executive_summary"`
+	NextSteps              json.RawMessage       `json:"next_steps"`
+	ConsultationPainPoints json.RawMessage       `json:"consultation_pain_points"`
+	ConsultationGoals      json.RawMessage       `json:"consultation_goals"`
+	ConsultationChallenges json.RawMessage       `json:"consultation_challenges"`
+	CreatedBy              uuid.NullUUID         `json:"created_by"`
+}
+
+type QuestionnaireResponse struct {
+	ID                   uuid.UUID       `json:"id"`
+	CreatedAt            time.Time       `json:"created_at"`
+	UpdatedAt            time.Time       `json:"updated_at"`
+	AgencyID             uuid.UUID       `json:"agency_id"`
+	Slug                 string          `json:"slug"`
+	ContractID           uuid.NullUUID   `json:"contract_id"`
+	ProposalID           uuid.NullUUID   `json:"proposal_id"`
+	ConsultationID       uuid.NullUUID   `json:"consultation_id"`
+	ClientBusinessName   string          `json:"client_business_name"`
+	ClientEmail          string          `json:"client_email"`
+	Responses            json.RawMessage `json:"responses"`
+	CurrentSection       int32           `json:"current_section"`
+	CompletionPercentage int32           `json:"completion_percentage"`
+	Status               string          `json:"status"`
+	StartedAt            sql.NullTime    `json:"started_at"`
+	CompletedAt          sql.NullTime    `json:"completed_at"`
+	LastActivityAt       sql.NullTime    `json:"last_activity_at"`
 }
 
 type Subscription struct {

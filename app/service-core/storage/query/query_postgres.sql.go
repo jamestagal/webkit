@@ -1540,6 +1540,31 @@ func (q *Queries) SelectUserByCustomerID(ctx context.Context, customerID string)
 	return i, err
 }
 
+const selectUserByEmail = `-- name: SelectUserByEmail :one
+select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id from users where email = $1
+`
+
+func (q *Queries) SelectUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRowContext(ctx, selectUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Created,
+		&i.Updated,
+		&i.Email,
+		&i.Phone,
+		&i.Access,
+		&i.Sub,
+		&i.Avatar,
+		&i.CustomerID,
+		&i.SubscriptionID,
+		&i.SubscriptionEnd,
+		&i.ApiKey,
+		&i.DefaultAgencyID,
+	)
+	return i, err
+}
+
 const selectUserByEmailAndSub = `-- name: SelectUserByEmailAndSub :one
 select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id from users where email = $1 and sub = $2
 `
@@ -1943,6 +1968,20 @@ type UpdateUserPhoneParams struct {
 
 func (q *Queries) UpdateUserPhone(ctx context.Context, arg UpdateUserPhoneParams) error {
 	_, err := q.db.ExecContext(ctx, updateUserPhone, arg.ID, arg.Phone)
+	return err
+}
+
+const updateUserSub = `-- name: UpdateUserSub :exec
+update users set sub = $2 where id = $1
+`
+
+type UpdateUserSubParams struct {
+	ID  uuid.UUID `json:"id"`
+	Sub string    `json:"sub"`
+}
+
+func (q *Queries) UpdateUserSub(ctx context.Context, arg UpdateUserSubParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserSub, arg.ID, arg.Sub)
 	return err
 }
 
