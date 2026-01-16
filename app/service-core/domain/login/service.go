@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"service-core/config"
 	"service-core/storage/query"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,6 +32,7 @@ type store interface {
 	UpdateUserAccess(ctx context.Context, params query.UpdateUserAccessParams) (query.User, error)
 	UpdateUserPhone(ctx context.Context, params query.UpdateUserPhoneParams) error
 	UpdateUserSub(ctx context.Context, params query.UpdateUserSubParams) error
+	AcceptPendingMemberships(ctx context.Context, userID uuid.UUID) error
 }
 
 type provider interface {
@@ -430,7 +432,25 @@ func (s *Service) LoginCallback(
 			return nil, pkg.InternalError{Message: "Error inserting user", Err: fmt.Errorf("error inserting user: %w", err)}
 		}
 	} else {
-		// User found by email - update avatar if provided and user doesn't have one
+		// User found by email - check if this is an invited user logging in for the first time
+		if strings.HasPrefix(user.Sub, "invited:") {
+			// Update sub to real provider sub
+			err = s.store.UpdateUserSub(ctx, query.UpdateUserSubParams{
+				ID:  user.ID,
+				Sub: userSub,
+			})
+			if err != nil {
+				return nil, pkg.InternalError{Message: "Error updating user sub", Err: fmt.Errorf("error updating user sub: %w", err)}
+			}
+
+			// Accept all pending memberships for this user
+			err = s.store.AcceptPendingMemberships(ctx, user.ID)
+			if err != nil {
+				return nil, pkg.InternalError{Message: "Error accepting memberships", Err: fmt.Errorf("error accepting memberships: %w", err)}
+			}
+		}
+
+		// Update avatar if provided and user doesn't have one
 		if userAvatar != "" && user.Avatar == "" {
 			// We could update avatar here if needed in future
 		}

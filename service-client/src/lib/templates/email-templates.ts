@@ -539,6 +539,126 @@ export interface QuestionnaireNotificationData {
 	questionnaireUrl: string;
 }
 
+// =============================================================================
+// Team Invitation Email Templates
+// =============================================================================
+
+export interface TeamInvitationData {
+	agency: {
+		name: string;
+		primaryColor?: string | undefined;
+		logoUrl?: string | undefined;
+	};
+	invitee: {
+		email: string;
+	};
+	inviter: {
+		name: string;
+	};
+	role: 'admin' | 'member';
+	loginUrl: string;
+}
+
+/**
+ * Generate invitation email for NEW users who don't have an account yet
+ */
+export function generateTeamInvitationEmail(data: TeamInvitationData): EmailTemplate {
+	const { agency, invitee, inviter, role, loginUrl } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const roleDescription =
+		role === 'admin'
+			? 'As an Admin, you can manage all agency work and invite new members.'
+			: 'As a Member, you can create and manage your own consultations and proposals.';
+
+	const content = `
+        <h1 style="margin: 0 0 24px 0; font-size: 24px; font-weight: 600; color: #111827;">
+            You're invited to join ${agency.name}
+        </h1>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            <strong>${inviter.name}</strong> has invited you to join <strong>${agency.name}</strong> on Webkit as a <strong>${role === 'admin' ? 'Admin' : 'Member'}</strong>.
+        </p>
+
+        <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <p style="margin: 0; color: #4b5563; font-size: 14px;">
+                ${roleDescription}
+            </p>
+        </div>
+
+        <p style="margin: 0 0 24px 0; color: #4b5563;">
+            Click the button below to sign in and access your agency workspace. You can sign in using Google or a Magic Link sent to ${invitee.email}.
+        </p>
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${loginUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                Accept Invitation & Sign In
+            </a>
+        </div>
+
+        <p style="margin: 24px 0 0 0; color: #6b7280; font-size: 14px;">
+            If you weren't expecting this invitation, you can safely ignore this email.
+        </p>
+    `;
+
+	return {
+		subject: `You've been invited to join ${agency.name} on Webkit`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name)
+	};
+}
+
+/**
+ * Generate notification email for EXISTING users who already have an account
+ */
+export function generateTeamAddedEmail(data: TeamInvitationData): EmailTemplate {
+	const { agency, inviter, role, loginUrl } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const roleDescription =
+		role === 'admin'
+			? 'As an Admin, you can manage all agency work and invite new members.'
+			: 'As a Member, you can create and manage your own consultations and proposals.';
+
+	const content = `
+        <h1 style="margin: 0 0 24px 0; font-size: 24px; font-weight: 600; color: #111827;">
+            You've been added to ${agency.name}
+        </h1>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            <strong>${inviter.name}</strong> has added you to <strong>${agency.name}</strong> as a <strong>${role === 'admin' ? 'Admin' : 'Member'}</strong>.
+        </p>
+
+        <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <p style="margin: 0; color: #4b5563; font-size: 14px;">
+                ${roleDescription}
+            </p>
+        </div>
+
+        <p style="margin: 0 0 24px 0; color: #4b5563;">
+            You can now access this agency from your account. Click the button below to go to the agency workspace.
+        </p>
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${loginUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                Go to ${agency.name}
+            </a>
+        </div>
+    `;
+
+	return {
+		subject: `You've been added to ${agency.name}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name)
+	};
+}
+
+// =============================================================================
+// Questionnaire Completion Notification (to agency)
+// =============================================================================
+
 /**
  * Generate email notification to agency when client completes questionnaire
  */

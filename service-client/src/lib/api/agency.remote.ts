@@ -9,6 +9,7 @@
  */
 
 import { query, command } from '$app/server';
+import { env } from '$env/dynamic/public';
 import * as v from 'valibot';
 import { db } from '$lib/server/db';
 import {
@@ -27,7 +28,13 @@ import {
 	switchAgency as switchAgencyContext
 } from '$lib/server/agency';
 import { logActivity } from '$lib/server/db-helpers';
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { eq, and, desc, asc, ne, count } from 'drizzle-orm';
+import { sendEmail } from '$lib/server/services/email.service';
+import {
+	generateTeamInvitationEmail,
+	generateTeamAddedEmail,
+	type TeamInvitationData
+} from '$lib/templates/email-templates';
 
 // =============================================================================
 // Query Functions (Read Operations)
@@ -202,6 +209,17 @@ const UpdateMemberRoleSchema = v.object({
 
 const RemoveMemberSchema = v.pipe(v.string(), v.uuid());
 
+const CancelInvitationSchema = v.pipe(v.string(), v.uuid());
+
+const ResendInvitationSchema = v.pipe(v.string(), v.uuid());
+
+/**
+ * Get the base URL for public links in emails
+ */
+function getPublicBaseUrl(): string {
+	return env.PUBLIC_CLIENT_URL || 'https://webkit.au';
+}
+
 const UpdateFormOptionsSchema = v.object({
 	category: v.string(),
 	options: v.array(
@@ -329,21 +347,48 @@ export const switchAgency = command(SwitchAgencySchema, async (agencyId: string)
 
 /**
  * Invite a new member to the agency (admin/owner only).
+ * For new users: Creates user with placeholder sub, sends invitation email
+ * For existing users: Creates membership immediately, sends notification email
  */
 export const inviteMember = command(InviteMemberSchema, async (data) => {
 	const context = await requireAgencyRole(['owner', 'admin']);
-	const userId = getUserId();
+	const currentUserId = getUserId();
 
-	// Find user by email
+	// Get inviter details for email
+	const [inviter] = await db
+		.select({ id: users.id, email: users.email })
+		.from(users)
+		.where(eq(users.id, currentUserId))
+		.limit(1);
+
+	// Find existing user by email
 	const [existingUser] = await db
-		.select({ id: users.id })
+		.select({ id: users.id, sub: users.sub })
 		.from(users)
 		.where(eq(users.email, data.email))
 		.limit(1);
 
+	let targetUserId: string;
+	let isNewUser = false;
+
 	if (!existingUser) {
-		// TODO: Send invitation email to non-existing user
-		throw new Error('User not found. Email invitations coming soon.');
+		// Create new user with placeholder sub
+		isNewUser = true;
+		const placeholderSub = `invited:${crypto.randomUUID()}`;
+		const [newUser] = await db
+			.insert(users)
+			.values({
+				id: crypto.randomUUID(),
+				email: data.email,
+				sub: placeholderSub,
+				access: 0, // Regular user (no special flags)
+				apiKey: '' // Empty until they actually log in
+			})
+			.returning({ id: users.id });
+
+		targetUserId = newUser.id;
+	} else {
+		targetUserId = existingUser.id;
 	}
 
 	// Check if user is already a member
@@ -352,7 +397,7 @@ export const inviteMember = command(InviteMemberSchema, async (data) => {
 		.from(agencyMemberships)
 		.where(
 			and(
-				eq(agencyMemberships.userId, existingUser.id),
+				eq(agencyMemberships.userId, targetUserId),
 				eq(agencyMemberships.agencyId, context.agencyId)
 			)
 		)
@@ -363,20 +408,67 @@ export const inviteMember = command(InviteMemberSchema, async (data) => {
 	}
 
 	// Create membership
-	const [newMembership] = await db.insert(agencyMemberships).values({
-		userId: existingUser.id,
-		agencyId: context.agencyId,
+	// For new users: acceptedAt is null (pending until first login)
+	// For existing users: acceptedAt is now (immediately active)
+	const [newMembership] = await db
+		.insert(agencyMemberships)
+		.values({
+			userId: targetUserId,
+			agencyId: context.agencyId,
+			role: data.role,
+			status: 'active',
+			invitedAt: new Date(),
+			invitedBy: currentUserId,
+			acceptedAt: isNewUser ? null : new Date()
+		})
+		.returning({ id: agencyMemberships.id });
+
+	// Get agency details for email
+	const agency = await db.query.agencies.findFirst({
+		where: eq(agencies.id, context.agencyId)
+	});
+
+	if (!agency) {
+		throw new Error('Agency not found');
+	}
+
+	// Build email data
+	const loginUrl = `${getPublicBaseUrl()}/login?return=/${agency.slug}`;
+	const emailData: TeamInvitationData = {
+		agency: {
+			name: agency.name,
+			primaryColor: agency.primaryColor || undefined,
+			logoUrl: agency.logoUrl || undefined
+		},
+		invitee: { email: data.email },
+		inviter: { name: inviter?.email || 'A team member' },
 		role: data.role,
-		status: 'active', // Auto-accept for existing users
-		invitedAt: new Date(),
-		invitedBy: userId,
-		acceptedAt: new Date()
-	}).returning({ id: agencyMemberships.id });
+		loginUrl: isNewUser ? loginUrl : `${getPublicBaseUrl()}/${agency.slug}`
+	};
+
+	// Send appropriate email
+	const emailTemplate = isNewUser
+		? generateTeamInvitationEmail(emailData)
+		: generateTeamAddedEmail(emailData);
+
+	const emailResult = await sendEmail({
+		to: data.email,
+		subject: emailTemplate.subject,
+		html: emailTemplate.bodyHtml,
+		replyTo: agency.email || undefined
+	});
+
+	if (!emailResult.success) {
+		console.error('Failed to send invitation email:', emailResult.error);
+		// Don't throw - membership is created, email can be resent
+	}
 
 	// Log activity
 	await logActivity('member.invited', 'membership', newMembership?.id, {
-		newValues: { email: data.email, role: data.role, userId: existingUser.id }
+		newValues: { email: data.email, role: data.role, userId: targetUserId, isNewUser }
 	});
+
+	return { success: true, isNewUser, emailSent: emailResult.success };
 });
 
 /**
@@ -463,6 +555,176 @@ export const removeMember = command(RemoveMemberSchema, async (membershipId: str
 	await logActivity('member.removed', 'membership', membershipId, {
 		oldValues: { userId: membership.userId, role: membership.role }
 	});
+});
+
+/**
+ * Cancel a pending invitation (admin/owner only).
+ * For users who haven't logged in yet (sub starts with 'invited:'),
+ * also deletes the user if they have no other memberships.
+ */
+export const cancelInvitation = command(CancelInvitationSchema, async (membershipId: string) => {
+	const context = await requireAgencyRole(['owner', 'admin']);
+
+	// Get the membership to cancel
+	const [membership] = await db
+		.select({
+			id: agencyMemberships.id,
+			userId: agencyMemberships.userId,
+			role: agencyMemberships.role,
+			acceptedAt: agencyMemberships.acceptedAt
+		})
+		.from(agencyMemberships)
+		.where(
+			and(
+				eq(agencyMemberships.id, membershipId),
+				eq(agencyMemberships.agencyId, context.agencyId)
+			)
+		)
+		.limit(1);
+
+	if (!membership) {
+		throw new Error('Invitation not found');
+	}
+
+	// Cannot cancel owner
+	if (membership.role === 'owner') {
+		throw new Error('Cannot cancel owner membership');
+	}
+
+	// Get the user to check their sub and other memberships
+	const [user] = await db
+		.select({ id: users.id, sub: users.sub, email: users.email })
+		.from(users)
+		.where(eq(users.id, membership.userId))
+		.limit(1);
+
+	// Delete the membership
+	await db.delete(agencyMemberships).where(eq(agencyMemberships.id, membershipId));
+
+	// If user has placeholder sub (never logged in) and no other memberships, delete user
+	if (user && user.sub?.startsWith('invited:')) {
+		const [otherMembership] = await db
+			.select({ id: agencyMemberships.id })
+			.from(agencyMemberships)
+			.where(eq(agencyMemberships.userId, user.id))
+			.limit(1);
+
+		if (!otherMembership) {
+			// No other memberships - safe to delete the orphan user
+			await db.delete(users).where(eq(users.id, user.id));
+		}
+	}
+
+	// Log activity
+	await logActivity('invitation.cancelled', 'membership', membershipId, {
+		oldValues: { userId: membership.userId, role: membership.role }
+	});
+
+	return { success: true };
+});
+
+/**
+ * Resend invitation email to a pending member (admin/owner only).
+ * Only works for members who haven't accepted yet (acceptedAt is null).
+ */
+export const resendInvitation = command(ResendInvitationSchema, async (membershipId: string) => {
+	const context = await requireAgencyRole(['owner', 'admin']);
+	const currentUserId = getUserId();
+
+	// Get the membership
+	const [membership] = await db
+		.select({
+			id: agencyMemberships.id,
+			userId: agencyMemberships.userId,
+			role: agencyMemberships.role,
+			acceptedAt: agencyMemberships.acceptedAt
+		})
+		.from(agencyMemberships)
+		.where(
+			and(
+				eq(agencyMemberships.id, membershipId),
+				eq(agencyMemberships.agencyId, context.agencyId)
+			)
+		)
+		.limit(1);
+
+	if (!membership) {
+		throw new Error('Invitation not found');
+	}
+
+	if (membership.acceptedAt !== null) {
+		throw new Error('Cannot resend - member has already accepted');
+	}
+
+	// Get user details
+	const [user] = await db
+		.select({ id: users.id, email: users.email })
+		.from(users)
+		.where(eq(users.id, membership.userId))
+		.limit(1);
+
+	if (!user) {
+		throw new Error('User not found');
+	}
+
+	// Get inviter details
+	const [inviter] = await db
+		.select({ email: users.email })
+		.from(users)
+		.where(eq(users.id, currentUserId))
+		.limit(1);
+
+	// Get agency details
+	const agency = await db.query.agencies.findFirst({
+		where: eq(agencies.id, context.agencyId)
+	});
+
+	if (!agency) {
+		throw new Error('Agency not found');
+	}
+
+	// Build and send email
+	const loginUrl = `${getPublicBaseUrl()}/login?return=/${agency.slug}`;
+	const emailData: TeamInvitationData = {
+		agency: {
+			name: agency.name,
+			primaryColor: agency.primaryColor || undefined,
+			logoUrl: agency.logoUrl || undefined
+		},
+		invitee: { email: user.email },
+		inviter: { name: inviter?.email || 'A team member' },
+		role: membership.role as 'admin' | 'member',
+		loginUrl
+	};
+
+	const emailTemplate = generateTeamInvitationEmail(emailData);
+	const emailResult = await sendEmail({
+		to: user.email,
+		subject: emailTemplate.subject,
+		html: emailTemplate.bodyHtml,
+		replyTo: agency.email || undefined
+	});
+
+	if (!emailResult.success) {
+		throw new Error(`Failed to send email: ${emailResult.error}`);
+	}
+
+	// Update invitedAt timestamp
+	await db
+		.update(agencyMemberships)
+		.set({
+			invitedAt: new Date(),
+			invitedBy: currentUserId,
+			updatedAt: new Date()
+		})
+		.where(eq(agencyMemberships.id, membershipId));
+
+	// Log activity
+	await logActivity('invitation.resent', 'membership', membershipId, {
+		metadata: { email: user.email }
+	});
+
+	return { success: true };
 });
 
 /**

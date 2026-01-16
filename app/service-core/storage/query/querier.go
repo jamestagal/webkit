@@ -12,6 +12,7 @@ import (
 )
 
 type Querier interface {
+	AcceptPendingMemberships(ctx context.Context, userID uuid.UUID) error
 	CleanupOldDrafts(ctx context.Context, updatedAt time.Time) error
 	CountConsultationVersions(ctx context.Context, consultationID uuid.UUID) (int64, error)
 	CountConsultationsByStatus(ctx context.Context, arg CountConsultationsByStatusParams) (int64, error)

@@ -1,9 +1,15 @@
 <script lang="ts">
-	import { Users, UserPlus, MoreVertical, UserCog, Trash2, Pencil } from 'lucide-svelte';
+	import { Users, UserPlus, MoreVertical, UserCog, Trash2, Pencil, Mail, X } from 'lucide-svelte';
 	import { toast } from '$lib/components/shared/Toast.svelte';
 	import Modal from '$lib/components/shared/Modal.svelte';
 	import InviteMember from '$lib/components/settings/InviteMember.svelte';
-	import { updateMemberRole, removeMember, updateMyDisplayName } from '$lib/api/agency.remote';
+	import {
+		updateMemberRole,
+		removeMember,
+		updateMyDisplayName,
+		cancelInvitation,
+		resendInvitation
+	} from '$lib/api/agency.remote';
 	import { invalidate } from '$app/navigation';
 	import type { PageProps } from './$types';
 
@@ -126,6 +132,35 @@
 				return 'badge-ghost';
 		}
 	}
+
+	// Check if member is pending (hasn't logged in yet)
+	function isPending(member: (typeof members)[0]) {
+		return member.acceptedAt === null;
+	}
+
+	// Handle resend invitation
+	async function handleResendInvitation(member: (typeof members)[0]) {
+		try {
+			await resendInvitation(member.id);
+			toast.success(`Invitation resent to ${member.userEmail}`);
+		} catch (error) {
+			toast.error((error as Error).message || 'Failed to resend invitation');
+		}
+	}
+
+	// Handle cancel invitation
+	async function handleCancelInvitation(member: (typeof members)[0]) {
+		if (!confirm(`Cancel invitation for ${member.userEmail}? This will remove them from the agency.`))
+			return;
+
+		try {
+			await cancelInvitation(member.id);
+			toast.success('Invitation cancelled');
+			await invalidate('load:members');
+		} catch (error) {
+			toast.error((error as Error).message || 'Failed to cancel invitation');
+		}
+	}
 </script>
 
 <div class="space-y-6">
@@ -221,42 +256,63 @@
 									</span>
 								</td>
 								<td>
-									<span
-										class="badge {member.status === 'active' ? 'badge-success' : 'badge-warning'} badge-sm"
-									>
-										{member.status}
-									</span>
+									{#if isPending(member)}
+										<span class="badge badge-warning badge-sm">Pending</span>
+									{:else}
+										<span class="badge badge-success badge-sm">Active</span>
+									{/if}
 								</td>
 								<td class="text-right">
 									{#if canManageMember(member) && member.role !== 'owner'}
-										<div class="dropdown dropdown-end">
-											<div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-square">
-												<MoreVertical class="h-4 w-4" />
+										{#if isPending(member)}
+											<!-- Pending member actions: Resend and Cancel -->
+											<div class="flex items-center justify-end gap-1">
+												<button
+													class="btn btn-ghost btn-sm btn-square"
+													onclick={() => handleResendInvitation(member)}
+													title="Resend invitation"
+												>
+													<Mail class="h-4 w-4" />
+												</button>
+												<button
+													class="btn btn-ghost btn-sm btn-square text-error"
+													onclick={() => handleCancelInvitation(member)}
+													title="Cancel invitation"
+												>
+													<X class="h-4 w-4" />
+												</button>
 											</div>
-											<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-											<ul
-												tabindex="0"
-												class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow-lg border border-base-300"
-											>
-												{#if canChangeRole()}
+										{:else}
+											<!-- Active member actions: Role change and Remove -->
+											<div class="dropdown dropdown-end">
+												<div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-square">
+													<MoreVertical class="h-4 w-4" />
+												</div>
+												<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+												<ul
+													tabindex="0"
+													class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow-lg border border-base-300"
+												>
+													{#if canChangeRole()}
+														<li>
+															<button onclick={() => openRoleModal(member)}>
+																<UserCog class="h-4 w-4" />
+																Change Role
+															</button>
+														</li>
+													{/if}
 													<li>
-														<button onclick={() => openRoleModal(member)}>
-															<UserCog class="h-4 w-4" />
-															Change Role
+														<button
+															class="text-error"
+															onclick={() => handleRemoveMember(member)}
+														>
+															<Trash2 class="h-4 w-4" />
+															Remove
 														</button>
 													</li>
-												{/if}
-												<li>
-													<button
-														class="text-error"
-														onclick={() => handleRemoveMember(member)}
-													>
-														<Trash2 class="h-4 w-4" />
-														Remove
-													</button>
-												</li>
-											</ul>
-										</div>
+												</ul>
+											</div>
+										{/if}
 									{/if}
 								</td>
 							</tr>
@@ -312,44 +368,64 @@
 									<span class="badge {getRoleBadgeClass(member.role)} badge-sm capitalize">
 										{member.role}
 									</span>
-									<span
-										class="badge {member.status === 'active' ? 'badge-success' : 'badge-warning'} badge-sm"
-									>
-										{member.status}
-									</span>
+									{#if isPending(member)}
+										<span class="badge badge-warning badge-sm">Pending</span>
+									{:else}
+										<span class="badge badge-success badge-sm">Active</span>
+									{/if}
 								</div>
 							</div>
 
 							<!-- Actions -->
 							{#if canManageMember(member) && member.role !== 'owner'}
-								<div class="dropdown dropdown-end">
-									<div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-square">
-										<MoreVertical class="h-4 w-4" />
+								{#if isPending(member)}
+									<!-- Pending member actions for mobile -->
+									<div class="flex flex-col gap-1">
+										<button
+											class="btn btn-ghost btn-sm btn-square"
+											onclick={() => handleResendInvitation(member)}
+											title="Resend invitation"
+										>
+											<Mail class="h-4 w-4" />
+										</button>
+										<button
+											class="btn btn-ghost btn-sm btn-square text-error"
+											onclick={() => handleCancelInvitation(member)}
+											title="Cancel invitation"
+										>
+											<X class="h-4 w-4" />
+										</button>
 									</div>
-									<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-									<ul
-										tabindex="0"
-										class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow-lg border border-base-300"
-									>
-										{#if canChangeRole()}
+								{:else}
+									<div class="dropdown dropdown-end">
+										<div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-square">
+											<MoreVertical class="h-4 w-4" />
+										</div>
+										<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+										<ul
+											tabindex="0"
+											class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow-lg border border-base-300"
+										>
+											{#if canChangeRole()}
+												<li>
+													<button onclick={() => openRoleModal(member)}>
+														<UserCog class="h-4 w-4" />
+														Change Role
+													</button>
+												</li>
+											{/if}
 											<li>
-												<button onclick={() => openRoleModal(member)}>
-													<UserCog class="h-4 w-4" />
-													Change Role
+												<button
+													class="text-error"
+													onclick={() => handleRemoveMember(member)}
+												>
+													<Trash2 class="h-4 w-4" />
+													Remove
 												</button>
 											</li>
-										{/if}
-										<li>
-											<button
-												class="text-error"
-												onclick={() => handleRemoveMember(member)}
-											>
-												<Trash2 class="h-4 w-4" />
-												Remove
-											</button>
-										</li>
-									</ul>
-								</div>
+										</ul>
+									</div>
+								{/if}
 							{/if}
 						</div>
 					</div>
@@ -380,30 +456,50 @@
 					<label class="label">
 						<span class="label-text">Select Role</span>
 					</label>
-					<select class="select select-bordered w-full" bind:value={newRole}>
-						<option value="member">Member - Can create and manage their own work</option>
-						<option value="admin">Admin - Can manage all work and invite members</option>
-					</select>
-				</div>
-
-				<div class="alert alert-info text-sm">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 24 24"
-						class="stroke-current shrink-0 w-5 h-5"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-						></path>
-					</svg>
-					<span>
-						<strong>Members</strong> can create consultations and proposals but only manage their own.
-						<strong>Admins</strong> can manage all agency work and invite new members.
-					</span>
+					<div class="space-y-2">
+						<label
+							class="flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors hover:bg-base-200 {newRole ===
+							'member'
+								? 'bg-primary/5 border-primary'
+								: 'border-base-300'}"
+						>
+							<input
+								type="radio"
+								name="role"
+								value="member"
+								bind:group={newRole}
+								disabled={isUpdating}
+								class="radio radio-primary mt-0.5"
+							/>
+							<div class="flex-1">
+								<div class="font-medium">Member</div>
+								<div class="text-base-content/60 text-sm">
+									Can create and manage their own consultations and proposals
+								</div>
+							</div>
+						</label>
+						<label
+							class="flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors hover:bg-base-200 {newRole ===
+							'admin'
+								? 'bg-primary/5 border-primary'
+								: 'border-base-300'}"
+						>
+							<input
+								type="radio"
+								name="role"
+								value="admin"
+								bind:group={newRole}
+								disabled={isUpdating}
+								class="radio radio-primary mt-0.5"
+							/>
+							<div class="flex-1">
+								<div class="font-medium">Admin</div>
+								<div class="text-base-content/60 text-sm">
+									Can manage all agency work and invite new members
+								</div>
+							</div>
+						</label>
+					</div>
 				</div>
 
 				<div class="flex justify-end gap-3 pt-4">

@@ -568,3 +568,8 @@ postgres:
 **Services can't connect to each other:**
 - Use container names for internal communication (e.g., `webkit-core:4001`)
 - Ensure services are on the same Docker network
+
+## Plan Mode
+
+- Make the plan extremely concise. Sacrifice grammar for the sake of concision.
+- At the end of each plan, give me a list of unresolved questions to answer, if any.

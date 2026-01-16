@@ -14,6 +14,15 @@ import (
 	"github.com/google/uuid"
 )
 
+const acceptPendingMemberships = `-- name: AcceptPendingMemberships :exec
+update agency_memberships set accepted_at = current_timestamp, updated_at = current_timestamp where user_id = $1 and accepted_at is null
+`
+
+func (q *Queries) AcceptPendingMemberships(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, acceptPendingMemberships, userID)
+	return err
+}
+
 const cleanupOldDrafts = `-- name: CleanupOldDrafts :exec
 DELETE FROM consultation_drafts
 WHERE auto_saved = true
