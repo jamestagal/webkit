@@ -18,6 +18,23 @@
 </script>
 
 <div class="space-y-6">
+	<!-- General form errors alert -->
+	{#if Object.keys(errors).length > 0}
+		<div class="alert alert-error">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+			</svg>
+			<div>
+				<p class="font-medium">Please fix the following errors:</p>
+				<ul class="mt-1 list-disc list-inside text-sm">
+					{#each Object.entries(errors) as [field, message]}
+						<li>{message}</li>
+					{/each}
+				</ul>
+			</div>
+		</div>
+	{/if}
+
 	<!-- Website Status -->
 	<fieldset class="space-y-2">
 		<legend class="text-sm font-medium">Current Website Status *</legend>
@@ -48,7 +65,7 @@
 	<!-- Primary Challenges -->
 	<div class="space-y-2">
 		<label class="text-sm font-medium">Primary Challenges *</label>
-		<p class="text-xs text-gray-500">Select all that apply</p>
+		<p class="text-xs text-gray-500">Select at least one challenge that applies (or add your own)</p>
 		<ChipSelector
 			options={PRIMARY_CHALLENGES_OPTIONS}
 			bind:selected={data.primary_challenges}
@@ -56,7 +73,9 @@
 			{disabled}
 		/>
 		{#if errors.primary_challenges}
-			<p class="text-sm text-error">{errors.primary_challenges}</p>
+			<p class="mt-1 text-sm text-error font-medium">{errors.primary_challenges}</p>
+		{:else if data.primary_challenges.length === 0}
+			<p class="mt-1 text-sm text-warning">⚠ Select at least one challenge to continue</p>
 		{/if}
 	</div>
 

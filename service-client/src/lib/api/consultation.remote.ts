@@ -9,6 +9,7 @@ import { query, command } from '$app/server';
 import * as v from 'valibot';
 import { db } from '$lib/server/db';
 import { consultations, users, agencyMemberships } from '$lib/server/schema';
+import type { PerformanceData } from '$lib/server/schema';
 import { getAgencyId, getUserId } from '$lib/server/auth';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import {
@@ -19,6 +20,7 @@ import {
 	UpdatePreferencesNotesSchema,
 	CompleteConsultationSchema
 } from '$lib/schema/consultation';
+import { runPageSpeedAudit as runAudit } from '$lib/server/services/pagespeed.service';
 
 // =============================================================================
 // Query Functions (Read Operations)
@@ -363,5 +365,52 @@ export const deleteConsultation = command(
 		getExistingDraftConsultation().refresh();
 
 		return { success: true };
+	}
+);
+
+// =============================================================================
+// PageSpeed Audit Functions
+// =============================================================================
+
+/**
+ * Run a PageSpeed audit for a consultation's website.
+ * Stores results in the consultation's performanceData field.
+ */
+export const runPageSpeedAudit = command(
+	v.object({ consultationId: v.pipe(v.string(), v.uuid()) }),
+	async (data): Promise<PerformanceData> => {
+		const agencyId = await getAgencyId();
+
+		// Get the consultation
+		const [consultation] = await db
+			.select()
+			.from(consultations)
+			.where(and(eq(consultations.id, data.consultationId), eq(consultations.agencyId, agencyId)))
+			.limit(1);
+
+		if (!consultation) {
+			throw new Error('Consultation not found');
+		}
+
+		if (!consultation.website) {
+			throw new Error('No website URL found on this consultation');
+		}
+
+		// Run the PageSpeed audit
+		const performanceData = await runAudit(consultation.website);
+
+		// Store results on the consultation
+		await db
+			.update(consultations)
+			.set({
+				performanceData,
+				updatedAt: new Date()
+			})
+			.where(eq(consultations.id, data.consultationId));
+
+		// Refresh cache
+		getConsultation(data.consultationId).refresh();
+
+		return performanceData;
 	}
 );

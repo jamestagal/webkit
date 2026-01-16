@@ -972,6 +972,9 @@ export const consultations = pgTable('consultations', {
 	admiredWebsites: text('admired_websites'),
 	consultationNotes: text('consultation_notes'),
 
+	// Performance Audit Data (agency-side PageSpeed analysis)
+	performanceData: jsonb('performance_data').default({}),
+
 	// Metadata
 	status: varchar('status', { length: 50 }).notNull().default('draft'), // 'draft' | 'completed' | 'converted'
 	createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -1230,14 +1233,39 @@ export interface GoalsObjectives {
 	budget_constraints?: string[];
 }
 
+// Core Web Vitals metric from PageSpeed audit
+export interface WebVitalMetric {
+	value: string; // Display value e.g., "2.5s", "0.12"
+	category: 'good' | 'needs-improvement' | 'poor';
+	description?: string;
+}
+
 // Proposal JSONB type definitions
 export interface PerformanceData {
-	performance?: number; // 0-100
-	accessibility?: number; // 0-100
-	bestPractices?: number; // 0-100
-	seo?: number; // 0-100
+	// Basic scores (0-100)
+	performance?: number;
+	accessibility?: number;
+	bestPractices?: number;
+	seo?: number;
 	loadTime?: string; // e.g., "4.2s"
 	issues?: string[]; // List of key issues found
+
+	// Detailed Core Web Vitals (from PageSpeed audit)
+	metrics?: {
+		LCP?: WebVitalMetric; // Largest Contentful Paint
+		CLS?: WebVitalMetric; // Cumulative Layout Shift
+		INP?: WebVitalMetric; // Interaction to Next Paint
+		FCP?: WebVitalMetric; // First Contentful Paint
+		TBT?: WebVitalMetric; // Total Blocking Time
+		SI?: WebVitalMetric; // Speed Index
+	};
+
+	// Recommendations from PageSpeed
+	recommendations?: string[];
+
+	// Audit metadata
+	auditedAt?: string; // ISO timestamp
+	auditedUrl?: string; // URL that was audited
 }
 
 export interface ChecklistItem {

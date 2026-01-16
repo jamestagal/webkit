@@ -77,7 +77,13 @@ export const GoalsBudgetSchema = v.object({
 	primary_goals: v.pipe(v.array(v.string()), v.minLength(1, 'Select at least one goal')),
 	conversion_goal: v.optional(v.string()),
 	budget_range: v.pipe(v.string(), v.minLength(1, 'Budget range is required')),
-	timeline: v.optional(v.picklist(['asap', '1-3-months', '3-6-months', 'flexible']))
+	// Allow empty string (from select default) or valid timeline values
+	timeline: v.optional(
+		v.union([
+			v.literal(''),
+			v.picklist(['asap', '1-3-months', '3-6-months', 'flexible'])
+		])
+	)
 });
 
 export type GoalsBudgetInput = v.InferInput<typeof GoalsBudgetSchema>;

@@ -477,6 +477,11 @@ export const createProposal = command(CreateProposalSchema, async (data) => {
 				},
 				consultationChallenges: consultation.primaryChallenges || []
 			};
+
+			// Copy performanceData from consultation if available (PageSpeed audit results)
+			if (consultation.performanceData && typeof consultation.performanceData === 'object') {
+				clientData.performanceData = consultation.performanceData;
+			}
 		}
 	}
 

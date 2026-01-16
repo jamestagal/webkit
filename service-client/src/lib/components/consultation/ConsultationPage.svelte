@@ -110,6 +110,33 @@
 	const isLastStep = $derived(currentStep === totalSteps - 1);
 	const progressPercentage = $derived(Math.round(((currentStep + 1) / totalSteps) * 100));
 
+	// Extract field name from Valibot issue path
+	function getErrorKey(issue: {
+		path?: Array<{ key?: string | number | symbol }>;
+		message?: string;
+	}): string {
+		// Valibot path structure: [{ key: 'fieldName' }, ...]
+		const firstPath = issue.path?.[0];
+		if (firstPath && typeof firstPath.key === 'string') {
+			return firstPath.key;
+		}
+		// Fallback: try to extract field name from message
+		// e.g., "Invalid type: Expected string but received undefined" for budget_range
+		return 'form';
+	}
+
+	// Convert Valibot issues to error object with field keys
+	function issuesToErrors(
+		issues: Array<{ path?: Array<{ key?: string | number | symbol }>; message: string }>
+	): Record<string, string> {
+		const result: Record<string, string> = {};
+		for (const issue of issues) {
+			const key = getErrorKey(issue);
+			result[key] = issue.message;
+		}
+		return result;
+	}
+
 	// Validate current step
 	function validateCurrentStep(): boolean {
 		errors = {};
@@ -117,33 +144,25 @@
 		if (currentStep === 0) {
 			const result = safeParse(ContactBusinessSchema, contactBusinessData);
 			if (!result.success) {
-				errors = Object.fromEntries(
-					result.issues.map((i) => [i.path?.[0]?.key ?? 'form', i.message])
-				);
+				errors = issuesToErrors(result.issues);
 				return false;
 			}
 		} else if (currentStep === 1) {
 			const result = safeParse(SituationSchema, situationData);
 			if (!result.success) {
-				errors = Object.fromEntries(
-					result.issues.map((i) => [i.path?.[0]?.key ?? 'form', i.message])
-				);
+				errors = issuesToErrors(result.issues);
 				return false;
 			}
 		} else if (currentStep === 2) {
 			const result = safeParse(GoalsBudgetSchema, goalsBudgetData);
 			if (!result.success) {
-				errors = Object.fromEntries(
-					result.issues.map((i) => [i.path?.[0]?.key ?? 'form', i.message])
-				);
+				errors = issuesToErrors(result.issues);
 				return false;
 			}
 		} else if (currentStep === 3) {
 			const result = safeParse(PreferencesNotesSchema, preferencesNotesData);
 			if (!result.success) {
-				errors = Object.fromEntries(
-					result.issues.map((i) => [i.path?.[0]?.key ?? 'form', i.message])
-				);
+				errors = issuesToErrors(result.issues);
 				return false;
 			}
 		}
@@ -278,6 +297,26 @@
 			event.returnValue =
 				'You have not completed the consultation. Are you sure you want to leave?';
 			return event.returnValue;
+		}
+	}
+
+	// Save current page without navigating
+	async function handleSave(): Promise<void> {
+		// Validate before saving
+		if (!validateCurrentStep()) {
+			toast.error('Please fix the errors before saving.');
+			return;
+		}
+
+		loading = true;
+		try {
+			await saveCurrentStep();
+			toast.success('Saved successfully');
+		} catch (error) {
+			console.error('Error saving:', error);
+			toast.error('Failed to save. Please try again.');
+		} finally {
+			loading = false;
 		}
 	}
 </script>
@@ -427,11 +466,32 @@
 							{/if}
 						</div>
 
-						<!-- Step Info -->
-						<div class="hidden items-center space-x-4 text-sm text-gray-500 sm:flex">
-							<span>Step {currentStep + 1} of {totalSteps}</span>
-							<span>&bull;</span>
-							<span>{currentStepInfo.title}</span>
+						<!-- Save Button (center) -->
+						<div class="flex items-center gap-4">
+							{#if consultationId}
+								<button
+									type="button"
+									class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+									onclick={handleSave}
+									disabled={loading}
+								>
+									<svg class="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+										/>
+									</svg>
+									Save
+								</button>
+							{/if}
+							<!-- Step Info (hidden on mobile) -->
+							<div class="hidden items-center space-x-4 text-sm text-gray-500 sm:flex">
+								<span>Step {currentStep + 1} of {totalSteps}</span>
+								<span>&bull;</span>
+								<span>{currentStepInfo.title}</span>
+							</div>
 						</div>
 
 						<!-- Next/Complete Button -->

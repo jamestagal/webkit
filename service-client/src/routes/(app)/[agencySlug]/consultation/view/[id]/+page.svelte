@@ -19,6 +19,8 @@
 		DESIGN_STYLE_OPTIONS
 	} from '$lib/config/consultation-options';
 	import Button from '$lib/components/Button.svelte';
+	import PageSpeedAudit from '$lib/components/audit/PageSpeedAudit.svelte';
+	import type { PerformanceData } from '$lib/server/schema';
 
 	// Get agency slug and consultation ID from URL params
 	const agencySlug = page.params.agencySlug;
@@ -206,6 +208,42 @@
 					</dd>
 				</div>
 			{/if}
+		</section>
+
+		<!-- Website Performance Audit -->
+		<section class="mb-6 rounded-lg bg-white p-6 shadow">
+			<div class="collapse collapse-arrow">
+				<input type="checkbox" checked={!!consultation.performanceData} />
+				<div class="collapse-title flex items-center gap-2 p-0 text-lg font-semibold text-gray-900">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke-width="1.5"
+						stroke="currentColor"
+						class="h-5 w-5"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"
+						/>
+					</svg>
+					Website Performance Audit
+					{#if (consultation.performanceData as PerformanceData | null)?.performance}
+						<span class="badge badge-primary ml-2">
+							{(consultation.performanceData as PerformanceData).performance}/100
+						</span>
+					{/if}
+				</div>
+				<div class="collapse-content p-0 pt-4">
+					<PageSpeedAudit
+						{consultationId}
+						websiteUrl={consultation.website}
+						existingData={consultation.performanceData as PerformanceData | null}
+					/>
+				</div>
+			</div>
 		</section>
 
 		<!-- Step 2: Situation & Challenges -->
