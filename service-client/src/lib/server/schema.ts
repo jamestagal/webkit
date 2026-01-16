@@ -974,6 +974,7 @@ export const consultations = pgTable('consultations', {
 
 	// Metadata
 	status: varchar('status', { length: 50 }).notNull().default('draft'), // 'draft' | 'completed' | 'converted'
+	createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
 
 	// Timestamps
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

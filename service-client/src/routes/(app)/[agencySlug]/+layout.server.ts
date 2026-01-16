@@ -164,6 +164,7 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 		},
 		membership: {
 			id: effectiveMembership.id,
+			userId,
 			role: effectiveMembership.role as 'owner' | 'admin' | 'member',
 			displayName: effectiveMembership.displayName
 		},

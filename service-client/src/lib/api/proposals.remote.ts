@@ -17,7 +17,9 @@ import {
 	agencyPackages,
 	agencyAddons,
 	consultations,
-	contracts
+	contracts,
+	users,
+	agencyMemberships
 } from '$lib/server/schema';
 import { getAgencyContext } from '$lib/server/agency';
 import { logActivity } from '$lib/server/db-helpers';
@@ -232,7 +234,7 @@ async function getNextProposalNumber(agencyId: string): Promise<string> {
 
 /**
  * Get all proposals for the current agency.
- * Respects permissions - members only see their own proposals.
+ * All roles can view all proposals (edit/delete restricted by ownership).
  */
 export const getProposals = query(
 	v.optional(
@@ -254,14 +256,43 @@ export const getProposals = query(
 			conditions.push(eq(proposals.status, status));
 		}
 
-		// If member, only show their own proposals
-		if (!hasPermission(context.role, 'proposal:view_all')) {
-			conditions.push(eq(proposals.createdBy, context.userId));
-		}
+		// All roles can view all agency proposals (edit/delete still restricted by ownership)
 
 		const results = await db
-			.select()
+			.select({
+				id: proposals.id,
+				agencyId: proposals.agencyId,
+				consultationId: proposals.consultationId,
+				selectedPackageId: proposals.selectedPackageId,
+				selectedAddons: proposals.selectedAddons,
+				proposalNumber: proposals.proposalNumber,
+				slug: proposals.slug,
+				title: proposals.title,
+				clientBusinessName: proposals.clientBusinessName,
+				clientContactName: proposals.clientContactName,
+				clientEmail: proposals.clientEmail,
+				clientPhone: proposals.clientPhone,
+				executiveSummary: proposals.executiveSummary,
+				customPricing: proposals.customPricing,
+				validUntil: proposals.validUntil,
+				status: proposals.status,
+				sentAt: proposals.sentAt,
+				viewCount: proposals.viewCount,
+				createdBy: proposals.createdBy,
+				createdAt: proposals.createdAt,
+				updatedAt: proposals.updatedAt,
+				// Join to get creator name
+				creatorName: sql<string | null>`COALESCE(${agencyMemberships.displayName}, ${users.email})`.as('creator_name')
+			})
 			.from(proposals)
+			.leftJoin(users, eq(proposals.createdBy, users.id))
+			.leftJoin(
+				agencyMemberships,
+				and(
+					eq(proposals.createdBy, agencyMemberships.userId),
+					eq(proposals.agencyId, agencyMemberships.agencyId)
+				)
+			)
 			.where(and(...conditions))
 			.orderBy(desc(proposals.createdAt))
 			.limit(limit)

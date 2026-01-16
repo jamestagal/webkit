@@ -8,13 +8,19 @@
 	import { getAgencyConsultations, deleteConsultation } from '$lib/api/consultation.remote';
 	import { FEATURES } from '$lib/config/features';
 	import { INDUSTRY_OPTIONS, URGENCY_COLORS } from '$lib/config/consultation-options';
-	import { Plus, Trash2 } from 'lucide-svelte';
+	import { Plus, Trash2, User } from 'lucide-svelte';
 	import Button from '$lib/components/Button.svelte';
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
 
 	const feature = FEATURES.consultations;
 
 	// Get agency slug from URL
 	const agencySlug = page.params.agencySlug;
+
+	// Get current user's membership info for permission checks
+	const membership = data.membership;
 
 	// Load consultations using remote function
 	let consultations = $state(await getAgencyConsultations());
@@ -94,6 +100,15 @@
 			isDeleting = false;
 		}
 	}
+
+	// Check if current user can edit/delete a consultation
+	// Members can only edit their own, admins/owners can edit all
+	function canModify(createdBy: string | null): boolean {
+		if (membership.role === 'owner' || membership.role === 'admin') {
+			return true;
+		}
+		return createdBy === membership.userId;
+	}
 </script>
 
 <svelte:head>
@@ -143,6 +158,7 @@
 	{:else}
 		<div class="space-y-4">
 			{#each consultations as consultation}
+				{@const canEdit = canModify(consultation.createdBy)}
 				<div class="card bg-base-100 border border-base-300 transition-shadow hover:shadow-md">
 					<div class="card-body p-4 sm:p-6">
 						<!-- Header with title and badge -->
@@ -184,6 +200,12 @@
 								<span class="font-medium">Updated:</span>
 								{formatDate(consultation.updatedAt)}
 							</div>
+							{#if consultation.creatorName}
+								<div class="flex items-center gap-1">
+									<User class="h-3 w-3" />
+									<span>{consultation.creatorName}</span>
+								</div>
+							{/if}
 						</div>
 
 						<!-- Primary Challenges Tags -->
@@ -211,6 +233,8 @@
 							<button
 								class="btn btn-primary btn-sm flex-1 sm:flex-none"
 								onclick={() => editConsultation(consultation.id)}
+								disabled={!canEdit}
+								title={canEdit ? '' : 'Only the creator can edit this consultation'}
 							>
 								{consultation.status === 'draft' ? 'Continue' : 'Edit'}
 							</button>
@@ -221,7 +245,8 @@
 										consultation.id,
 										consultation.businessName || 'Untitled Consultation'
 									)}
-								title="Delete consultation"
+								disabled={!canEdit}
+								title={canEdit ? 'Delete consultation' : 'Only the creator can delete this consultation'}
 							>
 								<Trash2 class="h-4 w-4" />
 							</button>

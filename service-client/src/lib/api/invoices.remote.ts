@@ -20,6 +20,8 @@ import {
 	agencyProfiles,
 	agencyPackages,
 	agencyAddons,
+	users,
+	agencyMemberships,
 	type Invoice
 } from '$lib/server/schema';
 import { getAgencyContext } from '$lib/server/agency';
@@ -30,7 +32,7 @@ import {
 	canModifyResource,
 	canDeleteResource
 } from '$lib/server/permissions';
-import { eq, and, desc, asc, gte, lte, inArray } from 'drizzle-orm';
+import { eq, and, desc, asc, gte, lte, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 // =============================================================================
@@ -257,6 +259,7 @@ async function checkAndUpdateOverdueStatusBatch<T extends { id: string; status: 
 
 /**
  * Get all invoices for the agency with optional filters.
+ * All roles can view all invoices (edit/delete restricted by ownership).
  */
 export const getInvoices = query(InvoiceFiltersSchema, async (filters) => {
 	const context = await getAgencyContext();
@@ -275,15 +278,65 @@ export const getInvoices = query(InvoiceFiltersSchema, async (filters) => {
 		conditions.push(lte(invoices.issueDate, new Date(filters.toDate)));
 	}
 
-	// Check permissions for view scope
-	const canViewAll = hasPermission(context.role, 'invoice:view_all');
-	if (!canViewAll) {
-		conditions.push(eq(invoices.createdBy, context.userId));
-	}
+	// All roles can view all agency invoices (edit/delete still restricted by ownership)
 
 	const results = await db
-		.select()
+		.select({
+			id: invoices.id,
+			agencyId: invoices.agencyId,
+			proposalId: invoices.proposalId,
+			contractId: invoices.contractId,
+			invoiceNumber: invoices.invoiceNumber,
+			slug: invoices.slug,
+			status: invoices.status,
+			clientBusinessName: invoices.clientBusinessName,
+			clientContactName: invoices.clientContactName,
+			clientEmail: invoices.clientEmail,
+			clientPhone: invoices.clientPhone,
+			clientAddress: invoices.clientAddress,
+			clientAbn: invoices.clientAbn,
+			issueDate: invoices.issueDate,
+			dueDate: invoices.dueDate,
+			subtotal: invoices.subtotal,
+			discountAmount: invoices.discountAmount,
+			discountDescription: invoices.discountDescription,
+			gstAmount: invoices.gstAmount,
+			total: invoices.total,
+			gstRegistered: invoices.gstRegistered,
+			gstRate: invoices.gstRate,
+			paymentTerms: invoices.paymentTerms,
+			paymentTermsCustom: invoices.paymentTermsCustom,
+			notes: invoices.notes,
+			publicNotes: invoices.publicNotes,
+			viewCount: invoices.viewCount,
+			lastViewedAt: invoices.lastViewedAt,
+			sentAt: invoices.sentAt,
+			paidAt: invoices.paidAt,
+			paymentMethod: invoices.paymentMethod,
+			paymentReference: invoices.paymentReference,
+			paymentNotes: invoices.paymentNotes,
+			pdfUrl: invoices.pdfUrl,
+			pdfGeneratedAt: invoices.pdfGeneratedAt,
+			stripePaymentLinkId: invoices.stripePaymentLinkId,
+			stripePaymentLinkUrl: invoices.stripePaymentLinkUrl,
+			stripePaymentIntentId: invoices.stripePaymentIntentId,
+			stripeCheckoutSessionId: invoices.stripeCheckoutSessionId,
+			onlinePaymentEnabled: invoices.onlinePaymentEnabled,
+			createdBy: invoices.createdBy,
+			createdAt: invoices.createdAt,
+			updatedAt: invoices.updatedAt,
+			// Join to get creator name
+			creatorName: sql<string | null>`COALESCE(${agencyMemberships.displayName}, ${users.email})`.as('creator_name')
+		})
 		.from(invoices)
+		.leftJoin(users, eq(invoices.createdBy, users.id))
+		.leftJoin(
+			agencyMemberships,
+			and(
+				eq(invoices.createdBy, agencyMemberships.userId),
+				eq(invoices.agencyId, agencyMemberships.agencyId)
+			)
+		)
 		.where(and(...conditions))
 		.orderBy(desc(invoices.createdAt));
 

@@ -11,13 +11,19 @@
 	import { getProposals, deleteProposal, duplicateProposal } from '$lib/api/proposals.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { FEATURES } from '$lib/config/features';
-	import { Plus, Eye, Pencil, Copy, Trash2, Send, ExternalLink } from 'lucide-svelte';
+	import { Plus, Eye, Pencil, Copy, Trash2, Send, ExternalLink, User } from 'lucide-svelte';
 	import type { ProposalStatus } from '$lib/server/schema';
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
 
 	const feature = FEATURES.proposals;
 
 	const toast = getToast();
 	const agencySlug = page.params.agencySlug;
+
+	// Get current user's membership info for permission checks
+	const membership = data.membership;
 
 	// State
 	let statusFilter = $state<ProposalStatus | 'all'>('all');
@@ -119,6 +125,15 @@
 		} finally {
 			isLoading = false;
 		}
+	}
+
+	// Check if current user can edit/delete a proposal
+	// Members can only edit their own proposals, admins/owners can edit all
+	function canModify(createdBy: string | null): boolean {
+		if (membership.role === 'owner' || membership.role === 'admin') {
+			return true;
+		}
+		return createdBy === membership.userId;
 	}
 </script>
 
@@ -228,6 +243,7 @@
 		<div class="space-y-4">
 			{#each filteredProposals as proposal}
 				{@const statusBadge = getStatusBadge(proposal.status)}
+				{@const canEdit = canModify(proposal.createdBy)}
 				<div class="card bg-base-100 shadow transition-shadow hover:shadow-md">
 					<div class="card-body">
 						<div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -254,6 +270,12 @@
 										<strong>Created:</strong>
 										{formatDate(proposal.createdAt)}
 									</span>
+									{#if proposal.creatorName}
+										<span class="flex items-center gap-1">
+											<User class="h-3 w-3" />
+											{proposal.creatorName}
+										</span>
+									{/if}
 									{#if proposal.sentAt}
 										<span>
 											<strong>Sent:</strong>
@@ -275,7 +297,8 @@
 									type="button"
 									class="btn btn-ghost btn-sm"
 									onclick={() => editProposal(proposal.id)}
-									title="Edit proposal"
+									disabled={!canEdit}
+									title={canEdit ? 'Edit proposal' : 'Only the creator can edit this proposal'}
 								>
 									<Pencil class="h-4 w-4" />
 								</button>
@@ -293,8 +316,8 @@
 									type="button"
 									class="btn btn-ghost btn-sm"
 									onclick={() => handleDuplicate(proposal.id)}
-									disabled={isLoading}
-									title="Duplicate proposal"
+									disabled={isLoading || !canEdit}
+									title={canEdit ? 'Duplicate proposal' : 'Only the creator can duplicate this proposal'}
 								>
 									<Copy class="h-4 w-4" />
 								</button>
@@ -303,8 +326,8 @@
 									type="button"
 									class="btn btn-ghost btn-sm text-error"
 									onclick={() => handleDelete(proposal.id, proposal.title)}
-									disabled={isLoading}
-									title="Delete proposal"
+									disabled={isLoading || !canEdit}
+									title={canEdit ? 'Delete proposal' : 'Only the creator can delete this proposal'}
 								>
 									<Trash2 class="h-4 w-4" />
 								</button>

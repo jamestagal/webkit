@@ -15,7 +15,8 @@
 		CheckCircle,
 		Clock,
 		AlertCircle,
-		RefreshCw
+		RefreshCw,
+		User
 	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
@@ -24,6 +25,9 @@
 	let { data }: PageProps = $props();
 
 	let agencySlug = $derived(data.agency.slug);
+
+	// Get current user's membership info for permission checks
+	const membership = data.membership;
 
 	// Filter state
 	let statusFilter = $state<string | null>(null);
@@ -135,6 +139,15 @@
 		navigator.clipboard.writeText(url);
 		toast.success('Link copied to clipboard');
 	}
+
+	// Check if current user can edit/delete a contract
+	// Members can only edit their own, admins/owners can edit all
+	function canModify(createdBy: string | null): boolean {
+		if (membership.role === 'owner' || membership.role === 'admin') {
+			return true;
+		}
+		return createdBy === membership.userId;
+	}
 </script>
 
 <div class="space-y-6">
@@ -225,6 +238,7 @@
 		<div class="space-y-3 md:hidden">
 			{#each filteredContracts() as contract (contract.id)}
 				{@const statusInfo = getStatusBadge(contract.status)}
+				{@const canEdit = canModify(contract.createdBy)}
 				<div class="card bg-base-100 border border-base-300">
 					<div class="card-body p-4">
 						<div class="flex items-start justify-between gap-2">
@@ -253,10 +267,10 @@
 										<li>
 											<a href="/{agencySlug}/contracts/{contract.id}">
 												<Eye class="h-4 w-4" />
-												View / Edit
+												View
 											</a>
 										</li>
-										{#if contract.status === 'draft'}
+										{#if canEdit && contract.status === 'draft'}
 											<li>
 												<button type="button" onclick={() => handleSend(contract.id, contract.clientEmail)}>
 													<Send class="h-4 w-4" />
@@ -264,7 +278,7 @@
 												</button>
 											</li>
 										{/if}
-										{#if ['sent', 'viewed'].includes(contract.status)}
+										{#if canEdit && ['sent', 'viewed'].includes(contract.status)}
 											<li>
 												<button type="button" onclick={() => handleResend(contract.id, contract.clientEmail)}>
 													<RefreshCw class="h-4 w-4" />
@@ -286,7 +300,7 @@
 												</button>
 											</li>
 										{/if}
-										{#if !['signed', 'completed'].includes(contract.status)}
+										{#if canEdit && !['signed', 'completed'].includes(contract.status)}
 											<li class="border-t border-base-300 mt-1 pt-1">
 												<button type="button" class="text-error" onclick={() => handleDelete(contract.id)}>
 													<Trash2 class="h-4 w-4" />
@@ -300,7 +314,15 @@
 						</div>
 						<a href="/{agencySlug}/contracts/{contract.id}" class="block">
 							<div class="flex items-center justify-between mt-2 pt-2 border-t border-base-200 text-sm text-base-content/60">
-								<span>Created {formatDate(contract.createdAt)}</span>
+								<div class="flex items-center gap-2">
+									<span>Created {formatDate(contract.createdAt)}</span>
+									{#if contract.creatorName}
+										<span class="flex items-center gap-1">
+											<User class="h-3 w-3" />
+											{contract.creatorName}
+										</span>
+									{/if}
+								</div>
 								{#if contract.viewCount > 0}
 									<span>{contract.viewCount} view{contract.viewCount > 1 ? 's' : ''}</span>
 								{/if}
@@ -327,6 +349,7 @@
 				<tbody>
 					{#each filteredContracts() as contract (contract.id)}
 						{@const statusInfo = getStatusBadge(contract.status)}
+						{@const canEdit = canModify(contract.createdBy)}
 						<tr class="hover">
 							<td>
 								<div class="flex flex-col">
@@ -359,7 +382,15 @@
 								{/if}
 							</td>
 							<td>
-								<span class="text-sm">{formatDate(contract.createdAt)}</span>
+								<div class="flex flex-col gap-1">
+									<span class="text-sm">{formatDate(contract.createdAt)}</span>
+									{#if contract.creatorName}
+										<span class="text-xs text-base-content/60 flex items-center gap-1">
+											<User class="h-3 w-3" />
+											{contract.creatorName}
+										</span>
+									{/if}
+								</div>
 							</td>
 							<td>
 								<div class="dropdown dropdown-end">
@@ -376,10 +407,10 @@
 										<li>
 											<a href="/{agencySlug}/contracts/{contract.id}">
 												<Eye class="h-4 w-4" />
-												View / Edit
+												View
 											</a>
 										</li>
-										{#if contract.status === 'draft'}
+										{#if canEdit && contract.status === 'draft'}
 											<li>
 												<button
 													type="button"
@@ -390,7 +421,7 @@
 												</button>
 											</li>
 										{/if}
-										{#if ['sent', 'viewed'].includes(contract.status)}
+										{#if canEdit && ['sent', 'viewed'].includes(contract.status)}
 											<li>
 												<button
 													type="button"
@@ -418,7 +449,7 @@
 												</button>
 											</li>
 										{/if}
-										{#if !['signed', 'completed'].includes(contract.status)}
+										{#if canEdit && !['signed', 'completed'].includes(contract.status)}
 											<li class="border-t border-base-300 mt-1 pt-1">
 												<button
 													type="button"

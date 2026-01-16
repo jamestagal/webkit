@@ -28,6 +28,7 @@ import {
 	switchAgency as switchAgencyContext
 } from '$lib/server/agency';
 import { logActivity } from '$lib/server/db-helpers';
+import { getEffectiveBranding } from '$lib/server/document-branding';
 import { eq, and, desc, asc, ne, count } from 'drizzle-orm';
 import { sendEmail } from '$lib/server/services/email.service';
 import {
@@ -199,7 +200,8 @@ const SwitchAgencySchema = v.pipe(v.string(), v.uuid());
 
 const InviteMemberSchema = v.object({
 	email: v.pipe(v.string(), v.email()),
-	role: v.picklist(['admin', 'member'] as const)
+	role: v.picklist(['admin', 'member'] as const),
+	displayName: v.optional(v.pipe(v.string(), v.maxLength(100)))
 });
 
 const UpdateMemberRoleSchema = v.object({
@@ -417,6 +419,7 @@ export const inviteMember = command(InviteMemberSchema, async (data) => {
 			agencyId: context.agencyId,
 			role: data.role,
 			status: 'active',
+			displayName: data.displayName || null,
 			invitedAt: new Date(),
 			invitedBy: currentUserId,
 			acceptedAt: isNewUser ? null : new Date()
@@ -432,13 +435,16 @@ export const inviteMember = command(InviteMemberSchema, async (data) => {
 		throw new Error('Agency not found');
 	}
 
-	// Build email data
+	// Get email-specific branding (with overrides if configured)
+	const emailBranding = await getEffectiveBranding(context.agencyId, 'email');
+
+	// Build email data with email branding overrides
 	const loginUrl = `${getPublicBaseUrl()}/login?return=/${agency.slug}`;
 	const emailData: TeamInvitationData = {
 		agency: {
 			name: agency.name,
-			primaryColor: agency.primaryColor || undefined,
-			logoUrl: agency.logoUrl || undefined
+			primaryColor: emailBranding.primaryColor || agency.primaryColor || undefined,
+			logoUrl: emailBranding.logoUrl || agency.logoUrl || undefined
 		},
 		invitee: { email: data.email },
 		inviter: { name: inviter?.email || 'A team member' },
@@ -683,13 +689,16 @@ export const resendInvitation = command(ResendInvitationSchema, async (membershi
 		throw new Error('Agency not found');
 	}
 
-	// Build and send email
+	// Get email-specific branding (with overrides if configured)
+	const emailBranding = await getEffectiveBranding(context.agencyId, 'email');
+
+	// Build and send email with email branding overrides
 	const loginUrl = `${getPublicBaseUrl()}/login?return=/${agency.slug}`;
 	const emailData: TeamInvitationData = {
 		agency: {
 			name: agency.name,
-			primaryColor: agency.primaryColor || undefined,
-			logoUrl: agency.logoUrl || undefined
+			primaryColor: emailBranding.primaryColor || agency.primaryColor || undefined,
+			logoUrl: emailBranding.logoUrl || agency.logoUrl || undefined
 		},
 		invitee: { email: user.email },
 		inviter: { name: inviter?.email || 'A team member' },
@@ -851,6 +860,49 @@ export const updateMyDisplayName = command(UpdateDisplayNameSchema, async (data)
 
 	// Log activity
 	await logActivity('profile.displayName.updated', 'membership', undefined, {
+		newValues: { displayName: data.displayName }
+	});
+});
+
+/**
+ * Update another member's display name (owner/admin only).
+ */
+const UpdateMemberDisplayNameSchema = v.object({
+	membershipId: v.pipe(v.string(), v.uuid()),
+	displayName: v.pipe(v.string(), v.minLength(1), v.maxLength(100))
+});
+
+export const updateMemberDisplayName = command(UpdateMemberDisplayNameSchema, async (data) => {
+	const context = await requireAgencyRole(['owner', 'admin']);
+
+	// Get the membership to update
+	const [membership] = await db
+		.select()
+		.from(agencyMemberships)
+		.where(
+			and(
+				eq(agencyMemberships.id, data.membershipId),
+				eq(agencyMemberships.agencyId, context.agencyId)
+			)
+		)
+		.limit(1);
+
+	if (!membership) {
+		throw new Error('Membership not found');
+	}
+
+	// Cannot modify owner's name (unless you are the owner modifying yourself)
+	if (membership.role === 'owner' && membership.userId !== context.userId) {
+		throw new Error('Cannot modify owner display name');
+	}
+
+	await db
+		.update(agencyMemberships)
+		.set({ displayName: data.displayName, updatedAt: new Date() })
+		.where(eq(agencyMemberships.id, data.membershipId));
+
+	// Log activity
+	await logActivity('member.displayName.updated', 'membership', data.membershipId, {
 		newValues: { displayName: data.displayName }
 	});
 });

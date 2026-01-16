@@ -2,6 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Plan Mode
+
+- Make the plan extremely concise. Sacrifice grammar for the sake of concision.
+- At the end of each plan, give me a list of unresolved questions to answer, if any.
+
 ## Project Overview
 
 **Webkit** is a multi-tenant SaaS platform for web agencies to create client consultations and proposals. It uses agency-based tenancy with customizable forms and branding per agency.
@@ -352,6 +357,15 @@ When making database changes:
 5. **Edit queries**: Modify files in `app/service-core/storage/sql/*.sql`
 6. **Generate Go code**: `sh scripts/run_queries.sh postgres`
 
+## Query Development Checklist
+
+When writing or modifying database queries in remote functions:
+
+1. **Read schema first**: Before writing a select query, read the table definition in `service-client/src/lib/server/schema.ts`
+2. **Run type check**: Execute `npm run check` before committing to catch schema mismatches
+3. **Never ignore TypeScript errors**: They indicate real bugs (e.g., selecting non-existent columns)
+4. **Match exact column names**: Use the Drizzle column names, not assumed names (e.g., `clientSignedAt` not `signedAt`)
+
 ## Key Environment Variables
 
 | Variable | Description |
@@ -568,8 +582,3 @@ postgres:
 **Services can't connect to each other:**
 - Use container names for internal communication (e.g., `webkit-core:4001`)
 - Ensure services are on the same Docker network
-
-## Plan Mode
-
-- Make the plan extremely concise. Sacrifice grammar for the sake of concision.
-- At the end of each plan, give me a list of unresolved questions to answer, if any.

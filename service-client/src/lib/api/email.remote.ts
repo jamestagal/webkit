@@ -22,6 +22,7 @@ import {
 import { getAgencyContext } from '$lib/server/agency';
 import { logActivity } from '$lib/server/db-helpers';
 import { hasPermission } from '$lib/server/permissions';
+import { getEffectiveBranding } from '$lib/server/document-branding';
 import { eq, and, desc } from 'drizzle-orm';
 import { sendEmail } from '$lib/server/services/email.service';
 import { fetchProposalPdf, fetchInvoicePdf, fetchContractPdf } from '$lib/server/services/pdf.service';
@@ -196,11 +197,19 @@ export const sendProposalEmail = command(SendProposalEmailSchema, async (data) =
 		where: eq(agencyProfiles.agencyId, context.agencyId)
 	});
 
+	// Get email-specific branding (with overrides if configured)
+	const emailBranding = await getEffectiveBranding(context.agencyId, 'email');
+
 	// Generate public URL (absolute URL for email clients)
 	const publicUrl = `${getPublicBaseUrl()}/p/${proposal.slug}`;
 
-	// Build email template data
-	const templateData = buildProposalEmailData(proposal, agency, profile || null, publicUrl);
+	// Build email template data with email branding overrides
+	const agencyWithEmailBranding = {
+		...agency,
+		logoUrl: emailBranding.logoUrl || agency.logoUrl,
+		primaryColor: emailBranding.primaryColor || agency.primaryColor
+	};
+	const templateData = buildProposalEmailData(proposal, agencyWithEmailBranding, profile || null, publicUrl);
 	if (data.customMessage) {
 		templateData.customMessage = data.customMessage;
 	}
@@ -318,13 +327,21 @@ export const sendInvoiceEmail = command(SendInvoiceEmailSchema, async (data) => 
 		where: eq(agencyProfiles.agencyId, context.agencyId)
 	});
 
+	// Get email-specific branding (with overrides if configured)
+	const emailBranding = await getEffectiveBranding(context.agencyId, 'email');
+
 	// Generate public URL (absolute URL for email clients)
 	const publicUrl = `${getPublicBaseUrl()}/i/${invoice.slug}`;
 
-	// Build email template data (include payment link if available - Phase 5)
+	// Build email template data with email branding overrides
+	const agencyWithEmailBranding = {
+		...agency,
+		logoUrl: emailBranding.logoUrl || agency.logoUrl,
+		primaryColor: emailBranding.primaryColor || agency.primaryColor
+	};
 	const templateData = buildInvoiceEmailData(
 		invoice,
-		agency,
+		agencyWithEmailBranding,
 		profile || null,
 		publicUrl,
 		(invoice as unknown as { stripePaymentLinkUrl?: string }).stripePaymentLinkUrl
@@ -451,6 +468,9 @@ export const sendInvoiceReminder = command(SendInvoiceReminderSchema, async (dat
 		where: eq(agencyProfiles.agencyId, context.agencyId)
 	});
 
+	// Get email-specific branding (with overrides if configured)
+	const emailBranding = await getEffectiveBranding(context.agencyId, 'email');
+
 	// Generate public URL (absolute URL for email clients)
 	const publicUrl = `${getPublicBaseUrl()}/i/${invoice.slug}`;
 
@@ -462,10 +482,15 @@ export const sendInvoiceReminder = command(SendInvoiceReminderSchema, async (dat
 		? Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
 		: 0;
 
-	// Build reminder email template data
+	// Build reminder email template data with email branding overrides
+	const agencyWithEmailBranding = {
+		...agency,
+		logoUrl: emailBranding.logoUrl || agency.logoUrl,
+		primaryColor: emailBranding.primaryColor || agency.primaryColor
+	};
 	const baseData = buildInvoiceEmailData(
 		invoice,
-		agency,
+		agencyWithEmailBranding,
 		profile || null,
 		publicUrl,
 		(invoice as unknown as { stripePaymentLinkUrl?: string }).stripePaymentLinkUrl
@@ -582,11 +607,19 @@ export const sendContractEmail = command(SendContractEmailSchema, async (data) =
 		where: eq(agencyProfiles.agencyId, context.agencyId)
 	});
 
+	// Get email-specific branding (with overrides if configured)
+	const emailBranding = await getEffectiveBranding(context.agencyId, 'email');
+
 	// Generate public URL (absolute URL for email clients)
 	const publicUrl = `${getPublicBaseUrl()}/c/${contract.slug}`;
 
-	// Build email template data
-	const templateData = buildContractEmailData(contract, agency, profile || null, publicUrl);
+	// Build email template data with email branding overrides
+	const agencyWithEmailBranding = {
+		...agency,
+		logoUrl: emailBranding.logoUrl || agency.logoUrl,
+		primaryColor: emailBranding.primaryColor || agency.primaryColor
+	};
+	const templateData = buildContractEmailData(contract, agencyWithEmailBranding, profile || null, publicUrl);
 	if (data.customMessage) {
 		templateData.customMessage = data.customMessage;
 	}

@@ -13,6 +13,7 @@
 	let { agency, showModal = $bindable(false), onInvite = () => {} }: Props = $props();
 
 	let email = $state('');
+	let displayName = $state('');
 	let role = $state<'admin' | 'member'>('member');
 	let isLoading = $state(false);
 	let errors = $state<{ email?: string }>({});
@@ -50,13 +51,15 @@
 		try {
 			await inviteMember({
 				email,
-				role
+				role,
+				displayName: displayName.trim() || undefined
 			});
 
 			toast.success(`Invitation sent to ${email}`);
 
 			// Reset form
 			email = '';
+			displayName = '';
 			role = 'member';
 			showModal = false;
 
@@ -86,6 +89,7 @@
 	function handleClose() {
 		if (!isLoading) {
 			email = '';
+			displayName = '';
 			role = 'member';
 			errors = {};
 			showModal = false;
@@ -135,6 +139,22 @@
 								<span class="label-text-alt text-error">{errors.email}</span>
 							</label>
 						{/if}
+					</div>
+
+					<!-- Display Name Input (Optional) -->
+					<div class="form-control">
+						<label for="displayName" class="label">
+							<span class="label-text">Display Name</span>
+							<span class="label-text-alt text-base-content/50">Optional</span>
+						</label>
+						<input
+							id="displayName"
+							type="text"
+							bind:value={displayName}
+							placeholder="John Smith"
+							class="input input-bordered w-full"
+							disabled={isLoading}
+						/>
 					</div>
 
 					<!-- Role Selection -->

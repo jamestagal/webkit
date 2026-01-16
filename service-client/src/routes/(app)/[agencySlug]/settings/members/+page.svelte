@@ -7,6 +7,7 @@
 		updateMemberRole,
 		removeMember,
 		updateMyDisplayName,
+		updateMemberDisplayName,
 		cancelInvitation,
 		resendInvitation
 	} from '$lib/api/agency.remote';
@@ -95,13 +96,28 @@
 		return member.id === currentMembershipId;
 	}
 
-	// Open name edit modal for current user
+	// Track member being edited for name modal
+	let editingMember = $state<(typeof members)[0] | null>(null);
+
+	// Open name edit modal for any member
 	function openNameModal(member: (typeof members)[0]) {
+		editingMember = member;
 		editingDisplayName = member.displayName || '';
 		showNameModal = true;
 	}
 
-	// Update current user's display name
+	// Check if current user can edit a member's display name
+	function canEditDisplayName(member: (typeof members)[0]) {
+		// Can always edit your own name
+		if (isCurrentUser(member)) return true;
+		// Owners/admins can edit other members (except other owners)
+		if ((currentUserRole === 'owner' || currentUserRole === 'admin') && member.role !== 'owner') {
+			return true;
+		}
+		return false;
+	}
+
+	// Update display name (self or other member)
 	async function handleUpdateDisplayName() {
 		if (!editingDisplayName.trim()) {
 			toast.error('Please enter a display name');
@@ -110,9 +126,19 @@
 
 		isUpdating = true;
 		try {
-			await updateMyDisplayName({ displayName: editingDisplayName.trim() });
+			if (editingMember && isCurrentUser(editingMember)) {
+				// Editing own name
+				await updateMyDisplayName({ displayName: editingDisplayName.trim() });
+			} else if (editingMember) {
+				// Editing another member's name
+				await updateMemberDisplayName({
+					membershipId: editingMember.id,
+					displayName: editingDisplayName.trim()
+				});
+			}
 			toast.success('Display name updated');
 			showNameModal = false;
+			editingMember = null;
 			await invalidate('load:members');
 		} catch (error) {
 			toast.error((error as Error).message || 'Failed to update display name');
@@ -197,8 +223,8 @@
 		</div>
 	{:else}
 		<!-- Desktop Table View -->
-		<div class="card bg-base-100 border border-base-300 overflow-hidden hidden sm:block">
-			<div class="overflow-x-auto">
+		<div class="card bg-base-100 border border-base-300 hidden sm:block overflow-visible">
+			<div class="overflow-visible">
 				<table class="table">
 					<thead>
 						<tr>
@@ -234,14 +260,16 @@
 											<span class="font-medium">
 												{member.displayName || 'Unnamed'}
 											</span>
-											{#if isCurrentUser(member)}
+											{#if canEditDisplayName(member)}
 												<button
 													class="btn btn-ghost btn-xs btn-square"
 													onclick={() => openNameModal(member)}
-													title="Edit your display name"
+													title="Edit display name"
 												>
 													<Pencil class="h-3 w-3" />
 												</button>
+											{/if}
+											{#if isCurrentUser(member)}
 												<span class="badge badge-outline badge-xs">You</span>
 											{/if}
 										</div>
@@ -352,14 +380,16 @@
 									<span class="font-semibold">
 										{member.displayName || 'Unnamed'}
 									</span>
-									{#if isCurrentUser(member)}
+									{#if canEditDisplayName(member)}
 										<button
 											class="btn btn-ghost btn-xs btn-square"
 											onclick={() => openNameModal(member)}
-											title="Edit your display name"
+											title="Edit display name"
 										>
 											<Pencil class="h-3 w-3" />
 										</button>
+									{/if}
+									{#if isCurrentUser(member)}
 										<span class="badge badge-outline badge-xs">You</span>
 									{/if}
 								</div>
@@ -522,9 +552,15 @@
 <Modal bind:isOpen={showNameModal} title="Edit Display Name" maxWidth="max-w-md">
 	{#snippet children()}
 		<div class="p-6 space-y-4">
-			<p class="text-base-content/70">
-				This name will be shown to other team members in this agency.
-			</p>
+			{#if editingMember && !isCurrentUser(editingMember)}
+				<p class="text-base-content/70">
+					Edit display name for <strong>{editingMember.userEmail}</strong>
+				</p>
+			{:else}
+				<p class="text-base-content/70">
+					This name will be shown to other team members in this agency.
+				</p>
+			{/if}
 
 			<div class="form-control">
 				<label class="label" for="displayName">
@@ -534,14 +570,14 @@
 					id="displayName"
 					type="text"
 					class="input input-bordered w-full"
-					placeholder="Enter your name"
+					placeholder={editingMember && !isCurrentUser(editingMember) ? "Enter name" : "Enter your name"}
 					bind:value={editingDisplayName}
 					disabled={isUpdating}
 				/>
 			</div>
 
 			<div class="flex justify-end gap-3 pt-4">
-				<button class="btn" onclick={() => (showNameModal = false)} disabled={isUpdating}>
+				<button class="btn" onclick={() => { showNameModal = false; editingMember = null; }} disabled={isUpdating}>
 					Cancel
 				</button>
 				<button class="btn btn-primary" onclick={handleUpdateDisplayName} disabled={isUpdating}>

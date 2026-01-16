@@ -122,6 +122,7 @@ export const loadDemoData = command(async () => {
 	await db.insert(consultations).values({
 		id: consultationId,
 		agencyId,
+		createdBy: userId,
 		// Step 1: Contact & Business
 		businessName: DEMO_CONSULTATION.businessName,
 		contactPerson: DEMO_CONSULTATION.contactPerson,

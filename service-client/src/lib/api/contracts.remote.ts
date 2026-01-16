@@ -20,6 +20,8 @@ import {
 	agencyProfiles,
 	agencyPackages,
 	agencyAddons,
+	users,
+	agencyMemberships,
 	type SignatureConfig
 } from '$lib/server/schema';
 import { getAgencyContext } from '$lib/server/agency';
@@ -236,7 +238,7 @@ function buildPaymentTerms(
 
 /**
  * Get all contracts for the current agency.
- * Respects permissions - members only see their own contracts.
+ * All roles can view all contracts (edit/delete restricted by ownership).
  */
 export const getContracts = query(ContractFiltersSchema, async (filters) => {
 	const context = await getAgencyContext();
@@ -250,14 +252,42 @@ export const getContracts = query(ContractFiltersSchema, async (filters) => {
 		conditions.push(eq(contracts.status, status));
 	}
 
-	// If member, only show their own contracts
-	if (!hasPermission(context.role, 'contract:view_all')) {
-		conditions.push(eq(contracts.createdBy, context.userId));
-	}
+	// All roles can view all agency contracts (edit/delete still restricted by ownership)
 
 	const results = await db
-		.select()
+		.select({
+			id: contracts.id,
+			agencyId: contracts.agencyId,
+			proposalId: contracts.proposalId,
+			contractNumber: contracts.contractNumber,
+			slug: contracts.slug,
+			version: contracts.version,
+			clientBusinessName: contracts.clientBusinessName,
+			clientContactName: contracts.clientContactName,
+			clientEmail: contracts.clientEmail,
+			clientPhone: contracts.clientPhone,
+			clientAddress: contracts.clientAddress,
+			totalPrice: contracts.totalPrice,
+			status: contracts.status,
+			sentAt: contracts.sentAt,
+			lastViewedAt: contracts.lastViewedAt,
+			clientSignedAt: contracts.clientSignedAt,
+			viewCount: contracts.viewCount,
+			createdBy: contracts.createdBy,
+			createdAt: contracts.createdAt,
+			updatedAt: contracts.updatedAt,
+			// Join to get creator name
+			creatorName: sql<string | null>`COALESCE(${agencyMemberships.displayName}, ${users.email})`.as('creator_name')
+		})
 		.from(contracts)
+		.leftJoin(users, eq(contracts.createdBy, users.id))
+		.leftJoin(
+			agencyMemberships,
+			and(
+				eq(contracts.createdBy, agencyMemberships.userId),
+				eq(contracts.agencyId, agencyMemberships.agencyId)
+			)
+		)
 		.where(and(...conditions))
 		.orderBy(desc(contracts.createdAt))
 		.limit(limit)

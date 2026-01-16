@@ -8,9 +8,9 @@
 import { query, command } from '$app/server';
 import * as v from 'valibot';
 import { db } from '$lib/server/db';
-import { consultations } from '$lib/server/schema';
-import { getAgencyId } from '$lib/server/auth';
-import { eq, and, desc } from 'drizzle-orm';
+import { consultations, users, agencyMemberships } from '$lib/server/schema';
+import { getAgencyId, getUserId } from '$lib/server/auth';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import {
 	CreateConsultationSchema,
 	UpdateContactBusinessSchema,
@@ -62,14 +62,51 @@ export const getConsultation = query(v.pipe(v.string(), v.uuid()), async (id: st
 });
 
 /**
- * Get all consultations for the current agency.
+ * Get all consultations for the current agency with creator info.
  */
 export const getAgencyConsultations = query(async () => {
 	const agencyId = await getAgencyId();
 
 	return await db
-		.select()
+		.select({
+			id: consultations.id,
+			agencyId: consultations.agencyId,
+			businessName: consultations.businessName,
+			contactPerson: consultations.contactPerson,
+			email: consultations.email,
+			phone: consultations.phone,
+			website: consultations.website,
+			socialLinkedin: consultations.socialLinkedin,
+			socialFacebook: consultations.socialFacebook,
+			socialInstagram: consultations.socialInstagram,
+			industry: consultations.industry,
+			businessType: consultations.businessType,
+			websiteStatus: consultations.websiteStatus,
+			primaryChallenges: consultations.primaryChallenges,
+			urgencyLevel: consultations.urgencyLevel,
+			primaryGoals: consultations.primaryGoals,
+			conversionGoal: consultations.conversionGoal,
+			budgetRange: consultations.budgetRange,
+			timeline: consultations.timeline,
+			designStyles: consultations.designStyles,
+			admiredWebsites: consultations.admiredWebsites,
+			consultationNotes: consultations.consultationNotes,
+			status: consultations.status,
+			createdBy: consultations.createdBy,
+			createdAt: consultations.createdAt,
+			updatedAt: consultations.updatedAt,
+			// Join to get creator name
+			creatorName: sql<string | null>`COALESCE(${agencyMemberships.displayName}, ${users.email})`.as('creator_name')
+		})
 		.from(consultations)
+		.leftJoin(users, eq(consultations.createdBy, users.id))
+		.leftJoin(
+			agencyMemberships,
+			and(
+				eq(consultations.createdBy, agencyMemberships.userId),
+				eq(consultations.agencyId, agencyMemberships.agencyId)
+			)
+		)
 		.where(eq(consultations.agencyId, agencyId))
 		.orderBy(desc(consultations.updatedAt));
 });
@@ -97,6 +134,7 @@ export const getCompletedConsultations = query(async () => {
  */
 export const createConsultation = command(CreateConsultationSchema, async (data) => {
 	const agencyId = await getAgencyId();
+	const userId = getUserId();
 
 	// Ensure agencyId matches
 	if (data.agencyId !== agencyId) {
@@ -107,6 +145,7 @@ export const createConsultation = command(CreateConsultationSchema, async (data)
 		.insert(consultations)
 		.values({
 			agencyId,
+			createdBy: userId,
 			businessName: data.business_name || null,
 			contactPerson: data.contact_person || null,
 			email: data.email,
