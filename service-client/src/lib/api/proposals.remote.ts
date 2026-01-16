@@ -30,7 +30,7 @@ import {
 	canDeleteResource
 } from '$lib/server/permissions';
 import { dataPipelineService } from '$lib/server/services/data-pipeline.service';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 // =============================================================================
@@ -401,7 +401,7 @@ export const getProposalWithRelations = query(
 				.where(
 					and(
 						eq(agencyAddons.agencyId, context.agencyId),
-						sql`${agencyAddons.id} = ANY(${addonIds})`
+						inArray(agencyAddons.id, addonIds)
 					)
 				);
 		}

@@ -365,6 +365,7 @@ When writing or modifying database queries in remote functions:
 2. **Run type check**: Execute `npm run check` before committing to catch schema mismatches
 3. **Never ignore TypeScript errors**: They indicate real bugs (e.g., selecting non-existent columns)
 4. **Match exact column names**: Use the Drizzle column names, not assumed names (e.g., `clientSignedAt` not `signedAt`)
+5. **Use Drizzle helpers for arrays**: Never use raw SQL like `` sql`${col} = ANY(${arr})` ``. Use `inArray(column, array)` from drizzle-orm instead - raw SQL doesn't properly escape array values
 
 ## Key Environment Variables
 
