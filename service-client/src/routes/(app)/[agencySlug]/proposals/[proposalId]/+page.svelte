@@ -15,6 +15,9 @@
 	import { getProposalWithRelations, updateProposal, markProposalReady } from '$lib/api/proposals.remote';
 	import { sendProposalEmail } from '$lib/api/email.remote';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
+	import AIPreviewModal from './AIPreviewModal.svelte';
+	import AIStreamingModal from './AIStreamingModal.svelte';
+	import AIErrorDisplay from '$lib/components/AIErrorDisplay.svelte';
 	import { getActivePackages } from '$lib/api/agency-packages.remote';
 	import { getActiveAddons } from '$lib/api/agency-addons.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
@@ -37,8 +40,12 @@
 		ListChecks,
 		Lightbulb,
 		CheckCircle2,
-		MoreHorizontal
+		MoreHorizontal,
+		Sparkles
 	} from 'lucide-svelte';
+	import { ALL_SECTIONS, SECTION_DISPLAY_NAMES } from '$lib/constants/proposal-sections';
+	import type { AIErrorCode } from '$lib/constants/ai-errors';
+	import type { AIProposalOutput } from '$lib/types/ai-proposal';
 	import type {
 		ChecklistItem,
 		PerformanceData,
@@ -106,6 +113,23 @@
 	let isSaving = $state(false);
 	let isSending = $state(false);
 	let activeSection = $state('client');
+
+	// AI generation state
+	let showAIModal = $state(false);
+	let showStreamingModal = $state(false);
+	let isGenerating = $state(false);
+	let aiError = $state<AIErrorCode | null>(null);
+	let generatedContent = $state<AIProposalOutput | null>(null);
+	let transformedContent = $state<Record<string, unknown> | null>(null); // DB-ready format
+	let generatedSections = $state<string[]>([]);
+	let failedSections = $state<string[]>([]);
+	let showPreviewModal = $state(false);
+	let syncedPerformanceData = $state<Record<string, unknown> | null>(null); // Fresh data from consultation
+
+	// Section selection for AI generation (default all selected)
+	let selectedSections = $state<Record<string, boolean>>(
+		Object.fromEntries(ALL_SECTIONS.map((s) => [s, true]))
+	);
 
 	// Consultation insights from cached data (PART 2)
 	const consultationPainPoints = (proposal.consultationPainPoints as ConsultationPainPoints) || {};
@@ -259,6 +283,138 @@
 	function goBack() {
 		goto(`/${agencySlug}/proposals`);
 	}
+
+	// AI Generation handlers
+	function handleGenerateWithAI() {
+		const sectionsToGenerate = Object.entries(selectedSections)
+			.filter(([_, selected]) => selected)
+			.map(([key]) => key);
+
+		if (sectionsToGenerate.length === 0) {
+			toast.error('No sections selected', 'Please select at least one section to generate');
+			return;
+		}
+
+		// Close section selection modal and show streaming modal
+		showAIModal = false;
+		isGenerating = true;
+		aiError = null;
+		showStreamingModal = true;
+	}
+
+	// Called when streaming completes successfully
+	function handleStreamingComplete(
+		content: AIProposalOutput,
+		transformed: Record<string, unknown>,
+		generated: string[],
+		failed: string[],
+		performanceData: Record<string, unknown> | null
+	) {
+		showStreamingModal = false;
+		isGenerating = false;
+		generatedContent = content;
+		transformedContent = transformed;
+		generatedSections = generated;
+		failedSections = failed;
+		syncedPerformanceData = performanceData; // Store fresh PageSpeed data
+
+		// Show preview modal for review (content stays in memory until Apply/Discard)
+		showPreviewModal = true;
+	}
+
+	// Called when streaming encounters an error
+	function handleStreamingError(code: AIErrorCode, message: string) {
+		showStreamingModal = false;
+		isGenerating = false;
+		aiError = code;
+		toast.error('Generation failed', message);
+	}
+
+	// Called when user cancels streaming
+	function handleStreamingCancel() {
+		showStreamingModal = false;
+		isGenerating = false;
+	}
+
+	function handleApplyGenerated(sectionKeys: string[]) {
+		if (!transformedContent) return;
+
+		for (const key of sectionKeys) {
+			if (transformedContent[key] !== undefined) {
+				if (key === 'executiveSummary') {
+					formData.executiveSummary = transformedContent[key] as string;
+				} else if (key === 'opportunityContent') {
+					formData.opportunityContent = transformedContent[key] as string;
+				} else if (key === 'currentIssues') {
+					formData.currentIssues = transformedContent[key] as ChecklistItem[];
+				} else if (key === 'performanceStandards') {
+					formData.performanceStandards = transformedContent[key] as PerformanceStandard[];
+				} else if (key === 'proposedPages') {
+					formData.proposedPages = transformedContent[key] as ProposedPage[];
+				} else if (key === 'timeline') {
+					formData.timeline = transformedContent[key] as TimelinePhase[];
+				} else if (key === 'nextSteps') {
+					formData.nextSteps = transformedContent[key] as NextStepItem[];
+				} else if (key === 'closingContent') {
+					formData.closingContent = transformedContent[key] as string;
+				}
+			}
+		}
+
+		// Also sync fresh PageSpeed data from consultation
+		if (syncedPerformanceData) {
+			formData.performanceData = syncedPerformanceData as PerformanceData;
+		}
+
+		showPreviewModal = false;
+		generatedContent = null;
+		transformedContent = null;
+		syncedPerformanceData = null;
+		toast.success('Content applied', 'AI-generated content has been applied. Click Save to persist changes.');
+	}
+
+	function handleClosePreview() {
+		// Just close the modal, keep content so user can re-open
+		showPreviewModal = false;
+	}
+
+	function handleDiscardGenerated() {
+		// Discard all generated content
+		showPreviewModal = false;
+		generatedContent = null;
+		transformedContent = null;
+		syncedPerformanceData = null;
+		toast.info('Content discarded', 'AI-generated content has been discarded.');
+	}
+
+	function handleRetryGeneration() {
+		aiError = null;
+		showAIModal = true;
+	}
+
+	// Check if a section has existing content
+	function sectionHasContent(sectionKey: string): boolean {
+		switch (sectionKey) {
+			case 'executiveSummary':
+				return !!formData.executiveSummary;
+			case 'opportunityContent':
+				return !!formData.opportunityContent;
+			case 'currentIssues':
+				return formData.currentIssues.length > 0;
+			case 'performanceStandards':
+				return formData.performanceStandards.length > 0;
+			case 'proposedPages':
+				return formData.proposedPages.length > 0;
+			case 'timeline':
+				return formData.timeline.length > 0;
+			case 'nextSteps':
+				return formData.nextSteps.length > 0;
+			case 'closingContent':
+				return !!formData.closingContent;
+			default:
+				return false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -294,6 +450,31 @@
 								<Save class="h-4 w-4" />
 							{/if}
 							Save
+						</button>
+						<button
+							type="button"
+							class="btn btn-secondary btn-sm"
+							onclick={() => {
+								// If we have generated content waiting for review, show preview instead
+								if (generatedContent) {
+									showPreviewModal = true;
+								} else {
+									showAIModal = true;
+								}
+							}}
+							disabled={isGenerating}
+						>
+							{#if isGenerating}
+								<span class="loading loading-spinner loading-sm"></span>
+								Generating...
+							{:else if generatedContent}
+								<Sparkles class="h-4 w-4" />
+								Review AI
+								<span class="badge badge-xs badge-warning">!</span>
+							{:else}
+								<Sparkles class="h-4 w-4" />
+								AI
+							{/if}
 						</button>
 						{#if proposal.status === 'draft'}
 							<button
@@ -1171,3 +1352,130 @@
 		</main>
 	</div>
 </div>
+
+<!-- AI Section Selection Modal -->
+{#if showAIModal}
+	<dialog class="modal modal-open">
+		<div class="modal-box max-w-md">
+			<h3 class="font-bold text-lg flex items-center gap-2">
+				<Sparkles class="h-5 w-5 text-secondary" />
+				Generate with AI
+			</h3>
+			<p class="text-base-content/60 text-sm mt-2">
+				Select the sections you want to generate. Latest PageSpeed audit data from the consultation
+				will be synced automatically.
+			</p>
+
+			<!-- Warning banner -->
+			<div class="alert alert-warning mt-4">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="stroke-current shrink-0 h-5 w-5"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+					/>
+				</svg>
+				<span class="text-sm">Selected sections will be replaced. Review before applying.</span>
+			</div>
+
+			<div class="mt-4 flex flex-col gap-1">
+				{#each ALL_SECTIONS as sectionKey}
+					<label class="flex flex-row items-center gap-3 p-2 rounded hover:bg-base-200 cursor-pointer">
+						<input
+							type="checkbox"
+							bind:checked={selectedSections[sectionKey]}
+							class="checkbox checkbox-sm checkbox-secondary shrink-0"
+						/>
+						<span class="flex-1 text-sm truncate">{SECTION_DISPLAY_NAMES[sectionKey]}</span>
+						{#if sectionHasContent(sectionKey)}
+							<span class="badge badge-ghost badge-xs shrink-0 whitespace-nowrap">Has content</span>
+						{/if}
+					</label>
+				{/each}
+			</div>
+
+			<div class="modal-action">
+				<button type="button" class="btn btn-ghost" onclick={() => (showAIModal = false)}>
+					Cancel
+				</button>
+				<button
+					type="button"
+					class="btn btn-secondary"
+					onclick={handleGenerateWithAI}
+					disabled={isGenerating || !Object.values(selectedSections).some(Boolean)}
+				>
+					{#if isGenerating}
+						<span class="loading loading-spinner loading-sm"></span>
+					{:else}
+						<Sparkles class="h-4 w-4" />
+					{/if}
+					Generate
+				</button>
+			</div>
+		</div>
+		<form method="dialog" class="modal-backdrop">
+			<button type="button" onclick={() => (showAIModal = false)}>close</button>
+		</form>
+	</dialog>
+{/if}
+
+<!-- AI Error Display -->
+{#if aiError}
+	<dialog class="modal modal-open">
+		<div class="modal-box max-w-md">
+			<AIErrorDisplay
+				errorCode={aiError}
+				onRetry={handleRetryGeneration}
+				onUpgrade={() => goto(`/${agencySlug}/settings/billing`)}
+				onContactSupport={() => window.open('mailto:support@webkit.au', '_blank')}
+			/>
+			<div class="modal-action">
+				<button type="button" class="btn" onclick={() => (aiError = null)}>Close</button>
+			</div>
+		</div>
+		<form method="dialog" class="modal-backdrop">
+			<button type="button" onclick={() => (aiError = null)}>close</button>
+		</form>
+	</dialog>
+{/if}
+
+<!-- AI Streaming Modal -->
+{#if showStreamingModal}
+	<AIStreamingModal
+		{proposalId}
+		sections={Object.entries(selectedSections)
+			.filter(([_, selected]) => selected)
+			.map(([key]) => key)}
+		onComplete={handleStreamingComplete}
+		onError={handleStreamingError}
+		onCancel={handleStreamingCancel}
+	/>
+{/if}
+
+<!-- AI Preview Modal -->
+{#if showPreviewModal && generatedContent}
+	<AIPreviewModal
+		isOpen={showPreviewModal}
+		generatedContent={generatedContent}
+		currentContent={{
+			executiveSummary: formData.executiveSummary,
+			opportunityContent: formData.opportunityContent || '',
+			currentIssues: formData.currentIssues,
+			performanceStandards: formData.performanceStandards,
+			proposedPages: formData.proposedPages,
+			timeline: formData.timeline,
+			nextSteps: formData.nextSteps,
+			closingContent: formData.closingContent || ''
+		}}
+		selectedSections={generatedSections}
+		onapply={({ sections }) => handleApplyGenerated(sections)}
+		ondiscard={handleDiscardGenerated}
+		onclose={handleClosePreview}
+	/>
+{/if}

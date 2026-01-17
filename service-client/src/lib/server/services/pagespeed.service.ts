@@ -14,10 +14,14 @@ config({ path: resolve(process.cwd(), '.env') });
 const env = process.env;
 
 // Configuration
-const PAGESPEED_API_ENDPOINT =
-	env['PAGESPEED_API_URL'] || 'https://api.edtechdesigner.com/index.php';
+// Use Google's API directly with API key, or fall back to proxy
+const GOOGLE_PAGESPEED_API = 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed';
+const PAGESPEED_API_KEY = env['PAGESPEED_API_KEY'] || '';
+const PAGESPEED_PROXY_URL = env['PAGESPEED_API_URL'] || '';
+
 const DEFAULT_STRATEGY = 'mobile';
-const DEFAULT_CATEGORY = 'performance';
+// Request all Lighthouse categories for full audit
+const CATEGORIES = ['performance', 'accessibility', 'best-practices', 'seo'] as const;
 
 // =============================================================================
 // Types
@@ -35,11 +39,16 @@ interface LighthouseAudit {
 	};
 }
 
+interface LighthouseCategoryScore {
+	score: number;
+}
+
 interface LighthouseResult {
 	categories: {
-		performance?: {
-			score: number;
-		};
+		performance?: LighthouseCategoryScore;
+		accessibility?: LighthouseCategoryScore;
+		'best-practices'?: LighthouseCategoryScore;
+		seo?: LighthouseCategoryScore;
 	};
 	audits: Record<string, LighthouseAudit>;
 }
@@ -68,7 +77,12 @@ interface Recommendation {
 }
 
 export interface PageSpeedResult {
-	score: number;
+	// All Lighthouse category scores (0-100)
+	score: number; // Performance score (primary)
+	accessibility: number;
+	bestPractices: number;
+	seo: number;
+	// Core Web Vitals
 	metrics: {
 		LCP: ParsedMetric;
 		CLS: ParsedMetric;
@@ -169,6 +183,9 @@ function createFallbackResult(score: number): PageSpeedResult {
 
 	return {
 		score,
+		accessibility: 0,
+		bestPractices: 0,
+		seo: 0,
 		metrics: {
 			LCP: { ...fallbackMetric, title: 'Largest Contentful Paint' },
 			CLS: { ...fallbackMetric, title: 'Cumulative Layout Shift' },
@@ -204,13 +221,30 @@ function createFallbackResult(score: number): PageSpeedResult {
 
 /**
  * Fetch PageSpeed Insights data for a URL
+ * Uses Google's API directly if API key is configured, otherwise falls back to proxy
  */
 export async function fetchPageSpeedData(url: string): Promise<PageSpeedResponse> {
-	const apiUrl = new URL(PAGESPEED_API_ENDPOINT);
+	let apiUrl: URL;
+
+	if (PAGESPEED_API_KEY) {
+		// Use Google's API directly with API key
+		apiUrl = new URL(GOOGLE_PAGESPEED_API);
+		apiUrl.searchParams.set('key', PAGESPEED_API_KEY);
+	} else if (PAGESPEED_PROXY_URL) {
+		// Fall back to proxy (which adds its own API key)
+		apiUrl = new URL(PAGESPEED_PROXY_URL);
+	} else {
+		throw new Error('PageSpeed API not configured. Set PAGESPEED_API_KEY or PAGESPEED_API_URL.');
+	}
+
 	apiUrl.searchParams.set('url', url);
 	apiUrl.searchParams.set('strategy', DEFAULT_STRATEGY);
-	apiUrl.searchParams.set('category', DEFAULT_CATEGORY);
+	// Request all Lighthouse categories
+	for (const category of CATEGORIES) {
+		apiUrl.searchParams.append('category', category);
+	}
 
+	console.log('Fetching PageSpeed data from:', apiUrl.toString().replace(PAGESPEED_API_KEY, '***'));
 	const response = await fetch(apiUrl.toString());
 
 	if (!response.ok) {
@@ -227,7 +261,13 @@ export async function fetchPageSpeedData(url: string): Promise<PageSpeedResponse
 		throw new Error(errorMessage);
 	}
 
-	return response.json();
+	const data = await response.json();
+	console.log('PageSpeed API response keys:', Object.keys(data));
+	if (data.lighthouseResult) {
+		console.log('lighthouseResult.categories:', Object.keys(data.lighthouseResult.categories || {}));
+		console.log('lighthouseResult.audits count:', Object.keys(data.lighthouseResult.audits || {}).length);
+	}
+	return data;
 }
 
 /**
@@ -241,6 +281,7 @@ export function parsePageSpeedResults(pageSpeedData: PageSpeedResponse): PageSpe
 
 	if (!pageSpeedData.lighthouseResult) {
 		console.warn('Missing lighthouseResult in PageSpeed data, using fallback');
+		console.warn('Received data:', JSON.stringify(pageSpeedData).slice(0, 500));
 		return createFallbackResult(45);
 	}
 
@@ -248,16 +289,27 @@ export function parsePageSpeedResults(pageSpeedData: PageSpeedResponse): PageSpe
 
 	if (!lighthouseResult.categories?.performance) {
 		console.warn('Missing performance category, using fallback');
+		console.warn('Available categories:', Object.keys(lighthouseResult.categories || {}));
 		return createFallbackResult(40);
 	}
 
 	if (typeof lighthouseResult.categories.performance.score !== 'number') {
 		console.warn('Performance score is not a number, using fallback');
+		console.warn('Score value:', lighthouseResult.categories.performance.score);
 		return createFallbackResult(35);
 	}
 
-	// Extract overall performance score (0-100)
+	// Extract all category scores (0-100)
 	const performanceScore = Math.round(lighthouseResult.categories.performance.score * 100);
+	const accessibilityScore = lighthouseResult.categories.accessibility
+		? Math.round(lighthouseResult.categories.accessibility.score * 100)
+		: 0;
+	const bestPracticesScore = lighthouseResult.categories['best-practices']
+		? Math.round(lighthouseResult.categories['best-practices'].score * 100)
+		: 0;
+	const seoScore = lighthouseResult.categories.seo
+		? Math.round(lighthouseResult.categories.seo.score * 100)
+		: 0;
 
 	// Get raw audits
 	const audits = lighthouseResult.audits || {};
@@ -434,6 +486,9 @@ export function parsePageSpeedResults(pageSpeedData: PageSpeedResponse): PageSpe
 
 	return {
 		score: performanceScore,
+		accessibility: accessibilityScore,
+		bestPractices: bestPracticesScore,
+		seo: seoScore,
 		metrics,
 		recommendations: recommendations.slice(0, 10),
 		priorityRecommendations
@@ -451,7 +506,14 @@ export function toPerformanceData(result: PageSpeedResult, url: string): Perform
 	});
 
 	return {
+		// All Lighthouse category scores
 		performance: result.score,
+		accessibility: result.accessibility,
+		bestPractices: result.bestPractices,
+		seo: result.seo,
+		// Load time from LCP (main content load time)
+		loadTime: result.metrics.LCP.formattedValue,
+		// Core Web Vitals
 		metrics: {
 			LCP: convertMetric(result.metrics.LCP),
 			CLS: convertMetric(result.metrics.CLS),

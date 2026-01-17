@@ -22,6 +22,19 @@
 		score >= 90 ? 'good' : score >= 50 ? 'needs-improvement' : 'poor'
 	);
 
+	// Helper to get grade from any score
+	function getGrade(s: number): 'good' | 'needs-improvement' | 'poor' {
+		return s >= 90 ? 'good' : s >= 50 ? 'needs-improvement' : 'poor';
+	}
+
+	// All category scores for display
+	let categoryScores = $derived([
+		{ key: 'Performance', score: performanceData?.performance ?? 0 },
+		{ key: 'Accessibility', score: performanceData?.accessibility ?? 0 },
+		{ key: 'Best Practices', score: performanceData?.bestPractices ?? 0 },
+		{ key: 'SEO', score: performanceData?.seo ?? 0 }
+	]);
+
 	// Run the audit
 	async function handleRunAudit() {
 		if (!websiteUrl) {
@@ -123,6 +136,17 @@
 					<div class="score-bar">
 						<div class="score-fill" style="width: {score}%"></div>
 					</div>
+				</div>
+
+				<!-- Lighthouse Category Scores -->
+				<div class="category-scores">
+					{#each categoryScores as category, i}
+						{@const grade = getGrade(category.score)}
+						<div class="category-card" data-grade={grade} style="--delay: {i * 50}ms">
+							<div class="category-score" data-grade={grade}>{category.score}</div>
+							<div class="category-label">{category.key}</div>
+						</div>
+					{/each}
 				</div>
 
 				<!-- Core Web Vitals -->
@@ -413,6 +437,75 @@
 
 	.score-hero[data-grade="poor"] .score-fill {
 		background: linear-gradient(90deg, var(--color-poor), #f87171);
+	}
+
+	/* ===== Category Scores ===== */
+	.category-scores {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 0.75rem;
+		margin-bottom: 1.5rem;
+	}
+
+	@media (max-width: 480px) {
+		.category-scores {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	.category-card {
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
+		border-radius: 0.75rem;
+		padding: 1rem;
+		text-align: center;
+		animation: fadeSlideIn 0.4s ease-out backwards;
+		animation-delay: var(--delay);
+		transition: transform 0.2s, box-shadow 0.2s;
+	}
+
+	.category-card:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+	}
+
+	.category-card[data-grade="good"] {
+		border-color: var(--color-good);
+	}
+
+	.category-card[data-grade="needs-improvement"] {
+		border-color: var(--color-warning);
+	}
+
+	.category-card[data-grade="poor"] {
+		border-color: var(--color-poor);
+	}
+
+	.category-score {
+		font-size: 1.75rem;
+		font-weight: 700;
+		line-height: 1;
+		margin-bottom: 0.375rem;
+	}
+
+	.category-score[data-grade="good"] {
+		color: var(--color-good);
+	}
+
+	.category-score[data-grade="needs-improvement"] {
+		color: var(--color-warning);
+	}
+
+	.category-score[data-grade="poor"] {
+		color: var(--color-poor);
+	}
+
+	.category-label {
+		font-size: 0.6875rem;
+		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		color: var(--color-text-muted);
 	}
 
 	/* ===== Metrics Section ===== */

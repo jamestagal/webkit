@@ -24,7 +24,6 @@ import {
 import { getAgencyContext } from '$lib/server/agency';
 import { logActivity } from '$lib/server/db-helpers';
 import {
-	hasPermission,
 	canAccessResource,
 	canModifyResource,
 	canDeleteResource
@@ -1073,5 +1072,212 @@ export const requestProposalRevision = command(RequestRevisionSchema, async (dat
 		.where(eq(proposals.id, proposal.id));
 
 	return { success: true };
+});
+
+// =============================================================================
+// AI Proposal Generation
+// =============================================================================
+
+import { agencies } from '$lib/server/schema';
+import { generateProposalContent, validateContext } from '$lib/server/services/claude.service';
+import { buildContextFromProposal, type PerformanceDataContext } from '$lib/server/prompts/prompt-builder';
+import { ALL_SECTIONS, type ProposalSection } from '$lib/server/prompts/proposal-sections';
+import { AIServiceError, AIErrorCode } from '$lib/server/services/ai-errors';
+import { enforceAIGenerationLimit, incrementAIGenerationCount } from '$lib/server/subscription';
+
+/**
+ * Schema for AI generation request
+ */
+const GenerateProposalAISchema = v.object({
+	proposalId: v.pipe(v.string(), v.uuid()),
+	sections: v.pipe(
+		v.array(v.picklist([...ALL_SECTIONS])),
+		v.minLength(1, 'Select at least one section to generate')
+	)
+});
+
+/**
+ * Generate proposal content using AI.
+ * Takes consultation data + PageSpeed audit and generates tailored proposal sections.
+ */
+export const generateProposalWithAI = command(GenerateProposalAISchema, async (data) => {
+	const context = await getAgencyContext();
+
+	// Check rate limit before proceeding
+	await enforceAIGenerationLimit(context.agencyId);
+
+	// Get proposal with all data needed for generation
+	const [proposal] = await db
+		.select()
+		.from(proposals)
+		.where(and(eq(proposals.id, data.proposalId), eq(proposals.agencyId, context.agencyId)))
+		.limit(1);
+
+	if (!proposal) {
+		throw new Error('Proposal not found');
+	}
+
+	// Check modify permission
+	if (!canModifyResource(context.role, proposal.createdBy || '', context.userId, 'proposal')) {
+		throw new Error('Permission denied');
+	}
+
+	// Get consultation if linked (for additional context)
+	let consultation = null;
+	if (proposal.consultationId) {
+		const [c] = await db
+			.select()
+			.from(consultations)
+			.where(eq(consultations.id, proposal.consultationId))
+			.limit(1);
+		consultation = c || null;
+	}
+
+	// Get agency for branding context
+	const [agency] = await db
+		.select({
+			name: agencies.name
+		})
+		.from(agencies)
+		.where(eq(agencies.id, context.agencyId))
+		.limit(1);
+
+	if (!agency) {
+		throw new Error('Agency not found');
+	}
+
+	// Map to expected format (brandVoice and usps are not in schema yet)
+	const agencyContext = {
+		businessName: agency.name,
+		brandVoice: null as string | null,
+		usps: null as string[] | null
+	};
+
+	// Build prompt context
+	const promptContext = buildContextFromProposal(
+		{
+			clientBusinessName: proposal.clientBusinessName,
+			clientContactName: proposal.clientContactName,
+			clientWebsite: proposal.clientWebsite,
+			consultationChallenges: proposal.consultationChallenges as string[] | null,
+			consultationGoals: proposal.consultationGoals as {
+				primary_goals?: string[];
+				conversion_goal?: string;
+				budget_range?: string;
+			} | null,
+			consultationPainPoints: proposal.consultationPainPoints as {
+				urgency_level?: string;
+			} | null,
+			performanceData: proposal.performanceData as PerformanceDataContext | null
+		},
+		consultation
+			? {
+					industry: consultation.industry,
+					businessType: consultation.businessType,
+					websiteStatus: consultation.websiteStatus,
+					timeline: consultation.timeline,
+					designStyles: consultation.designStyles,
+					admiredWebsites: consultation.admiredWebsites,
+					consultationNotes: consultation.consultationNotes
+				}
+			: null,
+		agencyContext
+	);
+
+	// Validate context has minimum required data
+	const validation = validateContext(promptContext);
+	if (!validation.valid) {
+		throw new AIServiceError(
+			`Missing required fields: ${validation.missingFields.join(', ')}`,
+			AIErrorCode.CONTEXT_INSUFFICIENT,
+			false,
+			{ missingFields: validation.missingFields }
+		);
+	}
+
+	// Generate content
+	const result = await generateProposalContent(
+		promptContext,
+		data.sections as ProposalSection[],
+		{ allowPartial: true, maxRetries: 2 }
+	);
+
+	// Build update object from generated content
+	const updates: Record<string, unknown> = { updatedAt: new Date() };
+	const content = result.content;
+
+	// Map AI output to proposal fields
+	if (content.executiveSummary !== undefined) {
+		updates['executiveSummary'] = content.executiveSummary;
+	}
+	if (content.opportunityContent !== undefined) {
+		updates['opportunityContent'] = content.opportunityContent;
+	}
+	if (content.currentIssues !== undefined) {
+		// Convert to checklist format expected by proposal
+		updates['currentIssues'] = content.currentIssues.map((issue) => ({
+			text: `${issue.title}: ${issue.description}`,
+			checked: false
+		}));
+	}
+	if (content.performanceStandards !== undefined) {
+		// Convert to proposal format
+		updates['performanceStandards'] = content.performanceStandards.map((std) => ({
+			label: std.metric,
+			value: `${std.current} → ${std.target}`,
+			icon: undefined
+		}));
+	}
+	if (content.proposedPages !== undefined) {
+		updates['proposedPages'] = content.proposedPages.map((page) => ({
+			name: page.name,
+			description: page.purpose,
+			features: page.features || []
+		}));
+	}
+	if (content.timeline !== undefined) {
+		updates['timeline'] = content.timeline.map((phase) => ({
+			week: phase.timing,
+			title: phase.phase,
+			description: phase.deliverables.join(', ')
+		}));
+	}
+	if (content.nextSteps !== undefined) {
+		updates['nextSteps'] = content.nextSteps.map((step) => ({
+			text: `${step.action}: ${step.description}`,
+			completed: false
+		}));
+	}
+	if (content.closingContent !== undefined) {
+		updates['closingContent'] = content.closingContent;
+	}
+
+	// Update proposal with generated content
+	await db
+		.update(proposals)
+		.set(updates)
+		.where(eq(proposals.id, data.proposalId));
+
+	// Increment rate limit counter after successful generation
+	await incrementAIGenerationCount(context.agencyId);
+
+	// Log activity
+	await logActivity('proposal.ai_generated', 'proposal', data.proposalId, {
+		metadata: {
+			sections: data.sections,
+			generatedSections: result.generatedSections,
+			failedSections: result.failedSections,
+			isPartial: result.isPartial,
+			usage: result.usage
+		}
+	});
+
+	return {
+		success: true,
+		content: result.content,
+		generatedSections: result.generatedSections,
+		failedSections: result.failedSections,
+		isPartial: result.isPartial
+	};
 });
 

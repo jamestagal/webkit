@@ -48,52 +48,66 @@
 	const toast = getToast();
 
 	// Props from server - consultation can be null (lazy creation pattern)
-	let { consultation, agencyId }: { consultation: Consultation | null; agencyId: string } =
+	let { consultation: initialConsultation, agencyId }: { consultation: Consultation | null; agencyId: string } =
 		$props();
 
 	// Get agency slug from route params for navigation
 	let agencySlug = $derived(page.params.agencySlug);
 
+	// Initialize form state from props (one-time capture - form maintains user edits)
+	function initContactBusiness(c: Consultation | null): ContactBusiness {
+		return {
+			business_name: c?.businessName ?? '',
+			contact_person: c?.contactPerson ?? '',
+			email: c?.email ?? '',
+			phone: c?.phone ?? '',
+			website: c?.website ?? '',
+			social_media: {
+				linkedin: c?.socialLinkedin ?? '',
+				facebook: c?.socialFacebook ?? '',
+				instagram: c?.socialInstagram ?? ''
+			},
+			industry: c?.industry ?? '',
+			business_type: c?.businessType ?? ''
+		};
+	}
+
+	function initSituation(c: Consultation | null): Situation {
+		return {
+			website_status: (c?.websiteStatus as Situation['website_status']) ?? 'none',
+			primary_challenges: c?.primaryChallenges ?? [],
+			urgency_level: (c?.urgencyLevel as Situation['urgency_level']) ?? 'low'
+		};
+	}
+
+	function initGoalsBudget(c: Consultation | null): GoalsBudgetType {
+		return {
+			primary_goals: c?.primaryGoals ?? [],
+			conversion_goal: c?.conversionGoal ?? '',
+			budget_range: c?.budgetRange ?? '',
+			timeline: (c?.timeline as GoalsBudgetType['timeline']) ?? undefined
+		};
+	}
+
+	function initPreferencesNotes(c: Consultation | null): PreferencesNotesType {
+		return {
+			design_styles: c?.designStyles ?? [],
+			admired_websites: c?.admiredWebsites ?? '',
+			consultation_notes: c?.consultationNotes ?? ''
+		};
+	}
+
 	// State
 	let currentStep = $state(0);
-	let consultationId = $state<string | null>(consultation?.id ?? null);
+	let consultationId = $state<string | null>(initialConsultation?.id ?? null);
 	let loading = $state(false);
 	let errors = $state<Record<string, string>>({});
 
-	// Form data state - will be bound to child components
-	let contactBusinessData = $state<ContactBusiness>({
-		business_name: consultation?.businessName ?? '',
-		contact_person: consultation?.contactPerson ?? '',
-		email: consultation?.email ?? '',
-		phone: consultation?.phone ?? '',
-		website: consultation?.website ?? '',
-		social_media: {
-			linkedin: consultation?.socialLinkedin ?? '',
-			facebook: consultation?.socialFacebook ?? '',
-			instagram: consultation?.socialInstagram ?? ''
-		},
-		industry: consultation?.industry ?? '',
-		business_type: consultation?.businessType ?? ''
-	});
-
-	let situationData = $state<Situation>({
-		website_status: (consultation?.websiteStatus as Situation['website_status']) ?? 'none',
-		primary_challenges: consultation?.primaryChallenges ?? [],
-		urgency_level: (consultation?.urgencyLevel as Situation['urgency_level']) ?? 'low'
-	});
-
-	let goalsBudgetData = $state<GoalsBudgetType>({
-		primary_goals: consultation?.primaryGoals ?? [],
-		conversion_goal: consultation?.conversionGoal ?? '',
-		budget_range: consultation?.budgetRange ?? '',
-		timeline: (consultation?.timeline as GoalsBudgetType['timeline']) ?? undefined
-	});
-
-	let preferencesNotesData = $state<PreferencesNotesType>({
-		design_styles: consultation?.designStyles ?? [],
-		admired_websites: consultation?.admiredWebsites ?? '',
-		consultation_notes: consultation?.consultationNotes ?? ''
-	});
+	// Form data state - initialized once from props
+	let contactBusinessData = $state<ContactBusiness>(initContactBusiness(initialConsultation));
+	let situationData = $state<Situation>(initSituation(initialConsultation));
+	let goalsBudgetData = $state<GoalsBudgetType>(initGoalsBudget(initialConsultation));
+	let preferencesNotesData = $state<PreferencesNotesType>(initPreferencesNotes(initialConsultation));
 
 	// Step configuration
 	const steps = [

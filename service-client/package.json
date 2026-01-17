@@ -25,6 +25,7 @@
 		"@tailwindcss/vite": "^4.1.16",
 		"@testing-library/jest-dom": "^6.6.3",
 		"@testing-library/svelte": "^5.2.4",
+		"@types/diff": "^7.0.2",
 		"@types/node": "^22.15.17",
 		"@types/pg": "^8.16.0",
 		"daisyui": "^5.0.35",
@@ -45,6 +46,7 @@
 		"vitest": "^3.0.0"
 	},
 	"dependencies": {
+		"@anthropic-ai/sdk": "^0.71.2",
 		"@floating-ui/dom": "^1.6.5",
 		"@sveltejs/adapter-node": "^5.4.0",
 		"@tiptap/core": "^3.15.1",
@@ -53,6 +55,7 @@
 		"@tiptap/pm": "^3.14.0",
 		"@tiptap/starter-kit": "^3.15.1",
 		"@types/nodemailer": "^7.0.4",
+		"diff": "^8.0.3",
 		"dotenv": "^17.2.3",
 		"drizzle-orm": "^0.45.1",
 		"jose": "^5.9.3",

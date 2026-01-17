@@ -141,6 +141,8 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       PUBLIC_STRIPE_PUBLISHABLE_KEY: ${PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
+      # AI Services (Claude API for proposal generation)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
 
   mailpit:
     container_name: webkit-mailpit

@@ -23,6 +23,7 @@ export type SubscriptionTier = 'free' | 'starter' | 'growth' | 'enterprise';
 export interface TierLimits {
 	maxMembers: number; // -1 = unlimited
 	maxConsultationsPerMonth: number; // -1 = unlimited
+	maxAIGenerationsPerMonth: number; // -1 = unlimited
 	maxTemplates: number; // -1 = unlimited
 	maxStorageMB: number; // -1 = unlimited
 	features: TierFeature[];
@@ -38,26 +39,30 @@ export type TierFeature =
 	| 'api_access'
 	| 'priority_support'
 	| 'custom_domain'
-	| 'sso';
+	| 'sso'
+	| 'ai_proposal_generation';
 
 export const TIER_DEFINITIONS: Record<SubscriptionTier, TierLimits> = {
 	free: {
 		maxMembers: 1,
 		maxConsultationsPerMonth: 5,
+		maxAIGenerationsPerMonth: 5,
 		maxTemplates: 1,
 		maxStorageMB: 100,
-		features: ['basic_proposals']
+		features: ['basic_proposals', 'ai_proposal_generation']
 	},
 	starter: {
 		maxMembers: 3,
 		maxConsultationsPerMonth: 25,
+		maxAIGenerationsPerMonth: 25,
 		maxTemplates: 5,
 		maxStorageMB: 1024, // 1GB
-		features: ['basic_proposals', 'pdf_export', 'email_delivery']
+		features: ['basic_proposals', 'pdf_export', 'email_delivery', 'ai_proposal_generation']
 	},
 	growth: {
 		maxMembers: 10,
 		maxConsultationsPerMonth: 100,
+		maxAIGenerationsPerMonth: 100,
 		maxTemplates: 20,
 		maxStorageMB: 10240, // 10GB
 		features: [
@@ -67,12 +72,14 @@ export const TIER_DEFINITIONS: Record<SubscriptionTier, TierLimits> = {
 			'custom_branding',
 			'analytics',
 			'white_label',
-			'api_access'
+			'api_access',
+			'ai_proposal_generation'
 		]
 	},
 	enterprise: {
 		maxMembers: -1,
 		maxConsultationsPerMonth: -1,
+		maxAIGenerationsPerMonth: -1,
 		maxTemplates: -1,
 		maxStorageMB: -1,
 		features: [
@@ -85,7 +92,8 @@ export const TIER_DEFINITIONS: Record<SubscriptionTier, TierLimits> = {
 			'api_access',
 			'priority_support',
 			'custom_domain',
-			'sso'
+			'sso',
+			'ai_proposal_generation'
 		]
 	}
 };
@@ -222,6 +230,114 @@ export async function canCreateConsultation(agencyId?: string): Promise<{
 	};
 }
 
+/**
+ * Get AI generation count for current month.
+ * Uses the aiGenerationsThisMonth counter on the agencies table.
+ */
+export async function getMonthlyAIGenerationCount(agencyId: string): Promise<number> {
+	const [agency] = await db
+		.select({
+			aiGenerationsThisMonth: agencies.aiGenerationsThisMonth,
+			aiGenerationsResetAt: agencies.aiGenerationsResetAt
+		})
+		.from(agencies)
+		.where(eq(agencies.id, agencyId))
+		.limit(1);
+
+	if (!agency) return 0;
+
+	// Check if counter needs to be reset (new month)
+	const now = new Date();
+	const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+	if (!agency.aiGenerationsResetAt || agency.aiGenerationsResetAt < startOfMonth) {
+		// Reset counter for new month
+		await db
+			.update(agencies)
+			.set({
+				aiGenerationsThisMonth: 0,
+				aiGenerationsResetAt: now
+			})
+			.where(eq(agencies.id, agencyId));
+		return 0;
+	}
+
+	return agency.aiGenerationsThisMonth ?? 0;
+}
+
+/**
+ * Check if agency can generate more AI proposals this month.
+ */
+export async function canGenerateWithAI(agencyId?: string): Promise<{
+	allowed: boolean;
+	current: number;
+	limit: number;
+	unlimited: boolean;
+	resetsAt: Date;
+}> {
+	const context = await getAgencyContext();
+	const targetAgencyId = agencyId || context.agencyId;
+
+	const { limits } = await getAgencyTierLimits();
+	const currentCount = await getMonthlyAIGenerationCount(targetAgencyId);
+
+	// Calculate when limit resets (start of next month)
+	const resetsAt = new Date();
+	resetsAt.setMonth(resetsAt.getMonth() + 1);
+	resetsAt.setDate(1);
+	resetsAt.setHours(0, 0, 0, 0);
+
+	if (limits.maxAIGenerationsPerMonth === -1) {
+		return { allowed: true, current: currentCount, limit: -1, unlimited: true, resetsAt };
+	}
+
+	return {
+		allowed: currentCount < limits.maxAIGenerationsPerMonth,
+		current: currentCount,
+		limit: limits.maxAIGenerationsPerMonth,
+		unlimited: false,
+		resetsAt
+	};
+}
+
+/**
+ * Increment AI generation counter for an agency.
+ * Call this after a successful AI generation.
+ */
+export async function incrementAIGenerationCount(agencyId: string): Promise<void> {
+	const now = new Date();
+	const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+	// Get current state
+	const [agency] = await db
+		.select({
+			aiGenerationsThisMonth: agencies.aiGenerationsThisMonth,
+			aiGenerationsResetAt: agencies.aiGenerationsResetAt
+		})
+		.from(agencies)
+		.where(eq(agencies.id, agencyId))
+		.limit(1);
+
+	// If reset is needed (new month), set to 1; otherwise increment
+	if (!agency?.aiGenerationsResetAt || agency.aiGenerationsResetAt < startOfMonth) {
+		await db
+			.update(agencies)
+			.set({
+				aiGenerationsThisMonth: 1,
+				aiGenerationsResetAt: now
+			})
+			.where(eq(agencies.id, agencyId));
+	} else {
+		const currentCount = agency.aiGenerationsThisMonth ?? 0;
+		await db
+			.update(agencies)
+			.set({
+				aiGenerationsThisMonth: currentCount + 1
+			})
+			.where(eq(agencies.id, agencyId));
+	}
+}
+
 // =============================================================================
 // Limit Enforcement Functions (Throws on Violation)
 // =============================================================================
@@ -252,6 +368,22 @@ export async function enforceConsultationLimit(agencyId?: string): Promise<void>
 			`Monthly consultation limit reached (${result.current}/${result.limit}). ` +
 				`Limit resets on ${result.resetsAt.toLocaleDateString()}. ` +
 				`Upgrade your plan for more consultations.`
+		);
+	}
+}
+
+/**
+ * Enforce AI generation limit - throws if limit exceeded.
+ */
+export async function enforceAIGenerationLimit(agencyId?: string): Promise<void> {
+	const result = await canGenerateWithAI(agencyId);
+
+	if (!result.allowed) {
+		throw error(
+			403,
+			`Monthly AI generation limit reached (${result.current}/${result.limit}). ` +
+				`Limit resets on ${result.resetsAt.toLocaleDateString()}. ` +
+				`Upgrade your plan for more AI generations.`
 		);
 	}
 }
@@ -292,6 +424,7 @@ export async function getAgencyUsageStats(agencyId?: string): Promise<{
 	usage: {
 		members: { current: number; limit: number; percentage: number };
 		consultationsThisMonth: { current: number; limit: number; percentage: number };
+		aiGenerationsThisMonth: { current: number; limit: number; percentage: number };
 	};
 }> {
 	const context = await getAgencyContext();
@@ -300,6 +433,7 @@ export async function getAgencyUsageStats(agencyId?: string): Promise<{
 	const { tier, limits } = await getAgencyTierLimits();
 	const memberCount = await getMemberCount(targetAgencyId);
 	const consultationCount = await getMonthlyConsultationCount(targetAgencyId);
+	const aiGenerationCount = await getMonthlyAIGenerationCount(targetAgencyId);
 
 	const memberPercentage =
 		limits.maxMembers === -1 ? 0 : Math.round((memberCount / limits.maxMembers) * 100);
@@ -308,6 +442,11 @@ export async function getAgencyUsageStats(agencyId?: string): Promise<{
 		limits.maxConsultationsPerMonth === -1
 			? 0
 			: Math.round((consultationCount / limits.maxConsultationsPerMonth) * 100);
+
+	const aiGenerationPercentage =
+		limits.maxAIGenerationsPerMonth === -1
+			? 0
+			: Math.round((aiGenerationCount / limits.maxAIGenerationsPerMonth) * 100);
 
 	return {
 		tier,
@@ -322,6 +461,11 @@ export async function getAgencyUsageStats(agencyId?: string): Promise<{
 				current: consultationCount,
 				limit: limits.maxConsultationsPerMonth,
 				percentage: consultationPercentage
+			},
+			aiGenerationsThisMonth: {
+				current: aiGenerationCount,
+				limit: limits.maxAIGenerationsPerMonth,
+				percentage: aiGenerationPercentage
 			}
 		}
 	};

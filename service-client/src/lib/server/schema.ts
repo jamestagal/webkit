@@ -76,6 +76,10 @@ export const agencies = pgTable('agencies', {
 	subscriptionId: text('subscription_id').notNull().default(''),
 	subscriptionEnd: timestamp('subscription_end', { withTimezone: true }),
 
+	// AI Generation Rate Limiting
+	aiGenerationsThisMonth: integer('ai_generations_this_month').notNull().default(0),
+	aiGenerationsResetAt: timestamp('ai_generations_reset_at', { withTimezone: true }),
+
 	// Soft delete (GDPR compliance)
 	deletedAt: timestamp('deleted_at', { withTimezone: true }),
 	deletionScheduledFor: timestamp('deletion_scheduled_for', { withTimezone: true })

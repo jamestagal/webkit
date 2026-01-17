@@ -354,17 +354,48 @@
 
 		<!-- Current Issues -->
 		{#if currentIssues.length > 0}
+			{@const hasDetailedContent = currentIssues.some(issue => {
+				if (!issue.text?.includes(': ')) return false;
+				const desc = issue.text.split(': ').slice(1).join(': ');
+				return desc.length > 50; // Has meaningful description
+			})}
 			<section class="px-8 py-16">
 				<div class="mx-auto max-w-4xl">
 					<h2 class="mb-8 text-3xl font-bold">Current Site Issues We'll Solve</h2>
-					<ul class="grid gap-3 sm:grid-cols-2">
-						{#each currentIssues as issue}
-							<li class="flex items-center gap-3 rounded-lg bg-base-200 p-4">
-								<Check class="h-5 w-5 shrink-0 text-success" />
-								<span>{issue.text}</span>
-							</li>
-						{/each}
-					</ul>
+
+					{#if hasDetailedContent}
+						<!-- Detailed layout: stacked cards with title + description -->
+						<div class="space-y-3">
+							{#each currentIssues as issue}
+								{@const parts = issue.text?.includes(': ') ? issue.text.split(': ') : [issue.text, '']}
+								{@const title = parts[0]}
+								{@const description = parts.slice(1).join(': ')}
+								<div class="flex gap-4 rounded-xl bg-base-200 p-5">
+									<div class="shrink-0 mt-0.5">
+										<div class="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center">
+											<Check class="h-4 w-4 text-success" />
+										</div>
+									</div>
+									<div class="min-w-0">
+										<p class="font-semibold text-base-content">{title}</p>
+										{#if description}
+											<p class="text-sm text-base-content/70 mt-1 leading-relaxed">{description}</p>
+										{/if}
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<!-- Compact layout: 2-column grid for short items -->
+						<ul class="grid gap-3 sm:grid-cols-2">
+							{#each currentIssues as issue}
+								<li class="flex items-center gap-3 rounded-lg bg-base-200 p-4">
+									<Check class="h-5 w-5 shrink-0 text-success" />
+									<span>{issue.text}</span>
+								</li>
+							{/each}
+						</ul>
+					{/if}
 				</div>
 			</section>
 		{/if}
@@ -513,12 +544,32 @@
 			<section class="bg-base-200 px-8 py-16">
 				<div class="mx-auto max-w-4xl">
 					<h2 class="mb-8 text-center text-3xl font-bold">Performance Standards We Guarantee</h2>
-					<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+					<div class="grid gap-4 sm:grid-cols-2">
 						{#each performanceStandards as standard}
-							<div class="card bg-base-100">
-								<div class="card-body items-center text-center">
-									<span class="text-2xl font-bold text-primary">{standard.value}</span>
-									<span class="text-base-content/60">{standard.label}</span>
+							{@const hasArrow = standard.value?.includes('→')}
+							{@const valueParts = hasArrow ? standard.value.split('→').map((s: string) => s.trim()) : [standard.value]}
+							<div class="card bg-base-100 shadow-sm">
+								<div class="card-body p-5">
+									<p class="text-sm font-medium text-base-content/60 uppercase tracking-wide mb-3">{standard.label}</p>
+									{#if hasArrow && valueParts.length === 2}
+										<div class="flex items-center gap-3">
+											<div class="flex-1 text-center">
+												<span class="text-xl font-bold text-error/70">{valueParts[0]}</span>
+												<p class="text-xs text-base-content/50 mt-1">Current</p>
+											</div>
+											<div class="shrink-0">
+												<svg class="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+												</svg>
+											</div>
+											<div class="flex-1 text-center">
+												<span class="text-xl font-bold text-success">{valueParts[1]}</span>
+												<p class="text-xs text-base-content/50 mt-1">Target</p>
+											</div>
+										</div>
+									{:else}
+										<span class="text-2xl font-bold text-primary text-center">{standard.value}</span>
+									{/if}
 								</div>
 							</div>
 						{/each}

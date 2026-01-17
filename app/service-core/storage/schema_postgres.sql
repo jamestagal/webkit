@@ -60,6 +60,10 @@ create table if not exists agencies (
     subscription_id text not null default '',  -- Stripe subscription ID
     subscription_end timestamptz,
 
+    -- AI Generation Rate Limiting
+    ai_generations_this_month integer not null default 0,
+    ai_generations_reset_at timestamptz,
+
     constraint valid_agency_status check (status in ('active', 'suspended', 'cancelled'))
 );
 
