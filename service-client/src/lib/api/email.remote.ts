@@ -271,16 +271,21 @@ export const sendProposalEmail = command(SendProposalEmailSchema, async (data) =
 			.where(eq(emailLogs.id, emailLog.id));
 	}
 
-	// Update proposal sentAt if first send
-	if (result.success && !proposal.sentAt) {
-		await db
-			.update(proposals)
-			.set({
-				sentAt: new Date(),
-				status: proposal.status === 'draft' ? 'sent' : proposal.status,
-				updatedAt: new Date()
-			})
-			.where(eq(proposals.id, proposal.id));
+	// Update proposal sentAt and status on successful send
+	if (result.success) {
+		const updates: Record<string, unknown> = { updatedAt: new Date() };
+
+		// Set sentAt if first send
+		if (!proposal.sentAt) {
+			updates.sentAt = new Date();
+		}
+
+		// Change status to 'sent' if in draft or ready
+		if (proposal.status === 'draft' || proposal.status === 'ready') {
+			updates.status = 'sent';
+		}
+
+		await db.update(proposals).set(updates).where(eq(proposals.id, proposal.id));
 	}
 
 	// Log activity

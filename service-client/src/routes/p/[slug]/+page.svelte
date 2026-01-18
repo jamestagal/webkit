@@ -42,14 +42,15 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	const { proposal, agency, profile, selectedPackage, selectedAddons } = data;
+	const { proposal, agency, profile, selectedPackage, selectedAddons, isPreview } = data;
 
 	// Response form state
 	let activeResponse = $state<'accept' | 'decline' | 'revision' | null>(null);
 	let isSubmitting = $state(false);
 
-	// Check if client can respond (only sent or viewed status)
-	const canRespond = proposal.status === 'sent' || proposal.status === 'viewed';
+	// Check if client can respond (only sent or viewed status, or preview mode shows all)
+	const canRespond =
+		proposal.status === 'sent' || proposal.status === 'viewed' || isPreview;
 
 	// Parse JSONB fields
 	const performanceData = (proposal.performanceData as PerformanceData) || {};
@@ -199,6 +200,18 @@
 				{/if}
 			</div>
 		</header>
+
+		<!-- Preview Mode Banner -->
+		{#if isPreview}
+			<div class="bg-info text-info-content px-8 py-4">
+				<div class="mx-auto flex max-w-4xl items-center justify-center gap-3">
+					<AlertCircle class="h-6 w-6" />
+					<span class="text-lg font-semibold">
+						Preview Mode — This is how clients will see your proposal
+					</span>
+				</div>
+			</div>
+		{/if}
 
 		<!-- Status Banners (PART 2: Proposal Improvements) -->
 		{#if proposal.status === 'accepted'}
@@ -872,6 +885,9 @@
 						<p class="text-base-content/60 mt-2">
 							Let us know your decision below. We're here to answer any questions.
 						</p>
+						{#if isPreview}
+							<p class="text-info text-sm mt-2">(Preview mode - actions are disabled)</p>
+						{/if}
 					</div>
 
 					<!-- Response Action Buttons -->
@@ -881,6 +897,7 @@
 								type="button"
 								class="btn btn-success btn-lg gap-2"
 								onclick={() => (activeResponse = 'accept')}
+								disabled={isPreview}
 							>
 								<ThumbsUp class="h-5 w-5" />
 								Accept Proposal
@@ -889,6 +906,7 @@
 								type="button"
 								class="btn btn-warning btn-lg gap-2"
 								onclick={() => (activeResponse = 'revision')}
+								disabled={isPreview}
 							>
 								<Edit3 class="h-5 w-5" />
 								Request Changes
@@ -897,6 +915,7 @@
 								type="button"
 								class="btn btn-ghost btn-lg gap-2"
 								onclick={() => (activeResponse = 'decline')}
+								disabled={isPreview}
 							>
 								<ThumbsDown class="h-5 w-5" />
 								Decline

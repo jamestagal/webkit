@@ -705,7 +705,7 @@ create table if not exists proposals (
     -- Creator
     created_by uuid references users(id) on delete set null,
 
-    constraint valid_proposal_status check (status in ('draft', 'sent', 'viewed', 'accepted', 'declined', 'revision_requested', 'expired'))
+    constraint valid_proposal_status check (status in ('draft', 'ready', 'sent', 'viewed', 'accepted', 'declined', 'revision_requested', 'expired'))
 );
 
 -- Indexes for proposals

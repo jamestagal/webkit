@@ -17,8 +17,9 @@ import {
 	requestProposalRevision
 } from '$lib/api/proposals.remote';
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, url }) => {
 	const { slug } = params;
+	const isPreview = url.searchParams.get('preview') === 'true';
 
 	// Fetch proposal by slug
 	const [proposal] = await db
@@ -34,22 +35,24 @@ export const load: PageServerLoad = async ({ params }) => {
 	// Check if expired
 	const isExpired = proposal.validUntil && new Date(proposal.validUntil) < new Date();
 
-	// Record view (fire-and-forget, don't await)
-	const updates: Record<string, unknown> = {
-		viewCount: sql`${proposals.viewCount} + 1`,
-		lastViewedAt: new Date()
-	};
+	// Record view only if NOT in preview mode (fire-and-forget, don't await)
+	if (!isPreview) {
+		const updates: Record<string, unknown> = {
+			viewCount: sql`${proposals.viewCount} + 1`,
+			lastViewedAt: new Date()
+		};
 
-	// If status is 'sent', change to 'viewed'
-	if (proposal.status === 'sent') {
-		updates['status'] = 'viewed';
+		// If status is 'sent', change to 'viewed'
+		if (proposal.status === 'sent') {
+			updates['status'] = 'viewed';
+		}
+
+		db.update(proposals)
+			.set(updates)
+			.where(eq(proposals.id, proposal.id))
+			.then(() => {})
+			.catch(() => {});
 	}
-
-	db.update(proposals)
-		.set(updates)
-		.where(eq(proposals.id, proposal.id))
-		.then(() => {})
-		.catch(() => {});
 
 	// Fetch agency
 	const [agency] = await db
@@ -94,7 +97,8 @@ export const load: PageServerLoad = async ({ params }) => {
 		agency,
 		profile,
 		selectedPackage,
-		selectedAddons
+		selectedAddons,
+		isPreview
 	};
 };
 

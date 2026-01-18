@@ -12,7 +12,7 @@
 
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getProposalWithRelations, updateProposal, markProposalReady } from '$lib/api/proposals.remote';
+	import { getProposalWithRelations, updateProposal, markProposalReady, revertProposalToDraft } from '$lib/api/proposals.remote';
 	import { sendProposalEmail } from '$lib/api/email.remote';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
 	import AIPreviewModal from './AIPreviewModal.svelte';
@@ -221,7 +221,7 @@
 		);
 	}
 
-	async function handleSave() {
+	async function handleSave(showToast = true) {
 		isSaving = true;
 		try {
 			await updateProposal({
@@ -230,9 +230,10 @@
 				selectedPackageId: formData.selectedPackageId || null,
 				validUntil: formData.validUntil || null
 			});
-			toast.success('Proposal saved');
+			if (showToast) toast.success('Proposal saved');
 		} catch (err) {
 			toast.error('Failed to save', err instanceof Error ? err.message : 'Unknown error');
+			throw err; // Re-throw so callers know save failed
 		} finally {
 			isSaving = false;
 		}
@@ -245,7 +246,7 @@
 
 		isSending = true;
 		try {
-			await handleSave();
+			await handleSave(false);
 			const result = await sendProposalEmail({ proposalId });
 			await invalidateAll();
 			if (result.success) {
@@ -265,19 +266,48 @@
 	async function handleMarkReady() {
 		isMarkingReady = true;
 		try {
-			await handleSave();
+			await handleSave(false);
 			await markProposalReady(proposalId);
 			await invalidateAll();
 			toast.success('Proposal marked as ready', 'You can now review and send it');
 		} catch (err) {
-			toast.error('Failed to mark as ready', err instanceof Error ? err.message : 'Unknown error');
+			console.error('Mark ready error:', err);
+			const message =
+				err instanceof Error
+					? err.message
+					: typeof err === 'string'
+						? err
+						: JSON.stringify(err);
+			toast.error('Failed to mark as ready', message || 'Unknown error');
 		} finally {
 			isMarkingReady = false;
 		}
 	}
 
+	let isRevertingToDraft = $state(false);
+
+	async function handleRevertToDraft() {
+		isRevertingToDraft = true;
+		try {
+			await revertProposalToDraft(proposalId);
+			await invalidateAll();
+			toast.success('Proposal reverted to draft', 'You can now make changes');
+		} catch (err) {
+			console.error('Revert to draft error:', err);
+			const message =
+				err instanceof Error
+					? err.message
+					: typeof err === 'string'
+						? err
+						: JSON.stringify(err);
+			toast.error('Failed to revert to draft', message || 'Unknown error');
+		} finally {
+			isRevertingToDraft = false;
+		}
+	}
+
 	function viewPublic() {
-		window.open(`/p/${proposal.slug}`, '_blank');
+		window.open(`/p/${proposal.slug}?preview=true`, '_blank');
 	}
 
 	function goBack() {
@@ -489,6 +519,21 @@
 									<CheckCircle2 class="h-4 w-4" />
 								{/if}
 								Ready
+							</button>
+						{/if}
+						{#if proposal.status === 'ready'}
+							<button
+								type="button"
+								class="btn btn-ghost btn-sm"
+								onclick={handleRevertToDraft}
+								disabled={isRevertingToDraft}
+							>
+								{#if isRevertingToDraft}
+									<span class="loading loading-spinner loading-sm"></span>
+								{:else}
+									<ChevronLeft class="h-4 w-4" />
+								{/if}
+								Back to Draft
 							</button>
 						{/if}
 						{#if proposal.status === 'draft' || proposal.status === 'ready' || proposal.status === 'revision_requested'}

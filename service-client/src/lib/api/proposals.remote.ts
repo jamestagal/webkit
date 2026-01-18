@@ -726,14 +726,25 @@ export const markProposalReady = command(v.pipe(v.string(), v.uuid()), async (pr
 	}
 
 	// Update status to ready
-	const [proposal] = await db
-		.update(proposals)
-		.set({
-			status: 'ready',
-			updatedAt: new Date()
-		})
-		.where(eq(proposals.id, proposalId))
-		.returning();
+	let proposal;
+	try {
+		const [updated] = await db
+			.update(proposals)
+			.set({
+				status: 'ready',
+				updatedAt: new Date()
+			})
+			.where(eq(proposals.id, proposalId))
+			.returning();
+		proposal = updated;
+	} catch (err) {
+		console.error('Failed to update proposal status:', err);
+		throw new Error('Database error: Could not update proposal status');
+	}
+
+	if (!proposal) {
+		throw new Error('Failed to update proposal - no rows affected');
+	}
 
 	// Log activity
 	await logActivity('proposal.ready', 'proposal', proposalId, {
@@ -742,6 +753,54 @@ export const markProposalReady = command(v.pipe(v.string(), v.uuid()), async (pr
 
 	return proposal;
 });
+
+/**
+ * Revert a ready proposal back to draft.
+ */
+export const revertProposalToDraft = command(
+	v.pipe(v.string(), v.uuid()),
+	async (proposalId: string) => {
+		const context = await getAgencyContext();
+
+		// Verify proposal exists and belongs to agency
+		const [existing] = await db
+			.select()
+			.from(proposals)
+			.where(and(eq(proposals.id, proposalId), eq(proposals.agencyId, context.agencyId)))
+			.limit(1);
+
+		if (!existing) {
+			throw new Error('Proposal not found');
+		}
+
+		// Check modify permission
+		if (!canModifyResource(context.role, existing.createdBy || '', context.userId, 'proposal')) {
+			throw new Error('Permission denied');
+		}
+
+		// Only ready proposals can be reverted to draft
+		if (existing.status !== 'ready') {
+			throw new Error('Only ready proposals can be reverted to draft');
+		}
+
+		// Update status to draft
+		const [proposal] = await db
+			.update(proposals)
+			.set({
+				status: 'draft',
+				updatedAt: new Date()
+			})
+			.where(eq(proposals.id, proposalId))
+			.returning();
+
+		// Log activity
+		await logActivity('proposal.reverted_to_draft', 'proposal', proposalId, {
+			newValues: { status: 'draft' }
+		});
+
+		return proposal;
+	}
+);
 
 /**
  * Send a proposal (mark as sent).
