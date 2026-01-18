@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { getContractWithRelations } from '$lib/api/contracts.remote';
-import { getAllActiveSchedules } from '$lib/api/contract-templates.remote';
+import { getAllActiveSchedules, getContractTemplates } from '$lib/api/contract-templates.remote';
 import { error } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -18,10 +18,19 @@ export const load: PageServerLoad = async ({ params }) => {
 		// Templates may not exist
 	}
 
+	// Load available templates for linking
+	let availableTemplates: Awaited<ReturnType<typeof getContractTemplates>> = [];
+	try {
+		availableTemplates = await getContractTemplates();
+	} catch {
+		// Templates may not exist
+	}
+
 	return {
 		contract: result.contract,
 		proposal: result.proposal,
 		template: result.template,
-		availableSchedules
+		availableSchedules,
+		availableTemplates
 	};
 };

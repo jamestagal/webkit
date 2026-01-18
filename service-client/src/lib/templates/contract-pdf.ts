@@ -231,14 +231,14 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 	<div class="container">
 		<!-- Header -->
 		<div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 3px solid ${accentColor};">
-			<div>
+			<div style="flex: 1; min-width: 0;">
 				${
-					logoUrl
-						? `<img src="${logoUrl}" alt="${escapeHtml(agency.name)}" style="max-height: 60px; max-width: 200px; object-fit: contain; margin-bottom: 8px;">`
+					logoUrl && logoUrl.trim()
+						? `<img src="${logoUrl}" alt="${escapeHtml(agency.name)}" style="max-height: 60px; max-width: 200px; object-fit: contain;">`
 						: `<div style="font-size: 24px; font-weight: bold; color: ${accentColor};">${escapeHtml(agency.name)}</div>`
 				}
 			</div>
-			<div style="text-align: right;">
+			<div style="text-align: right; flex-shrink: 0;">
 				<div style="font-size: 28px; font-weight: bold; color: #111827; margin-bottom: 4px;">CONTRACT</div>
 				<div style="font-family: monospace; font-size: 16px; color: #6b7280;">#${contract.contractNumber}</div>
 				<div style="margin-top: 8px;">

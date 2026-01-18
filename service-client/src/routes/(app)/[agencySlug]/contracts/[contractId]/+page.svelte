@@ -13,7 +13,7 @@
 
 	import { goto, invalidateAll } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
-	import { updateContract, sendContract, deleteContract } from '$lib/api/contracts.remote';
+	import { updateContract, sendContract, deleteContract, regenerateContractTerms, linkTemplateToContract } from '$lib/api/contracts.remote';
 	import { sendContractEmail } from '$lib/api/email.remote';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
 	import {
@@ -34,7 +34,9 @@
 		LayoutDashboard,
 		Settings2,
 		FileDown,
-		MoreHorizontal
+		MoreHorizontal,
+		RefreshCw,
+		Link2
 	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
@@ -44,10 +46,16 @@
 	let agencySlug = $derived(data.agency.slug);
 	let contract = $derived(data.contract);
 	let availableSchedules = $derived(data.availableSchedules);
+	let availableTemplates = $derived(data.availableTemplates);
 
 	let isSubmitting = $state(false);
 	let isSending = $state(false);
 	let isDownloadingPdf = $state(false);
+	let isRegeneratingTerms = $state(false);
+	let isLinkingTemplate = $state(false);
+	let showTemplatePicker = $state(false);
+	let showRegenerateConfirm = $state(false);
+	let selectedTemplateId = $state<string | null>(null);
 	let activeSection = $state('overview');
 
 	// Form state - editable fields
@@ -318,6 +326,59 @@
 		}
 	}
 
+	function handleRegenerateTerms() {
+		if (!contract.templateId) {
+			// No template linked - show template picker
+			if (availableTemplates.length === 0) {
+				toast.error('No templates available', 'Create a contract template first in Settings → Contracts');
+				return;
+			}
+			// Pre-select first template
+			selectedTemplateId = availableTemplates[0].id;
+			showTemplatePicker = true;
+			return;
+		}
+
+		// Template is linked - show regenerate confirmation modal
+		showRegenerateConfirm = true;
+	}
+
+	async function confirmRegenerateTerms() {
+		showRegenerateConfirm = false;
+		isRegeneratingTerms = true;
+		try {
+			await regenerateContractTerms(contract.id);
+			await invalidateAll();
+			toast.success('Terms regenerated', 'Terms & Conditions updated from template');
+		} catch (err) {
+			toast.error('Failed to regenerate terms', err instanceof Error ? err.message : '');
+		} finally {
+			isRegeneratingTerms = false;
+		}
+	}
+
+	async function handleLinkTemplate() {
+		if (!selectedTemplateId) {
+			toast.error('Please select a template');
+			return;
+		}
+
+		isLinkingTemplate = true;
+		try {
+			await linkTemplateToContract({
+				contractId: contract.id,
+				templateId: selectedTemplateId
+			});
+			await invalidateAll();
+			showTemplatePicker = false;
+			toast.success('Template linked', 'Terms & Conditions generated from template');
+		} catch (err) {
+			toast.error('Failed to link template', err instanceof Error ? err.message : '');
+		} finally {
+			isLinkingTemplate = false;
+		}
+	}
+
 	function goBack() {
 		goto(`/${agencySlug}/contracts`);
 	}
@@ -457,6 +518,19 @@
 									Download PDF
 								</button>
 							</li>
+							{#if isEditable}
+								<li>
+									<button type="button" onclick={handleRegenerateTerms} disabled={isRegeneratingTerms || isLinkingTemplate}>
+										{#if contract.templateId}
+											<RefreshCw class="h-4 w-4 {isRegeneratingTerms ? 'animate-spin' : ''}" />
+											Regenerate Terms
+										{:else}
+											<Link2 class="h-4 w-4" />
+											Link Template
+										{/if}
+									</button>
+								</li>
+							{/if}
 							{#if contract.status !== 'draft'}
 								<li>
 									<button type="button" onclick={viewPublic}>
@@ -1071,3 +1145,115 @@
 		</main>
 	</div>
 </div>
+
+<!-- Template Picker Modal -->
+{#if showTemplatePicker}
+	<dialog class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="font-bold text-lg flex items-center gap-2">
+				<Link2 class="h-5 w-5" />
+				Link Contract Template
+			</h3>
+			<p class="text-base-content/70 mt-2">
+				Select a template to link to this contract. The template's terms and conditions will be applied.
+			</p>
+
+			<div class="form-control mt-4">
+				<label class="label">
+					<span class="label-text font-medium">Select Template</span>
+				</label>
+				<div class="space-y-2">
+					{#each availableTemplates as template (template.id)}
+						<label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-base-200 transition-colors {selectedTemplateId === template.id ? 'border-primary bg-primary/5' : 'border-base-300'}">
+							<input
+								type="radio"
+								name="template"
+								class="radio radio-primary"
+								checked={selectedTemplateId === template.id}
+								onchange={() => selectedTemplateId = template.id}
+							/>
+							<div class="flex-1">
+								<div class="font-medium">{template.name}</div>
+								{#if template.description}
+									<div class="text-sm text-base-content/60">{template.description}</div>
+								{/if}
+							</div>
+							{#if template.isDefault}
+								<span class="badge badge-primary badge-sm">Default</span>
+							{/if}
+						</label>
+					{/each}
+				</div>
+			</div>
+
+			<div class="modal-action">
+				<button
+					type="button"
+					class="btn btn-ghost"
+					onclick={() => showTemplatePicker = false}
+					disabled={isLinkingTemplate}
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					class="btn btn-primary"
+					onclick={handleLinkTemplate}
+					disabled={!selectedTemplateId || isLinkingTemplate}
+				>
+					{#if isLinkingTemplate}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					Link & Generate Terms
+				</button>
+			</div>
+		</div>
+		<form method="dialog" class="modal-backdrop">
+			<button type="button" onclick={() => showTemplatePicker = false}>close</button>
+		</form>
+	</dialog>
+{/if}
+
+<!-- Regenerate Terms Confirmation Modal -->
+{#if showRegenerateConfirm}
+	<dialog class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="font-bold text-lg flex items-center gap-2">
+				<RefreshCw class="h-5 w-5" />
+				Regenerate Terms & Conditions
+			</h3>
+			<p class="text-base-content/70 mt-4">
+				This will regenerate the Terms & Conditions from the linked template. Any manual edits to the current terms will be replaced.
+			</p>
+			<div class="alert alert-warning mt-4">
+				<AlertCircle class="h-4 w-4" />
+				<span class="text-sm">This action cannot be undone.</span>
+			</div>
+
+			<div class="modal-action">
+				<button
+					type="button"
+					class="btn btn-ghost"
+					onclick={() => showRegenerateConfirm = false}
+					disabled={isRegeneratingTerms}
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					class="btn btn-primary"
+					onclick={confirmRegenerateTerms}
+					disabled={isRegeneratingTerms}
+				>
+					{#if isRegeneratingTerms}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					Regenerate Terms
+				</button>
+			</div>
+		</div>
+		<form method="dialog" class="modal-backdrop">
+			<button type="button" onclick={() => showRegenerateConfirm = false}>close</button>
+		</form>
+	</dialog>
+{/if}

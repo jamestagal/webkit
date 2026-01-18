@@ -874,6 +874,413 @@ export const resendContract = command(v.pipe(v.string(), v.uuid()), async (contr
 });
 
 /**
+ * Regenerate contract terms from template.
+ * Use this to update a contract with the latest template content.
+ */
+export const regenerateContractTerms = command(
+	v.pipe(v.string(), v.uuid()),
+	async (contractId: string) => {
+		const context = await getAgencyContext();
+
+		// Get contract with template
+		const [existing] = await db
+			.select()
+			.from(contracts)
+			.where(and(eq(contracts.id, contractId), eq(contracts.agencyId, context.agencyId)))
+			.limit(1);
+
+		if (!existing) {
+			throw new Error('Contract not found');
+		}
+
+		// Check permission
+		if (!canModifyResource(context.role, existing.createdBy || '', context.userId, 'contract')) {
+			throw new Error('Permission denied');
+		}
+
+		// Cannot modify signed contracts
+		if (['signed', 'completed'].includes(existing.status)) {
+			throw new Error('Cannot modify signed contract');
+		}
+
+		// Get template
+		if (!existing.templateId) {
+			throw new Error('Contract has no linked template');
+		}
+
+		const [template] = await db
+			.select()
+			.from(contractTemplates)
+			.where(
+				and(
+					eq(contractTemplates.id, existing.templateId),
+					eq(contractTemplates.agencyId, context.agencyId)
+				)
+			)
+			.limit(1);
+
+		if (!template) {
+			throw new Error('Template not found');
+		}
+
+		if (!template.termsContent) {
+			throw new Error('Template has no terms content');
+		}
+
+		// Get proposal for merge fields
+		let proposal = null;
+		if (existing.proposalId) {
+			const [p] = await db
+				.select()
+				.from(proposals)
+				.where(eq(proposals.id, existing.proposalId))
+				.limit(1);
+			proposal = p || null;
+		}
+
+		// Get related data for merge fields
+		let selectedPackage = null;
+		if (proposal?.selectedPackageId) {
+			const [pkg] = await db
+				.select()
+				.from(agencyPackages)
+				.where(eq(agencyPackages.id, proposal.selectedPackageId))
+				.limit(1);
+			selectedPackage = pkg || null;
+		}
+
+		const addonIds = (proposal?.selectedAddons as string[]) || [];
+		let selectedAddons: (typeof agencyAddons.$inferSelect)[] = [];
+		if (addonIds.length > 0) {
+			selectedAddons = await db
+				.select()
+				.from(agencyAddons)
+				.where(inArray(agencyAddons.id, addonIds));
+		}
+
+		const [agency] = await db
+			.select()
+			.from(agencies)
+			.where(eq(agencies.id, context.agencyId))
+			.limit(1);
+
+		const [profile] = await db
+			.select()
+			.from(agencyProfiles)
+			.where(eq(agencyProfiles.agencyId, context.agencyId))
+			.limit(1);
+
+		// Get consultation for client merge fields
+		let consultation = null;
+		if (proposal?.consultationId) {
+			const [c] = await db
+				.select()
+				.from(consultations)
+				.where(eq(consultations.id, proposal.consultationId))
+				.limit(1);
+			consultation = c || null;
+		}
+
+		// Build merge field data
+		const mergeData: MergeFieldData = {
+			proposal: proposal
+				? dataPipelineService.buildProposalMergeFields(
+						{
+							proposalNumber: proposal.proposalNumber,
+							title: proposal.title,
+							createdAt: proposal.createdAt,
+							validUntil: proposal.validUntil,
+							customPricing: proposal.customPricing as {
+								setupFee?: string;
+								monthlyPrice?: string;
+								oneTimePrice?: string;
+								hostingFee?: string;
+								discountPercent?: number;
+								discountNote?: string;
+							} | null
+						},
+						selectedPackage
+							? {
+									name: selectedPackage.name,
+									description: selectedPackage.description,
+									setupFee: selectedPackage.setupFee,
+									monthlyPrice: selectedPackage.monthlyPrice,
+									oneTimePrice: selectedPackage.oneTimePrice,
+									hostingFee: selectedPackage.hostingFee
+								}
+							: null,
+						selectedAddons.map((a) => ({ name: a.name, price: a.price }))
+					)
+				: dataPipelineService.buildProposalMergeFields({}, null, []),
+			contract: {
+				number: existing.contractNumber || '',
+				date: existing.createdAt
+					? new Date(existing.createdAt).toLocaleDateString('en-AU', {
+							day: 'numeric',
+							month: 'long',
+							year: 'numeric'
+						})
+					: '',
+				valid_until: existing.validUntil
+					? new Date(existing.validUntil).toLocaleDateString('en-AU', {
+							day: 'numeric',
+							month: 'long',
+							year: 'numeric'
+						})
+					: '',
+				total_price: existing.totalPrice
+					? new Intl.NumberFormat('en-AU', {
+							style: 'currency',
+							currency: 'AUD'
+						}).format(parseFloat(existing.totalPrice))
+					: '',
+				payment_terms: existing.paymentTerms || '',
+				commencement_date: existing.commencementDate
+					? new Date(existing.commencementDate).toLocaleDateString('en-AU', {
+							day: 'numeric',
+							month: 'long',
+							year: 'numeric'
+						})
+					: '',
+				completion_date: existing.completionDate
+					? new Date(existing.completionDate).toLocaleDateString('en-AU', {
+							day: 'numeric',
+							month: 'long',
+							year: 'numeric'
+						})
+					: '',
+				services_description: existing.servicesDescription || '',
+				special_conditions: existing.specialConditions || ''
+			},
+			computed: dataPipelineService.buildComputedMergeFields()
+		};
+
+		if (agency && profile) {
+			mergeData.agency = dataPipelineService.buildAgencyMergeFields(agency, profile);
+		}
+		if (consultation) {
+			mergeData.client = dataPipelineService.buildClientMergeFields(consultation);
+		}
+
+		// Resolve merge fields in template content
+		const generatedTermsHtml = dataPipelineService.resolveMergeFields(
+			template.termsContent,
+			mergeData
+		);
+
+		// Update contract with regenerated terms
+		const [contract] = await db
+			.update(contracts)
+			.set({
+				generatedTermsHtml,
+				updatedAt: new Date()
+			})
+			.where(eq(contracts.id, contractId))
+			.returning();
+
+		// Log activity
+		await logActivity('contract.terms_regenerated', 'contract', contractId, {
+			metadata: { templateId: template.id }
+		});
+
+		return contract;
+	}
+);
+
+/**
+ * Link a template to an existing contract and regenerate terms.
+ * Use this for contracts created before templates were properly linked.
+ */
+export const linkTemplateToContract = command(
+	v.object({
+		contractId: v.pipe(v.string(), v.uuid()),
+		templateId: v.pipe(v.string(), v.uuid())
+	}),
+	async (data) => {
+		const context = await getAgencyContext();
+
+		// Get contract
+		const [existing] = await db
+			.select()
+			.from(contracts)
+			.where(and(eq(contracts.id, data.contractId), eq(contracts.agencyId, context.agencyId)))
+			.limit(1);
+
+		if (!existing) {
+			throw new Error('Contract not found');
+		}
+
+		// Check permission
+		if (!canModifyResource(context.role, existing.createdBy || '', context.userId, 'contract')) {
+			throw new Error('Permission denied');
+		}
+
+		// Cannot modify signed contracts
+		if (['signed', 'completed'].includes(existing.status)) {
+			throw new Error('Cannot modify signed contract');
+		}
+
+		// Get template
+		const [template] = await db
+			.select()
+			.from(contractTemplates)
+			.where(
+				and(
+					eq(contractTemplates.id, data.templateId),
+					eq(contractTemplates.agencyId, context.agencyId),
+					eq(contractTemplates.isActive, true)
+				)
+			)
+			.limit(1);
+
+		if (!template) {
+			throw new Error('Template not found');
+		}
+
+		// Link template to contract
+		await db
+			.update(contracts)
+			.set({
+				templateId: template.id,
+				updatedAt: new Date()
+			})
+			.where(eq(contracts.id, data.contractId));
+
+		// Log activity
+		await logActivity('contract.template_linked', 'contract', data.contractId, {
+			metadata: { templateId: template.id, templateName: template.name }
+		});
+
+		// Now regenerate terms if template has terms content
+		if (template.termsContent) {
+			// Get proposal for merge fields
+			let proposal = null;
+			if (existing.proposalId) {
+				const [p] = await db
+					.select()
+					.from(proposals)
+					.where(eq(proposals.id, existing.proposalId))
+					.limit(1);
+				proposal = p || null;
+			}
+
+			// Get related data for merge fields
+			let selectedPackage = null;
+			if (proposal?.selectedPackageId) {
+				const [pkg] = await db
+					.select()
+					.from(agencyPackages)
+					.where(eq(agencyPackages.id, proposal.selectedPackageId))
+					.limit(1);
+				selectedPackage = pkg || null;
+			}
+
+			const addonIds = (proposal?.selectedAddons as string[]) || [];
+			let selectedAddons: (typeof agencyAddons.$inferSelect)[] = [];
+			if (addonIds.length > 0) {
+				selectedAddons = await db
+					.select()
+					.from(agencyAddons)
+					.where(inArray(agencyAddons.id, addonIds));
+			}
+
+			const [agency] = await db
+				.select()
+				.from(agencies)
+				.where(eq(agencies.id, context.agencyId))
+				.limit(1);
+
+			const [profile] = await db
+				.select()
+				.from(agencyProfiles)
+				.where(eq(agencyProfiles.agencyId, context.agencyId))
+				.limit(1);
+
+			// Get consultation for client merge fields
+			let consultation = null;
+			if (proposal?.consultationId) {
+				const [c] = await db
+					.select()
+					.from(consultations)
+					.where(eq(consultations.id, proposal.consultationId))
+					.limit(1);
+				consultation = c || null;
+			}
+
+			// Build merge field data using helper functions
+			const mergeData: MergeFieldData = {
+				proposal: proposal
+					? dataPipelineService.buildProposalMergeFields(
+							{
+								proposalNumber: proposal.proposalNumber,
+								title: proposal.title,
+								createdAt: proposal.createdAt,
+								validUntil: proposal.validUntil,
+								customPricing: proposal.customPricing as {
+									setupFee?: string;
+									monthlyPrice?: string;
+									total?: string;
+								}
+							},
+							selectedPackage,
+							selectedAddons
+						)
+					: undefined,
+				agency: agency ? dataPipelineService.buildAgencyMergeFields(agency, profile) : undefined,
+				client: proposal
+					? dataPipelineService.buildClientMergeFields({
+							businessName: proposal.clientBusinessName || consultation?.businessName,
+							contactPerson: proposal.clientContactName || consultation?.contactPerson,
+							email: proposal.clientEmail || consultation?.email,
+							phone: proposal.clientPhone || consultation?.phone,
+							industry: consultation?.industry
+						})
+					: undefined,
+				contract: dataPipelineService.buildContractMergeFields({
+					contractNumber: existing.contractNumber,
+					createdAt: existing.createdAt,
+					validUntil: existing.validUntil,
+					totalPrice: existing.totalPrice,
+					paymentTerms: existing.paymentTerms,
+					commencementDate: existing.commencementDate,
+					completionDate: existing.completionDate,
+					servicesDescription: existing.servicesDescription,
+					specialConditions: existing.specialConditions
+				}),
+				computed: dataPipelineService.buildComputedMergeFields()
+			};
+
+			// Resolve merge fields
+			const generatedTermsHtml = dataPipelineService.resolveMergeFields(
+				template.termsContent,
+				mergeData
+			);
+
+			// Update contract with linked template and regenerated terms
+			const [contract] = await db
+				.update(contracts)
+				.set({
+					generatedTermsHtml,
+					updatedAt: new Date()
+				})
+				.where(eq(contracts.id, data.contractId))
+				.returning();
+
+			return contract;
+		}
+
+		// Return contract without terms regeneration
+		const [contract] = await db
+			.select()
+			.from(contracts)
+			.where(eq(contracts.id, data.contractId))
+			.limit(1);
+
+		return contract;
+	}
+);
+
+/**
  * Record a contract view (public, no auth required).
  */
 export const recordContractView = command(

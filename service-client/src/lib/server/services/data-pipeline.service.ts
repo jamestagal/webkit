@@ -353,23 +353,24 @@ export class DataPipelineService {
 
 	/**
 	 * Build contract merge fields from contract data.
+	 * All date fields are optional and will return empty string if not provided.
 	 */
 	buildContractMergeFields(contract: {
-		contractNumber: string;
-		createdAt: Date;
+		contractNumber?: string | null;
+		createdAt?: Date | string | null;
 		commencementDate?: Date | string | null;
 		completionDate?: Date | string | null;
-		totalPrice: string;
-		paymentTerms: string;
+		totalPrice?: string | null;
+		paymentTerms?: string | null;
 		validUntil?: Date | string | null;
-		servicesDescription?: string;
-		specialConditions?: string;
+		servicesDescription?: string | null;
+		specialConditions?: string | null;
 		agencySignatoryName?: string | null;
 		agencySignatoryTitle?: string | null;
 	}): ContractMergeFields {
 		return {
-			number: contract.contractNumber,
-			date: this.formatDate(contract.createdAt),
+			number: contract.contractNumber || '',
+			date: contract.createdAt ? this.formatDate(contract.createdAt) : '',
 			valid_until: contract.validUntil ? this.formatDate(contract.validUntil) : '',
 			commencement_date: contract.commencementDate
 				? this.formatDate(contract.commencementDate)
@@ -377,8 +378,10 @@ export class DataPipelineService {
 			completion_date: contract.completionDate
 				? this.formatDate(contract.completionDate)
 				: '',
-			total_price: this.formatCurrency(parseFloat(contract.totalPrice)),
-			payment_terms: contract.paymentTerms,
+			total_price: contract.totalPrice
+				? this.formatCurrency(parseFloat(contract.totalPrice))
+				: '',
+			payment_terms: contract.paymentTerms || '',
 			// Aliases for template flexibility
 			minimum_term: '', // Derived from package or set manually
 			cancellation_terms: '', // Derived from package or set manually

@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { Code, ChevronDown } from 'lucide-svelte';
+	import { Code, ChevronDown, Search } from 'lucide-svelte';
 
 	let { onInsert }: { onInsert: (field: string) => void } = $props();
 
 	let isOpen = $state(false);
+	let searchQuery = $state('');
 
 	// Available merge fields grouped by category
 	const mergeFieldGroups = [
@@ -63,9 +64,33 @@
 		}
 	];
 
+	// Filter groups based on search query
+	let filteredGroups = $derived(
+		searchQuery.trim()
+			? mergeFieldGroups
+					.map((group) => ({
+						...group,
+						fields: group.fields.filter(
+							(item) =>
+								item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+								item.field.toLowerCase().includes(searchQuery.toLowerCase())
+						)
+					}))
+					.filter((group) => group.fields.length > 0)
+			: mergeFieldGroups
+	);
+
 	function handleSelect(field: string) {
 		onInsert(field);
 		isOpen = false;
+		searchQuery = '';
+	}
+
+	function handleToggle() {
+		isOpen = !isOpen;
+		if (!isOpen) {
+			searchQuery = '';
+		}
 	}
 </script>
 
@@ -77,38 +102,64 @@
 	<button
 		type="button"
 		class="btn btn-sm btn-ghost gap-2"
-		onclick={() => (isOpen = !isOpen)}
+		onclick={handleToggle}
 	>
 		<Code class="h-4 w-4" />
 		Insert Field
-		<ChevronDown class="h-3 w-3" />
+		<ChevronDown class="h-3 w-3 transition-transform {isOpen ? 'rotate-180' : ''}" />
 	</button>
 
 	{#if isOpen}
 		<div
-			class="dropdown-content z-10 menu bg-base-100 rounded-box w-72 shadow-lg border border-base-300 mt-1 max-h-80 overflow-y-auto"
+			class="dropdown-content z-50 bg-base-100 rounded-lg w-96 shadow-xl border border-base-300 mt-1"
 		>
-			{#each mergeFieldGroups as group}
-				<li class="menu-title">
-					<span class="text-xs uppercase tracking-wider">{group.label}</span>
-				</li>
-				{#each group.fields as item}
-					<li>
-						<button
-							type="button"
-							class="flex justify-between items-center"
-							onclick={() => handleSelect(item.field)}
-						>
-							<span class="text-sm">{item.label}</span>
-							<code class="text-xs bg-base-200 px-1 rounded">
-								{`{{${item.field}}}`}
-							</code>
-						</button>
-					</li>
+			<!-- Search Input -->
+			<div class="p-3 border-b border-base-300">
+				<div class="relative">
+					<Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" />
+					<input
+						type="text"
+						bind:value={searchQuery}
+						placeholder="Search fields..."
+						class="input input-sm input-bordered w-full pl-9"
+						onclick={(e) => e.stopPropagation()}
+					/>
+				</div>
+			</div>
+
+			<!-- Scrollable Field List -->
+			<div class="max-h-96 overflow-y-auto p-2">
+				{#each filteredGroups as group}
+					<div class="mb-3 last:mb-0">
+						<div class="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-base-content/50 bg-base-200/50 rounded">
+							{group.label}
+						</div>
+						<ul class="mt-1 space-y-0.5">
+							{#each group.fields as item}
+								<li>
+									<button
+										type="button"
+										class="w-full flex justify-between items-center px-3 py-2 rounded-md hover:bg-base-200 transition-colors text-left"
+										onclick={() => handleSelect(item.field)}
+									>
+										<span class="text-sm font-medium">{item.label}</span>
+										<code class="text-xs bg-base-300/50 text-base-content/70 px-2 py-0.5 rounded font-mono">
+											{`{{${item.field}}}`}
+										</code>
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</div>
 				{/each}
-			{/each}
+				{#if filteredGroups.length === 0}
+					<div class="px-3 py-6 text-center text-sm text-base-content/50">
+						No fields match "{searchQuery}"
+					</div>
+				{/if}
+			</div>
 		</div>
 	{/if}
 </div>
 
-<svelte:window onclick={() => { isOpen = false; }} />
+<svelte:window onclick={() => { isOpen = false; searchQuery = ''; }} />
