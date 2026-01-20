@@ -227,6 +227,56 @@ import type { QuestionnaireResponses } from './questionnaire.types';
 export const getQuestionnaire = query(...);
 ```
 
+### Why This Restriction Exists
+
+Remote functions are **server-side functions callable from the client**. SvelteKit does magic behind the scenes:
+
+1. On the **server**, the actual function code runs
+2. On the **client**, SvelteKit generates a proxy that makes an HTTP request to the server
+
+When SvelteKit processes a `.remote.ts` file, it validates that every export follows this pattern. Regular function exports like this will fail:
+
+```typescript
+// BAD - SvelteKit can't create client proxy for this
+export async function markInviteAsUsed(token: string) {
+  await db.update(...)  // Error: all exports must be remote functions
+}
+```
+
+### Server-Only Utilities Pattern
+
+**For functions called from client components** → Use `.remote.ts` with `query()`/`command()`:
+
+```typescript
+// beta-invites.remote.ts
+export const createBetaInvite = command(schema, async (data) => {
+  // This CAN be called from client components
+});
+```
+
+**For internal server-only utilities** → Use regular `.ts` files in `$lib/server/`:
+
+```typescript
+// $lib/server/beta-invites.ts
+export async function markInviteAsUsed(token: string) {
+  // This is ONLY callable from other server code (remote functions, hooks, +page.server.ts)
+  await db.update(...)
+}
+```
+
+Then import and use in remote functions:
+```typescript
+// agency.remote.ts
+import { markInviteAsUsed } from '$lib/server/beta-invites';
+
+export const createAgency = command(schema, async (data) => {
+  // ... create agency logic
+  if (data.inviteToken) {
+    await markInviteAsUsed(data.inviteToken);  // Call server utility
+  }
+});
+```
+
 ### Function Types
 
 | Type | Purpose | Usage |
@@ -468,20 +518,42 @@ docker compose -f docker-compose.production.yml logs -f [service]
 docker exec -it webkit-postgres psql -U webkit -d webkit
 ```
 
-### Production Database Migrations
+### Database Migrations
 
-Database migrations must be run manually on production:
+Migrations are stored in `/migrations` as numbered SQL files. All migrations are **idempotent** (safe to run multiple times) using `IF NOT EXISTS` clauses.
 
-```bash
-# SSH to VPS
-ssh root@<VPS_HOST>
-
-# Connect to PostgreSQL
-docker exec -it webkit-postgres psql -U webkit -d webkit
-
-# Run ALTER TABLE or other migrations
-ALTER TABLE agencies ADD COLUMN IF NOT EXISTS accent_gradient TEXT;
 ```
+migrations/
+├── 001_add_agencies_freemium_columns.sql
+├── 002_create_beta_invites_table.sql
+└── 003_add_users_suspension_columns.sql
+```
+
+**Run migrations locally:**
+```bash
+sh scripts/run_migrations.sh
+```
+
+**Run migrations on production:**
+```bash
+# Option 1: Use the script
+VPS_HOST=your-vps-ip VPS_USER=root sh scripts/run_migrations.sh production
+
+# Option 2: Manual via SSH + heredoc
+ssh root@<VPS_HOST>
+docker exec -i webkit-postgres psql -U webkit -d webkit <<'EOF'
+-- paste migration SQL here
+EOF
+```
+
+**Important - Go Backend Sync:**
+When adding columns to tables queried by the Go backend (especially `users` table which uses `SELECT *`), you must:
+1. Update `app/service-core/storage/schema_postgres.sql`
+2. Run `sh scripts/run_queries.sh postgres` to regenerate sqlc code
+3. Commit the generated files (`models.go`, `query_postgres.sql.go`)
+4. Restart `webkit-core` service after migration
+
+The `agencies` table doesn't require this because Go doesn't query it with `SELECT *` during auth flow.
 
 ## Authentication Architecture
 
@@ -583,3 +655,9 @@ postgres:
 **Services can't connect to each other:**
 - Use container names for internal communication (e.g., `webkit-core:4001`)
 - Ensure services are on the same Docker network
+
+**Login fails after adding database columns:**
+- Go backend uses `SELECT *` on users table - new columns cause struct mismatch
+- Run `sh scripts/run_queries.sh postgres` to regenerate sqlc code
+- Restart `webkit-core`: `docker restart webkit-core`
+- Commit generated files (`models.go`, `query_postgres.sql.go`) before deploying

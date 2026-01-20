@@ -8,17 +8,17 @@
  * not just in the UI, to prevent bypass.
  */
 
-import { db } from '$lib/server/db';
-import { agencies, agencyMemberships, consultations } from '$lib/server/schema';
-import { eq, and, gte, count } from 'drizzle-orm';
-import { error } from '@sveltejs/kit';
-import { getAgencyContext } from '$lib/server/agency';
+import { db } from "$lib/server/db";
+import { agencies, agencyMemberships, consultations } from "$lib/server/schema";
+import { eq, and, gte, count } from "drizzle-orm";
+import { error } from "@sveltejs/kit";
+import { getAgencyContext } from "$lib/server/agency";
 
 // =============================================================================
 // Tier Definitions
 // =============================================================================
 
-export type SubscriptionTier = 'free' | 'starter' | 'growth' | 'enterprise';
+export type SubscriptionTier = "free" | "starter" | "growth" | "enterprise";
 
 export interface TierLimits {
 	maxMembers: number; // -1 = unlimited
@@ -30,17 +30,17 @@ export interface TierLimits {
 }
 
 export type TierFeature =
-	| 'basic_proposals'
-	| 'pdf_export'
-	| 'email_delivery'
-	| 'custom_branding'
-	| 'analytics'
-	| 'white_label'
-	| 'api_access'
-	| 'priority_support'
-	| 'custom_domain'
-	| 'sso'
-	| 'ai_proposal_generation';
+	| "basic_proposals"
+	| "pdf_export"
+	| "email_delivery"
+	| "custom_branding"
+	| "analytics"
+	| "white_label"
+	| "api_access"
+	| "priority_support"
+	| "custom_domain"
+	| "sso"
+	| "ai_proposal_generation";
 
 export const TIER_DEFINITIONS: Record<SubscriptionTier, TierLimits> = {
 	free: {
@@ -49,7 +49,7 @@ export const TIER_DEFINITIONS: Record<SubscriptionTier, TierLimits> = {
 		maxAIGenerationsPerMonth: 5,
 		maxTemplates: 1,
 		maxStorageMB: 100,
-		features: ['basic_proposals', 'ai_proposal_generation']
+		features: ["basic_proposals", "ai_proposal_generation"],
 	},
 	starter: {
 		maxMembers: 3,
@@ -57,7 +57,7 @@ export const TIER_DEFINITIONS: Record<SubscriptionTier, TierLimits> = {
 		maxAIGenerationsPerMonth: 25,
 		maxTemplates: 5,
 		maxStorageMB: 1024, // 1GB
-		features: ['basic_proposals', 'pdf_export', 'email_delivery', 'ai_proposal_generation']
+		features: ["basic_proposals", "pdf_export", "email_delivery", "ai_proposal_generation"],
 	},
 	growth: {
 		maxMembers: 10,
@@ -66,15 +66,15 @@ export const TIER_DEFINITIONS: Record<SubscriptionTier, TierLimits> = {
 		maxTemplates: 20,
 		maxStorageMB: 10240, // 10GB
 		features: [
-			'basic_proposals',
-			'pdf_export',
-			'email_delivery',
-			'custom_branding',
-			'analytics',
-			'white_label',
-			'api_access',
-			'ai_proposal_generation'
-		]
+			"basic_proposals",
+			"pdf_export",
+			"email_delivery",
+			"custom_branding",
+			"analytics",
+			"white_label",
+			"api_access",
+			"ai_proposal_generation",
+		],
 	},
 	enterprise: {
 		maxMembers: -1,
@@ -83,20 +83,55 @@ export const TIER_DEFINITIONS: Record<SubscriptionTier, TierLimits> = {
 		maxTemplates: -1,
 		maxStorageMB: -1,
 		features: [
-			'basic_proposals',
-			'pdf_export',
-			'email_delivery',
-			'custom_branding',
-			'analytics',
-			'white_label',
-			'api_access',
-			'priority_support',
-			'custom_domain',
-			'sso',
-			'ai_proposal_generation'
-		]
-	}
+			"basic_proposals",
+			"pdf_export",
+			"email_delivery",
+			"custom_branding",
+			"analytics",
+			"white_label",
+			"api_access",
+			"priority_support",
+			"custom_domain",
+			"sso",
+			"ai_proposal_generation",
+		],
+	},
 };
+
+// =============================================================================
+// Freemium Support
+// =============================================================================
+
+/**
+ * Get the effective tier for an agency, considering freemium status.
+ * Freemium users get enterprise-level access regardless of actual subscription.
+ */
+export async function getEffectiveTier(agencyId: string): Promise<SubscriptionTier> {
+	const [agency] = await db
+		.select({
+			subscriptionTier: agencies.subscriptionTier,
+			isFreemium: agencies.isFreemium,
+			freemiumExpiresAt: agencies.freemiumExpiresAt,
+		})
+		.from(agencies)
+		.where(eq(agencies.id, agencyId))
+		.limit(1);
+
+	if (!agency) return "free";
+
+	// Check freemium status
+	if (agency.isFreemium) {
+		// Check if expired (null = no expiry)
+		if (agency.freemiumExpiresAt && new Date() > agency.freemiumExpiresAt) {
+			// Freemium expired, fall back to actual tier
+			return (agency.subscriptionTier as SubscriptionTier) || "free";
+		}
+		// Active freemium - grant enterprise access
+		return "enterprise";
+	}
+
+	return (agency.subscriptionTier as SubscriptionTier) || "free";
+}
 
 // =============================================================================
 // Tier Information Functions
@@ -111,6 +146,7 @@ export function getTierLimits(tier: SubscriptionTier): TierLimits {
 
 /**
  * Get the current agency's tier and limits.
+ * Respects freemium status - freemium users get enterprise limits.
  */
 export async function getAgencyTierLimits(): Promise<{
 	tier: SubscriptionTier;
@@ -118,13 +154,8 @@ export async function getAgencyTierLimits(): Promise<{
 }> {
 	const context = await getAgencyContext();
 
-	const [agency] = await db
-		.select({ subscriptionTier: agencies.subscriptionTier })
-		.from(agencies)
-		.where(eq(agencies.id, context.agencyId))
-		.limit(1);
-
-	const tier = (agency?.subscriptionTier as SubscriptionTier) || 'free';
+	// Use getEffectiveTier to respect freemium status
+	const tier = await getEffectiveTier(context.agencyId);
 	return { tier, limits: getTierLimits(tier) };
 }
 
@@ -147,7 +178,7 @@ export async function getMemberCount(agencyId: string): Promise<number> {
 	const [result] = await db
 		.select({ count: count() })
 		.from(agencyMemberships)
-		.where(and(eq(agencyMemberships.agencyId, agencyId), eq(agencyMemberships.status, 'active')));
+		.where(and(eq(agencyMemberships.agencyId, agencyId), eq(agencyMemberships.status, "active")));
 
 	return result?.count ?? 0;
 }
@@ -191,7 +222,7 @@ export async function canAddMember(agencyId?: string): Promise<{
 		allowed: currentCount < limits.maxMembers,
 		current: currentCount,
 		limit: limits.maxMembers,
-		unlimited: false
+		unlimited: false,
 	};
 }
 
@@ -226,7 +257,7 @@ export async function canCreateConsultation(agencyId?: string): Promise<{
 		current: currentCount,
 		limit: limits.maxConsultationsPerMonth,
 		unlimited: false,
-		resetsAt
+		resetsAt,
 	};
 }
 
@@ -238,7 +269,7 @@ export async function getMonthlyAIGenerationCount(agencyId: string): Promise<num
 	const [agency] = await db
 		.select({
 			aiGenerationsThisMonth: agencies.aiGenerationsThisMonth,
-			aiGenerationsResetAt: agencies.aiGenerationsResetAt
+			aiGenerationsResetAt: agencies.aiGenerationsResetAt,
 		})
 		.from(agencies)
 		.where(eq(agencies.id, agencyId))
@@ -256,7 +287,7 @@ export async function getMonthlyAIGenerationCount(agencyId: string): Promise<num
 			.update(agencies)
 			.set({
 				aiGenerationsThisMonth: 0,
-				aiGenerationsResetAt: now
+				aiGenerationsResetAt: now,
 			})
 			.where(eq(agencies.id, agencyId));
 		return 0;
@@ -296,7 +327,7 @@ export async function canGenerateWithAI(agencyId?: string): Promise<{
 		current: currentCount,
 		limit: limits.maxAIGenerationsPerMonth,
 		unlimited: false,
-		resetsAt
+		resetsAt,
 	};
 }
 
@@ -312,7 +343,7 @@ export async function incrementAIGenerationCount(agencyId: string): Promise<void
 	const [agency] = await db
 		.select({
 			aiGenerationsThisMonth: agencies.aiGenerationsThisMonth,
-			aiGenerationsResetAt: agencies.aiGenerationsResetAt
+			aiGenerationsResetAt: agencies.aiGenerationsResetAt,
 		})
 		.from(agencies)
 		.where(eq(agencies.id, agencyId))
@@ -324,7 +355,7 @@ export async function incrementAIGenerationCount(agencyId: string): Promise<void
 			.update(agencies)
 			.set({
 				aiGenerationsThisMonth: 1,
-				aiGenerationsResetAt: now
+				aiGenerationsResetAt: now,
 			})
 			.where(eq(agencies.id, agencyId));
 	} else {
@@ -332,7 +363,7 @@ export async function incrementAIGenerationCount(agencyId: string): Promise<void
 		await db
 			.update(agencies)
 			.set({
-				aiGenerationsThisMonth: currentCount + 1
+				aiGenerationsThisMonth: currentCount + 1,
 			})
 			.where(eq(agencies.id, agencyId));
 	}
@@ -351,7 +382,7 @@ export async function enforceMemberLimit(agencyId?: string): Promise<void> {
 	if (!result.allowed) {
 		throw error(
 			403,
-			`Member limit reached (${result.current}/${result.limit}). Upgrade your plan to add more members.`
+			`Member limit reached (${result.current}/${result.limit}). Upgrade your plan to add more members.`,
 		);
 	}
 }
@@ -367,7 +398,7 @@ export async function enforceConsultationLimit(agencyId?: string): Promise<void>
 			403,
 			`Monthly consultation limit reached (${result.current}/${result.limit}). ` +
 				`Limit resets on ${result.resetsAt.toLocaleDateString()}. ` +
-				`Upgrade your plan for more consultations.`
+				`Upgrade your plan for more consultations.`,
 		);
 	}
 }
@@ -383,7 +414,7 @@ export async function enforceAIGenerationLimit(agencyId?: string): Promise<void>
 			403,
 			`Monthly AI generation limit reached (${result.current}/${result.limit}). ` +
 				`Limit resets on ${result.resetsAt.toLocaleDateString()}. ` +
-				`Upgrade your plan for more AI generations.`
+				`Upgrade your plan for more AI generations.`,
 		);
 	}
 }
@@ -397,7 +428,7 @@ export async function requireFeature(feature: TierFeature): Promise<void> {
 	if (!limits.features.includes(feature)) {
 		throw error(
 			403,
-			`The "${feature}" feature is not available on the ${tier} plan. Please upgrade to access this feature.`
+			`The "${feature}" feature is not available on the ${tier} plan. Please upgrade to access this feature.`,
 		);
 	}
 }
@@ -455,19 +486,19 @@ export async function getAgencyUsageStats(agencyId?: string): Promise<{
 			members: {
 				current: memberCount,
 				limit: limits.maxMembers,
-				percentage: memberPercentage
+				percentage: memberPercentage,
 			},
 			consultationsThisMonth: {
 				current: consultationCount,
 				limit: limits.maxConsultationsPerMonth,
-				percentage: consultationPercentage
+				percentage: consultationPercentage,
 			},
 			aiGenerationsThisMonth: {
 				current: aiGenerationCount,
 				limit: limits.maxAIGenerationsPerMonth,
-				percentage: aiGenerationPercentage
-			}
-		}
+				percentage: aiGenerationPercentage,
+			},
+		},
 	};
 }
 
@@ -485,7 +516,7 @@ export function getTierComparison(currentTier: SubscriptionTier): Array<{
 	isCurrentTier: boolean;
 	isUpgrade: boolean;
 }> {
-	const tierOrder: SubscriptionTier[] = ['free', 'starter', 'growth', 'enterprise'];
+	const tierOrder: SubscriptionTier[] = ["free", "starter", "growth", "enterprise"];
 	const currentIndex = tierOrder.indexOf(currentTier);
 
 	return tierOrder.map((tier, index) => ({
@@ -493,7 +524,7 @@ export function getTierComparison(currentTier: SubscriptionTier): Array<{
 		name: tier.charAt(0).toUpperCase() + tier.slice(1),
 		limits: TIER_DEFINITIONS[tier],
 		isCurrentTier: tier === currentTier,
-		isUpgrade: index > currentIndex
+		isUpgrade: index > currentIndex,
 	}));
 }
 
@@ -501,7 +532,7 @@ export function getTierComparison(currentTier: SubscriptionTier): Array<{
  * Get the next tier up from current tier.
  */
 export function getNextTier(currentTier: SubscriptionTier): SubscriptionTier | null {
-	const tierOrder: SubscriptionTier[] = ['free', 'starter', 'growth', 'enterprise'];
+	const tierOrder: SubscriptionTier[] = ["free", "starter", "growth", "enterprise"];
 	const currentIndex = tierOrder.indexOf(currentTier);
 
 	if (currentIndex === -1 || currentIndex >= tierOrder.length - 1) {

@@ -5,7 +5,7 @@
  * Uses inline styles for maximum email client compatibility.
  */
 
-import type { Agency, AgencyProfile, Proposal, Invoice, Contract } from '$lib/server/schema';
+import type { Agency, AgencyProfile, Proposal, Invoice, Contract } from "$lib/server/schema";
 
 // =============================================================================
 // Template Data Interfaces
@@ -26,7 +26,7 @@ export interface EmailTemplateData {
 		email: string;
 	};
 	document: {
-		type: 'proposal' | 'invoice' | 'contract';
+		type: "proposal" | "invoice" | "contract";
 		number: string;
 		publicUrl: string;
 		total?: string | undefined;
@@ -49,11 +49,11 @@ export interface EmailTemplate {
  * Format a decimal string or number as currency (AUD)
  */
 function formatCurrency(value: string | number | null | undefined): string {
-	const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
-	return new Intl.NumberFormat('en-AU', {
-		style: 'currency',
-		currency: 'AUD',
-		minimumFractionDigits: 2
+	const num = typeof value === "string" ? parseFloat(value) : (value ?? 0);
+	return new Intl.NumberFormat("en-AU", {
+		style: "currency",
+		currency: "AUD",
+		minimumFractionDigits: 2,
 	}).format(num);
 }
 
@@ -61,12 +61,12 @@ function formatCurrency(value: string | number | null | undefined): string {
  * Format a date for display
  */
 function formatDate(date: Date | string | null | undefined): string {
-	if (!date) return '';
-	const d = typeof date === 'string' ? new Date(date) : date;
-	return d.toLocaleDateString('en-AU', {
-		day: 'numeric',
-		month: 'long',
-		year: 'numeric'
+	if (!date) return "";
+	const d = typeof date === "string" ? new Date(date) : date;
+	return d.toLocaleDateString("en-AU", {
+		day: "numeric",
+		month: "long",
+		year: "numeric",
 	});
 }
 
@@ -74,14 +74,19 @@ function formatDate(date: Date | string | null | undefined): string {
  * Get default primary color
  */
 function getColor(color?: string): string {
-	return color || '#4F46E5';
+	return color || "#4F46E5";
 }
 
 // =============================================================================
 // Base Email Wrapper
 // =============================================================================
 
-function wrapEmail(content: string, primaryColor: string, logoUrl?: string, agencyName?: string): string {
+function wrapEmail(
+	content: string,
+	primaryColor: string,
+	logoUrl?: string,
+	agencyName?: string,
+): string {
 	return `
 <!DOCTYPE html>
 <html lang="en">
@@ -98,10 +103,11 @@ function wrapEmail(content: string, primaryColor: string, logoUrl?: string, agen
                     <!-- Header -->
                     <tr>
                         <td style="background-color: ${primaryColor}; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
-                            ${logoUrl
-                                ? `<img src="${logoUrl}" alt="${agencyName || 'Logo'}" style="max-height: 48px; max-width: 200px;">`
-                                : `<span style="color: white; font-size: 24px; font-weight: 600;">${agencyName || ''}</span>`
-                            }
+                            ${
+															logoUrl
+																? `<img src="${logoUrl}" alt="${agencyName || "Logo"}" style="max-height: 48px; max-width: 200px;">`
+																: `<span style="color: white; font-size: 24px; font-weight: 600;">${agencyName || ""}</span>`
+														}
                         </td>
                     </tr>
 
@@ -115,7 +121,7 @@ function wrapEmail(content: string, primaryColor: string, logoUrl?: string, agen
                     <!-- Footer -->
                     <tr>
                         <td style="padding: 24px; text-align: center; color: #6b7280; font-size: 12px;">
-                            <p style="margin: 0;">This email was sent by ${agencyName || 'our team'}.</p>
+                            <p style="margin: 0;">This email was sent by ${agencyName || "our team"}.</p>
                             <p style="margin: 8px 0 0 0;">If you have any questions, please reply to this email.</p>
                         </td>
                     </tr>
@@ -150,12 +156,16 @@ export function generateProposalEmail(data: EmailTemplateData): EmailTemplate {
                     <td style="color: #6b7280; font-size: 14px;">Proposal Number</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${document.number}</td>
                 </tr>
-                ${document.total ? `
+                ${
+									document.total
+										? `
                 <tr>
                     <td style="color: #6b7280; font-size: 14px; padding-top: 12px;">Total Value</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600; padding-top: 12px;">${formatCurrency(document.total)}</td>
                 </tr>
-                ` : ''}
+                `
+										: ""
+								}
             </table>
         </div>
 
@@ -179,7 +189,7 @@ export function generateProposalEmail(data: EmailTemplateData): EmailTemplate {
 
 	return {
 		subject: `Proposal ${document.number} from ${agency.name}`,
-		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name)
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
 	};
 }
 
@@ -191,7 +201,8 @@ export function generateInvoiceEmail(data: EmailTemplateData): EmailTemplate {
 	const { agency, recipient, document, customMessage } = data;
 	const primaryColor = getColor(agency.primaryColor);
 
-	const paymentButton = document.paymentLinkUrl ? `
+	const paymentButton = document.paymentLinkUrl
+		? `
         <div style="text-align: center; margin: 24px 0;">
             <a href="${document.paymentLinkUrl}"
                style="display: inline-block; background-color: #059669; color: white; padding: 14px 32px;
@@ -202,7 +213,8 @@ export function generateInvoiceEmail(data: EmailTemplateData): EmailTemplate {
                 Secure payment via Stripe
             </p>
         </div>
-    ` : '';
+    `
+		: "";
 
 	const content = `
         <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
@@ -225,12 +237,16 @@ export function generateInvoiceEmail(data: EmailTemplateData): EmailTemplate {
                         ${formatCurrency(document.total)}
                     </td>
                 </tr>
-                ${document.dueDate ? `
+                ${
+									document.dueDate
+										? `
                 <tr>
                     <td style="color: #6b7280; font-size: 14px; padding-top: 12px;">Due Date</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600; padding-top: 12px;">${document.dueDate}</td>
                 </tr>
-                ` : ''}
+                `
+										: ""
+								}
             </table>
         </div>
 
@@ -256,7 +272,7 @@ export function generateInvoiceEmail(data: EmailTemplateData): EmailTemplate {
 
 	return {
 		subject: `Invoice ${document.number} from ${agency.name}`,
-		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name)
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
 	};
 }
 
@@ -278,12 +294,12 @@ export function generateInvoiceReminderEmail(data: ReminderEmailData): EmailTemp
 	let subjectPrefix: string;
 
 	if (isOverdue && daysPastDue) {
-		subjectPrefix = 'Overdue: ';
+		subjectPrefix = "Overdue: ";
 		reminderMessage =
 			customMessage ||
-			`This is a reminder that Invoice ${document.number} is now ${daysPastDue} day${daysPastDue === 1 ? '' : 's'} overdue. Please arrange payment at your earliest convenience.`;
+			`This is a reminder that Invoice ${document.number} is now ${daysPastDue} day${daysPastDue === 1 ? "" : "s"} overdue. Please arrange payment at your earliest convenience.`;
 	} else {
-		subjectPrefix = 'Reminder: ';
+		subjectPrefix = "Reminder: ";
 		reminderMessage =
 			customMessage ||
 			`This is a friendly reminder that Invoice ${document.number} is due on ${document.dueDate}. Please arrange payment by the due date to avoid any late fees.`;
@@ -302,7 +318,7 @@ export function generateInvoiceReminderEmail(data: ReminderEmailData): EmailTemp
             </p>
         </div>
     `
-		: '';
+		: "";
 
 	const urgencyBanner = isOverdue
 		? `
@@ -312,7 +328,7 @@ export function generateInvoiceReminderEmail(data: ReminderEmailData): EmailTemp
             </p>
         </div>
     `
-		: '';
+		: "";
 
 	const content = `
         <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
@@ -333,16 +349,20 @@ export function generateInvoiceReminderEmail(data: ReminderEmailData): EmailTemp
                 </tr>
                 <tr>
                     <td style="color: #6b7280; font-size: 14px; padding-top: 12px;">Amount Due</td>
-                    <td style="text-align: right; color: ${isOverdue ? '#dc2626' : '#1f2937'}; font-weight: 600; font-size: 18px; padding-top: 12px;">
+                    <td style="text-align: right; color: ${isOverdue ? "#dc2626" : "#1f2937"}; font-weight: 600; font-size: 18px; padding-top: 12px;">
                         ${formatCurrency(document.total)}
                     </td>
                 </tr>
-                ${document.dueDate ? `
+                ${
+									document.dueDate
+										? `
                 <tr>
                     <td style="color: #6b7280; font-size: 14px; padding-top: 12px;">Due Date</td>
-                    <td style="text-align: right; color: ${isOverdue ? '#dc2626' : '#1f2937'}; font-weight: 600; padding-top: 12px;">${document.dueDate}</td>
+                    <td style="text-align: right; color: ${isOverdue ? "#dc2626" : "#1f2937"}; font-weight: 600; padding-top: 12px;">${document.dueDate}</td>
                 </tr>
-                ` : ''}
+                `
+										: ""
+								}
             </table>
         </div>
 
@@ -368,7 +388,7 @@ export function generateInvoiceReminderEmail(data: ReminderEmailData): EmailTemp
 
 	return {
 		subject: `${subjectPrefix}Invoice ${document.number} from ${agency.name}`,
-		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name)
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
 	};
 }
 
@@ -422,7 +442,7 @@ export function generateContractEmail(data: EmailTemplateData): EmailTemplate {
 
 	return {
 		subject: `Contract from ${agency.name} - Please Review and Sign`,
-		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name)
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
 	};
 }
 
@@ -434,7 +454,7 @@ export function buildProposalEmailData(
 	proposal: Proposal,
 	agency: Agency,
 	profile: AgencyProfile | null,
-	publicUrl: string
+	publicUrl: string,
 ): EmailTemplateData {
 	return {
 		agency: {
@@ -443,18 +463,18 @@ export function buildProposalEmailData(
 			phone: agency.phone || undefined,
 			logoUrl: agency.logoUrl || undefined,
 			primaryColor: agency.primaryColor || undefined,
-			website: agency.website || undefined
+			website: agency.website || undefined,
 		},
 		recipient: {
 			name: proposal.clientContactName || proposal.clientBusinessName,
 			businessName: proposal.clientBusinessName || undefined,
-			email: proposal.clientEmail
+			email: proposal.clientEmail,
 		},
 		document: {
-			type: 'proposal',
+			type: "proposal",
 			number: proposal.proposalNumber,
-			publicUrl
-		}
+			publicUrl,
+		},
 	};
 }
 
@@ -463,7 +483,7 @@ export function buildInvoiceEmailData(
 	agency: Agency,
 	profile: AgencyProfile | null,
 	publicUrl: string,
-	paymentLinkUrl?: string
+	paymentLinkUrl?: string,
 ): EmailTemplateData {
 	return {
 		agency: {
@@ -472,21 +492,21 @@ export function buildInvoiceEmailData(
 			phone: agency.phone || undefined,
 			logoUrl: agency.logoUrl || undefined,
 			primaryColor: agency.primaryColor || undefined,
-			website: agency.website || undefined
+			website: agency.website || undefined,
 		},
 		recipient: {
 			name: invoice.clientContactName || invoice.clientBusinessName,
 			businessName: invoice.clientBusinessName || undefined,
-			email: invoice.clientEmail
+			email: invoice.clientEmail,
 		},
 		document: {
-			type: 'invoice',
+			type: "invoice",
 			number: invoice.invoiceNumber,
 			publicUrl,
 			total: invoice.total?.toString(),
 			dueDate: formatDate(invoice.dueDate),
-			paymentLinkUrl
-		}
+			paymentLinkUrl,
+		},
 	};
 }
 
@@ -494,7 +514,7 @@ export function buildContractEmailData(
 	contract: Contract,
 	agency: Agency,
 	profile: AgencyProfile | null,
-	publicUrl: string
+	publicUrl: string,
 ): EmailTemplateData {
 	return {
 		agency: {
@@ -503,18 +523,18 @@ export function buildContractEmailData(
 			phone: agency.phone || undefined,
 			logoUrl: agency.logoUrl || undefined,
 			primaryColor: agency.primaryColor || undefined,
-			website: agency.website || undefined
+			website: agency.website || undefined,
 		},
 		recipient: {
 			name: contract.clientContactName || contract.clientBusinessName,
 			businessName: contract.clientBusinessName || undefined,
-			email: contract.clientEmail
+			email: contract.clientEmail,
 		},
 		document: {
-			type: 'contract',
+			type: "contract",
 			number: contract.contractNumber,
-			publicUrl
-		}
+			publicUrl,
+		},
 	};
 }
 
@@ -555,7 +575,7 @@ export interface TeamInvitationData {
 	inviter: {
 		name: string;
 	};
-	role: 'admin' | 'member';
+	role: "admin" | "member";
 	loginUrl: string;
 }
 
@@ -567,9 +587,9 @@ export function generateTeamInvitationEmail(data: TeamInvitationData): EmailTemp
 	const primaryColor = getColor(agency.primaryColor);
 
 	const roleDescription =
-		role === 'admin'
-			? 'As an Admin, you can manage all agency work and invite new members.'
-			: 'As a Member, you can create and manage your own consultations and proposals.';
+		role === "admin"
+			? "As an Admin, you can manage all agency work and invite new members."
+			: "As a Member, you can create and manage your own consultations and proposals.";
 
 	const content = `
         <h1 style="margin: 0 0 24px 0; font-size: 24px; font-weight: 600; color: #111827;">
@@ -577,7 +597,7 @@ export function generateTeamInvitationEmail(data: TeamInvitationData): EmailTemp
         </h1>
 
         <p style="margin: 0 0 16px 0; color: #4b5563;">
-            <strong>${inviter.name}</strong> has invited you to join <strong>${agency.name}</strong> on Webkit as a <strong>${role === 'admin' ? 'Admin' : 'Member'}</strong>.
+            <strong>${inviter.name}</strong> has invited you to join <strong>${agency.name}</strong> on Webkit as a <strong>${role === "admin" ? "Admin" : "Member"}</strong>.
         </p>
 
         <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
@@ -605,7 +625,7 @@ export function generateTeamInvitationEmail(data: TeamInvitationData): EmailTemp
 
 	return {
 		subject: `You've been invited to join ${agency.name} on Webkit`,
-		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name)
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
 	};
 }
 
@@ -617,9 +637,9 @@ export function generateTeamAddedEmail(data: TeamInvitationData): EmailTemplate 
 	const primaryColor = getColor(agency.primaryColor);
 
 	const roleDescription =
-		role === 'admin'
-			? 'As an Admin, you can manage all agency work and invite new members.'
-			: 'As a Member, you can create and manage your own consultations and proposals.';
+		role === "admin"
+			? "As an Admin, you can manage all agency work and invite new members."
+			: "As a Member, you can create and manage your own consultations and proposals.";
 
 	const content = `
         <h1 style="margin: 0 0 24px 0; font-size: 24px; font-weight: 600; color: #111827;">
@@ -627,7 +647,7 @@ export function generateTeamAddedEmail(data: TeamInvitationData): EmailTemplate 
         </h1>
 
         <p style="margin: 0 0 16px 0; color: #4b5563;">
-            <strong>${inviter.name}</strong> has added you to <strong>${agency.name}</strong> as a <strong>${role === 'admin' ? 'Admin' : 'Member'}</strong>.
+            <strong>${inviter.name}</strong> has added you to <strong>${agency.name}</strong> as a <strong>${role === "admin" ? "Admin" : "Member"}</strong>.
         </p>
 
         <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
@@ -651,7 +671,7 @@ export function generateTeamAddedEmail(data: TeamInvitationData): EmailTemplate 
 
 	return {
 		subject: `You've been added to ${agency.name}`,
-		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name)
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
 	};
 }
 
@@ -662,7 +682,9 @@ export function generateTeamAddedEmail(data: TeamInvitationData): EmailTemplate 
 /**
  * Generate email notification to agency when client completes questionnaire
  */
-export function generateQuestionnaireCompletedEmail(data: QuestionnaireNotificationData): EmailTemplate {
+export function generateQuestionnaireCompletedEmail(
+	data: QuestionnaireNotificationData,
+): EmailTemplate {
 	const { agency, client, contract, questionnaireUrl } = data;
 	const primaryColor = getColor(agency.primaryColor);
 
@@ -672,7 +694,7 @@ export function generateQuestionnaireCompletedEmail(data: QuestionnaireNotificat
         </h1>
 
         <p style="margin: 0 0 16px 0; color: #4b5563;">
-            Great news! <strong>${client.name}</strong>${client.businessName ? ` (${client.businessName})` : ''} has completed their Initial Website Questionnaire.
+            Great news! <strong>${client.name}</strong>${client.businessName ? ` (${client.businessName})` : ""} has completed their Initial Website Questionnaire.
         </p>
 
         <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
@@ -681,18 +703,26 @@ export function generateQuestionnaireCompletedEmail(data: QuestionnaireNotificat
                     <td style="padding: 8px 0; color: #6b7280;">Client Name:</td>
                     <td style="padding: 8px 0; font-weight: 600; color: #111827; text-align: right;">${client.name}</td>
                 </tr>
-                ${client.businessName ? `
+                ${
+									client.businessName
+										? `
                 <tr>
                     <td style="padding: 8px 0; color: #6b7280;">Business:</td>
                     <td style="padding: 8px 0; font-weight: 600; color: #111827; text-align: right;">${client.businessName}</td>
                 </tr>
-                ` : ''}
-                ${contract ? `
+                `
+										: ""
+								}
+                ${
+									contract
+										? `
                 <tr>
                     <td style="padding: 8px 0; color: #6b7280;">Contract #:</td>
                     <td style="padding: 8px 0; font-weight: 600; color: #111827; text-align: right;">${contract.number}</td>
                 </tr>
-                ` : ''}
+                `
+										: ""
+								}
                 <tr>
                     <td style="padding: 8px 0; color: #6b7280;">Email:</td>
                     <td style="padding: 8px 0; color: #111827; text-align: right;">${client.email}</td>
@@ -715,6 +745,101 @@ export function generateQuestionnaireCompletedEmail(data: QuestionnaireNotificat
 
 	return {
 		subject: `${client.name} has completed their Website Questionnaire`,
-		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name)
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
+	};
+}
+
+// =============================================================================
+// Beta Invite Email Template
+// =============================================================================
+
+export interface BetaInviteEmailData {
+	inviteUrl: string;
+	expiresAt: Date;
+}
+
+/**
+ * Generate beta tester invitation email
+ */
+export function generateBetaInviteEmail(data: BetaInviteEmailData): EmailTemplate {
+	const { inviteUrl, expiresAt } = data;
+	const primaryColor = "#4F46E5"; // WebKit brand color
+
+	const formattedExpiry = formatDate(expiresAt);
+
+	const content = `
+        <h1 style="margin: 0 0 24px 0; font-size: 28px; font-weight: 700; color: #111827;">
+            You're Invited to WebKit Beta! 🎉
+        </h1>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563; font-size: 16px;">
+            You've been selected for <strong>early access</strong> to WebKit – the professional proposal and contract platform for web agencies.
+        </p>
+
+        <div style="background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%); border-radius: 12px; padding: 24px; margin: 24px 0;">
+            <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600; color: #4338CA;">
+                ✨ Your Enterprise Beta Benefits
+            </h3>
+            <p style="margin: 0 0 12px 0; color: #4b5563;">
+                As a beta tester, you'll enjoy <strong>full enterprise-level access</strong> including:
+            </p>
+            <ul style="margin: 0; padding-left: 20px; color: #4b5563;">
+                <li style="margin-bottom: 8px;"><strong>Unlimited team members</strong> – invite your whole team</li>
+                <li style="margin-bottom: 8px;"><strong>Unlimited consultations</strong> – no monthly caps</li>
+                <li style="margin-bottom: 8px;"><strong>Unlimited proposals & contracts</strong> – create as many as you need</li>
+                <li style="margin-bottom: 8px;"><strong>Unlimited templates</strong> – build your library</li>
+                <li style="margin-bottom: 0;"><strong>Priority support</strong> from our founding team</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${inviteUrl}"
+               style="display: inline-block; background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: white; padding: 16px 40px;
+                      text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 18px; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);">
+                Accept Invite & Get Started
+            </a>
+        </div>
+
+        <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <h4 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #374151;">
+                📋 How to Create Your Account
+            </h4>
+            <ol style="margin: 0; padding-left: 20px; color: #4b5563;">
+                <li style="margin-bottom: 8px;">Click the button above to accept your invite</li>
+                <li style="margin-bottom: 8px;">During beta testing, you'll sign in through <strong>Cloudflare Zero Trust</strong> (a 2-step verification process)</li>
+                <li style="margin-bottom: 8px;">Create your agency and start building proposals!</li>
+            </ol>
+            <p style="margin: 12px 0 0 0; color: #6b7280; font-size: 14px;">
+                <em>Note: Once authenticated, you'll only need to sign in once per session.</em>
+            </p>
+        </div>
+
+        <div style="background-color: #ECFDF5; border-radius: 8px; padding: 16px; margin: 24px 0;">
+            <p style="margin: 0; color: #065F46; font-size: 14px;">
+                <strong>🚀 Coming Soon: Feedback Portal</strong><br>
+                We're building a dedicated portal where beta testers can report bugs, request features, and help shape the future of WebKit. Stay tuned!
+            </p>
+        </div>
+
+        <div style="background-color: #FEF3C7; border-radius: 8px; padding: 16px; margin: 24px 0;">
+            <p style="margin: 0; color: #92400E; font-size: 14px;">
+                <strong>⏰ This invite expires on ${formattedExpiry}</strong><br>
+                Make sure to accept before then to secure your beta access.
+            </p>
+        </div>
+
+        <p style="margin: 24px 0 0 0; color: #6b7280; font-size: 14px;">
+            Questions or feedback? Just reply to this email – we'd love to hear from you.
+        </p>
+
+        <p style="margin: 24px 0 0 0; color: #4b5563;">
+            Welcome aboard,<br>
+            <strong>The WebKit Team</strong>
+        </p>
+    `;
+
+	return {
+		subject: "You're invited to WebKit Beta! 🎉",
+		bodyHtml: wrapEmail(content, primaryColor, undefined, "WebKit"),
 	};
 }

@@ -24,6 +24,10 @@ create table if not exists users (
     subscription_end timestamptz not null default '2000-01-01 00:00:00',
     api_key text not null default '',
     default_agency_id uuid,  -- Added for multi-tenancy
+    -- Suspension (super-admin controlled)
+    suspended boolean not null default false,
+    suspended_at timestamptz,
+    suspended_reason text,
     unique (email, sub)
 );
 
@@ -63,6 +67,13 @@ create table if not exists agencies (
     -- AI Generation Rate Limiting
     ai_generations_this_month integer not null default 0,
     ai_generations_reset_at timestamptz,
+
+    -- Freemium access (beta/partner programs)
+    is_freemium boolean not null default false,
+    freemium_reason varchar(50),  -- beta_tester, partner, promotional, early_signup, referral_reward, internal
+    freemium_expires_at timestamptz,
+    freemium_granted_at timestamptz,
+    freemium_granted_by varchar(255),
 
     constraint valid_agency_status check (status in ('active', 'suspended', 'cancelled'))
 );
@@ -220,10 +231,53 @@ create index if not exists idx_activity_action on agency_activity_log(action);
 -- Index for soft deleted agencies
 create index if not exists idx_agencies_deleted on agencies(deleted_at) where deleted_at is not null;
 
+-- Index for freemium agencies
+create index if not exists idx_agencies_freemium on agencies(is_freemium) where is_freemium = true;
+
 -- Add foreign key for users.default_agency_id (after agencies table exists)
 -- Note: This needs to be run after agencies table is created
 alter table users add constraint fk_users_default_agency
     foreign key (default_agency_id) references agencies(id) on delete set null;
+
+-- =============================================================================
+-- BETA INVITES (Super-Admin Feature)
+-- =============================================================================
+
+-- create "beta_invites" table - Manage beta tester invitations
+create table if not exists beta_invites (
+    id uuid primary key not null default gen_random_uuid(),
+    created_at timestamptz not null default current_timestamp,
+
+    -- Invite target
+    email varchar(255) not null,
+
+    -- Token for URL (unique per invite, allows re-inviting same email)
+    token varchar(100) not null unique,
+
+    -- Status: pending, used, expired, revoked
+    status varchar(20) not null default 'pending',
+
+    -- Who created this invite
+    created_by uuid references users(id) on delete set null,
+
+    -- Usage tracking
+    used_at timestamptz,
+    used_by_agency_id uuid references agencies(id) on delete set null,
+
+    -- Expiration (30 days from creation by default)
+    expires_at timestamptz not null,
+
+    -- Optional notes for admin reference
+    notes text,
+
+    constraint valid_beta_invite_status check (status in ('pending', 'used', 'expired', 'revoked'))
+);
+
+-- Indexes for beta_invites
+create index if not exists idx_beta_invites_email on beta_invites(email);
+create index if not exists idx_beta_invites_token on beta_invites(token);
+create index if not exists idx_beta_invites_status on beta_invites(status);
+create index if not exists idx_beta_invites_created_at on beta_invites(created_at);
 
 -- =============================================================================
 -- AGENCY PROFILES, PACKAGES & ADD-ONS (V2 Foundation)

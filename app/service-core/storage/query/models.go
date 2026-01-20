@@ -14,26 +14,33 @@ import (
 )
 
 type Agency struct {
-	ID                   uuid.UUID    `json:"id"`
-	CreatedAt            time.Time    `json:"created_at"`
-	UpdatedAt            time.Time    `json:"updated_at"`
-	Name                 string       `json:"name"`
-	Slug                 string       `json:"slug"`
-	LogoUrl              string       `json:"logo_url"`
-	LogoAvatarUrl        string       `json:"logo_avatar_url"`
-	PrimaryColor         string       `json:"primary_color"`
-	SecondaryColor       string       `json:"secondary_color"`
-	AccentColor          string       `json:"accent_color"`
-	AccentGradient       string       `json:"accent_gradient"`
-	Email                string       `json:"email"`
-	Phone                string       `json:"phone"`
-	Website              string       `json:"website"`
-	Status               string       `json:"status"`
-	SubscriptionTier     string       `json:"subscription_tier"`
-	SubscriptionID       string       `json:"subscription_id"`
-	SubscriptionEnd      sql.NullTime `json:"subscription_end"`
-	DeletedAt            sql.NullTime `json:"deleted_at"`
-	DeletionScheduledFor sql.NullTime `json:"deletion_scheduled_for"`
+	ID                     uuid.UUID      `json:"id"`
+	CreatedAt              time.Time      `json:"created_at"`
+	UpdatedAt              time.Time      `json:"updated_at"`
+	Name                   string         `json:"name"`
+	Slug                   string         `json:"slug"`
+	LogoUrl                string         `json:"logo_url"`
+	LogoAvatarUrl          string         `json:"logo_avatar_url"`
+	PrimaryColor           string         `json:"primary_color"`
+	SecondaryColor         string         `json:"secondary_color"`
+	AccentColor            string         `json:"accent_color"`
+	AccentGradient         string         `json:"accent_gradient"`
+	Email                  string         `json:"email"`
+	Phone                  string         `json:"phone"`
+	Website                string         `json:"website"`
+	Status                 string         `json:"status"`
+	SubscriptionTier       string         `json:"subscription_tier"`
+	SubscriptionID         string         `json:"subscription_id"`
+	SubscriptionEnd        sql.NullTime   `json:"subscription_end"`
+	AiGenerationsThisMonth int32          `json:"ai_generations_this_month"`
+	AiGenerationsResetAt   sql.NullTime   `json:"ai_generations_reset_at"`
+	IsFreemium             bool           `json:"is_freemium"`
+	FreemiumReason         sql.NullString `json:"freemium_reason"`
+	FreemiumExpiresAt      sql.NullTime   `json:"freemium_expires_at"`
+	FreemiumGrantedAt      sql.NullTime   `json:"freemium_granted_at"`
+	FreemiumGrantedBy      sql.NullString `json:"freemium_granted_by"`
+	DeletedAt              sql.NullTime   `json:"deleted_at"`
+	DeletionScheduledFor   sql.NullTime   `json:"deletion_scheduled_for"`
 }
 
 type AgencyActivityLog struct {
@@ -187,6 +194,19 @@ type AgencyProposalTemplate struct {
 	HeaderContent string          `json:"header_content"`
 	FooterContent string          `json:"footer_content"`
 	Settings      json.RawMessage `json:"settings"`
+}
+
+type BetaInvite struct {
+	ID             uuid.UUID      `json:"id"`
+	CreatedAt      time.Time      `json:"created_at"`
+	Email          string         `json:"email"`
+	Token          string         `json:"token"`
+	Status         string         `json:"status"`
+	CreatedBy      uuid.NullUUID  `json:"created_by"`
+	UsedAt         sql.NullTime   `json:"used_at"`
+	UsedByAgencyID uuid.NullUUID  `json:"used_by_agency_id"`
+	ExpiresAt      time.Time      `json:"expires_at"`
+	Notes          sql.NullString `json:"notes"`
 }
 
 type Consultation struct {
@@ -524,17 +544,20 @@ type Token struct {
 }
 
 type User struct {
-	ID              uuid.UUID     `json:"id"`
-	Created         time.Time     `json:"created"`
-	Updated         time.Time     `json:"updated"`
-	Email           string        `json:"email"`
-	Phone           string        `json:"phone"`
-	Access          int64         `json:"access"`
-	Sub             string        `json:"sub"`
-	Avatar          string        `json:"avatar"`
-	CustomerID      string        `json:"customer_id"`
-	SubscriptionID  string        `json:"subscription_id"`
-	SubscriptionEnd time.Time     `json:"subscription_end"`
-	ApiKey          string        `json:"api_key"`
-	DefaultAgencyID uuid.NullUUID `json:"default_agency_id"`
+	ID              uuid.UUID      `json:"id"`
+	Created         time.Time      `json:"created"`
+	Updated         time.Time      `json:"updated"`
+	Email           string         `json:"email"`
+	Phone           string         `json:"phone"`
+	Access          int64          `json:"access"`
+	Sub             string         `json:"sub"`
+	Avatar          string         `json:"avatar"`
+	CustomerID      string         `json:"customer_id"`
+	SubscriptionID  string         `json:"subscription_id"`
+	SubscriptionEnd time.Time      `json:"subscription_end"`
+	ApiKey          string         `json:"api_key"`
+	DefaultAgencyID uuid.NullUUID  `json:"default_agency_id"`
+	Suspended       bool           `json:"suspended"`
+	SuspendedAt     sql.NullTime   `json:"suspended_at"`
+	SuspendedReason sql.NullString `json:"suspended_reason"`
 }

@@ -838,7 +838,7 @@ func (q *Queries) InsertToken(ctx context.Context, arg InsertTokenParams) (Token
 }
 
 const insertUser = `-- name: InsertUser :one
-insert into users (id, email, access, sub, avatar, api_key) values ($1, $2, $3, $4, $5, $6) returning id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id
+insert into users (id, email, access, sub, avatar, api_key) values ($1, $2, $3, $4, $5, $6) returning id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id, suspended, suspended_at, suspended_reason
 `
 
 type InsertUserParams struct {
@@ -874,6 +874,9 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, e
 		&i.SubscriptionEnd,
 		&i.ApiKey,
 		&i.DefaultAgencyID,
+		&i.Suspended,
+		&i.SuspendedAt,
+		&i.SuspendedReason,
 	)
 	return i, err
 }
@@ -1500,7 +1503,7 @@ func (q *Queries) SelectToken(ctx context.Context, id string) (Token, error) {
 }
 
 const selectUser = `-- name: SelectUser :one
-select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id from users where id = $1
+select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id, suspended, suspended_at, suspended_reason from users where id = $1
 `
 
 func (q *Queries) SelectUser(ctx context.Context, id uuid.UUID) (User, error) {
@@ -1520,12 +1523,15 @@ func (q *Queries) SelectUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.SubscriptionEnd,
 		&i.ApiKey,
 		&i.DefaultAgencyID,
+		&i.Suspended,
+		&i.SuspendedAt,
+		&i.SuspendedReason,
 	)
 	return i, err
 }
 
 const selectUserByCustomerID = `-- name: SelectUserByCustomerID :one
-select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id from users where customer_id = $1
+select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id, suspended, suspended_at, suspended_reason from users where customer_id = $1
 `
 
 func (q *Queries) SelectUserByCustomerID(ctx context.Context, customerID string) (User, error) {
@@ -1545,12 +1551,15 @@ func (q *Queries) SelectUserByCustomerID(ctx context.Context, customerID string)
 		&i.SubscriptionEnd,
 		&i.ApiKey,
 		&i.DefaultAgencyID,
+		&i.Suspended,
+		&i.SuspendedAt,
+		&i.SuspendedReason,
 	)
 	return i, err
 }
 
 const selectUserByEmail = `-- name: SelectUserByEmail :one
-select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id from users where email = $1
+select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id, suspended, suspended_at, suspended_reason from users where email = $1
 `
 
 func (q *Queries) SelectUserByEmail(ctx context.Context, email string) (User, error) {
@@ -1570,12 +1579,15 @@ func (q *Queries) SelectUserByEmail(ctx context.Context, email string) (User, er
 		&i.SubscriptionEnd,
 		&i.ApiKey,
 		&i.DefaultAgencyID,
+		&i.Suspended,
+		&i.SuspendedAt,
+		&i.SuspendedReason,
 	)
 	return i, err
 }
 
 const selectUserByEmailAndSub = `-- name: SelectUserByEmailAndSub :one
-select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id from users where email = $1 and sub = $2
+select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id, suspended, suspended_at, suspended_reason from users where email = $1 and sub = $2
 `
 
 type SelectUserByEmailAndSubParams struct {
@@ -1600,12 +1612,15 @@ func (q *Queries) SelectUserByEmailAndSub(ctx context.Context, arg SelectUserByE
 		&i.SubscriptionEnd,
 		&i.ApiKey,
 		&i.DefaultAgencyID,
+		&i.Suspended,
+		&i.SuspendedAt,
+		&i.SuspendedReason,
 	)
 	return i, err
 }
 
 const selectUsers = `-- name: SelectUsers :many
-select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id from users
+select id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id, suspended, suspended_at, suspended_reason from users
 `
 
 func (q *Queries) SelectUsers(ctx context.Context) ([]User, error) {
@@ -1631,6 +1646,9 @@ func (q *Queries) SelectUsers(ctx context.Context) ([]User, error) {
 			&i.SubscriptionEnd,
 			&i.ApiKey,
 			&i.DefaultAgencyID,
+			&i.Suspended,
+			&i.SuspendedAt,
+			&i.SuspendedReason,
 		); err != nil {
 			return nil, err
 		}
@@ -1869,7 +1887,7 @@ update users set
     subscription_end = $6,
     api_key = $7,
     updated = current_timestamp
-where id = $8 returning id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id
+where id = $8 returning id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id, suspended, suspended_at, suspended_reason
 `
 
 type UpdateUserParams struct {
@@ -1909,12 +1927,15 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.SubscriptionEnd,
 		&i.ApiKey,
 		&i.DefaultAgencyID,
+		&i.Suspended,
+		&i.SuspendedAt,
+		&i.SuspendedReason,
 	)
 	return i, err
 }
 
 const updateUserAccess = `-- name: UpdateUserAccess :one
-update users set access = $1 where id = $2 returning id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id
+update users set access = $1 where id = $2 returning id, created, updated, email, phone, access, sub, avatar, customer_id, subscription_id, subscription_end, api_key, default_agency_id, suspended, suspended_at, suspended_reason
 `
 
 type UpdateUserAccessParams struct {
@@ -1939,6 +1960,9 @@ func (q *Queries) UpdateUserAccess(ctx context.Context, arg UpdateUserAccessPara
 		&i.SubscriptionEnd,
 		&i.ApiKey,
 		&i.DefaultAgencyID,
+		&i.Suspended,
+		&i.SuspendedAt,
+		&i.SuspendedReason,
 	)
 	return i, err
 }
