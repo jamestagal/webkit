@@ -5,22 +5,22 @@
  * Uses SvelteKit remote functions with Drizzle ORM.
  */
 
-import { query, command } from '$app/server';
-import * as v from 'valibot';
-import { db } from '$lib/server/db';
-import { consultations, users, agencyMemberships } from '$lib/server/schema';
-import type { PerformanceData } from '$lib/server/schema';
-import { getAgencyId, getUserId } from '$lib/server/auth';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { query, command } from "$app/server";
+import * as v from "valibot";
+import { db } from "$lib/server/db";
+import { consultations, users, agencyMemberships } from "$lib/server/schema";
+import type { PerformanceData } from "$lib/server/schema";
+import { getAgencyId, getUserId } from "$lib/server/auth";
+import { eq, and, desc, sql } from "drizzle-orm";
 import {
 	CreateConsultationSchema,
 	UpdateContactBusinessSchema,
 	UpdateSituationSchema,
 	UpdateGoalsBudgetSchema,
 	UpdatePreferencesNotesSchema,
-	CompleteConsultationSchema
-} from '$lib/schema/consultation';
-import { runPageSpeedAudit as runAudit } from '$lib/server/services/pagespeed.service';
+	CompleteConsultationSchema,
+} from "$lib/schema/consultation";
+import { runPageSpeedAudit as runAudit } from "$lib/server/services/pagespeed.service";
 
 // =============================================================================
 // Query Functions (Read Operations)
@@ -36,7 +36,7 @@ export const getExistingDraftConsultation = query(async () => {
 	const [existing] = await db
 		.select()
 		.from(consultations)
-		.where(and(eq(consultations.agencyId, agencyId), eq(consultations.status, 'draft')))
+		.where(and(eq(consultations.agencyId, agencyId), eq(consultations.status, "draft")))
 		.orderBy(desc(consultations.updatedAt))
 		.limit(1);
 
@@ -57,7 +57,7 @@ export const getConsultation = query(v.pipe(v.string(), v.uuid()), async (id: st
 		.limit(1);
 
 	if (!consultation) {
-		throw new Error('Consultation not found');
+		throw new Error("Consultation not found");
 	}
 
 	return consultation;
@@ -98,7 +98,9 @@ export const getAgencyConsultations = query(async () => {
 			createdAt: consultations.createdAt,
 			updatedAt: consultations.updatedAt,
 			// Join to get creator name
-			creatorName: sql<string | null>`COALESCE(${agencyMemberships.displayName}, ${users.email})`.as('creator_name')
+			creatorName: sql<
+				string | null
+			>`COALESCE(${agencyMemberships.displayName}, ${users.email})`.as("creator_name"),
 		})
 		.from(consultations)
 		.leftJoin(users, eq(consultations.createdBy, users.id))
@@ -106,8 +108,8 @@ export const getAgencyConsultations = query(async () => {
 			agencyMemberships,
 			and(
 				eq(consultations.createdBy, agencyMemberships.userId),
-				eq(consultations.agencyId, agencyMemberships.agencyId)
-			)
+				eq(consultations.agencyId, agencyMemberships.agencyId),
+			),
 		)
 		.where(eq(consultations.agencyId, agencyId))
 		.orderBy(desc(consultations.updatedAt));
@@ -122,7 +124,7 @@ export const getCompletedConsultations = query(async () => {
 	return await db
 		.select()
 		.from(consultations)
-		.where(and(eq(consultations.agencyId, agencyId), eq(consultations.status, 'completed')))
+		.where(and(eq(consultations.agencyId, agencyId), eq(consultations.status, "completed")))
 		.orderBy(desc(consultations.updatedAt));
 });
 
@@ -140,7 +142,7 @@ export const createConsultation = command(CreateConsultationSchema, async (data)
 
 	// Ensure agencyId matches
 	if (data.agencyId !== agencyId) {
-		throw new Error('Agency ID mismatch');
+		throw new Error("Agency ID mismatch");
 	}
 
 	const [created] = await db
@@ -159,17 +161,17 @@ export const createConsultation = command(CreateConsultationSchema, async (data)
 			industry: data.industry,
 			businessType: data.business_type,
 			// Defaults for subsequent steps
-			websiteStatus: 'none',
+			websiteStatus: "none",
 			primaryChallenges: [],
-			urgencyLevel: 'low',
+			urgencyLevel: "low",
 			primaryGoals: [],
-			budgetRange: 'tbd',
-			status: 'draft'
+			budgetRange: "tbd",
+			status: "draft",
 		})
 		.returning();
 
 	if (!created) {
-		throw new Error('Failed to create consultation');
+		throw new Error("Failed to create consultation");
 	}
 
 	return { consultationId: created.id };
@@ -189,7 +191,7 @@ export const updateContactBusiness = command(UpdateContactBusinessSchema, async 
 		.limit(1);
 
 	if (!existing) {
-		throw new Error('Consultation not found');
+		throw new Error("Consultation not found");
 	}
 
 	await db
@@ -205,7 +207,7 @@ export const updateContactBusiness = command(UpdateContactBusinessSchema, async 
 			socialInstagram: data.social_media?.instagram || null,
 			industry: data.industry,
 			businessType: data.business_type,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(consultations.id, data.consultationId));
 
@@ -227,7 +229,7 @@ export const updateSituation = command(UpdateSituationSchema, async (data) => {
 		.limit(1);
 
 	if (!existing) {
-		throw new Error('Consultation not found');
+		throw new Error("Consultation not found");
 	}
 
 	await db
@@ -236,7 +238,7 @@ export const updateSituation = command(UpdateSituationSchema, async (data) => {
 			websiteStatus: data.website_status,
 			primaryChallenges: data.primary_challenges,
 			urgencyLevel: data.urgency_level,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(consultations.id, data.consultationId));
 
@@ -257,7 +259,7 @@ export const updateGoalsBudget = command(UpdateGoalsBudgetSchema, async (data) =
 		.limit(1);
 
 	if (!existing) {
-		throw new Error('Consultation not found');
+		throw new Error("Consultation not found");
 	}
 
 	await db
@@ -267,7 +269,7 @@ export const updateGoalsBudget = command(UpdateGoalsBudgetSchema, async (data) =
 			conversionGoal: data.conversion_goal || null,
 			budgetRange: data.budget_range,
 			timeline: data.timeline || null,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(consultations.id, data.consultationId));
 
@@ -288,7 +290,7 @@ export const updatePreferencesNotes = command(UpdatePreferencesNotesSchema, asyn
 		.limit(1);
 
 	if (!existing) {
-		throw new Error('Consultation not found');
+		throw new Error("Consultation not found");
 	}
 
 	await db
@@ -297,7 +299,7 @@ export const updatePreferencesNotes = command(UpdatePreferencesNotesSchema, asyn
 			designStyles: data.design_styles || null,
 			admiredWebsites: data.admired_websites || null,
 			consultationNotes: data.consultation_notes || null,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(consultations.id, data.consultationId));
 
@@ -319,15 +321,15 @@ export const completeConsultation = command(CompleteConsultationSchema, async (d
 		.limit(1);
 
 	if (!existing) {
-		throw new Error('Consultation not found');
+		throw new Error("Consultation not found");
 	}
 
 	// Mark as completed
 	await db
 		.update(consultations)
 		.set({
-			status: 'completed',
-			updatedAt: new Date()
+			status: "completed",
+			updatedAt: new Date(),
 		})
 		.where(eq(consultations.id, data.consultationId));
 
@@ -355,7 +357,7 @@ export const deleteConsultation = command(
 			.limit(1);
 
 		if (!existing) {
-			throw new Error('Consultation not found');
+			throw new Error("Consultation not found");
 		}
 
 		await db.delete(consultations).where(eq(consultations.id, data.consultationId));
@@ -365,7 +367,7 @@ export const deleteConsultation = command(
 		getExistingDraftConsultation().refresh();
 
 		return { success: true };
-	}
+	},
 );
 
 // =============================================================================
@@ -389,11 +391,11 @@ export const runPageSpeedAudit = command(
 			.limit(1);
 
 		if (!consultation) {
-			throw new Error('Consultation not found');
+			throw new Error("Consultation not found");
 		}
 
 		if (!consultation.website) {
-			throw new Error('No website URL found on this consultation');
+			throw new Error("No website URL found on this consultation");
 		}
 
 		// Run the PageSpeed audit
@@ -404,7 +406,7 @@ export const runPageSpeedAudit = command(
 			.update(consultations)
 			.set({
 				performanceData,
-				updatedAt: new Date()
+				updatedAt: new Date(),
 			})
 			.where(eq(consultations.id, data.consultationId));
 
@@ -412,5 +414,5 @@ export const runPageSpeedAudit = command(
 		getConsultation(data.consultationId).refresh();
 
 		return performanceData;
-	}
+	},
 );

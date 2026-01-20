@@ -10,9 +10,9 @@
  * - member: Basic operations on their own data
  */
 
-import { error } from '@sveltejs/kit';
-import { getAgencyContext, type AgencyContext } from '$lib/server/agency';
-import type { AgencyRole } from '$lib/server/schema';
+import { error } from "@sveltejs/kit";
+import { getAgencyContext, type AgencyContext } from "$lib/server/agency";
+import type { AgencyRole } from "$lib/server/schema";
 
 // =============================================================================
 // Permission Definitions
@@ -24,113 +24,113 @@ import type { AgencyRole } from '$lib/server/schema';
  */
 export const PERMISSIONS = {
 	// Consultation management
-	'consultation:create': ['owner', 'admin', 'member'],
-	'consultation:view_own': ['owner', 'admin', 'member'],
-	'consultation:view_all': ['owner', 'admin'], // View any consultation in agency
-	'consultation:edit_own': ['owner', 'admin', 'member'],
-	'consultation:edit_all': ['owner', 'admin'], // Edit any consultation in agency
-	'consultation:delete_own': ['owner', 'admin', 'member'],
-	'consultation:delete_all': ['owner', 'admin'],
+	"consultation:create": ["owner", "admin", "member"],
+	"consultation:view_own": ["owner", "admin", "member"],
+	"consultation:view_all": ["owner", "admin"], // View any consultation in agency
+	"consultation:edit_own": ["owner", "admin", "member"],
+	"consultation:edit_all": ["owner", "admin"], // Edit any consultation in agency
+	"consultation:delete_own": ["owner", "admin", "member"],
+	"consultation:delete_all": ["owner", "admin"],
 
 	// Proposal management
-	'proposal:create': ['owner', 'admin', 'member'],
-	'proposal:view_own': ['owner', 'admin', 'member'],
-	'proposal:view_all': ['owner', 'admin'],
-	'proposal:edit_own': ['owner', 'admin', 'member'],
-	'proposal:edit_all': ['owner', 'admin'],
-	'proposal:send': ['owner', 'admin', 'member'],
-	'proposal:delete_own': ['owner', 'admin', 'member'],
-	'proposal:delete_all': ['owner', 'admin'],
+	"proposal:create": ["owner", "admin", "member"],
+	"proposal:view_own": ["owner", "admin", "member"],
+	"proposal:view_all": ["owner", "admin"],
+	"proposal:edit_own": ["owner", "admin", "member"],
+	"proposal:edit_all": ["owner", "admin"],
+	"proposal:send": ["owner", "admin", "member"],
+	"proposal:delete_own": ["owner", "admin", "member"],
+	"proposal:delete_all": ["owner", "admin"],
 
 	// Team management
-	'member:view': ['owner', 'admin', 'member'], // View member list
-	'member:invite': ['owner', 'admin'],
-	'member:remove': ['owner', 'admin'],
-	'member:change_role': ['owner'], // Only owner can promote/demote
+	"member:view": ["owner", "admin", "member"], // View member list
+	"member:invite": ["owner", "admin"],
+	"member:remove": ["owner", "admin"],
+	"member:change_role": ["owner"], // Only owner can promote/demote
 
 	// Agency settings
-	'settings:view': ['owner', 'admin'],
-	'settings:edit': ['owner', 'admin'],
-	'branding:view': ['owner', 'admin', 'member'],
-	'branding:edit': ['owner', 'admin'],
-	'form_options:view': ['owner', 'admin', 'member'],
-	'form_options:edit': ['owner', 'admin'],
+	"settings:view": ["owner", "admin"],
+	"settings:edit": ["owner", "admin"],
+	"branding:view": ["owner", "admin", "member"],
+	"branding:edit": ["owner", "admin"],
+	"form_options:view": ["owner", "admin", "member"],
+	"form_options:edit": ["owner", "admin"],
 
 	// Billing & subscription
-	'billing:view': ['owner'],
-	'billing:manage': ['owner'],
-	'subscription:view': ['owner', 'admin'],
-	'subscription:manage': ['owner'],
+	"billing:view": ["owner"],
+	"billing:manage": ["owner"],
+	"subscription:view": ["owner", "admin"],
+	"subscription:manage": ["owner"],
 
 	// Templates
-	'template:view': ['owner', 'admin', 'member'],
-	'template:create': ['owner', 'admin'],
-	'template:edit': ['owner', 'admin'],
-	'template:delete': ['owner'],
+	"template:view": ["owner", "admin", "member"],
+	"template:create": ["owner", "admin"],
+	"template:edit": ["owner", "admin"],
+	"template:delete": ["owner"],
 
 	// Data export & GDPR
-	'data:export': ['owner'],
-	'agency:delete': ['owner'],
+	"data:export": ["owner"],
+	"agency:delete": ["owner"],
 
 	// Analytics & reporting
-	'analytics:view': ['owner', 'admin'],
-	'analytics:export': ['owner', 'admin'],
+	"analytics:view": ["owner", "admin"],
+	"analytics:export": ["owner", "admin"],
 
 	// Agency Profile (V2)
-	'profile:view': ['owner', 'admin'],
-	'profile:edit': ['owner', 'admin'],
+	"profile:view": ["owner", "admin"],
+	"profile:edit": ["owner", "admin"],
 
 	// Packages (V2)
-	'packages:view': ['owner', 'admin', 'member'],
-	'packages:create': ['owner', 'admin'],
-	'packages:edit': ['owner', 'admin'],
-	'packages:delete': ['owner'],
+	"packages:view": ["owner", "admin", "member"],
+	"packages:create": ["owner", "admin"],
+	"packages:edit": ["owner", "admin"],
+	"packages:delete": ["owner"],
 
 	// Add-ons (V2)
-	'addons:view': ['owner', 'admin', 'member'],
-	'addons:create': ['owner', 'admin'],
-	'addons:edit': ['owner', 'admin'],
-	'addons:delete': ['owner'],
+	"addons:view": ["owner", "admin", "member"],
+	"addons:create": ["owner", "admin"],
+	"addons:edit": ["owner", "admin"],
+	"addons:delete": ["owner"],
 
 	// Contract Templates (V2)
-	'contract_template:view': ['owner', 'admin'],
-	'contract_template:create': ['owner', 'admin'],
-	'contract_template:edit': ['owner', 'admin'],
-	'contract_template:delete': ['owner'],
+	"contract_template:view": ["owner", "admin"],
+	"contract_template:create": ["owner", "admin"],
+	"contract_template:edit": ["owner", "admin"],
+	"contract_template:delete": ["owner"],
 
 	// Contracts (V2)
-	'contract:create': ['owner', 'admin', 'member'],
-	'contract:view_own': ['owner', 'admin', 'member'],
-	'contract:view_all': ['owner', 'admin'],
-	'contract:edit_own': ['owner', 'admin', 'member'],
-	'contract:edit_all': ['owner', 'admin'],
-	'contract:send': ['owner', 'admin', 'member'],
-	'contract:delete_own': ['owner', 'admin', 'member'],
-	'contract:delete_all': ['owner', 'admin'],
+	"contract:create": ["owner", "admin", "member"],
+	"contract:view_own": ["owner", "admin", "member"],
+	"contract:view_all": ["owner", "admin"],
+	"contract:edit_own": ["owner", "admin", "member"],
+	"contract:edit_all": ["owner", "admin"],
+	"contract:send": ["owner", "admin", "member"],
+	"contract:delete_own": ["owner", "admin", "member"],
+	"contract:delete_all": ["owner", "admin"],
 
 	// Invoices (V2)
-	'invoice:create': ['owner', 'admin', 'member'],
-	'invoice:view_own': ['owner', 'admin', 'member'],
-	'invoice:view_all': ['owner', 'admin'],
-	'invoice:edit_own': ['owner', 'admin', 'member'],
-	'invoice:edit_all': ['owner', 'admin'],
-	'invoice:send': ['owner', 'admin', 'member'],
-	'invoice:record_payment': ['owner', 'admin'],
-	'invoice:delete_own': ['owner', 'admin', 'member'],
-	'invoice:delete_all': ['owner', 'admin'],
-	'invoice:cancel': ['owner', 'admin'],
-	'invoice:refund': ['owner'],
+	"invoice:create": ["owner", "admin", "member"],
+	"invoice:view_own": ["owner", "admin", "member"],
+	"invoice:view_all": ["owner", "admin"],
+	"invoice:edit_own": ["owner", "admin", "member"],
+	"invoice:edit_all": ["owner", "admin"],
+	"invoice:send": ["owner", "admin", "member"],
+	"invoice:record_payment": ["owner", "admin"],
+	"invoice:delete_own": ["owner", "admin", "member"],
+	"invoice:delete_all": ["owner", "admin"],
+	"invoice:cancel": ["owner", "admin"],
+	"invoice:refund": ["owner"],
 
 	// Emails (V2)
-	'email:send': ['owner', 'admin', 'member'],
-	'email:view_logs': ['owner', 'admin'],
-	'email:resend': ['owner', 'admin'],
+	"email:send": ["owner", "admin", "member"],
+	"email:view_logs": ["owner", "admin"],
+	"email:resend": ["owner", "admin"],
 
 	// Stripe Connect (V2)
-	'stripe:connect': ['owner'], // Connect Stripe account
-	'stripe:disconnect': ['owner'], // Disconnect Stripe account
-	'stripe:view_status': ['owner', 'admin'],
-	'invoice:create_payment_link': ['owner', 'admin', 'member']
+	"stripe:connect": ["owner"], // Connect Stripe account
+	"stripe:disconnect": ["owner"], // Disconnect Stripe account
+	"stripe:view_status": ["owner", "admin"],
+	"invoice:create_payment_link": ["owner", "admin", "member"],
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -166,7 +166,7 @@ export function hasAnyPermission(role: AgencyRole, permissions: Permission[]): b
  */
 export function getPermissionsForRole(role: AgencyRole): Permission[] {
 	return (Object.keys(PERMISSIONS) as Permission[]).filter((permission) =>
-		hasPermission(role, permission)
+		hasPermission(role, permission),
 	);
 }
 
@@ -196,7 +196,7 @@ export async function requireAllPermissions(permissions: Permission[]): Promise<
 
 	const missing = permissions.filter((p) => !hasPermission(context.role, p));
 	if (missing.length > 0) {
-		throw error(403, `Permission denied: ${missing.join(', ')}`);
+		throw error(403, `Permission denied: ${missing.join(", ")}`);
 	}
 
 	return context;
@@ -209,7 +209,7 @@ export async function requireAnyPermission(permissions: Permission[]): Promise<A
 	const context = await getAgencyContext();
 
 	if (!hasAnyPermission(context.role, permissions)) {
-		throw error(403, `Permission denied. Required one of: ${permissions.join(', ')}`);
+		throw error(403, `Permission denied. Required one of: ${permissions.join(", ")}`);
 	}
 
 	return context;
@@ -228,7 +228,7 @@ export function canAccessResource(
 	role: AgencyRole,
 	resourceOwnerId: string,
 	currentUserId: string,
-	resourceType: 'consultation' | 'proposal' | 'contract' | 'invoice'
+	resourceType: "consultation" | "proposal" | "contract" | "invoice",
 ): boolean {
 	// Check for 'view_all' permission
 	const viewAllPermission = `${resourceType}:view_all` as Permission;
@@ -247,7 +247,7 @@ export function canModifyResource(
 	role: AgencyRole,
 	resourceOwnerId: string,
 	currentUserId: string,
-	resourceType: 'consultation' | 'proposal' | 'contract' | 'invoice'
+	resourceType: "consultation" | "proposal" | "contract" | "invoice",
 ): boolean {
 	// Check for 'edit_all' permission
 	const editAllPermission = `${resourceType}:edit_all` as Permission;
@@ -271,7 +271,7 @@ export function canDeleteResource(
 	role: AgencyRole,
 	resourceOwnerId: string,
 	currentUserId: string,
-	resourceType: 'consultation' | 'proposal' | 'contract' | 'invoice'
+	resourceType: "consultation" | "proposal" | "contract" | "invoice",
 ): boolean {
 	// Check for 'delete_all' permission
 	const deleteAllPermission = `${resourceType}:delete_all` as Permission;
@@ -295,7 +295,7 @@ export function canDeleteResource(
 const ROLE_HIERARCHY: Record<AgencyRole, number> = {
 	owner: 100,
 	admin: 50,
-	member: 10
+	member: 10,
 };
 
 /**
@@ -316,7 +316,7 @@ export function isRoleAtLeast(roleA: AgencyRole, roleB: AgencyRole): boolean {
  * Get the highest role from a list of roles.
  */
 export function getHighestRole(roles: AgencyRole[]): AgencyRole {
-	return roles.reduce((highest, role) => (isRoleHigher(role, highest) ? role : highest), 'member');
+	return roles.reduce((highest, role) => (isRoleHigher(role, highest) ? role : highest), "member");
 }
 
 // =============================================================================
@@ -328,173 +328,179 @@ export function getHighestRole(roles: AgencyRole[]): AgencyRole {
  */
 export function getPermissionMatrix(): {
 	category: string;
-	permissions: { key: Permission; label: string; owner: boolean; admin: boolean; member: boolean }[];
+	permissions: {
+		key: Permission;
+		label: string;
+		owner: boolean;
+		admin: boolean;
+		member: boolean;
+	}[];
 }[] {
 	return [
 		{
-			category: 'Consultations',
+			category: "Consultations",
 			permissions: [
-				formatPermission('consultation:create', 'Create consultations'),
-				formatPermission('consultation:view_own', 'View own consultations'),
-				formatPermission('consultation:view_all', 'View all consultations'),
-				formatPermission('consultation:edit_own', 'Edit own consultations'),
-				formatPermission('consultation:edit_all', 'Edit all consultations'),
-				formatPermission('consultation:delete_own', 'Delete own consultations'),
-				formatPermission('consultation:delete_all', 'Delete all consultations')
-			]
+				formatPermission("consultation:create", "Create consultations"),
+				formatPermission("consultation:view_own", "View own consultations"),
+				formatPermission("consultation:view_all", "View all consultations"),
+				formatPermission("consultation:edit_own", "Edit own consultations"),
+				formatPermission("consultation:edit_all", "Edit all consultations"),
+				formatPermission("consultation:delete_own", "Delete own consultations"),
+				formatPermission("consultation:delete_all", "Delete all consultations"),
+			],
 		},
 		{
-			category: 'Proposals',
+			category: "Proposals",
 			permissions: [
-				formatPermission('proposal:create', 'Create proposals'),
-				formatPermission('proposal:view_own', 'View own proposals'),
-				formatPermission('proposal:view_all', 'View all proposals'),
-				formatPermission('proposal:edit_own', 'Edit own proposals'),
-				formatPermission('proposal:edit_all', 'Edit all proposals'),
-				formatPermission('proposal:send', 'Send proposals'),
-				formatPermission('proposal:delete_own', 'Delete own proposals'),
-				formatPermission('proposal:delete_all', 'Delete all proposals')
-			]
+				formatPermission("proposal:create", "Create proposals"),
+				formatPermission("proposal:view_own", "View own proposals"),
+				formatPermission("proposal:view_all", "View all proposals"),
+				formatPermission("proposal:edit_own", "Edit own proposals"),
+				formatPermission("proposal:edit_all", "Edit all proposals"),
+				formatPermission("proposal:send", "Send proposals"),
+				formatPermission("proposal:delete_own", "Delete own proposals"),
+				formatPermission("proposal:delete_all", "Delete all proposals"),
+			],
 		},
 		{
-			category: 'Team Management',
+			category: "Team Management",
 			permissions: [
-				formatPermission('member:view', 'View team members'),
-				formatPermission('member:invite', 'Invite members'),
-				formatPermission('member:remove', 'Remove members'),
-				formatPermission('member:change_role', 'Change member roles')
-			]
+				formatPermission("member:view", "View team members"),
+				formatPermission("member:invite", "Invite members"),
+				formatPermission("member:remove", "Remove members"),
+				formatPermission("member:change_role", "Change member roles"),
+			],
 		},
 		{
-			category: 'Settings',
+			category: "Settings",
 			permissions: [
-				formatPermission('settings:view', 'View settings'),
-				formatPermission('settings:edit', 'Edit settings'),
-				formatPermission('branding:view', 'View branding'),
-				formatPermission('branding:edit', 'Edit branding'),
-				formatPermission('form_options:view', 'View form options'),
-				formatPermission('form_options:edit', 'Edit form options')
-			]
+				formatPermission("settings:view", "View settings"),
+				formatPermission("settings:edit", "Edit settings"),
+				formatPermission("branding:view", "View branding"),
+				formatPermission("branding:edit", "Edit branding"),
+				formatPermission("form_options:view", "View form options"),
+				formatPermission("form_options:edit", "Edit form options"),
+			],
 		},
 		{
-			category: 'Billing',
+			category: "Billing",
 			permissions: [
-				formatPermission('billing:view', 'View billing'),
-				formatPermission('billing:manage', 'Manage billing'),
-				formatPermission('subscription:view', 'View subscription'),
-				formatPermission('subscription:manage', 'Manage subscription')
-			]
+				formatPermission("billing:view", "View billing"),
+				formatPermission("billing:manage", "Manage billing"),
+				formatPermission("subscription:view", "View subscription"),
+				formatPermission("subscription:manage", "Manage subscription"),
+			],
 		},
 		{
-			category: 'Templates',
+			category: "Templates",
 			permissions: [
-				formatPermission('template:view', 'View templates'),
-				formatPermission('template:create', 'Create templates'),
-				formatPermission('template:edit', 'Edit templates'),
-				formatPermission('template:delete', 'Delete templates')
-			]
+				formatPermission("template:view", "View templates"),
+				formatPermission("template:create", "Create templates"),
+				formatPermission("template:edit", "Edit templates"),
+				formatPermission("template:delete", "Delete templates"),
+			],
 		},
 		{
-			category: 'Data & Compliance',
+			category: "Data & Compliance",
 			permissions: [
-				formatPermission('data:export', 'Export agency data'),
-				formatPermission('agency:delete', 'Delete agency'),
-				formatPermission('analytics:view', 'View analytics'),
-				formatPermission('analytics:export', 'Export analytics')
-			]
+				formatPermission("data:export", "Export agency data"),
+				formatPermission("agency:delete", "Delete agency"),
+				formatPermission("analytics:view", "View analytics"),
+				formatPermission("analytics:export", "Export analytics"),
+			],
 		},
 		{
-			category: 'Agency Profile',
+			category: "Agency Profile",
 			permissions: [
-				formatPermission('profile:view', 'View agency profile'),
-				formatPermission('profile:edit', 'Edit agency profile')
-			]
+				formatPermission("profile:view", "View agency profile"),
+				formatPermission("profile:edit", "Edit agency profile"),
+			],
 		},
 		{
-			category: 'Packages',
+			category: "Packages",
 			permissions: [
-				formatPermission('packages:view', 'View packages'),
-				formatPermission('packages:create', 'Create packages'),
-				formatPermission('packages:edit', 'Edit packages'),
-				formatPermission('packages:delete', 'Delete packages')
-			]
+				formatPermission("packages:view", "View packages"),
+				formatPermission("packages:create", "Create packages"),
+				formatPermission("packages:edit", "Edit packages"),
+				formatPermission("packages:delete", "Delete packages"),
+			],
 		},
 		{
-			category: 'Add-ons',
+			category: "Add-ons",
 			permissions: [
-				formatPermission('addons:view', 'View add-ons'),
-				formatPermission('addons:create', 'Create add-ons'),
-				formatPermission('addons:edit', 'Edit add-ons'),
-				formatPermission('addons:delete', 'Delete add-ons')
-			]
+				formatPermission("addons:view", "View add-ons"),
+				formatPermission("addons:create", "Create add-ons"),
+				formatPermission("addons:edit", "Edit add-ons"),
+				formatPermission("addons:delete", "Delete add-ons"),
+			],
 		},
 		{
-			category: 'Contract Templates',
+			category: "Contract Templates",
 			permissions: [
-				formatPermission('contract_template:view', 'View contract templates'),
-				formatPermission('contract_template:create', 'Create contract templates'),
-				formatPermission('contract_template:edit', 'Edit contract templates'),
-				formatPermission('contract_template:delete', 'Delete contract templates')
-			]
+				formatPermission("contract_template:view", "View contract templates"),
+				formatPermission("contract_template:create", "Create contract templates"),
+				formatPermission("contract_template:edit", "Edit contract templates"),
+				formatPermission("contract_template:delete", "Delete contract templates"),
+			],
 		},
 		{
-			category: 'Contracts',
+			category: "Contracts",
 			permissions: [
-				formatPermission('contract:create', 'Create contracts'),
-				formatPermission('contract:view_own', 'View own contracts'),
-				formatPermission('contract:view_all', 'View all contracts'),
-				formatPermission('contract:edit_own', 'Edit own contracts'),
-				formatPermission('contract:edit_all', 'Edit all contracts'),
-				formatPermission('contract:send', 'Send contracts'),
-				formatPermission('contract:delete_own', 'Delete own contracts'),
-				formatPermission('contract:delete_all', 'Delete all contracts')
-			]
+				formatPermission("contract:create", "Create contracts"),
+				formatPermission("contract:view_own", "View own contracts"),
+				formatPermission("contract:view_all", "View all contracts"),
+				formatPermission("contract:edit_own", "Edit own contracts"),
+				formatPermission("contract:edit_all", "Edit all contracts"),
+				formatPermission("contract:send", "Send contracts"),
+				formatPermission("contract:delete_own", "Delete own contracts"),
+				formatPermission("contract:delete_all", "Delete all contracts"),
+			],
 		},
 		{
-			category: 'Invoices',
+			category: "Invoices",
 			permissions: [
-				formatPermission('invoice:create', 'Create invoices'),
-				formatPermission('invoice:view_own', 'View own invoices'),
-				formatPermission('invoice:view_all', 'View all invoices'),
-				formatPermission('invoice:edit_own', 'Edit own invoices'),
-				formatPermission('invoice:edit_all', 'Edit all invoices'),
-				formatPermission('invoice:send', 'Send invoices'),
-				formatPermission('invoice:record_payment', 'Record payments'),
-				formatPermission('invoice:delete_own', 'Delete own invoices'),
-				formatPermission('invoice:delete_all', 'Delete all invoices'),
-				formatPermission('invoice:cancel', 'Cancel invoices'),
-				formatPermission('invoice:refund', 'Refund invoices')
-			]
+				formatPermission("invoice:create", "Create invoices"),
+				formatPermission("invoice:view_own", "View own invoices"),
+				formatPermission("invoice:view_all", "View all invoices"),
+				formatPermission("invoice:edit_own", "Edit own invoices"),
+				formatPermission("invoice:edit_all", "Edit all invoices"),
+				formatPermission("invoice:send", "Send invoices"),
+				formatPermission("invoice:record_payment", "Record payments"),
+				formatPermission("invoice:delete_own", "Delete own invoices"),
+				formatPermission("invoice:delete_all", "Delete all invoices"),
+				formatPermission("invoice:cancel", "Cancel invoices"),
+				formatPermission("invoice:refund", "Refund invoices"),
+			],
 		},
 		{
-			category: 'Emails',
+			category: "Emails",
 			permissions: [
-				formatPermission('email:send', 'Send emails'),
-				formatPermission('email:view_logs', 'View email logs'),
-				formatPermission('email:resend', 'Resend emails')
-			]
+				formatPermission("email:send", "Send emails"),
+				formatPermission("email:view_logs", "View email logs"),
+				formatPermission("email:resend", "Resend emails"),
+			],
 		},
 		{
-			category: 'Stripe Payments',
+			category: "Stripe Payments",
 			permissions: [
-				formatPermission('stripe:connect', 'Connect Stripe account'),
-				formatPermission('stripe:disconnect', 'Disconnect Stripe account'),
-				formatPermission('stripe:view_status', 'View Stripe status'),
-				formatPermission('invoice:create_payment_link', 'Create payment links')
-			]
-		}
+				formatPermission("stripe:connect", "Connect Stripe account"),
+				formatPermission("stripe:disconnect", "Disconnect Stripe account"),
+				formatPermission("stripe:view_status", "View Stripe status"),
+				formatPermission("invoice:create_payment_link", "Create payment links"),
+			],
+		},
 	];
 }
 
 function formatPermission(
 	key: Permission,
-	label: string
+	label: string,
 ): { key: Permission; label: string; owner: boolean; admin: boolean; member: boolean } {
 	return {
 		key,
 		label,
-		owner: hasPermission('owner', key),
-		admin: hasPermission('admin', key),
-		member: hasPermission('member', key)
+		owner: hasPermission("owner", key),
+		admin: hasPermission("admin", key),
+		member: hasPermission("member", key),
 	};
 }

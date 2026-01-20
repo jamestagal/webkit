@@ -5,20 +5,20 @@
  * Verifies user has access to the requested agency.
  */
 
-import { error, redirect } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { agencies, agencyMemberships, agencyFormOptions, users } from '$lib/server/schema';
-import { eq, and, asc } from 'drizzle-orm';
-import { groupOptionsByCategory, mergeWithDefaults } from '$lib/stores/agency-config.svelte';
-import type { AgencyConfig } from '$lib/stores/agency-config.svelte';
-import type { LayoutServerLoad } from './$types';
-import { isSuperAdmin, getImpersonatedAgencyId } from '$lib/server/super-admin';
+import { error, redirect } from "@sveltejs/kit";
+import { db } from "$lib/server/db";
+import { agencies, agencyMemberships, agencyFormOptions, users } from "$lib/server/schema";
+import { eq, and, asc } from "drizzle-orm";
+import { groupOptionsByCategory, mergeWithDefaults } from "$lib/stores/agency-config.svelte";
+import type { AgencyConfig } from "$lib/stores/agency-config.svelte";
+import type { LayoutServerLoad } from "./$types";
+import { isSuperAdmin, getImpersonatedAgencyId } from "$lib/server/super-admin";
 
 export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 	const userId = locals.user?.id;
 
 	if (!userId) {
-		throw redirect(302, '/login');
+		throw redirect(302, "/login");
 	}
 
 	const { agencySlug } = params;
@@ -35,22 +35,22 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 			secondaryColor: agencies.secondaryColor,
 			accentColor: agencies.accentColor,
 			status: agencies.status,
-			deletedAt: agencies.deletedAt
+			deletedAt: agencies.deletedAt,
 		})
 		.from(agencies)
 		.where(eq(agencies.slug, agencySlug))
 		.limit(1);
 
 	if (!agency) {
-		throw error(404, 'Agency not found');
+		throw error(404, "Agency not found");
 	}
 
 	if (agency.deletedAt) {
-		throw error(410, 'This agency has been deleted');
+		throw error(410, "This agency has been deleted");
 	}
 
-	if (agency.status !== 'active') {
-		throw error(403, 'This agency is currently suspended');
+	if (agency.status !== "active") {
+		throw error(403, "This agency is currently suspended");
 	}
 
 	// Check if user is super admin and impersonating this agency
@@ -65,38 +65,38 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 			id: agencyMemberships.id,
 			role: agencyMemberships.role,
 			status: agencyMemberships.status,
-			displayName: agencyMemberships.displayName
+			displayName: agencyMemberships.displayName,
 		})
 		.from(agencyMemberships)
 		.where(
 			and(
 				eq(agencyMemberships.userId, userId),
 				eq(agencyMemberships.agencyId, agency.id),
-				eq(agencyMemberships.status, 'active')
-			)
+				eq(agencyMemberships.status, "active"),
+			),
 		)
 		.limit(1);
 
 	// Allow access if user has membership OR is super admin impersonating
 	if (!membership && !isImpersonating) {
-		throw error(403, 'You do not have access to this agency');
+		throw error(403, "You do not have access to this agency");
 	}
 
 	// For super admin impersonation, create virtual owner membership
 	const effectiveMembership = membership || {
-		id: 'virtual',
-		role: 'owner' as const,
-		status: 'active' as const,
-		displayName: 'Super Admin'
+		id: "virtual",
+		role: "owner" as const,
+		status: "active" as const,
+		displayName: "Super Admin",
 	};
 
 	// Set the current agency cookie
-	cookies.set('current_agency_id', agency.id, {
-		path: '/',
+	cookies.set("current_agency_id", agency.id, {
+		path: "/",
 		httpOnly: true,
-		secure: process.env['NODE_ENV'] === 'production',
-		sameSite: 'lax',
-		maxAge: 60 * 60 * 24 * 30 // 30 days
+		secure: process.env["NODE_ENV"] === "production",
+		sameSite: "lax",
+		maxAge: 60 * 60 * 24 * 30, // 30 days
 	});
 
 	// Load form options for this agency
@@ -107,7 +107,7 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 			label: agencyFormOptions.label,
 			isDefault: agencyFormOptions.isDefault,
 			sortOrder: agencyFormOptions.sortOrder,
-			metadata: agencyFormOptions.metadata
+			metadata: agencyFormOptions.metadata,
 		})
 		.from(agencyFormOptions)
 		.where(and(eq(agencyFormOptions.agencyId, agency.id), eq(agencyFormOptions.isActive, true)))
@@ -117,8 +117,8 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 	const grouped = groupOptionsByCategory(
 		options.map((opt) => ({
 			...opt,
-			metadata: opt.metadata as Record<string, unknown>
-		}))
+			metadata: opt.metadata as Record<string, unknown>,
+		})),
 	);
 	const agencyConfig: AgencyConfig = mergeWithDefaults(grouped);
 
@@ -138,16 +138,16 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 			logoUrl: agencies.logoUrl,
 			logoAvatarUrl: agencies.logoAvatarUrl,
 			primaryColor: agencies.primaryColor,
-			role: agencyMemberships.role
+			role: agencyMemberships.role,
 		})
 		.from(agencyMemberships)
 		.innerJoin(agencies, eq(agencyMemberships.agencyId, agencies.id))
 		.where(
 			and(
 				eq(agencyMemberships.userId, userId),
-				eq(agencyMemberships.status, 'active'),
-				eq(agencies.status, 'active')
-			)
+				eq(agencyMemberships.status, "active"),
+				eq(agencies.status, "active"),
+			),
 		)
 		.orderBy(asc(agencies.name));
 
@@ -160,21 +160,21 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 			logoAvatarUrl: agency.logoAvatarUrl,
 			primaryColor: agency.primaryColor,
 			secondaryColor: agency.secondaryColor,
-			accentColor: agency.accentColor
+			accentColor: agency.accentColor,
 		},
 		membership: {
 			id: effectiveMembership.id,
 			userId,
-			role: effectiveMembership.role as 'owner' | 'admin' | 'member',
-			displayName: effectiveMembership.displayName
+			role: effectiveMembership.role as "owner" | "admin" | "member",
+			displayName: effectiveMembership.displayName,
 		},
 		agencyConfig,
 		isDefaultAgency: user?.defaultAgencyId === agency.id,
 		userAgencies: userAgencies.map((a) => ({
 			...a,
-			role: a.role as 'owner' | 'admin' | 'member'
+			role: a.role as "owner" | "admin" | "member",
 		})),
 		isSuperAdmin: isUserSuperAdmin,
-		isImpersonating
+		isImpersonating,
 	};
 };

@@ -7,10 +7,10 @@
  * - Profile completeness (for onboarding)
  */
 
-import type { PageServerLoad } from './$types';
-import { db } from '$lib/server/db';
-import { consultations, agencyProfiles } from '$lib/server/schema';
-import { eq, and, like, count } from 'drizzle-orm';
+import type { PageServerLoad } from "./$types";
+import { db } from "$lib/server/db";
+import { consultations, agencyProfiles } from "$lib/server/schema";
+import { eq, and, like, count } from "drizzle-orm";
 
 export const load: PageServerLoad = async ({ parent }) => {
 	// Get agency context from layout
@@ -27,12 +27,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 	const [demoData] = await db
 		.select({ id: consultations.id })
 		.from(consultations)
-		.where(
-			and(
-				eq(consultations.agencyId, agencyId),
-				like(consultations.businessName, 'Demo:%')
-			)
-		)
+		.where(and(eq(consultations.agencyId, agencyId), like(consultations.businessName, "Demo:%")))
 		.limit(1);
 
 	// Check if agency profile is complete (has required business details)
@@ -43,7 +38,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 			addressLine1: agencyProfiles.addressLine1,
 			city: agencyProfiles.city,
 			state: agencyProfiles.state,
-			postcode: agencyProfiles.postcode
+			postcode: agencyProfiles.postcode,
 		})
 		.from(agencyProfiles)
 		.where(eq(agencyProfiles.agencyId, agencyId))
@@ -65,6 +60,6 @@ export const load: PageServerLoad = async ({ parent }) => {
 		consultationCount,
 		hasDemoData: !!demoData,
 		isProfileComplete,
-		isNewAgency: consultationCount === 0
+		isNewAgency: consultationCount === 0,
 	};
 };

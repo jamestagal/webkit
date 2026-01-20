@@ -1,9 +1,9 @@
-import { redirect } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { agencies, agencyMemberships, users } from '$lib/server/schema';
-import { eq, and } from 'drizzle-orm';
+import { redirect } from "@sveltejs/kit";
+import { db } from "$lib/server/db";
+import { agencies, agencyMemberships, users } from "$lib/server/schema";
+import { eq, and } from "drizzle-orm";
 
-export const load: import('./$types').PageServerLoad = async ({ locals }) => {
+export const load: import("./$types").PageServerLoad = async ({ locals }) => {
 	const userId = locals.user?.id;
 
 	if (userId) {
@@ -21,7 +21,7 @@ export const load: import('./$types').PageServerLoad = async ({ locals }) => {
 			const [agency] = await db
 				.select({ slug: agencies.slug })
 				.from(agencies)
-				.where(and(eq(agencies.id, user.defaultAgencyId), eq(agencies.status, 'active')))
+				.where(and(eq(agencies.id, user.defaultAgencyId), eq(agencies.status, "active")))
 				.limit(1);
 
 			agencySlug = agency?.slug ?? null;
@@ -36,9 +36,9 @@ export const load: import('./$types').PageServerLoad = async ({ locals }) => {
 				.where(
 					and(
 						eq(agencyMemberships.userId, userId),
-						eq(agencyMemberships.status, 'active'),
-						eq(agencies.status, 'active')
-					)
+						eq(agencyMemberships.status, "active"),
+						eq(agencies.status, "active"),
+					),
 				)
 				.limit(1);
 
@@ -55,6 +55,6 @@ export const load: import('./$types').PageServerLoad = async ({ locals }) => {
 	return {
 		email: locals.user.email,
 		avatar: locals.user.avatar,
-		subscription_active: locals.user.subscription_active
+		subscription_active: locals.user.subscription_active,
 	};
 };

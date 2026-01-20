@@ -7,13 +7,13 @@
  * Uses Valibot for validation (NOT Zod)
  */
 
-import { query, command } from '$app/server';
-import * as v from 'valibot';
-import { db } from '$lib/server/db';
-import { agencyAddons, agencyPackages } from '$lib/server/schema';
-import { getAgencyContext, requireAgencyRole } from '$lib/server/agency';
-import { logActivity } from '$lib/server/db-helpers';
-import { eq, and, asc } from 'drizzle-orm';
+import { query, command } from "$app/server";
+import * as v from "valibot";
+import { db } from "$lib/server/db";
+import { agencyAddons, agencyPackages } from "$lib/server/schema";
+import { getAgencyContext, requireAgencyRole } from "$lib/server/agency";
+import { logActivity } from "$lib/server/db-helpers";
+import { eq, and, asc } from "drizzle-orm";
 
 // =============================================================================
 // Validation Schemas
@@ -23,11 +23,11 @@ const CreateAddonSchema = v.object({
 	name: v.pipe(v.string(), v.minLength(2), v.maxLength(100)),
 	slug: v.optional(v.pipe(v.string(), v.minLength(2), v.maxLength(50))),
 	description: v.optional(v.string()),
-	price: v.pipe(v.string(), v.regex(/^\d+(\.\d{1,2})?$/, 'Price must be a valid decimal')),
-	pricingType: v.picklist(['one_time', 'monthly', 'per_unit']),
+	price: v.pipe(v.string(), v.regex(/^\d+(\.\d{1,2})?$/, "Price must be a valid decimal")),
+	pricingType: v.picklist(["one_time", "monthly", "per_unit"]),
 	unitLabel: v.optional(v.pipe(v.string(), v.maxLength(50))),
 	availablePackages: v.optional(v.array(v.string())), // Package slugs
-	displayOrder: v.optional(v.number())
+	displayOrder: v.optional(v.number()),
 });
 
 const UpdateAddonSchema = v.object({
@@ -36,18 +36,18 @@ const UpdateAddonSchema = v.object({
 	slug: v.optional(v.pipe(v.string(), v.minLength(2), v.maxLength(50))),
 	description: v.optional(v.string()),
 	price: v.optional(v.pipe(v.string(), v.regex(/^\d+(\.\d{1,2})?$/))),
-	pricingType: v.optional(v.picklist(['one_time', 'monthly', 'per_unit'])),
+	pricingType: v.optional(v.picklist(["one_time", "monthly", "per_unit"])),
 	unitLabel: v.optional(v.nullable(v.pipe(v.string(), v.maxLength(50)))),
 	availablePackages: v.optional(v.array(v.string())),
 	displayOrder: v.optional(v.number()),
-	isActive: v.optional(v.boolean())
+	isActive: v.optional(v.boolean()),
 });
 
 const ReorderAddonsSchema = v.array(
 	v.object({
 		id: v.pipe(v.string(), v.uuid()),
-		displayOrder: v.number()
-	})
+		displayOrder: v.number(),
+	}),
 );
 
 // =============================================================================
@@ -60,8 +60,8 @@ const ReorderAddonsSchema = v.array(
 function generateSlug(name: string): string {
 	return name
 		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, '-')
-		.replace(/^-+|-+$/g, '')
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "")
 		.slice(0, 50);
 }
 
@@ -127,7 +127,7 @@ export const getAgencyAddon = query(v.pipe(v.string(), v.uuid()), async (addonId
 		.limit(1);
 
 	if (!addon) {
-		throw new Error('Add-on not found');
+		throw new Error("Add-on not found");
 	}
 
 	return addon;
@@ -156,7 +156,7 @@ export const getAddonsForPackage = query(
 			if (!available || available.length === 0) return true;
 			return available.includes(packageSlug);
 		});
-	}
+	},
 );
 
 /**
@@ -174,7 +174,7 @@ export const getAgencyAddonBySlug = query(
 			.limit(1);
 
 		return addon || null;
-	}
+	},
 );
 
 /**
@@ -202,14 +202,14 @@ export const getAddonsWithPackages = query(async () => {
 		const available = addon.availablePackages as string[];
 		const packageNames =
 			!available || available.length === 0
-				? ['All packages']
-				: available
+				? ["All packages"]
+				: (available
 						.map((slug) => packages.find((p) => p.slug === slug)?.name)
-						.filter(Boolean) as string[];
+						.filter(Boolean) as string[]);
 
 		return {
 			...addon,
-			packageNames
+			packageNames,
 		};
 	});
 });
@@ -222,7 +222,7 @@ export const getAddonsWithPackages = query(async () => {
  * Create a new add-on (admin/owner only).
  */
 export const createAgencyAddon = command(CreateAddonSchema, async (data) => {
-	const context = await requireAgencyRole(['owner', 'admin']);
+	const context = await requireAgencyRole(["owner", "admin"]);
 
 	// Generate slug if not provided
 	let slug = data.slug || generateSlug(data.name);
@@ -234,7 +234,7 @@ export const createAgencyAddon = command(CreateAddonSchema, async (data) => {
 		slug = `${baseSlug}-${counter}`;
 		counter++;
 		if (counter > 100) {
-			throw new Error('Unable to generate unique slug');
+			throw new Error("Unable to generate unique slug");
 		}
 	}
 
@@ -243,14 +243,12 @@ export const createAgencyAddon = command(CreateAddonSchema, async (data) => {
 		const packages = await db
 			.select({ slug: agencyPackages.slug })
 			.from(agencyPackages)
-			.where(
-				and(eq(agencyPackages.agencyId, context.agencyId), eq(agencyPackages.isActive, true))
-			);
+			.where(and(eq(agencyPackages.agencyId, context.agencyId), eq(agencyPackages.isActive, true)));
 
 		const validSlugs = packages.map((p) => p.slug);
 		const invalidSlugs = data.availablePackages.filter((s) => !validSlugs.includes(s));
 		if (invalidSlugs.length > 0) {
-			throw new Error(`Invalid package slugs: ${invalidSlugs.join(', ')}`);
+			throw new Error(`Invalid package slugs: ${invalidSlugs.join(", ")}`);
 		}
 	}
 
@@ -271,19 +269,19 @@ export const createAgencyAddon = command(CreateAddonSchema, async (data) => {
 			agencyId: context.agencyId,
 			name: data.name,
 			slug,
-			description: data.description ?? '',
+			description: data.description ?? "",
 			price: data.price,
 			pricingType: data.pricingType,
 			unitLabel: data.unitLabel,
 			availablePackages: data.availablePackages ?? [],
 			displayOrder,
-			isActive: true
+			isActive: true,
 		})
 		.returning();
 
 	// Log activity
-	await logActivity('addon.created', 'agency_addon', addon?.id, {
-		newValues: { name: data.name, slug, price: data.price, pricingType: data.pricingType }
+	await logActivity("addon.created", "agency_addon", addon?.id, {
+		newValues: { name: data.name, slug, price: data.price, pricingType: data.pricingType },
 	});
 
 	return addon;
@@ -293,7 +291,7 @@ export const createAgencyAddon = command(CreateAddonSchema, async (data) => {
  * Update an add-on (admin/owner only).
  */
 export const updateAgencyAddon = command(UpdateAddonSchema, async (data) => {
-	const context = await requireAgencyRole(['owner', 'admin']);
+	const context = await requireAgencyRole(["owner", "admin"]);
 
 	// Verify add-on belongs to agency
 	const [existing] = await db
@@ -303,13 +301,13 @@ export const updateAgencyAddon = command(UpdateAddonSchema, async (data) => {
 		.limit(1);
 
 	if (!existing) {
-		throw new Error('Add-on not found');
+		throw new Error("Add-on not found");
 	}
 
 	// Check slug uniqueness if changing
 	if (data.slug && data.slug !== existing.slug) {
 		if (!(await isSlugUnique(context.agencyId, data.slug, data.addonId))) {
-			throw new Error('Slug already in use');
+			throw new Error("Slug already in use");
 		}
 	}
 
@@ -318,29 +316,27 @@ export const updateAgencyAddon = command(UpdateAddonSchema, async (data) => {
 		const packages = await db
 			.select({ slug: agencyPackages.slug })
 			.from(agencyPackages)
-			.where(
-				and(eq(agencyPackages.agencyId, context.agencyId), eq(agencyPackages.isActive, true))
-			);
+			.where(and(eq(agencyPackages.agencyId, context.agencyId), eq(agencyPackages.isActive, true)));
 
 		const validSlugs = packages.map((p) => p.slug);
 		const invalidSlugs = data.availablePackages.filter((s) => !validSlugs.includes(s));
 		if (invalidSlugs.length > 0) {
-			throw new Error(`Invalid package slugs: ${invalidSlugs.join(', ')}`);
+			throw new Error(`Invalid package slugs: ${invalidSlugs.join(", ")}`);
 		}
 	}
 
 	// Build update object
 	const updates: Record<string, unknown> = { updatedAt: new Date() };
 
-	if (data.name !== undefined) updates['name'] = data.name;
-	if (data.slug !== undefined) updates['slug'] = data.slug;
-	if (data.description !== undefined) updates['description'] = data.description;
-	if (data.price !== undefined) updates['price'] = data.price;
-	if (data.pricingType !== undefined) updates['pricingType'] = data.pricingType;
-	if (data.unitLabel !== undefined) updates['unitLabel'] = data.unitLabel;
-	if (data.availablePackages !== undefined) updates['availablePackages'] = data.availablePackages;
-	if (data.displayOrder !== undefined) updates['displayOrder'] = data.displayOrder;
-	if (data.isActive !== undefined) updates['isActive'] = data.isActive;
+	if (data.name !== undefined) updates["name"] = data.name;
+	if (data.slug !== undefined) updates["slug"] = data.slug;
+	if (data.description !== undefined) updates["description"] = data.description;
+	if (data.price !== undefined) updates["price"] = data.price;
+	if (data.pricingType !== undefined) updates["pricingType"] = data.pricingType;
+	if (data.unitLabel !== undefined) updates["unitLabel"] = data.unitLabel;
+	if (data.availablePackages !== undefined) updates["availablePackages"] = data.availablePackages;
+	if (data.displayOrder !== undefined) updates["displayOrder"] = data.displayOrder;
+	if (data.isActive !== undefined) updates["isActive"] = data.isActive;
 
 	const [addon] = await db
 		.update(agencyAddons)
@@ -349,9 +345,9 @@ export const updateAgencyAddon = command(UpdateAddonSchema, async (data) => {
 		.returning();
 
 	// Log activity
-	await logActivity('addon.updated', 'agency_addon', data.addonId, {
+	await logActivity("addon.updated", "agency_addon", data.addonId, {
 		oldValues: { name: existing.name },
-		newValues: updates
+		newValues: updates,
 	});
 
 	return addon;
@@ -362,7 +358,7 @@ export const updateAgencyAddon = command(UpdateAddonSchema, async (data) => {
  * Uses soft delete by setting isActive = false.
  */
 export const deleteAgencyAddon = command(v.pipe(v.string(), v.uuid()), async (addonId: string) => {
-	const context = await requireAgencyRole(['owner']);
+	const context = await requireAgencyRole(["owner"]);
 
 	// Verify add-on belongs to agency
 	const [existing] = await db
@@ -372,7 +368,7 @@ export const deleteAgencyAddon = command(v.pipe(v.string(), v.uuid()), async (ad
 		.limit(1);
 
 	if (!existing) {
-		throw new Error('Add-on not found');
+		throw new Error("Add-on not found");
 	}
 
 	// Soft delete
@@ -382,8 +378,8 @@ export const deleteAgencyAddon = command(v.pipe(v.string(), v.uuid()), async (ad
 		.where(eq(agencyAddons.id, addonId));
 
 	// Log activity
-	await logActivity('addon.deleted', 'agency_addon', addonId, {
-		oldValues: { name: existing.name, isActive: true }
+	await logActivity("addon.deleted", "agency_addon", addonId, {
+		oldValues: { name: existing.name, isActive: true },
 	});
 });
 
@@ -391,7 +387,7 @@ export const deleteAgencyAddon = command(v.pipe(v.string(), v.uuid()), async (ad
  * Reorder add-ons (admin/owner only).
  */
 export const reorderAgencyAddons = command(ReorderAddonsSchema, async (items) => {
-	const context = await requireAgencyRole(['owner', 'admin']);
+	const context = await requireAgencyRole(["owner", "admin"]);
 
 	// Update each add-on's display order
 	for (const item of items) {
@@ -402,8 +398,8 @@ export const reorderAgencyAddons = command(ReorderAddonsSchema, async (items) =>
 	}
 
 	// Log activity
-	await logActivity('addons.reordered', 'agency_addons', undefined, {
-		newValues: { count: items.length }
+	await logActivity("addons.reordered", "agency_addons", undefined, {
+		newValues: { count: items.length },
 	});
 });
 
@@ -413,7 +409,7 @@ export const reorderAgencyAddons = command(ReorderAddonsSchema, async (items) =>
 export const duplicateAgencyAddon = command(
 	v.pipe(v.string(), v.uuid()),
 	async (addonId: string) => {
-		const context = await requireAgencyRole(['owner', 'admin']);
+		const context = await requireAgencyRole(["owner", "admin"]);
 
 		// Get existing add-on
 		const [existing] = await db
@@ -423,7 +419,7 @@ export const duplicateAgencyAddon = command(
 			.limit(1);
 
 		if (!existing) {
-			throw new Error('Add-on not found');
+			throw new Error("Add-on not found");
 		}
 
 		// Generate new name and slug
@@ -458,16 +454,15 @@ export const duplicateAgencyAddon = command(
 				unitLabel: existing.unitLabel,
 				availablePackages: existing.availablePackages,
 				displayOrder: (maxOrder?.max ?? 0) + 1,
-				isActive: true
+				isActive: true,
 			})
 			.returning();
 
 		// Log activity
-		await logActivity('addon.duplicated', 'agency_addon', addon?.id, {
-			metadata: { sourceAddonId: addonId }
+		await logActivity("addon.duplicated", "agency_addon", addon?.id, {
+			metadata: { sourceAddonId: addonId },
 		});
 
 		return addon;
-	}
+	},
 );
-

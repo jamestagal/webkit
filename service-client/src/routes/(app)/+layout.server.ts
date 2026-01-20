@@ -1,11 +1,11 @@
-import { db } from '$lib/server/db';
-import { agencies, agencyMemberships, agencyFormOptions, users } from '$lib/server/schema';
-import { eq, and, asc } from 'drizzle-orm';
-import { groupOptionsByCategory, mergeWithDefaults } from '$lib/stores/agency-config.svelte';
-import type { AgencyConfig } from '$lib/stores/agency-config.svelte';
-import { getImpersonatedAgencyId, isSuperAdmin, SUPER_ADMIN_FLAG } from '$lib/server/super-admin';
+import { db } from "$lib/server/db";
+import { agencies, agencyMemberships, agencyFormOptions, users } from "$lib/server/schema";
+import { eq, and, asc } from "drizzle-orm";
+import { groupOptionsByCategory, mergeWithDefaults } from "$lib/stores/agency-config.svelte";
+import type { AgencyConfig } from "$lib/stores/agency-config.svelte";
+import { getImpersonatedAgencyId, isSuperAdmin, SUPER_ADMIN_FLAG } from "$lib/server/super-admin";
 
-export const load: import('./$types').LayoutServerLoad = async ({ locals }) => {
+export const load: import("./$types").LayoutServerLoad = async ({ locals }) => {
 	const userId = locals.user?.id;
 
 	// Default response without agency context
@@ -19,7 +19,7 @@ export const load: import('./$types').LayoutServerLoad = async ({ locals }) => {
 		secondaryColor: string;
 		accentColor: string;
 	} | null = null;
-	let userRole: 'owner' | 'admin' | 'member' | null = null;
+	let userRole: "owner" | "admin" | "member" | null = null;
 
 	if (userId) {
 		try {
@@ -37,9 +37,7 @@ export const load: import('./$types').LayoutServerLoad = async ({ locals }) => {
 				const [membership] = await db
 					.select({ agencyId: agencyMemberships.agencyId })
 					.from(agencyMemberships)
-					.where(
-						and(eq(agencyMemberships.userId, userId), eq(agencyMemberships.status, 'active'))
-					)
+					.where(and(eq(agencyMemberships.userId, userId), eq(agencyMemberships.status, "active")))
 					.limit(1);
 
 				agencyId = membership?.agencyId;
@@ -57,7 +55,7 @@ export const load: import('./$types').LayoutServerLoad = async ({ locals }) => {
 						primaryColor: agencies.primaryColor,
 						secondaryColor: agencies.secondaryColor,
 						accentColor: agencies.accentColor,
-						role: agencyMemberships.role
+						role: agencyMemberships.role,
 					})
 					.from(agencyMemberships)
 					.innerJoin(agencies, eq(agencyMemberships.agencyId, agencies.id))
@@ -65,9 +63,9 @@ export const load: import('./$types').LayoutServerLoad = async ({ locals }) => {
 						and(
 							eq(agencyMemberships.userId, userId),
 							eq(agencyMemberships.agencyId, agencyId),
-							eq(agencyMemberships.status, 'active'),
-							eq(agencies.status, 'active')
-						)
+							eq(agencyMemberships.status, "active"),
+							eq(agencies.status, "active"),
+						),
 					)
 					.limit(1);
 
@@ -79,9 +77,9 @@ export const load: import('./$types').LayoutServerLoad = async ({ locals }) => {
 						logoUrl: result.logoUrl,
 						primaryColor: result.primaryColor,
 						secondaryColor: result.secondaryColor,
-						accentColor: result.accentColor
+						accentColor: result.accentColor,
 					};
-					userRole = result.role as 'owner' | 'admin' | 'member';
+					userRole = result.role as "owner" | "admin" | "member";
 
 					// Load form options for this agency
 					const options = await db
@@ -91,14 +89,11 @@ export const load: import('./$types').LayoutServerLoad = async ({ locals }) => {
 							label: agencyFormOptions.label,
 							isDefault: agencyFormOptions.isDefault,
 							sortOrder: agencyFormOptions.sortOrder,
-							metadata: agencyFormOptions.metadata
+							metadata: agencyFormOptions.metadata,
 						})
 						.from(agencyFormOptions)
 						.where(
-							and(
-								eq(agencyFormOptions.agencyId, agencyId),
-								eq(agencyFormOptions.isActive, true)
-							)
+							and(eq(agencyFormOptions.agencyId, agencyId), eq(agencyFormOptions.isActive, true)),
 						)
 						.orderBy(asc(agencyFormOptions.category), asc(agencyFormOptions.sortOrder));
 
@@ -106,15 +101,15 @@ export const load: import('./$types').LayoutServerLoad = async ({ locals }) => {
 					const grouped = groupOptionsByCategory(
 						options.map((opt) => ({
 							...opt,
-							metadata: opt.metadata as Record<string, unknown>
-						}))
+							metadata: opt.metadata as Record<string, unknown>,
+						})),
 					);
 					agencyConfig = mergeWithDefaults(grouped);
 				}
 			}
 		} catch (error) {
 			// Log error but don't fail the page load
-			console.error('Error loading agency context:', error);
+			console.error("Error loading agency context:", error);
 		}
 	}
 
@@ -131,6 +126,6 @@ export const load: import('./$types').LayoutServerLoad = async ({ locals }) => {
 		userRole,
 		isSuperAdmin: isSuperAdminUser,
 		isImpersonating: isSuperAdminUser && !!impersonatedAgencyId,
-		impersonatedAgencyId: isSuperAdminUser ? impersonatedAgencyId : undefined
+		impersonatedAgencyId: isSuperAdminUser ? impersonatedAgencyId : undefined,
 	};
 };

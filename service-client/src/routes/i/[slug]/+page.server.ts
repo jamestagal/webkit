@@ -5,35 +5,31 @@
  * Records view count and updates status if needed.
  */
 
-import type { PageServerLoad } from './$types';
-import { db } from '$lib/server/db';
-import { invoices, invoiceLineItems, agencies, agencyProfiles } from '$lib/server/schema';
-import { eq, sql, asc } from 'drizzle-orm';
-import { error } from '@sveltejs/kit';
+import type { PageServerLoad } from "./$types";
+import { db } from "$lib/server/db";
+import { invoices, invoiceLineItems, agencies, agencyProfiles } from "$lib/server/schema";
+import { eq, sql, asc } from "drizzle-orm";
+import { error } from "@sveltejs/kit";
 
 export const load: PageServerLoad = async ({ params }) => {
 	const { slug } = params;
 
 	// Fetch invoice by slug
-	const [invoice] = await db
-		.select()
-		.from(invoices)
-		.where(eq(invoices.slug, slug))
-		.limit(1);
+	const [invoice] = await db.select().from(invoices).where(eq(invoices.slug, slug)).limit(1);
 
 	if (!invoice) {
-		throw error(404, 'Invoice not found');
+		throw error(404, "Invoice not found");
 	}
 
 	// Record view (fire-and-forget, don't await)
 	const updates: Record<string, unknown> = {
 		viewCount: sql`${invoices.viewCount} + 1`,
-		lastViewedAt: new Date()
+		lastViewedAt: new Date(),
 	};
 
 	// If status is 'sent', change to 'viewed'
-	if (invoice.status === 'sent') {
-		updates['status'] = 'viewed';
+	if (invoice.status === "sent") {
+		updates["status"] = "viewed";
 	}
 
 	db.update(invoices)
@@ -50,7 +46,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		.limit(1);
 
 	if (!agency) {
-		throw error(404, 'Agency not found');
+		throw error(404, "Agency not found");
 	}
 
 	// Fetch agency profile
@@ -71,6 +67,6 @@ export const load: PageServerLoad = async ({ params }) => {
 		invoice,
 		lineItems,
 		agency,
-		profile: profile || null
+		profile: profile || null,
 	};
 };

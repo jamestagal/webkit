@@ -1,6 +1,25 @@
 <script lang="ts">
-	import { Search, ChevronLeft, ChevronRight, Users, Shield, ShieldOff, Building2 } from 'lucide-svelte';
-	import { getUsers, getUserDetails, updateUserAccess } from '$lib/api/super-admin.remote';
+	import {
+		Search,
+		ChevronLeft,
+		ChevronRight,
+		Users,
+		Shield,
+		ShieldOff,
+		Building2,
+		Ban,
+		Trash2,
+		UserMinus
+	} from 'lucide-svelte';
+	import {
+		getUsers,
+		getUserDetails,
+		updateUserAccess,
+		removeUserFromAgency,
+		suspendUser,
+		unsuspendUser,
+		deleteUser
+	} from '$lib/api/super-admin.remote';
 	import { onMount } from 'svelte';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 
@@ -12,7 +31,10 @@
 		access: number;
 		created: Date;
 		agencyCount: number;
+		agencyName: string | null;
+		primaryRole: string | null;
 		isSuperAdmin: boolean;
+		isSuspended: boolean;
 	}
 
 	interface UserDetails {
@@ -22,6 +44,9 @@
 			access: number;
 			created: Date;
 			isSuperAdmin: boolean;
+			suspended: boolean;
+			suspendedAt: Date | null;
+			suspendedReason: string | null;
 		};
 		memberships: Array<{
 			id: string;
@@ -42,6 +67,7 @@
 	// Filters
 	let search = $state('');
 	let superAdminOnly = $state(false);
+	let ownersOnly = $state(false);
 	let currentPage = $state(1);
 	const pageSize = 20;
 
@@ -53,6 +79,10 @@
 	let loadingDetails = $state(false);
 	let updating = $state(false);
 
+	// Delete confirmation
+	let showDeleteConfirm = $state(false);
+	let deleteConfirmEmail = $state('');
+
 	async function loadUsers() {
 		loading = true;
 		error = null;
@@ -60,6 +90,7 @@
 			const result = await getUsers({
 				search: search || undefined,
 				superAdminOnly: superAdminOnly || undefined,
+				ownersOnly: ownersOnly || undefined,
 				limit: pageSize,
 				offset: (currentPage - 1) * pageSize
 			});
@@ -117,15 +148,93 @@
 					'Updated',
 					selectedUser.user.isSuperAdmin ? 'Super admin access revoked' : 'Super admin access granted'
 				);
-				// Refresh details
 				selectedUser = await getUserDetails(selectedUser.user.id);
-				// Refresh list
 				await loadUsers();
 			} else {
 				toast.error('Error', result.error || 'Failed to update user');
 			}
 		} catch (e) {
 			toast.error('Error', e instanceof Error ? e.message : 'Failed to update user');
+		} finally {
+			updating = false;
+		}
+	}
+
+	async function handleRemoveFromAgency(agencyId: string, agencyName: string) {
+		if (!selectedUser) return;
+		if (!confirm(`Remove this user from "${agencyName}"?`)) return;
+
+		updating = true;
+		try {
+			const result = await removeUserFromAgency({
+				userId: selectedUser.user.id,
+				agencyId
+			});
+
+			if (result.success) {
+				toast.success('Removed', `User removed from ${agencyName}`);
+				selectedUser = await getUserDetails(selectedUser.user.id);
+				await loadUsers();
+			} else {
+				toast.error('Error', result.error || 'Failed to remove user');
+			}
+		} catch (e) {
+			toast.error('Error', e instanceof Error ? e.message : 'Failed to remove user');
+		} finally {
+			updating = false;
+		}
+	}
+
+	async function handleToggleSuspension() {
+		if (!selectedUser) return;
+		updating = true;
+		try {
+			let result;
+			if (selectedUser.user.suspended) {
+				result = await unsuspendUser(selectedUser.user.id);
+			} else {
+				result = await suspendUser({ userId: selectedUser.user.id });
+			}
+
+			if (result.success) {
+				toast.success(
+					'Updated',
+					selectedUser.user.suspended ? 'User account restored' : 'User account suspended'
+				);
+				selectedUser = await getUserDetails(selectedUser.user.id);
+				await loadUsers();
+			} else {
+				toast.error('Error', result.error || 'Failed to update user');
+			}
+		} catch (e) {
+			toast.error('Error', e instanceof Error ? e.message : 'Failed to update user');
+		} finally {
+			updating = false;
+		}
+	}
+
+	async function handleDeleteUser() {
+		if (!selectedUser) return;
+		if (deleteConfirmEmail !== selectedUser.user.email) {
+			toast.error('Error', 'Email does not match');
+			return;
+		}
+
+		updating = true;
+		try {
+			const result = await deleteUser(selectedUser.user.id);
+
+			if (result.success) {
+				toast.success('Deleted', 'User permanently deleted');
+				showDeleteConfirm = false;
+				showDetailModal = false;
+				deleteConfirmEmail = '';
+				await loadUsers();
+			} else {
+				toast.error('Error', result.error || 'Failed to delete user');
+			}
+		} catch (e) {
+			toast.error('Error', e instanceof Error ? e.message : 'Failed to delete user');
 		} finally {
 			updating = false;
 		}
@@ -148,16 +257,6 @@
 			default:
 				return 'badge-ghost';
 		}
-	}
-
-	// Truncate email for mobile display
-	function truncateEmail(email: string, maxLength: number = 24): string {
-		if (email.length <= maxLength) return email;
-		const [local, domain] = email.split('@');
-		if (!domain) return email.slice(0, maxLength) + '...';
-		const maxLocal = maxLength - domain.length - 4; // 4 for "...@"
-		if (maxLocal < 4) return email.slice(0, maxLength) + '...';
-		return local.slice(0, maxLocal) + '...@' + domain;
 	}
 
 	let totalPages = $derived(Math.ceil(total / pageSize));
@@ -183,16 +282,27 @@
 			/>
 		</div>
 
-		<!-- Filter checkbox -->
-		<label class="label cursor-pointer justify-start gap-2">
-			<input
-				type="checkbox"
-				class="checkbox checkbox-sm checkbox-error"
-				bind:checked={superAdminOnly}
-				onchange={handleFilterChange}
-			/>
-			<span class="label-text">Super admins only</span>
-		</label>
+		<!-- Filter checkboxes -->
+		<div class="flex flex-wrap gap-4">
+			<label class="label cursor-pointer justify-start gap-2">
+				<input
+					type="checkbox"
+					class="checkbox checkbox-sm checkbox-error"
+					bind:checked={superAdminOnly}
+					onchange={handleFilterChange}
+				/>
+				<span class="label-text">Super admins only</span>
+			</label>
+			<label class="label cursor-pointer justify-start gap-2">
+				<input
+					type="checkbox"
+					class="checkbox checkbox-sm checkbox-primary"
+					bind:checked={ownersOnly}
+					onchange={handleFilterChange}
+				/>
+				<span class="label-text">Owners only</span>
+			</label>
+		</div>
 	</div>
 
 	{#if loading}
@@ -220,16 +330,38 @@
 					<div class="flex items-start justify-between gap-3">
 						<div class="min-w-0 flex-1">
 							<p class="font-medium text-sm truncate">{user.email}</p>
-							<p class="text-xs text-base-content/60 mt-1">
-								{user.agencyCount} {user.agencyCount === 1 ? 'agency' : 'agencies'}
-							</p>
+							{#if user.agencyName}
+								<p class="text-xs text-base-content/60 mt-1">
+									{user.agencyName}
+									{#if user.agencyCount > 1}
+										<span class="text-base-content/40">+{user.agencyCount - 1}</span>
+									{/if}
+								</p>
+							{:else}
+								<p class="text-xs text-base-content/40 mt-1">No agency</p>
+							{/if}
 						</div>
-						{#if user.isSuperAdmin}
-							<span class="badge badge-error badge-sm gap-1 shrink-0">
-								<Shield class="h-3 w-3" />
-								Admin
-							</span>
-						{/if}
+						<div class="flex flex-col items-end gap-1 shrink-0">
+							{#if user.isSuspended}
+								<span class="badge badge-warning badge-sm gap-1">
+									<Ban class="h-3 w-3" />
+									Suspended
+								</span>
+							{/if}
+							{#if user.isSuperAdmin}
+								<span class="badge badge-error badge-sm gap-1">
+									<Shield class="h-3 w-3" />
+									Admin
+								</span>
+							{/if}
+							{#if user.primaryRole === 'owner'}
+								<span class="badge badge-primary badge-sm">Owner</span>
+							{:else if user.primaryRole === 'admin'}
+								<span class="badge badge-secondary badge-sm">Admin</span>
+							{:else if user.primaryRole === 'member'}
+								<span class="badge badge-ghost badge-sm">Member</span>
+							{/if}
+						</div>
 					</div>
 					<div class="mt-2 text-xs text-base-content/60">
 						Created {formatDate(user.created)}
@@ -244,8 +376,9 @@
 				<thead class="bg-base-200">
 					<tr>
 						<th>Email</th>
-						<th>Super Admin</th>
-						<th>Agencies</th>
+						<th>Agency</th>
+						<th>Account Type</th>
+						<th>Status</th>
 						<th>Created</th>
 						<th></th>
 					</tr>
@@ -255,24 +388,49 @@
 						<tr class="hover:bg-base-200/50">
 							<td>{user.email}</td>
 							<td>
-								{#if user.isSuperAdmin}
-									<span class="badge badge-error badge-sm gap-1">
-										<Shield class="h-3 w-3" />
-										Super Admin
-									</span>
+								{#if user.agencyName}
+									<div>
+										<span class="font-medium">{user.agencyName}</span>
+										{#if user.agencyCount > 1}
+											<span class="text-base-content/50 text-xs ml-1">+{user.agencyCount - 1}</span>
+										{/if}
+									</div>
 								{:else}
 									<span class="text-base-content/40">-</span>
 								{/if}
 							</td>
 							<td>
-								<span class="badge badge-ghost badge-sm">{user.agencyCount}</span>
+								<div class="flex flex-wrap gap-1">
+									{#if user.isSuperAdmin}
+										<span class="badge badge-error badge-sm gap-1">
+											<Shield class="h-3 w-3" />
+											Super Admin
+										</span>
+									{/if}
+									{#if user.primaryRole === 'owner'}
+										<span class="badge badge-primary badge-sm">Owner</span>
+									{:else if user.primaryRole === 'admin'}
+										<span class="badge badge-secondary badge-sm">Admin</span>
+									{:else if user.primaryRole === 'member'}
+										<span class="badge badge-ghost badge-sm">Member</span>
+									{:else if !user.isSuperAdmin}
+										<span class="text-base-content/40">-</span>
+									{/if}
+								</div>
+							</td>
+							<td>
+								{#if user.isSuspended}
+									<span class="badge badge-warning badge-sm gap-1">
+										<Ban class="h-3 w-3" />
+										Suspended
+									</span>
+								{:else}
+									<span class="text-success text-sm">Active</span>
+								{/if}
 							</td>
 							<td class="text-sm text-base-content/60">{formatDate(user.created)}</td>
 							<td>
-								<button
-									class="btn btn-ghost btn-xs"
-									onclick={() => openUserDetails(user.id)}
-								>
+								<button class="btn btn-ghost btn-xs" onclick={() => openUserDetails(user.id)}>
 									View
 								</button>
 							</td>
@@ -332,17 +490,26 @@
 				<h3 class="text-lg font-bold">User Details</h3>
 
 				<div class="mt-4 space-y-4">
+					<!-- Email and badges -->
 					<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
 						<div class="min-w-0">
 							<p class="text-sm text-base-content/60">Email</p>
 							<p class="font-medium break-all">{selectedUser.user.email}</p>
 						</div>
-						{#if selectedUser.user.isSuperAdmin}
-							<span class="badge badge-error gap-1 shrink-0 self-start sm:self-center">
-								<Shield class="h-3 w-3" />
-								Super Admin
-							</span>
-						{/if}
+						<div class="flex flex-wrap gap-1 shrink-0 self-start sm:self-center">
+							{#if selectedUser.user.suspended}
+								<span class="badge badge-warning gap-1">
+									<Ban class="h-3 w-3" />
+									Suspended
+								</span>
+							{/if}
+							{#if selectedUser.user.isSuperAdmin}
+								<span class="badge badge-error gap-1">
+									<Shield class="h-3 w-3" />
+									Super Admin
+								</span>
+							{/if}
+						</div>
 					</div>
 
 					<div>
@@ -350,8 +517,21 @@
 						<p>{formatDate(selectedUser.user.created)}</p>
 					</div>
 
+					{#if selectedUser.user.suspended && selectedUser.user.suspendedAt}
+						<div class="alert alert-warning">
+							<Ban class="h-4 w-4" />
+							<div>
+								<p class="font-medium">Account suspended on {formatDate(selectedUser.user.suspendedAt)}</p>
+								{#if selectedUser.user.suspendedReason}
+									<p class="text-sm">Reason: {selectedUser.user.suspendedReason}</p>
+								{/if}
+							</div>
+						</div>
+					{/if}
+
 					<div class="divider"></div>
 
+					<!-- Agency Memberships -->
 					<div>
 						<h4 class="font-medium flex items-center gap-2">
 							<Building2 class="h-4 w-4" />
@@ -360,7 +540,9 @@
 						{#if selectedUser.memberships.length > 0}
 							<div class="mt-2 space-y-2">
 								{#each selectedUser.memberships as membership (membership.id)}
-									<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-base-300 p-3">
+									<div
+										class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-base-300 p-3"
+									>
 										<div class="min-w-0">
 											<a
 												href="/super-admin/agencies/{membership.agencyId}"
@@ -370,9 +552,22 @@
 											</a>
 											<p class="text-sm text-base-content/60">/{membership.agencySlug}</p>
 										</div>
-										<span class="badge {getRoleBadgeClass(membership.role)} badge-sm capitalize shrink-0 self-start sm:self-center">
-											{membership.role}
-										</span>
+										<div class="flex items-center gap-2 shrink-0 self-start sm:self-center">
+											<span
+												class="badge {getRoleBadgeClass(membership.role)} badge-sm capitalize"
+											>
+												{membership.role}
+											</span>
+											<button
+												class="btn btn-ghost btn-xs text-error"
+												onclick={() =>
+													handleRemoveFromAgency(membership.agencyId, membership.agencyName)}
+												disabled={updating}
+												title="Remove from agency"
+											>
+												<UserMinus class="h-4 w-4" />
+											</button>
+										</div>
 									</div>
 								{/each}
 							</div>
@@ -383,28 +578,86 @@
 
 					<div class="divider"></div>
 
-					<div>
-						<h4 class="font-medium mb-2">Super Admin Access</h4>
-						<button
-							class="btn {selectedUser.user.isSuperAdmin ? 'btn-warning' : 'btn-error'} gap-2"
-							onclick={handleToggleSuperAdmin}
-							disabled={updating}
-						>
-							{#if updating}
-								<span class="loading loading-spinner loading-sm"></span>
-							{:else if selectedUser.user.isSuperAdmin}
-								<ShieldOff class="h-4 w-4" />
-								Revoke Super Admin
-							{:else}
-								<Shield class="h-4 w-4" />
-								Grant Super Admin
-							{/if}
-						</button>
-						{#if selectedUser.user.isSuperAdmin}
-							<p class="mt-2 text-sm text-warning">
-								This user currently has super admin access to the entire platform.
-							</p>
-						{/if}
+					<!-- Admin Actions -->
+					<div class="space-y-4">
+						<h4 class="font-medium">Admin Actions</h4>
+
+						<!-- Super Admin Access -->
+						<div class="rounded-lg border border-base-300 p-4">
+							<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+								<div>
+									<p class="font-medium">Super Admin Access</p>
+									<p class="text-sm text-base-content/60">
+										Grant full platform access including all agencies and users.
+									</p>
+								</div>
+								<button
+									class="btn btn-sm {selectedUser.user.isSuperAdmin ? 'btn-warning' : 'btn-outline'} gap-2 shrink-0"
+									onclick={handleToggleSuperAdmin}
+									disabled={updating}
+								>
+									{#if updating}
+										<span class="loading loading-spinner loading-sm"></span>
+									{:else if selectedUser.user.isSuperAdmin}
+										<ShieldOff class="h-4 w-4" />
+										Revoke
+									{:else}
+										<Shield class="h-4 w-4" />
+										Grant
+									{/if}
+								</button>
+							</div>
+						</div>
+
+						<!-- Suspend User -->
+						<div class="rounded-lg border border-base-300 p-4">
+							<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+								<div>
+									<p class="font-medium">Account Suspension</p>
+									<p class="text-sm text-base-content/60">
+										{#if selectedUser.user.suspended}
+											Restore login access. User data remains intact.
+										{:else}
+											Temporarily block login. All user data is preserved.
+										{/if}
+									</p>
+								</div>
+								<button
+									class="btn btn-sm {selectedUser.user.suspended ? 'btn-success' : 'btn-warning'} gap-2 shrink-0"
+									onclick={handleToggleSuspension}
+									disabled={updating}
+								>
+									{#if updating}
+										<span class="loading loading-spinner loading-sm"></span>
+									{:else if selectedUser.user.suspended}
+										Restore
+									{:else}
+										<Ban class="h-4 w-4" />
+										Suspend
+									{/if}
+								</button>
+							</div>
+						</div>
+
+						<!-- Delete User -->
+						<div class="rounded-lg border border-error/30 bg-error/5 p-4">
+							<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+								<div>
+									<p class="font-medium text-error">Delete User</p>
+									<p class="text-sm text-base-content/60">
+										Permanently remove account and all memberships. Cannot be undone.
+									</p>
+								</div>
+								<button
+									class="btn btn-sm btn-error btn-outline gap-2 shrink-0"
+									onclick={() => (showDeleteConfirm = true)}
+									disabled={updating}
+								>
+									<Trash2 class="h-4 w-4" />
+									Delete
+								</button>
+							</div>
+						</div>
 					</div>
 				</div>
 
@@ -417,6 +670,64 @@
 			type="button"
 			class="modal-backdrop bg-black/50"
 			onclick={() => (showDetailModal = false)}
+			aria-label="Close modal"
+		></button>
+	</div>
+{/if}
+
+<!-- Delete Confirmation Modal -->
+{#if showDeleteConfirm && selectedUser}
+	<div class="modal modal-open" style="z-index: 60;">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold text-error">Delete User Account</h3>
+			<div class="py-4">
+				<p class="text-base-content/80">
+					This will permanently delete the user account and remove them from all agencies. This
+					action cannot be undone.
+				</p>
+				<div class="mt-4">
+					<label class="label">
+						<span class="label-text">Type the user's email to confirm:</span>
+					</label>
+					<p class="text-sm font-mono bg-base-200 p-2 rounded mb-2">{selectedUser.user.email}</p>
+					<input
+						type="text"
+						class="input input-bordered w-full"
+						placeholder="Enter email to confirm"
+						bind:value={deleteConfirmEmail}
+					/>
+				</div>
+			</div>
+			<div class="modal-action">
+				<button
+					class="btn btn-ghost"
+					onclick={() => {
+						showDeleteConfirm = false;
+						deleteConfirmEmail = '';
+					}}
+				>
+					Cancel
+				</button>
+				<button
+					class="btn btn-error"
+					onclick={handleDeleteUser}
+					disabled={updating || deleteConfirmEmail !== selectedUser.user.email}
+				>
+					{#if updating}
+						<span class="loading loading-spinner loading-sm"></span>
+					{:else}
+						Delete User
+					{/if}
+				</button>
+			</div>
+		</div>
+		<button
+			type="button"
+			class="modal-backdrop bg-black/50"
+			onclick={() => {
+				showDeleteConfirm = false;
+				deleteConfirmEmail = '';
+			}}
 			aria-label="Close modal"
 		></button>
 	</div>

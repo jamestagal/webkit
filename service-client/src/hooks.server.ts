@@ -15,10 +15,10 @@ import { eq, and } from "drizzle-orm";
  */
 function isRemoteFunctionRequest(event: { request: Request; url: URL }): boolean {
 	// Remote functions use POST and go through SvelteKit's RPC mechanism
-	if (event.request.method === 'POST') {
+	if (event.request.method === "POST") {
 		// Check for common RPC patterns
-		const contentType = event.request.headers.get('content-type') || '';
-		if (contentType.includes('application/json')) {
+		const contentType = event.request.headers.get("content-type") || "";
+		if (contentType.includes("application/json")) {
 			return true;
 		}
 	}
@@ -26,7 +26,7 @@ function isRemoteFunctionRequest(event: { request: Request; url: URL }): boolean
 }
 
 // Cookie name for current agency (must match agency.ts)
-const CURRENT_AGENCY_COOKIE = 'current_agency_id';
+const CURRENT_AGENCY_COOKIE = "current_agency_id";
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const end = perf("handle");
@@ -79,7 +79,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const refresh_token = event.cookies.get("refresh_token") ?? "";
 
 	// Debug logging for auth flow (helps diagnose production session issues)
-	logger.debug(`Auth check: path=${event.url.pathname}, hasAccessToken=${!!access_token}, hasRefreshToken=${!!refresh_token}`);
+	logger.debug(
+		`Auth check: path=${event.url.pathname}, hasAccessToken=${!!access_token}, hasRefreshToken=${!!refresh_token}`,
+	);
 
 	if (!refresh_token) {
 		logger.debug("No refresh_token cookie found - redirecting to login");
@@ -131,12 +133,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// ==========================================================================
 	// MULTI-TENANCY: Verify agency membership on protected routes
 	// ==========================================================================
-	const isAppRoute = event.url.pathname.startsWith('/consultation') ||
-		event.url.pathname.startsWith('/notes') ||
-		event.url.pathname.startsWith('/payments') ||
-		event.url.pathname.startsWith('/files') ||
-		event.url.pathname.startsWith('/emails') ||
-		event.url.pathname === '/';
+	const isAppRoute =
+		event.url.pathname.startsWith("/consultation") ||
+		event.url.pathname.startsWith("/notes") ||
+		event.url.pathname.startsWith("/payments") ||
+		event.url.pathname.startsWith("/files") ||
+		event.url.pathname.startsWith("/emails") ||
+		event.url.pathname === "/";
 
 	if (isAppRoute) {
 		const currentAgencyId = event.cookies.get(CURRENT_AGENCY_COOKIE);
@@ -150,28 +153,29 @@ export const handle: Handle = async ({ event, resolve }) => {
 						role: agencyMemberships.role,
 						status: agencyMemberships.status,
 						agencyStatus: agencies.status,
-						agencyDeleted: agencies.deletedAt
+						agencyDeleted: agencies.deletedAt,
 					})
 					.from(agencyMemberships)
 					.innerJoin(agencies, eq(agencyMemberships.agencyId, agencies.id))
 					.where(
 						and(
 							eq(agencyMemberships.userId, event.locals.user.id),
-							eq(agencyMemberships.agencyId, currentAgencyId)
-						)
+							eq(agencyMemberships.agencyId, currentAgencyId),
+						),
 					)
 					.limit(1);
 
 				// Check if membership is valid
-				const membershipValid = membership &&
-					membership.status === 'active' &&
-					membership.agencyStatus === 'active' &&
+				const membershipValid =
+					membership &&
+					membership.status === "active" &&
+					membership.agencyStatus === "active" &&
 					!membership.agencyDeleted;
 
 				if (!membershipValid) {
 					// Membership revoked or agency deleted - clear cookie
 					logger.warn(`Agency access revoked for user ${event.locals.user.id}`);
-					event.cookies.delete(CURRENT_AGENCY_COOKIE, { path: '/' });
+					event.cookies.delete(CURRENT_AGENCY_COOKIE, { path: "/" });
 
 					// If this is an API request, let it continue (will get 403 from context)
 					// If it's a page request, could redirect to agency selection

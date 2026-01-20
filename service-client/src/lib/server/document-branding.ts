@@ -5,11 +5,11 @@
  * Handles fallback from document-specific overrides to agency defaults.
  */
 
-import { db } from '$lib/server/db';
-import { agencies, agencyDocumentBranding, type DocumentType } from '$lib/server/schema';
-import { eq, and } from 'drizzle-orm';
+import { db } from "$lib/server/db";
+import { agencies, agencyDocumentBranding, type DocumentType } from "$lib/server/schema";
+import { eq, and } from "drizzle-orm";
 
-export type { DocumentType } from '$lib/server/schema';
+export type { DocumentType } from "$lib/server/schema";
 
 export interface EffectiveBranding {
 	logoUrl: string;
@@ -21,11 +21,11 @@ export interface EffectiveBranding {
 
 // Default branding values used when agency has no branding set
 const DEFAULT_BRANDING: EffectiveBranding = {
-	logoUrl: '',
-	primaryColor: '#4F46E5', // Indigo-600
-	secondaryColor: '#1E40AF', // Blue-800
-	accentColor: '#F59E0B', // Amber-500
-	accentGradient: ''
+	logoUrl: "",
+	primaryColor: "#4F46E5", // Indigo-600
+	secondaryColor: "#1E40AF", // Blue-800
+	accentColor: "#F59E0B", // Amber-500
+	accentGradient: "",
 };
 
 /**
@@ -42,7 +42,7 @@ const DEFAULT_BRANDING: EffectiveBranding = {
  */
 export async function getEffectiveBranding(
 	agencyId: string,
-	documentType: DocumentType
+	documentType: DocumentType,
 ): Promise<EffectiveBranding> {
 	// Fetch agency base branding
 	const [agency] = await db
@@ -51,7 +51,7 @@ export async function getEffectiveBranding(
 			primaryColor: agencies.primaryColor,
 			secondaryColor: agencies.secondaryColor,
 			accentColor: agencies.accentColor,
-			accentGradient: agencies.accentGradient
+			accentGradient: agencies.accentGradient,
 		})
 		.from(agencies)
 		.where(eq(agencies.id, agencyId))
@@ -68,8 +68,8 @@ export async function getEffectiveBranding(
 		.where(
 			and(
 				eq(agencyDocumentBranding.agencyId, agencyId),
-				eq(agencyDocumentBranding.documentType, documentType)
-			)
+				eq(agencyDocumentBranding.documentType, documentType),
+			),
 		)
 		.limit(1);
 
@@ -79,7 +79,7 @@ export async function getEffectiveBranding(
 		primaryColor: agency.primaryColor || DEFAULT_BRANDING.primaryColor,
 		secondaryColor: agency.secondaryColor || DEFAULT_BRANDING.secondaryColor,
 		accentColor: agency.accentColor || DEFAULT_BRANDING.accentColor,
-		accentGradient: agency.accentGradient || DEFAULT_BRANDING.accentGradient
+		accentGradient: agency.accentGradient || DEFAULT_BRANDING.accentGradient,
 	};
 
 	// If no override or override is disabled, return agency defaults
@@ -93,7 +93,7 @@ export async function getEffectiveBranding(
 		primaryColor: override.primaryColor ?? baseBranding.primaryColor,
 		secondaryColor: baseBranding.secondaryColor, // No override for secondary
 		accentColor: override.accentColor ?? baseBranding.accentColor,
-		accentGradient: override.accentGradient ?? baseBranding.accentGradient
+		accentGradient: override.accentGradient ?? baseBranding.accentGradient,
 	};
 }
 
@@ -108,8 +108,8 @@ export async function getDocumentBrandingOverride(agencyId: string, documentType
 		.where(
 			and(
 				eq(agencyDocumentBranding.agencyId, agencyId),
-				eq(agencyDocumentBranding.documentType, documentType)
-			)
+				eq(agencyDocumentBranding.documentType, documentType),
+			),
 		)
 		.limit(1);
 

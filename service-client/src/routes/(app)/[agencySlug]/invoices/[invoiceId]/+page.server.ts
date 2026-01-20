@@ -1,10 +1,10 @@
-import type { PageServerLoad } from './$types';
-import { getInvoice } from '$lib/api/invoices.remote';
-import { db } from '$lib/server/db';
-import { agencyProfiles } from '$lib/server/schema';
-import { getAgencyContext } from '$lib/server/agency';
-import { eq } from 'drizzle-orm';
-import { error } from '@sveltejs/kit';
+import type { PageServerLoad } from "./$types";
+import { getInvoice } from "$lib/api/invoices.remote";
+import { db } from "$lib/server/db";
+import { agencyProfiles } from "$lib/server/schema";
+import { getAgencyContext } from "$lib/server/agency";
+import { eq } from "drizzle-orm";
+import { error } from "@sveltejs/kit";
 
 export const load: PageServerLoad = async ({ params }) => {
 	const { invoiceId } = params;
@@ -13,7 +13,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	const result = await getInvoice(invoiceId);
 
 	if (!result) {
-		throw error(404, 'Invoice not found');
+		throw error(404, "Invoice not found");
 	}
 
 	// Get agency profile
@@ -26,6 +26,6 @@ export const load: PageServerLoad = async ({ params }) => {
 	return {
 		invoice: result.invoice,
 		lineItems: result.lineItems,
-		profile
+		profile,
 	};
 };

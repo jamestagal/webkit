@@ -5,7 +5,7 @@
  * ROI is OFF by default and requires explicit agency opt-in.
  */
 
-import type { ROIAnalysis, ROIProjection } from './ai-proposal';
+import type { ROIAnalysis, ROIProjection } from "./ai-proposal";
 
 /**
  * Agency-configurable ROI settings
@@ -50,40 +50,40 @@ export const DEFAULT_ROI_CONFIG: ROIConfiguration = {
 	formulas: {
 		conversionImprovement: {
 			poor_to_good: 15,
-			needs_improvement_to_good: 8
+			needs_improvement_to_good: 8,
 		},
 		trafficImprovement: {
-			per_10_point_score_increase: 5
+			per_10_point_score_increase: 5,
 		},
 		leadValues: {
 			default: 100,
-			'Electrical Services': 150,
+			"Electrical Services": 150,
 			Plumbing: 200,
-			'Legal Services': 500,
+			"Legal Services": 500,
 			Medical: 300,
-			'E-commerce': 50,
-			'Real Estate': 400,
+			"E-commerce": 50,
+			"Real Estate": 400,
 			Accounting: 350,
-			'Home Services': 175,
+			"Home Services": 175,
 			Automotive: 200,
 			Hospitality: 80,
-			Retail: 40
-		}
+			Retail: 40,
+		},
 	},
 	confidenceDescriptions: {
-		low: 'Based on general industry trends',
-		medium: 'Based on similar client outcomes',
-		high: 'Based on your specific data and benchmarks'
+		low: "Based on general industry trends",
+		medium: "Based on similar client outcomes",
+		high: "Based on your specific data and benchmarks",
 	},
 	disclaimer:
-		'These projections are estimates based on industry benchmarks and historical data. Actual results will vary based on market conditions, competition, and other factors outside our control.'
+		"These projections are estimates based on industry benchmarks and historical data. Actual results will vary based on market conditions, competition, and other factors outside our control.",
 };
 
 /**
  * Minimum disclaimer that must always be included
  */
 export const MANDATORY_DISCLAIMER_PREFIX =
-	'These projections are estimates only. Actual results may vary.';
+	"These projections are estimates only. Actual results may vary.";
 
 /**
  * Ensure disclaimer always includes mandatory text
@@ -92,7 +92,7 @@ export function ensureDisclaimerValidity(disclaimer: string): string {
 	if (!disclaimer || disclaimer.trim().length < 20) {
 		return DEFAULT_ROI_CONFIG.disclaimer;
 	}
-	if (!disclaimer.toLowerCase().includes('estimate')) {
+	if (!disclaimer.toLowerCase().includes("estimate")) {
 		return `${MANDATORY_DISCLAIMER_PREFIX} ${disclaimer}`;
 	}
 	return disclaimer;

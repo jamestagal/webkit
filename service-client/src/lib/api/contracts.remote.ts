@@ -7,9 +7,9 @@
  * Uses Valibot for validation (NOT Zod)
  */
 
-import { query, command } from '$app/server';
-import * as v from 'valibot';
-import { db } from '$lib/server/db';
+import { query, command } from "$app/server";
+import * as v from "valibot";
+import { db } from "$lib/server/db";
 import {
 	contracts,
 	contractTemplates,
@@ -22,37 +22,40 @@ import {
 	agencyAddons,
 	users,
 	agencyMemberships,
-	type SignatureConfig
-} from '$lib/server/schema';
-import { getAgencyContext } from '$lib/server/agency';
-import { logActivity } from '$lib/server/db-helpers';
+	type SignatureConfig,
+} from "$lib/server/schema";
+import { getAgencyContext } from "$lib/server/agency";
+import { logActivity } from "$lib/server/db-helpers";
 import {
 	hasPermission,
 	canAccessResource,
 	canModifyResource,
-	canDeleteResource
-} from '$lib/server/permissions';
-import { dataPipelineService, type MergeFieldData } from '$lib/server/services/data-pipeline.service';
-import { eq, and, desc, sql, inArray } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
+	canDeleteResource,
+} from "$lib/server/permissions";
+import {
+	dataPipelineService,
+	type MergeFieldData,
+} from "$lib/server/services/data-pipeline.service";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { nanoid } from "nanoid";
 
 // =============================================================================
 // Validation Schemas
 // =============================================================================
 
 const ContractStatusSchema = v.picklist([
-	'draft',
-	'sent',
-	'viewed',
-	'signed',
-	'completed',
-	'expired',
-	'terminated'
+	"draft",
+	"sent",
+	"viewed",
+	"signed",
+	"completed",
+	"expired",
+	"terminated",
 ]);
 
 const CreateContractSchema = v.object({
 	proposalId: v.pipe(v.string(), v.uuid()),
-	templateId: v.optional(v.pipe(v.string(), v.uuid()))
+	templateId: v.optional(v.pipe(v.string(), v.uuid())),
 });
 
 const UpdateContractSchema = v.object({
@@ -87,22 +90,22 @@ const UpdateContractSchema = v.object({
 	visibleFields: v.optional(v.array(v.string())),
 
 	// Schedule sections to include
-	includedScheduleIds: v.optional(v.array(v.string()))
+	includedScheduleIds: v.optional(v.array(v.string())),
 });
 
 const SignContractSchema = v.object({
 	contractSlug: v.pipe(v.string(), v.minLength(1)),
 	signatoryName: v.pipe(v.string(), v.minLength(1)),
 	signatoryTitle: v.optional(v.string()),
-	agreedToTerms: v.literal(true)
+	agreedToTerms: v.literal(true),
 });
 
 const ContractFiltersSchema = v.optional(
 	v.object({
 		status: v.optional(ContractStatusSchema),
 		limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(100))),
-		offset: v.optional(v.pipe(v.number(), v.minValue(0)))
-	})
+		offset: v.optional(v.pipe(v.number(), v.minValue(0))),
+	}),
 );
 
 // =============================================================================
@@ -129,7 +132,7 @@ async function generateUniqueSlug(): Promise<string> {
 		attempts++;
 	}
 
-	throw new Error('Unable to generate unique slug');
+	throw new Error("Unable to generate unique slug");
 }
 
 /**
@@ -143,7 +146,7 @@ async function getNextContractNumber(agencyId: string): Promise<string> {
 		.where(eq(agencyProfiles.agencyId, agencyId))
 		.limit(1);
 
-	const prefix = profile?.contractPrefix || 'CON';
+	const prefix = profile?.contractPrefix || "CON";
 	const nextNumber = profile?.nextContractNumber || 1;
 
 	// Generate document number
@@ -155,7 +158,7 @@ async function getNextContractNumber(agencyId: string): Promise<string> {
 			.update(agencyProfiles)
 			.set({
 				nextContractNumber: nextNumber + 1,
-				updatedAt: new Date()
+				updatedAt: new Date(),
 			})
 			.where(eq(agencyProfiles.id, profile.id));
 	}
@@ -169,7 +172,7 @@ async function getNextContractNumber(agencyId: string): Promise<string> {
 function calculateTotalFromProposal(
 	proposal: typeof proposals.$inferSelect,
 	selectedPackage: typeof agencyPackages.$inferSelect | null,
-	selectedAddons: (typeof agencyAddons.$inferSelect)[]
+	selectedAddons: (typeof agencyAddons.$inferSelect)[],
 ): string {
 	// Use custom pricing if set
 	const customPricing = proposal.customPricing as {
@@ -179,13 +182,13 @@ function calculateTotalFromProposal(
 		discountPercent?: number;
 	} | null;
 
-	const setupFee = parseFloat(customPricing?.setupFee ?? selectedPackage?.setupFee ?? '0');
+	const setupFee = parseFloat(customPricing?.setupFee ?? selectedPackage?.setupFee ?? "0");
 	const oneTimePrice = parseFloat(
-		customPricing?.oneTimePrice ?? selectedPackage?.oneTimePrice ?? '0'
+		customPricing?.oneTimePrice ?? selectedPackage?.oneTimePrice ?? "0",
 	);
 	const addonsTotal = selectedAddons.reduce(
-		(sum, addon) => sum + parseFloat(addon.price || '0'),
-		0
+		(sum, addon) => sum + parseFloat(addon.price || "0"),
+		0,
 	);
 
 	let subtotal = setupFee + oneTimePrice + addonsTotal;
@@ -205,31 +208,31 @@ function calculateTotalFromProposal(
  */
 function buildPaymentTerms(
 	proposal: typeof proposals.$inferSelect,
-	selectedPackage: typeof agencyPackages.$inferSelect | null
+	selectedPackage: typeof agencyPackages.$inferSelect | null,
 ): string {
 	const customPricing = proposal.customPricing as {
 		setupFee?: string;
 		monthlyPrice?: string;
 	} | null;
 
-	const setupFee = customPricing?.setupFee ?? selectedPackage?.setupFee ?? '0';
-	const monthlyPrice = customPricing?.monthlyPrice ?? selectedPackage?.monthlyPrice ?? '0';
+	const setupFee = customPricing?.setupFee ?? selectedPackage?.setupFee ?? "0";
+	const monthlyPrice = customPricing?.monthlyPrice ?? selectedPackage?.monthlyPrice ?? "0";
 
 	const terms: string[] = [];
 
 	if (parseFloat(setupFee) > 0) {
 		terms.push(
-			`Setup fee of ${dataPipelineService.formatCurrency(parseFloat(setupFee))} due on contract signing`
+			`Setup fee of ${dataPipelineService.formatCurrency(parseFloat(setupFee))} due on contract signing`,
 		);
 	}
 
 	if (parseFloat(monthlyPrice) > 0) {
 		terms.push(
-			`Monthly hosting/maintenance of ${dataPipelineService.formatCurrency(parseFloat(monthlyPrice))} billed in advance`
+			`Monthly hosting/maintenance of ${dataPipelineService.formatCurrency(parseFloat(monthlyPrice))} billed in advance`,
 		);
 	}
 
-	return terms.join('. ') || 'Payment terms to be agreed upon signing.';
+	return terms.join(". ") || "Payment terms to be agreed upon signing.";
 }
 
 // =============================================================================
@@ -277,7 +280,9 @@ export const getContracts = query(ContractFiltersSchema, async (filters) => {
 			createdAt: contracts.createdAt,
 			updatedAt: contracts.updatedAt,
 			// Join to get creator name
-			creatorName: sql<string | null>`COALESCE(${agencyMemberships.displayName}, ${users.email})`.as('creator_name')
+			creatorName: sql<
+				string | null
+			>`COALESCE(${agencyMemberships.displayName}, ${users.email})`.as("creator_name"),
 		})
 		.from(contracts)
 		.leftJoin(users, eq(contracts.createdBy, users.id))
@@ -285,8 +290,8 @@ export const getContracts = query(ContractFiltersSchema, async (filters) => {
 			agencyMemberships,
 			and(
 				eq(contracts.createdBy, agencyMemberships.userId),
-				eq(contracts.agencyId, agencyMemberships.agencyId)
-			)
+				eq(contracts.agencyId, agencyMemberships.agencyId),
+			),
 		)
 		.where(and(...conditions))
 		.orderBy(desc(contracts.createdAt))
@@ -309,12 +314,12 @@ export const getContract = query(v.pipe(v.string(), v.uuid()), async (contractId
 		.limit(1);
 
 	if (!contract) {
-		throw new Error('Contract not found');
+		throw new Error("Contract not found");
 	}
 
 	// Check access permission
-	if (!canAccessResource(context.role, contract.createdBy || '', context.userId, 'contract')) {
-		throw new Error('Permission denied');
+	if (!canAccessResource(context.role, contract.createdBy || "", context.userId, "contract")) {
+		throw new Error("Permission denied");
 	}
 
 	return contract;
@@ -324,47 +329,40 @@ export const getContract = query(v.pipe(v.string(), v.uuid()), async (contractId
  * Get a contract by public slug (for public view).
  * No authentication required.
  */
-export const getContractBySlug = query(
-	v.pipe(v.string(), v.minLength(1)),
-	async (slug: string) => {
-		const [contract] = await db
-			.select()
-			.from(contracts)
-			.where(eq(contracts.slug, slug))
-			.limit(1);
+export const getContractBySlug = query(v.pipe(v.string(), v.minLength(1)), async (slug: string) => {
+	const [contract] = await db.select().from(contracts).where(eq(contracts.slug, slug)).limit(1);
 
-		if (!contract) {
-			return null;
-		}
-
-		// Check if expired
-		if (contract.validUntil && new Date(contract.validUntil) < new Date()) {
-			// Mark as expired if not already signed
-			if (contract.status !== 'signed' && contract.status !== 'completed') {
-				return { ...contract, status: 'expired' as const };
-			}
-		}
-
-		// Fetch agency info for display
-		const [agency] = await db
-			.select()
-			.from(agencies)
-			.where(eq(agencies.id, contract.agencyId))
-			.limit(1);
-
-		const [profile] = await db
-			.select()
-			.from(agencyProfiles)
-			.where(eq(agencyProfiles.agencyId, contract.agencyId))
-			.limit(1);
-
-		return {
-			contract,
-			agency: agency || null,
-			agencyProfile: profile || null
-		};
+	if (!contract) {
+		return null;
 	}
-);
+
+	// Check if expired
+	if (contract.validUntil && new Date(contract.validUntil) < new Date()) {
+		// Mark as expired if not already signed
+		if (contract.status !== "signed" && contract.status !== "completed") {
+			return { ...contract, status: "expired" as const };
+		}
+	}
+
+	// Fetch agency info for display
+	const [agency] = await db
+		.select()
+		.from(agencies)
+		.where(eq(agencies.id, contract.agencyId))
+		.limit(1);
+
+	const [profile] = await db
+		.select()
+		.from(agencyProfiles)
+		.where(eq(agencyProfiles.agencyId, contract.agencyId))
+		.limit(1);
+
+	return {
+		contract,
+		agency: agency || null,
+		agencyProfile: profile || null,
+	};
+});
 
 /**
  * Get contract with related data (proposal, template).
@@ -381,12 +379,12 @@ export const getContractWithRelations = query(
 			.limit(1);
 
 		if (!contract) {
-			throw new Error('Contract not found');
+			throw new Error("Contract not found");
 		}
 
 		// Check access permission
-		if (!canAccessResource(context.role, contract.createdBy || '', context.userId, 'contract')) {
-			throw new Error('Permission denied');
+		if (!canAccessResource(context.role, contract.createdBy || "", context.userId, "contract")) {
+			throw new Error("Permission denied");
 		}
 
 		// Fetch related data
@@ -413,9 +411,9 @@ export const getContractWithRelations = query(
 		return {
 			contract,
 			proposal,
-			template
+			template,
 		};
-	}
+	},
 );
 
 // =============================================================================
@@ -430,21 +428,19 @@ export const createContractFromProposal = command(CreateContractSchema, async (d
 	const context = await getAgencyContext();
 
 	// Check permission
-	if (!hasPermission(context.role, 'contract:create')) {
-		throw new Error('Permission denied');
+	if (!hasPermission(context.role, "contract:create")) {
+		throw new Error("Permission denied");
 	}
 
 	// Load proposal with verification
 	const [proposal] = await db
 		.select()
 		.from(proposals)
-		.where(
-			and(eq(proposals.id, data.proposalId), eq(proposals.agencyId, context.agencyId))
-		)
+		.where(and(eq(proposals.id, data.proposalId), eq(proposals.agencyId, context.agencyId)))
 		.limit(1);
 
 	if (!proposal) {
-		throw new Error('Proposal not found');
+		throw new Error("Proposal not found");
 	}
 
 	// Get template (specified or default)
@@ -457,8 +453,8 @@ export const createContractFromProposal = command(CreateContractSchema, async (d
 				and(
 					eq(contractTemplates.id, data.templateId),
 					eq(contractTemplates.agencyId, context.agencyId),
-					eq(contractTemplates.isActive, true)
-				)
+					eq(contractTemplates.isActive, true),
+				),
 			)
 			.limit(1);
 		template = t;
@@ -471,8 +467,8 @@ export const createContractFromProposal = command(CreateContractSchema, async (d
 				and(
 					eq(contractTemplates.agencyId, context.agencyId),
 					eq(contractTemplates.isDefault, true),
-					eq(contractTemplates.isActive, true)
-				)
+					eq(contractTemplates.isActive, true),
+				),
 			)
 			.limit(1);
 		template = t;
@@ -495,12 +491,7 @@ export const createContractFromProposal = command(CreateContractSchema, async (d
 		selectedAddons = await db
 			.select()
 			.from(agencyAddons)
-			.where(
-				and(
-					eq(agencyAddons.agencyId, context.agencyId),
-					inArray(agencyAddons.id, addonIds)
-				)
-			);
+			.where(and(eq(agencyAddons.agencyId, context.agencyId), inArray(agencyAddons.id, addonIds)));
 	}
 
 	// Get schedule for this package (if template has one)
@@ -513,8 +504,8 @@ export const createContractFromProposal = command(CreateContractSchema, async (d
 				and(
 					eq(contractSchedules.templateId, template.id),
 					eq(contractSchedules.packageId, selectedPackage.id),
-					eq(contractSchedules.isActive, true)
-				)
+					eq(contractSchedules.isActive, true),
+				),
 			)
 			.limit(1);
 		schedule = s;
@@ -526,10 +517,7 @@ export const createContractFromProposal = command(CreateContractSchema, async (d
 			.select()
 			.from(contractSchedules)
 			.where(
-				and(
-					eq(contractSchedules.templateId, template.id),
-					eq(contractSchedules.isActive, true)
-				)
+				and(eq(contractSchedules.templateId, template.id), eq(contractSchedules.isActive, true)),
 			)
 			.orderBy(sql`${contractSchedules.displayOrder} ASC`)
 			.limit(1);
@@ -583,7 +571,7 @@ export const createContractFromProposal = command(CreateContractSchema, async (d
 					hostingFee?: string;
 					discountPercent?: number;
 					discountNote?: string;
-				} | null
+				} | null,
 			},
 			selectedPackage
 				? {
@@ -592,12 +580,12 @@ export const createContractFromProposal = command(CreateContractSchema, async (d
 						setupFee: selectedPackage.setupFee,
 						monthlyPrice: selectedPackage.monthlyPrice,
 						oneTimePrice: selectedPackage.oneTimePrice,
-						hostingFee: selectedPackage.hostingFee
+						hostingFee: selectedPackage.hostingFee,
 					}
 				: null,
-			selectedAddons.map((a) => ({ name: a.name, price: a.price }))
+			selectedAddons.map((a) => ({ name: a.name, price: a.price })),
 		),
-		computed: dataPipelineService.buildComputedMergeFields()
+		computed: dataPipelineService.buildComputedMergeFields(),
 	};
 
 	// Add optional properties only if they have values
@@ -611,11 +599,11 @@ export const createContractFromProposal = command(CreateContractSchema, async (d
 	// Resolve merge fields in template content
 	const generatedTermsHtml = template
 		? dataPipelineService.resolveMergeFields(template.termsContent, mergeData)
-		: '';
+		: "";
 
 	const generatedScheduleHtml = schedule
 		? dataPipelineService.resolveMergeFields(schedule.content, mergeData)
-		: '';
+		: "";
 
 	// Get signature config from template
 	const signatureConfig = (template?.signatureConfig || {}) as SignatureConfig;
@@ -630,11 +618,11 @@ export const createContractFromProposal = command(CreateContractSchema, async (d
 			contractNumber,
 			slug,
 			// Client info snapshot
-			clientBusinessName: proposal.clientBusinessName || '',
-			clientContactName: proposal.clientContactName || '',
-			clientEmail: proposal.clientEmail || '',
-			clientPhone: proposal.clientPhone || '',
-			clientAddress: '', // Not on proposal, can be filled in
+			clientBusinessName: proposal.clientBusinessName || "",
+			clientContactName: proposal.clientContactName || "",
+			clientEmail: proposal.clientEmail || "",
+			clientPhone: proposal.clientPhone || "",
+			clientAddress: "", // Not on proposal, can be filled in
 			// Price snapshot
 			totalPrice,
 			priceIncludesGst: true,
@@ -647,17 +635,17 @@ export const createContractFromProposal = command(CreateContractSchema, async (d
 			agencySignatoryTitle: signatureConfig.agencyTitle || null,
 			// Validity (30 days default)
 			validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-			createdBy: context.userId
+			createdBy: context.userId,
 		})
 		.returning();
 
 	// Log activity
-	await logActivity('contract.created', 'contract', contract?.id, {
+	await logActivity("contract.created", "contract", contract?.id, {
 		newValues: {
 			contractNumber,
 			proposalId: proposal.id,
-			templateId: template?.id
-		}
+			templateId: template?.id,
+		},
 	});
 
 	return contract;
@@ -677,60 +665,61 @@ export const updateContract = command(UpdateContractSchema, async (data) => {
 		.limit(1);
 
 	if (!existing) {
-		throw new Error('Contract not found');
+		throw new Error("Contract not found");
 	}
 
 	// Check modify permission
-	if (!canModifyResource(context.role, existing.createdBy || '', context.userId, 'contract')) {
-		throw new Error('Permission denied');
+	if (!canModifyResource(context.role, existing.createdBy || "", context.userId, "contract")) {
+		throw new Error("Permission denied");
 	}
 
 	// Only lock after signing - allow edits to sent/viewed contracts
-	if (['signed', 'completed'].includes(existing.status)) {
-		throw new Error('Cannot modify signed contract');
+	if (["signed", "completed"].includes(existing.status)) {
+		throw new Error("Cannot modify signed contract");
 	}
 
 	// Build update object
 	const updates: Record<string, unknown> = { updatedAt: new Date() };
 
 	// Client info
-	if (data.clientBusinessName !== undefined) updates['clientBusinessName'] = data.clientBusinessName;
-	if (data.clientContactName !== undefined) updates['clientContactName'] = data.clientContactName;
-	if (data.clientEmail !== undefined) updates['clientEmail'] = data.clientEmail;
-	if (data.clientPhone !== undefined) updates['clientPhone'] = data.clientPhone;
-	if (data.clientAddress !== undefined) updates['clientAddress'] = data.clientAddress;
+	if (data.clientBusinessName !== undefined)
+		updates["clientBusinessName"] = data.clientBusinessName;
+	if (data.clientContactName !== undefined) updates["clientContactName"] = data.clientContactName;
+	if (data.clientEmail !== undefined) updates["clientEmail"] = data.clientEmail;
+	if (data.clientPhone !== undefined) updates["clientPhone"] = data.clientPhone;
+	if (data.clientAddress !== undefined) updates["clientAddress"] = data.clientAddress;
 
 	// Contract fields
 	if (data.servicesDescription !== undefined)
-		updates['servicesDescription'] = data.servicesDescription;
+		updates["servicesDescription"] = data.servicesDescription;
 	if (data.commencementDate !== undefined) {
-		updates['commencementDate'] = data.commencementDate ? new Date(data.commencementDate) : null;
+		updates["commencementDate"] = data.commencementDate ? new Date(data.commencementDate) : null;
 	}
 	if (data.completionDate !== undefined) {
-		updates['completionDate'] = data.completionDate ? new Date(data.completionDate) : null;
+		updates["completionDate"] = data.completionDate ? new Date(data.completionDate) : null;
 	}
-	if (data.specialConditions !== undefined) updates['specialConditions'] = data.specialConditions;
+	if (data.specialConditions !== undefined) updates["specialConditions"] = data.specialConditions;
 
 	// Pricing
-	if (data.totalPrice !== undefined) updates['totalPrice'] = data.totalPrice;
-	if (data.priceIncludesGst !== undefined) updates['priceIncludesGst'] = data.priceIncludesGst;
-	if (data.paymentTerms !== undefined) updates['paymentTerms'] = data.paymentTerms;
+	if (data.totalPrice !== undefined) updates["totalPrice"] = data.totalPrice;
+	if (data.priceIncludesGst !== undefined) updates["priceIncludesGst"] = data.priceIncludesGst;
+	if (data.paymentTerms !== undefined) updates["paymentTerms"] = data.paymentTerms;
 
 	// Validity
 	if (data.validUntil !== undefined) {
-		updates['validUntil'] = data.validUntil ? new Date(data.validUntil) : null;
+		updates["validUntil"] = data.validUntil ? new Date(data.validUntil) : null;
 	}
 
 	// Agency signature
 	if (data.agencySignatoryName !== undefined)
-		updates['agencySignatoryName'] = data.agencySignatoryName;
+		updates["agencySignatoryName"] = data.agencySignatoryName;
 	if (data.agencySignatoryTitle !== undefined)
-		updates['agencySignatoryTitle'] = data.agencySignatoryTitle;
+		updates["agencySignatoryTitle"] = data.agencySignatoryTitle;
 
 	// Field visibility and schedule sections
-	if (data.visibleFields !== undefined) updates['visibleFields'] = data.visibleFields;
+	if (data.visibleFields !== undefined) updates["visibleFields"] = data.visibleFields;
 	if (data.includedScheduleIds !== undefined)
-		updates['includedScheduleIds'] = data.includedScheduleIds;
+		updates["includedScheduleIds"] = data.includedScheduleIds;
 
 	const [contract] = await db
 		.update(contracts)
@@ -739,9 +728,9 @@ export const updateContract = command(UpdateContractSchema, async (data) => {
 		.returning();
 
 	// Log activity
-	await logActivity('contract.updated', 'contract', data.contractId, {
+	await logActivity("contract.updated", "contract", data.contractId, {
 		oldValues: { clientBusinessName: existing.clientBusinessName },
-		newValues: updates
+		newValues: updates,
 	});
 
 	return contract;
@@ -761,25 +750,25 @@ export const deleteContract = command(v.pipe(v.string(), v.uuid()), async (contr
 		.limit(1);
 
 	if (!existing) {
-		throw new Error('Contract not found');
+		throw new Error("Contract not found");
 	}
 
 	// Check delete permission
-	if (!canDeleteResource(context.role, existing.createdBy || '', context.userId, 'contract')) {
-		throw new Error('Permission denied');
+	if (!canDeleteResource(context.role, existing.createdBy || "", context.userId, "contract")) {
+		throw new Error("Permission denied");
 	}
 
 	// Cannot delete signed contracts
-	if (['signed', 'completed'].includes(existing.status)) {
-		throw new Error('Cannot delete signed contract');
+	if (["signed", "completed"].includes(existing.status)) {
+		throw new Error("Cannot delete signed contract");
 	}
 
 	// Delete contract
 	await db.delete(contracts).where(eq(contracts.id, contractId));
 
 	// Log activity
-	await logActivity('contract.deleted', 'contract', contractId, {
-		oldValues: { contractNumber: existing.contractNumber }
+	await logActivity("contract.deleted", "contract", contractId, {
+		oldValues: { contractNumber: existing.contractNumber },
 	});
 });
 
@@ -798,27 +787,27 @@ export const sendContract = command(v.pipe(v.string(), v.uuid()), async (contrac
 		.limit(1);
 
 	if (!existing) {
-		throw new Error('Contract not found');
+		throw new Error("Contract not found");
 	}
 
 	// Check permission
-	if (!hasPermission(context.role, 'contract:send')) {
-		throw new Error('Permission denied');
+	if (!hasPermission(context.role, "contract:send")) {
+		throw new Error("Permission denied");
 	}
 
 	// Validate required fields before sending
 	if (!existing.clientEmail) {
-		throw new Error('Client email is required to send contract');
+		throw new Error("Client email is required to send contract");
 	}
 
 	// Update status to sent
 	const [contract] = await db
 		.update(contracts)
 		.set({
-			status: 'sent',
+			status: "sent",
 			sentAt: new Date(),
 			agencySignedAt: new Date(), // Agency signs when sending
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(contracts.id, contractId))
 		.returning();
@@ -827,8 +816,8 @@ export const sendContract = command(v.pipe(v.string(), v.uuid()), async (contrac
 	// await sendContractEmail(contract);
 
 	// Log activity
-	await logActivity('contract.sent', 'contract', contractId, {
-		newValues: { status: 'sent', sentAt: new Date().toISOString() }
+	await logActivity("contract.sent", "contract", contractId, {
+		newValues: { status: "sent", sentAt: new Date().toISOString() },
 	});
 
 	return contract;
@@ -849,25 +838,25 @@ export const resendContract = command(v.pipe(v.string(), v.uuid()), async (contr
 		.limit(1);
 
 	if (!existing) {
-		throw new Error('Contract not found');
+		throw new Error("Contract not found");
 	}
 
 	// Check permission
-	if (!hasPermission(context.role, 'contract:send')) {
-		throw new Error('Permission denied');
+	if (!hasPermission(context.role, "contract:send")) {
+		throw new Error("Permission denied");
 	}
 
 	// Must be in sent or viewed status
-	if (!['sent', 'viewed'].includes(existing.status)) {
-		throw new Error('Contract must be sent before resending');
+	if (!["sent", "viewed"].includes(existing.status)) {
+		throw new Error("Contract must be sent before resending");
 	}
 
 	// TODO: Resend email notification to client
 	// await sendContractEmail(existing);
 
 	// Log activity
-	await logActivity('contract.resent', 'contract', contractId, {
-		metadata: { resentAt: new Date().toISOString() }
+	await logActivity("contract.resent", "contract", contractId, {
+		metadata: { resentAt: new Date().toISOString() },
 	});
 
 	return existing;
@@ -890,22 +879,22 @@ export const regenerateContractTerms = command(
 			.limit(1);
 
 		if (!existing) {
-			throw new Error('Contract not found');
+			throw new Error("Contract not found");
 		}
 
 		// Check permission
-		if (!canModifyResource(context.role, existing.createdBy || '', context.userId, 'contract')) {
-			throw new Error('Permission denied');
+		if (!canModifyResource(context.role, existing.createdBy || "", context.userId, "contract")) {
+			throw new Error("Permission denied");
 		}
 
 		// Cannot modify signed contracts
-		if (['signed', 'completed'].includes(existing.status)) {
-			throw new Error('Cannot modify signed contract');
+		if (["signed", "completed"].includes(existing.status)) {
+			throw new Error("Cannot modify signed contract");
 		}
 
 		// Get template
 		if (!existing.templateId) {
-			throw new Error('Contract has no linked template');
+			throw new Error("Contract has no linked template");
 		}
 
 		const [template] = await db
@@ -914,17 +903,17 @@ export const regenerateContractTerms = command(
 			.where(
 				and(
 					eq(contractTemplates.id, existing.templateId),
-					eq(contractTemplates.agencyId, context.agencyId)
-				)
+					eq(contractTemplates.agencyId, context.agencyId),
+				),
 			)
 			.limit(1);
 
 		if (!template) {
-			throw new Error('Template not found');
+			throw new Error("Template not found");
 		}
 
 		if (!template.termsContent) {
-			throw new Error('Template has no terms content');
+			throw new Error("Template has no terms content");
 		}
 
 		// Get proposal for merge fields
@@ -997,7 +986,7 @@ export const regenerateContractTerms = command(
 								hostingFee?: string;
 								discountPercent?: number;
 								discountNote?: string;
-							} | null
+							} | null,
 						},
 						selectedPackage
 							? {
@@ -1006,53 +995,53 @@ export const regenerateContractTerms = command(
 									setupFee: selectedPackage.setupFee,
 									monthlyPrice: selectedPackage.monthlyPrice,
 									oneTimePrice: selectedPackage.oneTimePrice,
-									hostingFee: selectedPackage.hostingFee
+									hostingFee: selectedPackage.hostingFee,
 								}
 							: null,
-						selectedAddons.map((a) => ({ name: a.name, price: a.price }))
+						selectedAddons.map((a) => ({ name: a.name, price: a.price })),
 					)
 				: dataPipelineService.buildProposalMergeFields({}, null, []),
 			contract: {
-				number: existing.contractNumber || '',
+				number: existing.contractNumber || "",
 				date: existing.createdAt
-					? new Date(existing.createdAt).toLocaleDateString('en-AU', {
-							day: 'numeric',
-							month: 'long',
-							year: 'numeric'
+					? new Date(existing.createdAt).toLocaleDateString("en-AU", {
+							day: "numeric",
+							month: "long",
+							year: "numeric",
 						})
-					: '',
+					: "",
 				valid_until: existing.validUntil
-					? new Date(existing.validUntil).toLocaleDateString('en-AU', {
-							day: 'numeric',
-							month: 'long',
-							year: 'numeric'
+					? new Date(existing.validUntil).toLocaleDateString("en-AU", {
+							day: "numeric",
+							month: "long",
+							year: "numeric",
 						})
-					: '',
+					: "",
 				total_price: existing.totalPrice
-					? new Intl.NumberFormat('en-AU', {
-							style: 'currency',
-							currency: 'AUD'
+					? new Intl.NumberFormat("en-AU", {
+							style: "currency",
+							currency: "AUD",
 						}).format(parseFloat(existing.totalPrice))
-					: '',
-				payment_terms: existing.paymentTerms || '',
+					: "",
+				payment_terms: existing.paymentTerms || "",
 				commencement_date: existing.commencementDate
-					? new Date(existing.commencementDate).toLocaleDateString('en-AU', {
-							day: 'numeric',
-							month: 'long',
-							year: 'numeric'
+					? new Date(existing.commencementDate).toLocaleDateString("en-AU", {
+							day: "numeric",
+							month: "long",
+							year: "numeric",
 						})
-					: '',
+					: "",
 				completion_date: existing.completionDate
-					? new Date(existing.completionDate).toLocaleDateString('en-AU', {
-							day: 'numeric',
-							month: 'long',
-							year: 'numeric'
+					? new Date(existing.completionDate).toLocaleDateString("en-AU", {
+							day: "numeric",
+							month: "long",
+							year: "numeric",
 						})
-					: '',
-				services_description: existing.servicesDescription || '',
-				special_conditions: existing.specialConditions || ''
+					: "",
+				services_description: existing.servicesDescription || "",
+				special_conditions: existing.specialConditions || "",
 			},
-			computed: dataPipelineService.buildComputedMergeFields()
+			computed: dataPipelineService.buildComputedMergeFields(),
 		};
 
 		if (agency && profile) {
@@ -1065,7 +1054,7 @@ export const regenerateContractTerms = command(
 		// Resolve merge fields in template content
 		const generatedTermsHtml = dataPipelineService.resolveMergeFields(
 			template.termsContent,
-			mergeData
+			mergeData,
 		);
 
 		// Update contract with regenerated terms
@@ -1073,18 +1062,18 @@ export const regenerateContractTerms = command(
 			.update(contracts)
 			.set({
 				generatedTermsHtml,
-				updatedAt: new Date()
+				updatedAt: new Date(),
 			})
 			.where(eq(contracts.id, contractId))
 			.returning();
 
 		// Log activity
-		await logActivity('contract.terms_regenerated', 'contract', contractId, {
-			metadata: { templateId: template.id }
+		await logActivity("contract.terms_regenerated", "contract", contractId, {
+			metadata: { templateId: template.id },
 		});
 
 		return contract;
-	}
+	},
 );
 
 /**
@@ -1094,7 +1083,7 @@ export const regenerateContractTerms = command(
 export const linkTemplateToContract = command(
 	v.object({
 		contractId: v.pipe(v.string(), v.uuid()),
-		templateId: v.pipe(v.string(), v.uuid())
+		templateId: v.pipe(v.string(), v.uuid()),
 	}),
 	async (data) => {
 		const context = await getAgencyContext();
@@ -1107,17 +1096,17 @@ export const linkTemplateToContract = command(
 			.limit(1);
 
 		if (!existing) {
-			throw new Error('Contract not found');
+			throw new Error("Contract not found");
 		}
 
 		// Check permission
-		if (!canModifyResource(context.role, existing.createdBy || '', context.userId, 'contract')) {
-			throw new Error('Permission denied');
+		if (!canModifyResource(context.role, existing.createdBy || "", context.userId, "contract")) {
+			throw new Error("Permission denied");
 		}
 
 		// Cannot modify signed contracts
-		if (['signed', 'completed'].includes(existing.status)) {
-			throw new Error('Cannot modify signed contract');
+		if (["signed", "completed"].includes(existing.status)) {
+			throw new Error("Cannot modify signed contract");
 		}
 
 		// Get template
@@ -1128,13 +1117,13 @@ export const linkTemplateToContract = command(
 				and(
 					eq(contractTemplates.id, data.templateId),
 					eq(contractTemplates.agencyId, context.agencyId),
-					eq(contractTemplates.isActive, true)
-				)
+					eq(contractTemplates.isActive, true),
+				),
 			)
 			.limit(1);
 
 		if (!template) {
-			throw new Error('Template not found');
+			throw new Error("Template not found");
 		}
 
 		// Link template to contract
@@ -1142,13 +1131,13 @@ export const linkTemplateToContract = command(
 			.update(contracts)
 			.set({
 				templateId: template.id,
-				updatedAt: new Date()
+				updatedAt: new Date(),
 			})
 			.where(eq(contracts.id, data.contractId));
 
 		// Log activity
-		await logActivity('contract.template_linked', 'contract', data.contractId, {
-			metadata: { templateId: template.id, templateName: template.name }
+		await logActivity("contract.template_linked", "contract", data.contractId, {
+			metadata: { templateId: template.id, templateName: template.name },
 		});
 
 		// Now regenerate terms if template has terms content
@@ -1220,10 +1209,10 @@ export const linkTemplateToContract = command(
 									setupFee?: string;
 									monthlyPrice?: string;
 									total?: string;
-								}
+								},
 							},
 							selectedPackage,
-							selectedAddons
+							selectedAddons,
 						)
 					: undefined,
 				agency: agency ? dataPipelineService.buildAgencyMergeFields(agency, profile) : undefined,
@@ -1233,7 +1222,7 @@ export const linkTemplateToContract = command(
 							contactPerson: proposal.clientContactName || consultation?.contactPerson,
 							email: proposal.clientEmail || consultation?.email,
 							phone: proposal.clientPhone || consultation?.phone,
-							industry: consultation?.industry
+							industry: consultation?.industry,
 						})
 					: undefined,
 				contract: dataPipelineService.buildContractMergeFields({
@@ -1245,15 +1234,15 @@ export const linkTemplateToContract = command(
 					commencementDate: existing.commencementDate,
 					completionDate: existing.completionDate,
 					servicesDescription: existing.servicesDescription,
-					specialConditions: existing.specialConditions
+					specialConditions: existing.specialConditions,
 				}),
-				computed: dataPipelineService.buildComputedMergeFields()
+				computed: dataPipelineService.buildComputedMergeFields(),
 			};
 
 			// Resolve merge fields
 			const generatedTermsHtml = dataPipelineService.resolveMergeFields(
 				template.termsContent,
-				mergeData
+				mergeData,
 			);
 
 			// Update contract with linked template and regenerated terms
@@ -1261,7 +1250,7 @@ export const linkTemplateToContract = command(
 				.update(contracts)
 				.set({
 					generatedTermsHtml,
-					updatedAt: new Date()
+					updatedAt: new Date(),
 				})
 				.where(eq(contracts.id, data.contractId))
 				.returning();
@@ -1277,7 +1266,7 @@ export const linkTemplateToContract = command(
 			.limit(1);
 
 		return contract;
-	}
+	},
 );
 
 /**
@@ -1300,79 +1289,76 @@ export const recordContractView = command(
 		// Update view count and potentially status
 		const updates: Record<string, unknown> = {
 			viewCount: sql`${contracts.viewCount} + 1`,
-			lastViewedAt: new Date()
+			lastViewedAt: new Date(),
 		};
 
 		// If status is 'sent', change to 'viewed'
-		if (contract.status === 'sent') {
-			updates['status'] = 'viewed';
+		if (contract.status === "sent") {
+			updates["status"] = "viewed";
 		}
 
 		await db.update(contracts).set(updates).where(eq(contracts.id, contract.id));
-	}
+	},
 );
 
 /**
  * Sign a contract (public, client signing).
  * TODO: Implement email confirmation in Phase 3
  */
-export const signContract = command(
-	SignContractSchema,
-	async (data) => {
-		// Find contract by slug
-		const [contract] = await db
-			.select()
-			.from(contracts)
-			.where(eq(contracts.slug, data.contractSlug))
-			.limit(1);
+export const signContract = command(SignContractSchema, async (data) => {
+	// Find contract by slug
+	const [contract] = await db
+		.select()
+		.from(contracts)
+		.where(eq(contracts.slug, data.contractSlug))
+		.limit(1);
 
-		if (!contract) {
-			throw new Error('Contract not found');
-		}
-
-		// Verify contract can be signed
-		if (!['sent', 'viewed'].includes(contract.status)) {
-			throw new Error('Contract cannot be signed in current state');
-		}
-
-		// Check if expired
-		if (contract.validUntil && new Date(contract.validUntil) < new Date()) {
-			throw new Error('Contract has expired');
-		}
-
-		// Record signature
-		const [signedContract] = await db
-			.update(contracts)
-			.set({
-				status: 'signed',
-				clientSignatoryName: data.signatoryName,
-				clientSignatoryTitle: data.signatoryTitle || null,
-				clientSignedAt: new Date(),
-				// Note: IP and user agent should be captured from request context
-				// clientSignatureIp: request.ip,
-				// clientSignatureUserAgent: request.headers['user-agent'],
-				updatedAt: new Date()
-			})
-			.where(eq(contracts.id, contract.id))
-			.returning();
-
-		// TODO: Send confirmation email to client
-		// TODO: Send notification to agency
-		// await sendSignatureConfirmationEmail(signedContract);
-		// await sendAgencyNotificationEmail(signedContract);
-
-		// Log activity (without user context since this is public)
-		await logActivity('contract.signed', 'contract', contract.id, {
-			newValues: {
-				status: 'signed',
-				clientSignatoryName: data.signatoryName,
-				clientSignedAt: new Date().toISOString()
-			}
-		});
-
-		return signedContract;
+	if (!contract) {
+		throw new Error("Contract not found");
 	}
-);
+
+	// Verify contract can be signed
+	if (!["sent", "viewed"].includes(contract.status)) {
+		throw new Error("Contract cannot be signed in current state");
+	}
+
+	// Check if expired
+	if (contract.validUntil && new Date(contract.validUntil) < new Date()) {
+		throw new Error("Contract has expired");
+	}
+
+	// Record signature
+	const [signedContract] = await db
+		.update(contracts)
+		.set({
+			status: "signed",
+			clientSignatoryName: data.signatoryName,
+			clientSignatoryTitle: data.signatoryTitle || null,
+			clientSignedAt: new Date(),
+			// Note: IP and user agent should be captured from request context
+			// clientSignatureIp: request.ip,
+			// clientSignatureUserAgent: request.headers['user-agent'],
+			updatedAt: new Date(),
+		})
+		.where(eq(contracts.id, contract.id))
+		.returning();
+
+	// TODO: Send confirmation email to client
+	// TODO: Send notification to agency
+	// await sendSignatureConfirmationEmail(signedContract);
+	// await sendAgencyNotificationEmail(signedContract);
+
+	// Log activity (without user context since this is public)
+	await logActivity("contract.signed", "contract", contract.id, {
+		newValues: {
+			status: "signed",
+			clientSignatoryName: data.signatoryName,
+			clientSignedAt: new Date().toISOString(),
+		},
+	});
+
+	return signedContract;
+});
 
 /**
  * Update contract status.
@@ -1380,7 +1366,7 @@ export const signContract = command(
 export const updateContractStatus = command(
 	v.object({
 		contractId: v.pipe(v.string(), v.uuid()),
-		status: ContractStatusSchema
+		status: ContractStatusSchema,
 	}),
 	async (data) => {
 		const context = await getAgencyContext();
@@ -1393,12 +1379,12 @@ export const updateContractStatus = command(
 			.limit(1);
 
 		if (!existing) {
-			throw new Error('Contract not found');
+			throw new Error("Contract not found");
 		}
 
 		// Check modify permission
-		if (!canModifyResource(context.role, existing.createdBy || '', context.userId, 'contract')) {
-			throw new Error('Permission denied');
+		if (!canModifyResource(context.role, existing.createdBy || "", context.userId, "contract")) {
+			throw new Error("Permission denied");
 		}
 
 		// Update status
@@ -1406,18 +1392,17 @@ export const updateContractStatus = command(
 			.update(contracts)
 			.set({
 				status: data.status,
-				updatedAt: new Date()
+				updatedAt: new Date(),
 			})
 			.where(eq(contracts.id, data.contractId))
 			.returning();
 
 		// Log activity
-		await logActivity('contract.status_changed', 'contract', data.contractId, {
+		await logActivity("contract.status_changed", "contract", data.contractId, {
 			oldValues: { status: existing.status },
-			newValues: { status: data.status }
+			newValues: { status: data.status },
 		});
 
 		return contract;
-	}
+	},
 );
-

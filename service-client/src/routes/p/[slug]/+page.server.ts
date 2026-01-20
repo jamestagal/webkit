@@ -6,30 +6,32 @@
  * Handles client response actions (accept, decline, revision request).
  */
 
-import type { PageServerLoad, Actions } from './$types';
-import { db } from '$lib/server/db';
-import { proposals, agencies, agencyProfiles, agencyPackages, agencyAddons } from '$lib/server/schema';
-import { eq, sql, inArray } from 'drizzle-orm';
-import { error, fail } from '@sveltejs/kit';
+import type { PageServerLoad, Actions } from "./$types";
+import { db } from "$lib/server/db";
+import {
+	proposals,
+	agencies,
+	agencyProfiles,
+	agencyPackages,
+	agencyAddons,
+} from "$lib/server/schema";
+import { eq, sql, inArray } from "drizzle-orm";
+import { error, fail } from "@sveltejs/kit";
 import {
 	acceptProposal,
 	declineProposal,
-	requestProposalRevision
-} from '$lib/api/proposals.remote';
+	requestProposalRevision,
+} from "$lib/api/proposals.remote";
 
 export const load: PageServerLoad = async ({ params, url }) => {
 	const { slug } = params;
-	const isPreview = url.searchParams.get('preview') === 'true';
+	const isPreview = url.searchParams.get("preview") === "true";
 
 	// Fetch proposal by slug
-	const [proposal] = await db
-		.select()
-		.from(proposals)
-		.where(eq(proposals.slug, slug))
-		.limit(1);
+	const [proposal] = await db.select().from(proposals).where(eq(proposals.slug, slug)).limit(1);
 
 	if (!proposal) {
-		throw error(404, 'Proposal not found');
+		throw error(404, "Proposal not found");
 	}
 
 	// Check if expired
@@ -39,12 +41,12 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	if (!isPreview) {
 		const updates: Record<string, unknown> = {
 			viewCount: sql`${proposals.viewCount} + 1`,
-			lastViewedAt: new Date()
+			lastViewedAt: new Date(),
 		};
 
 		// If status is 'sent', change to 'viewed'
-		if (proposal.status === 'sent') {
-			updates['status'] = 'viewed';
+		if (proposal.status === "sent") {
+			updates["status"] = "viewed";
 		}
 
 		db.update(proposals)
@@ -83,22 +85,19 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	const addonIds = (proposal.selectedAddons as string[]) || [];
 	let selectedAddons: (typeof agencyAddons.$inferSelect)[] = [];
 	if (addonIds.length > 0) {
-		selectedAddons = await db
-			.select()
-			.from(agencyAddons)
-			.where(inArray(agencyAddons.id, addonIds));
+		selectedAddons = await db.select().from(agencyAddons).where(inArray(agencyAddons.id, addonIds));
 	}
 
 	return {
 		proposal: {
 			...proposal,
-			status: isExpired ? 'expired' : proposal.status
+			status: isExpired ? "expired" : proposal.status,
 		},
 		agency,
 		profile,
 		selectedPackage,
 		selectedAddons,
-		isPreview
+		isPreview,
 	};
 };
 
@@ -106,52 +105,52 @@ export const load: PageServerLoad = async ({ params, url }) => {
 export const actions: Actions = {
 	accept: async ({ params, request }) => {
 		const data = await request.formData();
-		const comments = data.get('comments')?.toString() || '';
+		const comments = data.get("comments")?.toString() || "";
 
 		try {
 			const result = await acceptProposal({
 				slug: params.slug,
-				comments: comments || undefined
+				comments: comments || undefined,
 			});
-			return { success: true, action: 'accepted', contractSlug: result.contractSlug };
+			return { success: true, action: "accepted", contractSlug: result.contractSlug };
 		} catch (err) {
 			return fail(400, {
-				error: err instanceof Error ? err.message : 'Failed to accept proposal'
+				error: err instanceof Error ? err.message : "Failed to accept proposal",
 			});
 		}
 	},
 
 	decline: async ({ params, request }) => {
 		const data = await request.formData();
-		const reason = data.get('reason')?.toString() || '';
+		const reason = data.get("reason")?.toString() || "";
 
 		try {
 			await declineProposal({
 				slug: params.slug,
-				reason: reason || undefined
+				reason: reason || undefined,
 			});
-			return { success: true, action: 'declined' };
+			return { success: true, action: "declined" };
 		} catch (err) {
 			return fail(400, {
-				error: err instanceof Error ? err.message : 'Failed to decline proposal'
+				error: err instanceof Error ? err.message : "Failed to decline proposal",
 			});
 		}
 	},
 
 	requestRevision: async ({ params, request }) => {
 		const data = await request.formData();
-		const notes = data.get('notes')?.toString() || '';
+		const notes = data.get("notes")?.toString() || "";
 
 		try {
 			await requestProposalRevision({
 				slug: params.slug,
-				notes
+				notes,
 			});
-			return { success: true, action: 'revision_requested' };
+			return { success: true, action: "revision_requested" };
 		} catch (err) {
 			return fail(400, {
-				error: err instanceof Error ? err.message : 'Failed to request revision'
+				error: err instanceof Error ? err.message : "Failed to request revision",
 			});
 		}
-	}
+	},
 };

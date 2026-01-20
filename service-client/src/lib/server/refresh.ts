@@ -89,7 +89,7 @@ export async function refresh(
 		const REFRESH_TOKEN_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
 
 		// Use secure cookies only in production (HTTPS)
-		const isProduction = env.DOMAIN !== 'localhost';
+		const isProduction = env.DOMAIN !== "localhost";
 
 		event.cookies.set("access_token", newAccessToken, {
 			path: "/",
@@ -108,7 +108,9 @@ export async function refresh(
 			maxAge: REFRESH_TOKEN_MAX_AGE,
 		});
 
-		logger.debug(`Cookies set with domain=${env.DOMAIN}, access_maxAge=${ACCESS_TOKEN_MAX_AGE}s, refresh_maxAge=${REFRESH_TOKEN_MAX_AGE}s`);
+		logger.debug(
+			`Cookies set with domain=${env.DOMAIN}, access_maxAge=${ACCESS_TOKEN_MAX_AGE}s, refresh_maxAge=${REFRESH_TOKEN_MAX_AGE}s`,
+		);
 
 		end();
 		return newAccessToken;

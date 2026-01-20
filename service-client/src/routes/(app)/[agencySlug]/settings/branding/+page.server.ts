@@ -1,16 +1,16 @@
-import type { PageServerLoad } from './$types';
-import { getAgencyProfile } from '$lib/api/agency-profile.remote';
-import { getAllDocumentBrandings } from '$lib/api/document-branding.remote';
+import type { PageServerLoad } from "./$types";
+import { getAgencyProfile } from "$lib/api/agency-profile.remote";
+import { getAllDocumentBrandings } from "$lib/api/document-branding.remote";
 
 export const load: PageServerLoad = async () => {
 	const [profileData, documentBrandings] = await Promise.all([
 		getAgencyProfile(),
-		getAllDocumentBrandings()
+		getAllDocumentBrandings(),
 	]);
 
 	return {
 		profile: profileData.profile,
 		agency: profileData.agency,
-		documentBrandings
+		documentBrandings,
 	};
 };

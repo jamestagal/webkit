@@ -15,10 +15,10 @@
 // Enums and Constants
 // =============================================================================
 
-export type ConsultationStatus = 'draft' | 'completed' | 'converted';
-export type UrgencyLevel = 'low' | 'medium' | 'high' | 'critical';
-export type WebsiteStatus = 'none' | 'refresh' | 'rebuild';
-export type Timeline = 'asap' | '1-3-months' | '3-6-months' | 'flexible';
+export type ConsultationStatus = "draft" | "completed" | "converted";
+export type UrgencyLevel = "low" | "medium" | "high" | "critical";
+export type WebsiteStatus = "none" | "refresh" | "rebuild";
+export type Timeline = "asap" | "1-3-months" | "3-6-months" | "flexible";
 
 // =============================================================================
 // Social Media Structure
@@ -147,27 +147,27 @@ export function toConsultationData(c: Consultation): ConsultationData {
 			social_media: {
 				linkedin: c.social_linkedin,
 				facebook: c.social_facebook,
-				instagram: c.social_instagram
+				instagram: c.social_instagram,
 			},
 			industry: c.industry,
-			business_type: c.business_type
+			business_type: c.business_type,
 		},
 		situation: {
 			website_status: c.website_status,
 			primary_challenges: c.primary_challenges,
-			urgency_level: c.urgency_level
+			urgency_level: c.urgency_level,
 		},
 		goals_budget: {
 			primary_goals: c.primary_goals,
 			conversion_goal: c.conversion_goal,
 			budget_range: c.budget_range,
-			timeline: c.timeline
+			timeline: c.timeline,
 		},
 		preferences_notes: {
 			design_styles: c.design_styles,
 			admired_websites: c.admired_websites,
-			consultation_notes: c.consultation_notes
-		}
+			consultation_notes: c.consultation_notes,
+		},
 	};
 }
 
@@ -175,8 +175,8 @@ export function toConsultationData(c: Consultation): ConsultationData {
  * Convert structured form data to flat API request
  */
 export function toFlatConsultation(
-	data: ConsultationData
-): Omit<Consultation, 'id' | 'agency_id' | 'status' | 'created_at' | 'updated_at'> {
+	data: ConsultationData,
+): Omit<Consultation, "id" | "agency_id" | "status" | "created_at" | "updated_at"> {
 	return {
 		business_name: data.contact_business.business_name,
 		contact_person: data.contact_business.contact_person,
@@ -200,7 +200,7 @@ export function toFlatConsultation(
 
 		design_styles: data.preferences_notes.design_styles,
 		admired_websites: data.preferences_notes.admired_websites,
-		consultation_notes: data.preferences_notes.consultation_notes
+		consultation_notes: data.preferences_notes.consultation_notes,
 	};
 }
 
@@ -210,31 +210,31 @@ export function toFlatConsultation(
 export function createEmptyConsultationData(): ConsultationData {
 	return {
 		contact_business: {
-			business_name: '',
-			contact_person: '',
-			email: '',
-			phone: '',
-			website: '',
+			business_name: "",
+			contact_person: "",
+			email: "",
+			phone: "",
+			website: "",
 			social_media: {},
-			industry: '',
-			business_type: ''
+			industry: "",
+			business_type: "",
 		},
 		situation: {
-			website_status: 'none',
+			website_status: "none",
 			primary_challenges: [],
-			urgency_level: 'low'
+			urgency_level: "low",
 		},
 		goals_budget: {
 			primary_goals: [],
-			conversion_goal: '',
-			budget_range: '',
-			timeline: undefined
+			conversion_goal: "",
+			budget_range: "",
+			timeline: undefined,
 		},
 		preferences_notes: {
 			design_styles: [],
-			admired_websites: '',
-			consultation_notes: ''
-		}
+			admired_websites: "",
+			consultation_notes: "",
+		},
 	};
 }
 
@@ -243,10 +243,10 @@ export function createEmptyConsultationData(): ConsultationData {
 // =============================================================================
 
 export type ConsultationFormSection =
-	| 'contact_business'
-	| 'situation'
-	| 'goals_budget'
-	| 'preferences_notes';
+	| "contact_business"
+	| "situation"
+	| "goals_budget"
+	| "preferences_notes";
 
 export interface ConsultationFormState {
 	currentStep: number;

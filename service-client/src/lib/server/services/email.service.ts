@@ -5,21 +5,21 @@
  * Supports attachments for PDF documents.
  */
 
-import { Resend } from 'resend';
-import nodemailer from 'nodemailer';
-import { config } from 'dotenv';
-import { resolve } from 'path';
+import { Resend } from "resend";
+import nodemailer from "nodemailer";
+import { config } from "dotenv";
+import { resolve } from "path";
 
 // Load .env file explicitly for Docker compatibility
 // Vite doesn't always expose env vars to process.env in dev mode
-config({ path: resolve(process.cwd(), '.env') });
+config({ path: resolve(process.cwd(), ".env") });
 const env = process.env;
 
 // Initialize Resend client lazily
 let resendClient: Resend | null = null;
 
 function getResendClient(): Resend | null {
-	const apiKey = env['RESEND_API_KEY'];
+	const apiKey = env["RESEND_API_KEY"];
 	if (!apiKey) {
 		return null;
 	}
@@ -33,17 +33,17 @@ function getResendClient(): Resend | null {
 let smtpTransporter: nodemailer.Transporter | null = null;
 
 function getSmtpTransporter(): nodemailer.Transporter | null {
-	const host = env['SMTP_HOST'];
-	const port = env['SMTP_PORT'];
+	const host = env["SMTP_HOST"];
+	const port = env["SMTP_PORT"];
 	if (!host) {
 		return null;
 	}
 	if (!smtpTransporter) {
 		smtpTransporter = nodemailer.createTransport({
 			host,
-			port: parseInt(port || '1025', 10),
+			port: parseInt(port || "1025", 10),
 			secure: false, // Mailpit doesn't use TLS
-			auth: undefined // Mailpit doesn't require auth
+			auth: undefined, // Mailpit doesn't require auth
 		});
 	}
 	return smtpTransporter;
@@ -83,8 +83,8 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 	const { to, subject, html, replyTo, attachments } = options;
 
 	// Default from address - use environment variable or fallback
-	const fromAddress = env['EMAIL_FROM_ADDRESS'] || 'noreply@webkit.au';
-	const fromName = env['EMAIL_FROM_NAME'] || 'Webkit';
+	const fromAddress = env["EMAIL_FROM_ADDRESS"] || "noreply@webkit.au";
+	const fromName = env["EMAIL_FROM_NAME"] || "Webkit";
 	const from = `${fromName} <${fromAddress}>`;
 
 	// Try Resend first (production)
@@ -99,10 +99,10 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 		return sendViaSmtp(smtp, { to, subject, html, replyTo, attachments, from });
 	}
 
-	console.error('No email service configured (RESEND_API_KEY or SMTP_HOST required)');
+	console.error("No email service configured (RESEND_API_KEY or SMTP_HOST required)");
 	return {
 		success: false,
-		error: 'Email service not configured'
+		error: "Email service not configured",
 	};
 }
 
@@ -111,7 +111,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
  */
 async function sendViaResend(
 	resend: Resend,
-	options: SendEmailOptions & { from: string }
+	options: SendEmailOptions & { from: string },
 ): Promise<SendEmailResult> {
 	const { to, subject, html, replyTo, attachments, from } = options;
 
@@ -120,7 +120,7 @@ async function sendViaResend(
 			from,
 			to: [to],
 			subject,
-			html
+			html,
 		};
 
 		if (replyTo) {
@@ -130,30 +130,30 @@ async function sendViaResend(
 		if (attachments && attachments.length > 0) {
 			emailOptions.attachments = attachments.map((att) => ({
 				filename: att.filename,
-				content: att.content
+				content: att.content,
 			}));
 		}
 
 		const { data, error } = await resend.emails.send(emailOptions);
 
 		if (error) {
-			console.error('Resend API error:', error);
+			console.error("Resend API error:", error);
 			return {
 				success: false,
-				error: error.message
+				error: error.message,
 			};
 		}
 
-		console.log('Email sent via Resend:', data?.id);
+		console.log("Email sent via Resend:", data?.id);
 		return {
 			success: true,
-			messageId: data?.id
+			messageId: data?.id,
 		};
 	} catch (err) {
-		console.error('Failed to send email via Resend:', err);
+		console.error("Failed to send email via Resend:", err);
 		return {
 			success: false,
-			error: err instanceof Error ? err.message : 'Unknown error sending email'
+			error: err instanceof Error ? err.message : "Unknown error sending email",
 		};
 	}
 }
@@ -163,7 +163,7 @@ async function sendViaResend(
  */
 async function sendViaSmtp(
 	transporter: nodemailer.Transporter,
-	options: SendEmailOptions & { from: string }
+	options: SendEmailOptions & { from: string },
 ): Promise<SendEmailResult> {
 	const { to, subject, html, replyTo, attachments, from } = options;
 
@@ -172,7 +172,7 @@ async function sendViaSmtp(
 			from,
 			to,
 			subject,
-			html
+			html,
 		};
 
 		if (replyTo) {
@@ -182,22 +182,22 @@ async function sendViaSmtp(
 		if (attachments && attachments.length > 0) {
 			mailOptions.attachments = attachments.map((att) => ({
 				filename: att.filename,
-				content: att.content
+				content: att.content,
 			}));
 		}
 
 		const info = await transporter.sendMail(mailOptions);
 
-		console.log('Email sent via SMTP:', info.messageId);
+		console.log("Email sent via SMTP:", info.messageId);
 		return {
 			success: true,
-			messageId: info.messageId
+			messageId: info.messageId,
 		};
 	} catch (err) {
-		console.error('Failed to send email via SMTP:', err);
+		console.error("Failed to send email via SMTP:", err);
 		return {
 			success: false,
-			error: err instanceof Error ? err.message : 'Unknown error sending email'
+			error: err instanceof Error ? err.message : "Unknown error sending email",
 		};
 	}
 }
@@ -206,5 +206,5 @@ async function sendViaSmtp(
  * Check if email service is configured
  */
 export function isEmailServiceConfigured(): boolean {
-	return Boolean(env['RESEND_API_KEY']) || Boolean(env['SMTP_HOST']);
+	return Boolean(env["RESEND_API_KEY"]) || Boolean(env["SMTP_HOST"]);
 }

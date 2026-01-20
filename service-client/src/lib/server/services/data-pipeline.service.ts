@@ -12,7 +12,7 @@
  * - {{computed.full_address}} - Derived/calculated field
  */
 
-import type { Agency, AgencyProfile, Consultation } from '$lib/server/schema';
+import type { Agency, AgencyProfile, Consultation } from "$lib/server/schema";
 
 // =============================================================================
 // Type Definitions
@@ -179,17 +179,17 @@ export class DataPipelineService {
 			profile?.city,
 			profile?.state,
 			profile?.postcode,
-			profile?.country
+			profile?.country,
 		].filter(Boolean);
-		const fullAddress = addressParts.join(', ');
+		const fullAddress = addressParts.join(", ");
 
 		return {
 			// Core identity
 			business_name: agency.name,
 			trading_name: profile?.tradingName || agency.name,
 			legal_entity_name: profile?.legalEntityName || agency.name,
-			abn: profile?.abn || '',
-			acn: profile?.acn || '',
+			abn: profile?.abn || "",
+			acn: profile?.acn || "",
 
 			// Contact
 			email: agency.email,
@@ -198,35 +198,35 @@ export class DataPipelineService {
 			logo_url: agency.logoUrl,
 
 			// Address
-			address_line1: profile?.addressLine1 || '',
-			address_line2: profile?.addressLine2 || '',
-			city: profile?.city || '',
-			state: profile?.state || '',
-			postcode: profile?.postcode || '',
-			country: profile?.country || 'Australia',
+			address_line1: profile?.addressLine1 || "",
+			address_line2: profile?.addressLine2 || "",
+			city: profile?.city || "",
+			state: profile?.state || "",
+			postcode: profile?.postcode || "",
+			country: profile?.country || "Australia",
 			full_address: fullAddress,
 
 			// Banking
-			bank_name: profile?.bankName || '',
-			bank_bsb: profile?.bsb || '',
-			bank_account_number: profile?.accountNumber || '',
-			bank_account_name: profile?.accountName || '',
+			bank_name: profile?.bankName || "",
+			bank_bsb: profile?.bsb || "",
+			bank_account_number: profile?.accountNumber || "",
+			bank_account_name: profile?.accountName || "",
 
 			// Tax
 			gst_registered: profile?.gstRegistered ?? true,
-			gst_rate: profile?.gstRate || '10.00',
+			gst_rate: profile?.gstRate || "10.00",
 
 			// Branding
 			primary_color: agency.primaryColor,
 			secondary_color: agency.secondaryColor,
 			accent_color: agency.accentColor,
-			tagline: profile?.tagline || '',
+			tagline: profile?.tagline || "",
 
 			// Socials
-			social_linkedin: profile?.socialLinkedin || '',
-			social_facebook: profile?.socialFacebook || '',
-			social_instagram: profile?.socialInstagram || '',
-			social_twitter: profile?.socialTwitter || ''
+			social_linkedin: profile?.socialLinkedin || "",
+			social_facebook: profile?.socialFacebook || "",
+			social_instagram: profile?.socialInstagram || "",
+			social_twitter: profile?.socialTwitter || "",
 		};
 	}
 
@@ -236,35 +236,35 @@ export class DataPipelineService {
 	buildClientMergeFields(consultation: Consultation): ClientMergeFields {
 		return {
 			// Contact & Business (Step 1)
-			business_name: consultation.businessName || '',
-			contact_person: consultation.contactPerson || '',
-			email: consultation.email || '',
-			phone: consultation.phone || '',
-			website: consultation.website || '',
-			industry: consultation.industry || '',
-			business_type: consultation.businessType || '',
-			social_linkedin: consultation.socialLinkedin || '',
-			social_facebook: consultation.socialFacebook || '',
-			social_instagram: consultation.socialInstagram || '',
+			business_name: consultation.businessName || "",
+			contact_person: consultation.contactPerson || "",
+			email: consultation.email || "",
+			phone: consultation.phone || "",
+			website: consultation.website || "",
+			industry: consultation.industry || "",
+			business_type: consultation.businessType || "",
+			social_linkedin: consultation.socialLinkedin || "",
+			social_facebook: consultation.socialFacebook || "",
+			social_instagram: consultation.socialInstagram || "",
 
 			// Situation & Challenges (Step 2)
-			website_status: consultation.websiteStatus || '',
+			website_status: consultation.websiteStatus || "",
 			primary_challenges: this.formatAsCommaSeparated(consultation.primaryChallenges || []),
 			primary_challenges_list: consultation.primaryChallenges || [],
-			urgency_level: consultation.urgencyLevel || '',
+			urgency_level: consultation.urgencyLevel || "",
 
 			// Goals & Budget (Step 3)
 			primary_goals: this.formatAsCommaSeparated(consultation.primaryGoals || []),
 			primary_goals_list: consultation.primaryGoals || [],
-			conversion_goal: consultation.conversionGoal || '',
-			budget_range: consultation.budgetRange || '',
-			timeline: consultation.timeline || '',
+			conversion_goal: consultation.conversionGoal || "",
+			budget_range: consultation.budgetRange || "",
+			timeline: consultation.timeline || "",
 
 			// Preferences & Notes (Step 4)
 			design_styles: this.formatAsCommaSeparated(consultation.designStyles || []),
 			design_styles_list: consultation.designStyles || [],
-			admired_websites: consultation.admiredWebsites || '',
-			consultation_notes: consultation.consultationNotes || ''
+			admired_websites: consultation.admiredWebsites || "",
+			consultation_notes: consultation.consultationNotes || "",
 		};
 	}
 
@@ -276,8 +276,8 @@ export class DataPipelineService {
 		return {
 			current_date: this.formatDate(now),
 			current_year: now.getFullYear().toString(),
-			project_duration: '', // Calculated when proposal data is available
-			total_contract_value: '' // Calculated when contract data is available
+			project_duration: "", // Calculated when proposal data is available
+			total_contract_value: "", // Calculated when contract data is available
 		};
 	}
 
@@ -307,24 +307,22 @@ export class DataPipelineService {
 			oneTimePrice: string;
 			hostingFee: string;
 		} | null,
-		selectedAddons?: { name: string; price: string }[]
+		selectedAddons?: { name: string; price: string }[],
 	): ProposalMergeFields {
 		// Use custom pricing if provided, otherwise fall back to package pricing
-		const setupFee = proposal.customPricing?.setupFee ?? selectedPackage?.setupFee ?? '0.00';
+		const setupFee = proposal.customPricing?.setupFee ?? selectedPackage?.setupFee ?? "0.00";
 		const monthlyPrice =
-			proposal.customPricing?.monthlyPrice ?? selectedPackage?.monthlyPrice ?? '0.00';
+			proposal.customPricing?.monthlyPrice ?? selectedPackage?.monthlyPrice ?? "0.00";
 		const oneTimePrice =
-			proposal.customPricing?.oneTimePrice ?? selectedPackage?.oneTimePrice ?? '0.00';
-		const hostingFee =
-			proposal.customPricing?.hostingFee ?? selectedPackage?.hostingFee ?? '0.00';
+			proposal.customPricing?.oneTimePrice ?? selectedPackage?.oneTimePrice ?? "0.00";
+		const hostingFee = proposal.customPricing?.hostingFee ?? selectedPackage?.hostingFee ?? "0.00";
 
 		// Calculate addons total
 		const addonsTotal =
-			selectedAddons?.reduce((sum, addon) => sum + parseFloat(addon.price || '0'), 0) ?? 0;
+			selectedAddons?.reduce((sum, addon) => sum + parseFloat(addon.price || "0"), 0) ?? 0;
 
 		// Calculate subtotal (setup + one-time + addons)
-		const subtotal =
-			parseFloat(setupFee) + parseFloat(oneTimePrice) + addonsTotal;
+		const subtotal = parseFloat(setupFee) + parseFloat(oneTimePrice) + addonsTotal;
 
 		// Apply discount if present
 		const discountPercent = proposal.customPricing?.discountPercent ?? 0;
@@ -337,17 +335,17 @@ export class DataPipelineService {
 		return {
 			number: proposal.proposalNumber,
 			date: this.formatDate(proposal.createdAt),
-			valid_until: proposal.validUntil ? this.formatDate(proposal.validUntil) : '',
-			package_name: selectedPackage?.name ?? '',
-			package_description: selectedPackage?.description ?? '',
+			valid_until: proposal.validUntil ? this.formatDate(proposal.validUntil) : "",
+			package_name: selectedPackage?.name ?? "",
+			package_description: selectedPackage?.description ?? "",
 			setup_fee: this.formatCurrency(parseFloat(setupFee)),
 			monthly_price: this.formatCurrency(parseFloat(monthlyPrice)),
 			one_time_price: this.formatCurrency(parseFloat(oneTimePrice)),
 			hosting_fee: this.formatCurrency(parseFloat(hostingFee)),
-			addons: selectedAddons?.map((a) => a.name).join(', ') ?? '',
+			addons: selectedAddons?.map((a) => a.name).join(", ") ?? "",
 			subtotal: this.formatCurrency(discountedSubtotal),
 			gst: this.formatCurrency(gst),
-			total: this.formatCurrency(total)
+			total: this.formatCurrency(total),
 		};
 	}
 
@@ -369,32 +367,24 @@ export class DataPipelineService {
 		agencySignatoryTitle?: string | null;
 	}): ContractMergeFields {
 		return {
-			number: contract.contractNumber || '',
-			date: contract.createdAt ? this.formatDate(contract.createdAt) : '',
-			valid_until: contract.validUntil ? this.formatDate(contract.validUntil) : '',
+			number: contract.contractNumber || "",
+			date: contract.createdAt ? this.formatDate(contract.createdAt) : "",
+			valid_until: contract.validUntil ? this.formatDate(contract.validUntil) : "",
 			commencement_date: contract.commencementDate
 				? this.formatDate(contract.commencementDate)
-				: '',
-			completion_date: contract.completionDate
-				? this.formatDate(contract.completionDate)
-				: '',
-			total_price: contract.totalPrice
-				? this.formatCurrency(parseFloat(contract.totalPrice))
-				: '',
-			payment_terms: contract.paymentTerms || '',
+				: "",
+			completion_date: contract.completionDate ? this.formatDate(contract.completionDate) : "",
+			total_price: contract.totalPrice ? this.formatCurrency(parseFloat(contract.totalPrice)) : "",
+			payment_terms: contract.paymentTerms || "",
 			// Aliases for template flexibility
-			minimum_term: '', // Derived from package or set manually
-			cancellation_terms: '', // Derived from package or set manually
-			start_date: contract.commencementDate
-				? this.formatDate(contract.commencementDate)
-				: '',
-			end_date: contract.completionDate
-				? this.formatDate(contract.completionDate)
-				: '',
-			services_description: contract.servicesDescription || '',
-			special_conditions: contract.specialConditions || '',
-			agency_signatory_name: contract.agencySignatoryName || '',
-			agency_signatory_title: contract.agencySignatoryTitle || ''
+			minimum_term: "", // Derived from package or set manually
+			cancellation_terms: "", // Derived from package or set manually
+			start_date: contract.commencementDate ? this.formatDate(contract.commencementDate) : "",
+			end_date: contract.completionDate ? this.formatDate(contract.completionDate) : "",
+			services_description: contract.servicesDescription || "",
+			special_conditions: contract.specialConditions || "",
+			agency_signatory_name: contract.agencySignatoryName || "",
+			agency_signatory_title: contract.agencySignatoryTitle || "",
 		};
 	}
 
@@ -414,14 +404,14 @@ export class DataPipelineService {
 		paidAt?: Date | string | null;
 	}): InvoiceMergeFields {
 		const total = parseFloat(invoice.total);
-		const isPaid = invoice.status === 'paid';
+		const isPaid = invoice.status === "paid";
 		const amountPaid = isPaid ? total : 0;
 		const amountDue = isPaid ? 0 : total;
 
 		// Format payment terms
 		const paymentTermsLabel =
-			invoice.paymentTerms === 'CUSTOM'
-				? invoice.paymentTermsCustom || 'Custom'
+			invoice.paymentTerms === "CUSTOM"
+				? invoice.paymentTermsCustom || "Custom"
 				: this.getPaymentTermsLabel(invoice.paymentTerms);
 
 		return {
@@ -433,7 +423,7 @@ export class DataPipelineService {
 			gst: this.formatCurrency(parseFloat(invoice.gstAmount)),
 			total: this.formatCurrency(total),
 			amount_paid: this.formatCurrency(amountPaid),
-			amount_due: this.formatCurrency(amountDue)
+			amount_due: this.formatCurrency(amountDue),
 		};
 	}
 
@@ -453,11 +443,11 @@ export class DataPipelineService {
 			if (!sourceData) return match;
 
 			// Handle nested paths (e.g., timeline.desired_start)
-			const parts = fieldPath.split('.');
+			const parts = fieldPath.split(".");
 			let value: unknown = sourceData;
 
 			for (const part of parts) {
-				if (value && typeof value === 'object' && part in value) {
+				if (value && typeof value === "object" && part in value) {
 					value = (value as Record<string, unknown>)[part];
 				} else {
 					return match; // Field not found, keep original
@@ -471,25 +461,25 @@ export class DataPipelineService {
 			if (value instanceof Date) {
 				return this.formatDate(value);
 			}
-			if (typeof value === 'number') {
+			if (typeof value === "number") {
 				// Check if it looks like a currency field
 				if (
-					fieldPath.includes('fee') ||
-					fieldPath.includes('price') ||
-					fieldPath.includes('total') ||
-					fieldPath.includes('subtotal') ||
-					fieldPath.includes('gst') ||
-					fieldPath.includes('amount')
+					fieldPath.includes("fee") ||
+					fieldPath.includes("price") ||
+					fieldPath.includes("total") ||
+					fieldPath.includes("subtotal") ||
+					fieldPath.includes("gst") ||
+					fieldPath.includes("amount")
 				) {
 					return this.formatCurrency(value);
 				}
 				return value.toString();
 			}
-			if (typeof value === 'boolean') {
-				return value ? 'Yes' : 'No';
+			if (typeof value === "boolean") {
+				return value ? "Yes" : "No";
 			}
 
-			return String(value ?? '');
+			return String(value ?? "");
 		});
 	}
 
@@ -499,107 +489,107 @@ export class DataPipelineService {
 	getAvailableMergeFields(source: keyof MergeFieldData): string[] {
 		const fields: Record<keyof MergeFieldData, string[]> = {
 			agency: [
-				'business_name',
-				'trading_name',
-				'legal_entity_name',
-				'abn',
-				'acn',
-				'email',
-				'phone',
-				'website',
-				'logo_url',
-				'address_line1',
-				'address_line2',
-				'city',
-				'state',
-				'postcode',
-				'country',
-				'full_address',
-				'bank_name',
-				'bank_bsb',
-				'bank_account_number',
-				'bank_account_name',
-				'gst_registered',
-				'gst_rate',
-				'primary_color',
-				'secondary_color',
-				'accent_color',
-				'tagline',
-				'social_linkedin',
-				'social_facebook',
-				'social_instagram',
-				'social_twitter'
+				"business_name",
+				"trading_name",
+				"legal_entity_name",
+				"abn",
+				"acn",
+				"email",
+				"phone",
+				"website",
+				"logo_url",
+				"address_line1",
+				"address_line2",
+				"city",
+				"state",
+				"postcode",
+				"country",
+				"full_address",
+				"bank_name",
+				"bank_bsb",
+				"bank_account_number",
+				"bank_account_name",
+				"gst_registered",
+				"gst_rate",
+				"primary_color",
+				"secondary_color",
+				"accent_color",
+				"tagline",
+				"social_linkedin",
+				"social_facebook",
+				"social_instagram",
+				"social_twitter",
 			],
 			client: [
 				// Contact & Business
-				'business_name',
-				'contact_person',
-				'email',
-				'phone',
-				'website',
-				'industry',
-				'business_type',
-				'social_linkedin',
-				'social_facebook',
-				'social_instagram',
+				"business_name",
+				"contact_person",
+				"email",
+				"phone",
+				"website",
+				"industry",
+				"business_type",
+				"social_linkedin",
+				"social_facebook",
+				"social_instagram",
 				// Situation & Challenges
-				'website_status',
-				'primary_challenges',
-				'urgency_level',
+				"website_status",
+				"primary_challenges",
+				"urgency_level",
 				// Goals & Budget
-				'primary_goals',
-				'conversion_goal',
-				'budget_range',
-				'timeline',
+				"primary_goals",
+				"conversion_goal",
+				"budget_range",
+				"timeline",
 				// Preferences & Notes
-				'design_styles',
-				'admired_websites',
-				'consultation_notes'
+				"design_styles",
+				"admired_websites",
+				"consultation_notes",
 			],
 			proposal: [
-				'number',
-				'date',
-				'valid_until',
-				'package_name',
-				'package_description',
-				'setup_fee',
-				'monthly_price',
-				'one_time_price',
-				'hosting_fee',
-				'addons',
-				'subtotal',
-				'gst',
-				'total'
+				"number",
+				"date",
+				"valid_until",
+				"package_name",
+				"package_description",
+				"setup_fee",
+				"monthly_price",
+				"one_time_price",
+				"hosting_fee",
+				"addons",
+				"subtotal",
+				"gst",
+				"total",
 			],
 			contract: [
-				'number',
-				'date',
-				'valid_until',
-				'commencement_date',
-				'completion_date',
-				'total_price',
-				'payment_terms',
-				'minimum_term',
-				'cancellation_terms',
-				'start_date',
-				'end_date',
-				'services_description',
-				'special_conditions',
-				'agency_signatory_name',
-				'agency_signatory_title'
+				"number",
+				"date",
+				"valid_until",
+				"commencement_date",
+				"completion_date",
+				"total_price",
+				"payment_terms",
+				"minimum_term",
+				"cancellation_terms",
+				"start_date",
+				"end_date",
+				"services_description",
+				"special_conditions",
+				"agency_signatory_name",
+				"agency_signatory_title",
 			],
 			invoice: [
-				'number',
-				'date',
-				'due_date',
-				'payment_terms',
-				'subtotal',
-				'gst',
-				'total',
-				'amount_paid',
-				'amount_due'
+				"number",
+				"date",
+				"due_date",
+				"payment_terms",
+				"subtotal",
+				"gst",
+				"total",
+				"amount_paid",
+				"amount_due",
 			],
-			computed: ['current_date', 'current_year', 'project_duration', 'total_contract_value']
+			computed: ["current_date", "current_year", "project_duration", "total_contract_value"],
 		};
 
 		return fields[source] || [];
@@ -613,14 +603,14 @@ export class DataPipelineService {
 	 * Format a number as Australian currency.
 	 */
 	formatCurrency(value: number | string): string {
-		const num = typeof value === 'string' ? parseFloat(value) : value;
-		if (isNaN(num)) return '$0.00';
+		const num = typeof value === "string" ? parseFloat(value) : value;
+		if (isNaN(num)) return "$0.00";
 
-		return new Intl.NumberFormat('en-AU', {
-			style: 'currency',
-			currency: 'AUD',
+		return new Intl.NumberFormat("en-AU", {
+			style: "currency",
+			currency: "AUD",
 			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
+			maximumFractionDigits: 2,
 		}).format(num);
 	}
 
@@ -628,13 +618,13 @@ export class DataPipelineService {
 	 * Format a date in Australian format (e.g., "25 Dec 2025").
 	 */
 	formatDate(date: Date | string): string {
-		const d = typeof date === 'string' ? new Date(date) : date;
-		if (isNaN(d.getTime())) return '';
+		const d = typeof date === "string" ? new Date(date) : date;
+		if (isNaN(d.getTime())) return "";
 
-		return d.toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric'
+		return d.toLocaleDateString("en-AU", {
+			day: "numeric",
+			month: "short",
+			year: "numeric",
 		});
 	}
 
@@ -642,33 +632,33 @@ export class DataPipelineService {
 	 * Format a date as ISO string (YYYY-MM-DD).
 	 */
 	formatDateISO(date: Date | string): string {
-		const d = typeof date === 'string' ? new Date(date) : date;
-		if (isNaN(d.getTime())) return '';
-		return d.toISOString().split('T')[0] || '';
+		const d = typeof date === "string" ? new Date(date) : date;
+		if (isNaN(d.getTime())) return "";
+		return d.toISOString().split("T")[0] || "";
 	}
 
 	/**
 	 * Format an array as a bullet list.
 	 */
 	formatAsBulletList(items: string[]): string {
-		if (!items || items.length === 0) return '';
-		return items.map((item) => `• ${item}`).join('\n');
+		if (!items || items.length === 0) return "";
+		return items.map((item) => `• ${item}`).join("\n");
 	}
 
 	/**
 	 * Format an array as a comma-separated list.
 	 */
 	formatAsCommaSeparated(items: string[]): string {
-		if (!items || items.length === 0) return '';
-		return items.join(', ');
+		if (!items || items.length === 0) return "";
+		return items.join(", ");
 	}
 
 	/**
 	 * Format an array as a numbered list.
 	 */
 	formatAsNumberedList(items: string[]): string {
-		if (!items || items.length === 0) return '';
-		return items.map((item, index) => `${index + 1}. ${item}`).join('\n');
+		if (!items || items.length === 0) return "";
+		return items.map((item, index) => `${index + 1}. ${item}`).join("\n");
 	}
 
 	// =========================================================================
@@ -681,7 +671,7 @@ export class DataPipelineService {
 	 */
 	generateDocumentNumber(prefix: string, nextNumber: number, year?: number): string {
 		const y = year ?? new Date().getFullYear();
-		return `${prefix}-${y}-${nextNumber.toString().padStart(4, '0')}`;
+		return `${prefix}-${y}-${nextNumber.toString().padStart(4, "0")}`;
 	}
 
 	// =========================================================================
@@ -720,16 +710,16 @@ export class DataPipelineService {
 		const dueDate = new Date(invoiceDate);
 
 		switch (paymentTerms) {
-			case 'DUE_ON_RECEIPT':
+			case "DUE_ON_RECEIPT":
 				// Same day
 				break;
-			case 'NET_7':
+			case "NET_7":
 				dueDate.setDate(dueDate.getDate() + 7);
 				break;
-			case 'NET_14':
+			case "NET_14":
 				dueDate.setDate(dueDate.getDate() + 14);
 				break;
-			case 'NET_30':
+			case "NET_30":
 				dueDate.setDate(dueDate.getDate() + 30);
 				break;
 			default:
@@ -744,10 +734,10 @@ export class DataPipelineService {
 	 */
 	getPaymentTermsLabel(paymentTerms: string): string {
 		const labels: Record<string, string> = {
-			DUE_ON_RECEIPT: 'Due on Receipt',
-			NET_7: 'Net 7 Days',
-			NET_14: 'Net 14 Days',
-			NET_30: 'Net 30 Days'
+			DUE_ON_RECEIPT: "Due on Receipt",
+			NET_7: "Net 7 Days",
+			NET_14: "Net 14 Days",
+			NET_30: "Net 30 Days",
 		};
 		return labels[paymentTerms] || paymentTerms;
 	}

@@ -7,19 +7,19 @@
  * npm install @anthropic-ai/sdk
  */
 
-import Anthropic from '@anthropic-ai/sdk';
-import { env } from '$env/dynamic/private';
-import type { AIProposalOutput } from '$lib/types/ai-proposal';
-import type { PromptContext } from '../prompts/prompt-builder';
-import type { ProposalSection } from '../prompts/proposal-sections';
-import { buildProposalPrompt } from '../prompts/prompt-builder';
-import { parseAIResponse, withRetry, extractPartialContent } from './response-parser';
-import { AIServiceError, AIErrorCode, fromAnthropicError } from './ai-errors';
+import Anthropic from "@anthropic-ai/sdk";
+import { env } from "$env/dynamic/private";
+import type { AIProposalOutput } from "$lib/types/ai-proposal";
+import type { PromptContext } from "../prompts/prompt-builder";
+import type { ProposalSection } from "../prompts/proposal-sections";
+import { buildProposalPrompt } from "../prompts/prompt-builder";
+import { parseAIResponse, withRetry, extractPartialContent } from "./response-parser";
+import { AIServiceError, AIErrorCode, fromAnthropicError } from "./ai-errors";
 
 /**
  * Default model - Claude Haiku 4.5 for speed and cost efficiency
  */
-const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
+const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
 /**
  * Maximum tokens for generation
@@ -30,12 +30,12 @@ const MAX_TOKENS = 4096;
  * Get configured Anthropic client
  */
 function getClient(): Anthropic {
-	const apiKey = env['ANTHROPIC_API_KEY'];
+	const apiKey = env["ANTHROPIC_API_KEY"];
 	if (!apiKey) {
 		throw new AIServiceError(
-			'ANTHROPIC_API_KEY environment variable is not set',
+			"ANTHROPIC_API_KEY environment variable is not set",
 			AIErrorCode.API_KEY_MISSING,
-			false
+			false,
 		);
 	}
 	return new Anthropic({ apiKey });
@@ -78,7 +78,7 @@ export interface GenerationResult {
 export async function generateProposalContent(
 	context: PromptContext,
 	sections: ProposalSection[],
-	options: GenerateOptions = {}
+	options: GenerateOptions = {},
 ): Promise<GenerationResult> {
 	const { maxRetries = 2, allowPartial = true, model = DEFAULT_MODEL } = options;
 
@@ -95,31 +95,27 @@ export async function generateProposalContent(
 					model,
 					max_tokens: MAX_TOKENS,
 					system,
-					messages: [{ role: 'user', content: user }]
+					messages: [{ role: "user", content: user }],
 				});
 
 				// Extract text content
-				const textBlock = response.content.find((block) => block.type === 'text');
-				if (!textBlock || textBlock.type !== 'text') {
-					throw new AIServiceError(
-						'No text content in response',
-						AIErrorCode.RESPONSE_EMPTY,
-						true
-					);
+				const textBlock = response.content.find((block) => block.type === "text");
+				if (!textBlock || textBlock.type !== "text") {
+					throw new AIServiceError("No text content in response", AIErrorCode.RESPONSE_EMPTY, true);
 				}
 
 				// Parse the response
 				const content = parseAIResponse(textBlock.text, {
 					allowPartial,
-					requiredSections: allowPartial ? undefined : sections
+					requiredSections: allowPartial ? undefined : sections,
 				});
 
 				// Determine which sections were generated
 				const generatedSections = sections.filter(
-					(s) => content[s as keyof AIProposalOutput] !== undefined
+					(s) => content[s as keyof AIProposalOutput] !== undefined,
 				);
 				const failedSections = sections.filter(
-					(s) => content[s as keyof AIProposalOutput] === undefined
+					(s) => content[s as keyof AIProposalOutput] === undefined,
 				);
 
 				return {
@@ -129,8 +125,8 @@ export async function generateProposalContent(
 					failedSections,
 					usage: {
 						inputTokens: response.usage?.input_tokens || 0,
-						outputTokens: response.usage?.output_tokens || 0
-					}
+						outputTokens: response.usage?.output_tokens || 0,
+					},
 				};
 			} catch (error) {
 				// Handle Anthropic-specific errors
@@ -140,7 +136,7 @@ export async function generateProposalContent(
 				throw error;
 			}
 		},
-		{ maxRetries }
+		{ maxRetries },
 	);
 
 	return result;
@@ -155,22 +151,22 @@ export function validateContext(context: PromptContext): {
 } {
 	const missingFields: string[] = [];
 
-	if (!context.businessName || context.businessName === 'Unknown Business') {
-		missingFields.push('Business Name');
+	if (!context.businessName || context.businessName === "Unknown Business") {
+		missingFields.push("Business Name");
 	}
-	if (!context.industry || context.industry === 'General') {
-		missingFields.push('Industry');
+	if (!context.industry || context.industry === "General") {
+		missingFields.push("Industry");
 	}
 	if (!context.primaryChallenges || context.primaryChallenges.length === 0) {
-		missingFields.push('Primary Challenges');
+		missingFields.push("Primary Challenges");
 	}
 	if (!context.primaryGoals || context.primaryGoals.length === 0) {
-		missingFields.push('Primary Goals');
+		missingFields.push("Primary Goals");
 	}
 
 	return {
 		valid: missingFields.length === 0,
-		missingFields
+		missingFields,
 	};
 }
 
@@ -198,11 +194,11 @@ export function isContextTooLarge(context: PromptContext): boolean {
 export async function generateSingleSection(
 	context: PromptContext,
 	section: ProposalSection,
-	options: GenerateOptions = {}
+	options: GenerateOptions = {},
 ): Promise<AIProposalOutput[keyof AIProposalOutput] | undefined> {
 	const result = await generateProposalContent(context, [section], {
 		...options,
-		allowPartial: false
+		allowPartial: false,
 	});
 	return result.content[section as keyof AIProposalOutput];
 }
@@ -222,9 +218,14 @@ export function tryExtractPartial(rawText: string): Partial<AIProposalOutput> {
  * SSE event types for streaming
  */
 export type StreamEvent =
-	| { type: 'chunk'; text: string }
-	| { type: 'done'; content: AIProposalOutput; generatedSections: string[]; failedSections: string[] }
-	| { type: 'error'; code: AIErrorCode; message: string };
+	| { type: "chunk"; text: string }
+	| {
+			type: "done";
+			content: AIProposalOutput;
+			generatedSections: string[];
+			failedSections: string[];
+	  }
+	| { type: "error"; code: AIErrorCode; message: string };
 
 /**
  * Generate proposal content with streaming.
@@ -233,7 +234,7 @@ export type StreamEvent =
 export async function* streamProposalContent(
 	context: PromptContext,
 	sections: ProposalSection[],
-	options: GenerateOptions = {}
+	options: GenerateOptions = {},
 ): AsyncGenerator<StreamEvent> {
 	const { model = DEFAULT_MODEL } = options;
 
@@ -241,41 +242,38 @@ export async function* streamProposalContent(
 	const { system, user } = buildProposalPrompt({ context, sections });
 
 	const client = getClient();
-	let fullText = '';
+	let fullText = "";
 
 	try {
 		const stream = client.messages.stream({
 			model,
 			max_tokens: MAX_TOKENS,
 			system,
-			messages: [{ role: 'user', content: user }]
+			messages: [{ role: "user", content: user }],
 		});
 
 		// Yield text chunks as they arrive
 		for await (const event of stream) {
-			if (
-				event.type === 'content_block_delta' &&
-				event.delta.type === 'text_delta'
-			) {
+			if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
 				const chunk = event.delta.text;
 				fullText += chunk;
-				yield { type: 'chunk', text: chunk };
+				yield { type: "chunk", text: chunk };
 			}
 		}
 
 		// DEBUG: Log raw AI response for troubleshooting
-		console.log('[AI DEBUG] Raw response length:', fullText.length);
-		console.log('[AI DEBUG] Raw response preview:', fullText.slice(0, 500));
+		console.log("[AI DEBUG] Raw response length:", fullText.length);
+		console.log("[AI DEBUG] Raw response preview:", fullText.slice(0, 500));
 
 		// Parse the complete response
 		const content = parseAIResponse(fullText, {
 			allowPartial: true,
-			requiredSections: undefined
+			requiredSections: undefined,
 		});
 
 		// DEBUG: Log parsed content keys
-		console.log('[AI DEBUG] Parsed content keys:', Object.keys(content));
-		console.log('[AI DEBUG] Parsed content sections:', {
+		console.log("[AI DEBUG] Parsed content keys:", Object.keys(content));
+		console.log("[AI DEBUG] Parsed content sections:", {
 			executiveSummary: !!content.executiveSummary,
 			opportunityContent: !!content.opportunityContent,
 			currentIssues: content.currentIssues?.length || 0,
@@ -283,38 +281,38 @@ export async function* streamProposalContent(
 			proposedPages: content.proposedPages?.length || 0,
 			timeline: content.timeline?.length || 0,
 			nextSteps: content.nextSteps?.length || 0,
-			closingContent: !!content.closingContent
+			closingContent: !!content.closingContent,
 		});
 
 		// Determine which sections were generated
 		const generatedSections = sections.filter(
-			(s) => content[s as keyof AIProposalOutput] !== undefined
+			(s) => content[s as keyof AIProposalOutput] !== undefined,
 		);
 		const failedSections = sections.filter(
-			(s) => content[s as keyof AIProposalOutput] === undefined
+			(s) => content[s as keyof AIProposalOutput] === undefined,
 		);
 
-		console.log('[AI DEBUG] Generated sections:', generatedSections);
-		console.log('[AI DEBUG] Failed sections:', failedSections);
+		console.log("[AI DEBUG] Generated sections:", generatedSections);
+		console.log("[AI DEBUG] Failed sections:", failedSections);
 
 		yield {
-			type: 'done',
+			type: "done",
 			content,
 			generatedSections,
-			failedSections
+			failedSections,
 		};
 	} catch (error) {
 		// Handle errors
 		if (error instanceof Anthropic.APIError) {
 			const aiError = fromAnthropicError(error);
-			yield { type: 'error', code: aiError.code, message: aiError.message };
+			yield { type: "error", code: aiError.code, message: aiError.message };
 		} else if (error instanceof AIServiceError) {
-			yield { type: 'error', code: error.code, message: error.message };
+			yield { type: "error", code: error.code, message: error.message };
 		} else {
 			yield {
-				type: 'error',
+				type: "error",
 				code: AIErrorCode.API_TIMEOUT,
-				message: error instanceof Error ? error.message : 'Unknown error'
+				message: error instanceof Error ? error.message : "Unknown error",
 			};
 		}
 	}

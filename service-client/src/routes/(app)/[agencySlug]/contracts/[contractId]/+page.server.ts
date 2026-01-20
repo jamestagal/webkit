@@ -1,13 +1,13 @@
-import type { PageServerLoad } from './$types';
-import { getContractWithRelations } from '$lib/api/contracts.remote';
-import { getAllActiveSchedules, getContractTemplates } from '$lib/api/contract-templates.remote';
-import { error } from '@sveltejs/kit';
+import type { PageServerLoad } from "./$types";
+import { getContractWithRelations } from "$lib/api/contracts.remote";
+import { getAllActiveSchedules, getContractTemplates } from "$lib/api/contract-templates.remote";
+import { error } from "@sveltejs/kit";
 
 export const load: PageServerLoad = async ({ params }) => {
 	const result = await getContractWithRelations(params.contractId);
 
 	if (!result?.contract) {
-		throw error(404, 'Contract not found');
+		throw error(404, "Contract not found");
 	}
 
 	// Load available schedule sections for selection
@@ -31,6 +31,6 @@ export const load: PageServerLoad = async ({ params }) => {
 		proposal: result.proposal,
 		template: result.template,
 		availableSchedules,
-		availableTemplates
+		availableTemplates,
 	};
 };

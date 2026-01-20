@@ -6,10 +6,10 @@
  * proposals, contracts, and invoices have proper agency details.
  */
 
-import type { PageServerLoad } from './$types';
-import { db } from '$lib/server/db';
-import { agencyProfiles } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
+import type { PageServerLoad } from "./$types";
+import { db } from "$lib/server/db";
+import { agencyProfiles } from "$lib/server/schema";
+import { eq } from "drizzle-orm";
 
 export const load: PageServerLoad = async ({ parent }) => {
 	const { agency } = await parent();
@@ -21,7 +21,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 			addressLine1: agencyProfiles.addressLine1,
 			city: agencyProfiles.city,
 			state: agencyProfiles.state,
-			postcode: agencyProfiles.postcode
+			postcode: agencyProfiles.postcode,
 		})
 		.from(agencyProfiles)
 		.where(eq(agencyProfiles.agencyId, agency.id))
@@ -38,6 +38,6 @@ export const load: PageServerLoad = async ({ parent }) => {
 	);
 
 	return {
-		isProfileComplete
+		isProfileComplete,
 	};
 };

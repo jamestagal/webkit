@@ -43,15 +43,15 @@ export function createDragReorder<T>(options: DragReorderOptions<T>) {
 	function start(event: DragEvent, index: number) {
 		draggedIndex = index;
 		if (event.dataTransfer) {
-			event.dataTransfer.effectAllowed = 'move';
-			event.dataTransfer.setData('text/plain', index.toString());
+			event.dataTransfer.effectAllowed = "move";
+			event.dataTransfer.setData("text/plain", index.toString());
 		}
 	}
 
 	function over(event: DragEvent, index: number) {
 		event.preventDefault();
 		if (event.dataTransfer) {
-			event.dataTransfer.dropEffect = 'move';
+			event.dataTransfer.dropEffect = "move";
 		}
 		if (draggedIndex !== null && draggedIndex !== index) {
 			dragOverIndex = index;
@@ -107,6 +107,6 @@ export function createDragReorder<T>(options: DragReorderOptions<T>) {
 		},
 		get dragOverIndex() {
 			return dragOverIndex;
-		}
+		},
 	};
 }

@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Building2, ArrowLeft, Check, X } from 'lucide-svelte';
+	import { Building2, ArrowLeft, Check, X, Sparkles } from 'lucide-svelte';
 	import { createAgency, checkSlugAvailable } from '$lib/api/agency.remote';
 	import { env } from '$env/dynamic/public';
 
+	let { data } = $props();
+
 	// Get app domain from environment (defaults to webkit.au)
-	const appDomain = env.PUBLIC_APP_DOMAIN || 'webkit.au';
+	const appDomain = env['PUBLIC_APP_DOMAIN'] || 'webkit.au';
 
 	let name = $state('');
 	let slug = $state('');
@@ -82,7 +84,8 @@
 		try {
 			const result = await createAgency({
 				name: name.trim(),
-				slug: slug || undefined
+				slug: slug || undefined,
+				inviteToken: data.inviteToken || undefined
 			});
 
 			// Redirect to the new agency
@@ -106,12 +109,38 @@
 		Back to agencies
 	</a>
 
+	{#if data.hasInvite && data.inviteValid}
+		<!-- Beta Invite Banner -->
+		<div class="mb-6 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 p-4 text-white shadow-lg">
+			<div class="flex items-start gap-3">
+				<div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-white/20">
+					<Sparkles class="h-5 w-5" />
+				</div>
+				<div>
+					<h3 class="font-semibold">Beta Access Activated!</h3>
+					<p class="text-sm text-white/90">
+						Your account will have full enterprise features for free.
+					</p>
+					{#if data.inviteEmail}
+						<p class="mt-1 text-xs text-white/70">Invite for: {data.inviteEmail}</p>
+					{/if}
+				</div>
+			</div>
+		</div>
+	{/if}
+
 	<!-- Header -->
 	<div class="mb-8 text-center">
 		<div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
 			<Building2 class="h-8 w-8 text-primary" />
 		</div>
-		<h1 class="text-2xl font-bold">Create New Agency</h1>
+		<h1 class="text-2xl font-bold">
+			{#if data.hasInvite && data.inviteValid}
+				Create Your Beta Agency
+			{:else}
+				Create New Agency
+			{/if}
+		</h1>
 		<p class="text-base-content/70 mt-1">
 			Set up your agency to start creating consultations and proposals.
 		</p>

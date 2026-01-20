@@ -5,8 +5,8 @@
  * Uses getRequestEvent() to access the authenticated user from hooks.server.ts.
  */
 
-import { getRequestEvent } from '$app/server';
-import { error } from '@sveltejs/kit';
+import { getRequestEvent } from "$app/server";
+import { error } from "@sveltejs/kit";
 
 /**
  * Get the authenticated user ID from the current request.
@@ -16,13 +16,13 @@ export function getUserId(): string {
 	const event = getRequestEvent();
 
 	if (!event) {
-		throw error(500, 'No request event available');
+		throw error(500, "No request event available");
 	}
 
 	const userId = event.locals.user?.id;
 
 	if (!userId) {
-		throw error(401, 'Not authenticated');
+		throw error(401, "Not authenticated");
 	}
 
 	return userId;
@@ -36,13 +36,13 @@ export function getUser() {
 	const event = getRequestEvent();
 
 	if (!event) {
-		throw error(500, 'No request event available');
+		throw error(500, "No request event available");
 	}
 
 	const user = event.locals.user;
 
 	if (!user?.id) {
-		throw error(401, 'Not authenticated');
+		throw error(401, "Not authenticated");
 	}
 
 	return user;
@@ -88,7 +88,7 @@ export function getAccessToken(): string | undefined {
  */
 export async function getAgencyId(): Promise<string> {
 	// Import dynamically to avoid circular dependencies
-	const { getAgencyContext } = await import('./agency');
+	const { getAgencyContext } = await import("./agency");
 	const context = await getAgencyContext();
 	return context.agencyId;
 }

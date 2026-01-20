@@ -5,13 +5,13 @@
  * Super admins can manage all agencies, users, and view system-wide data.
  */
 
-import { error } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { agencies, users } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
-import { getUserId } from '$lib/server/auth';
-import { getRequestEvent } from '$app/server';
-import type { AgencyContext } from '$lib/server/agency';
+import { error } from "@sveltejs/kit";
+import { db } from "$lib/server/db";
+import { agencies, users } from "$lib/server/schema";
+import { eq } from "drizzle-orm";
+import { getUserId } from "$lib/server/auth";
+import { getRequestEvent } from "$app/server";
+import type { AgencyContext } from "$lib/server/agency";
 
 // =============================================================================
 // Super Admin Access Flag
@@ -34,7 +34,7 @@ export function isSuperAdmin(access: number): boolean {
 // Super Admin Cookie for Agency Impersonation
 // =============================================================================
 
-const SUPER_ADMIN_AGENCY_COOKIE = 'super_admin_agency_id';
+const SUPER_ADMIN_AGENCY_COOKIE = "super_admin_agency_id";
 
 /**
  * Get the agency ID the super admin is currently impersonating.
@@ -50,11 +50,11 @@ export function getImpersonatedAgencyId(): string | undefined {
 export function setImpersonatedAgencyId(agencyId: string): void {
 	const event = getRequestEvent();
 	event?.cookies.set(SUPER_ADMIN_AGENCY_COOKIE, agencyId, {
-		path: '/',
+		path: "/",
 		httpOnly: true,
-		secure: process.env['NODE_ENV'] === 'production',
-		sameSite: 'lax',
-		maxAge: 60 * 60 * 4 // 4 hours (shorter for security)
+		secure: process.env["NODE_ENV"] === "production",
+		sameSite: "lax",
+		maxAge: 60 * 60 * 4, // 4 hours (shorter for security)
 	});
 }
 
@@ -63,7 +63,7 @@ export function setImpersonatedAgencyId(agencyId: string): void {
  */
 export function clearImpersonatedAgencyId(): void {
 	const event = getRequestEvent();
-	event?.cookies.delete(SUPER_ADMIN_AGENCY_COOKIE, { path: '/' });
+	event?.cookies.delete(SUPER_ADMIN_AGENCY_COOKIE, { path: "/" });
 }
 
 // =============================================================================
@@ -89,24 +89,24 @@ export async function requireSuperAdmin(): Promise<SuperAdminContext> {
 		.select({
 			id: users.id,
 			email: users.email,
-			access: users.access
+			access: users.access,
 		})
 		.from(users)
 		.where(eq(users.id, userId))
 		.limit(1);
 
 	if (!user) {
-		throw error(403, 'User not found');
+		throw error(403, "User not found");
 	}
 
 	if (!isSuperAdmin(user.access)) {
-		throw error(403, 'Super admin access required');
+		throw error(403, "Super admin access required");
 	}
 
 	return {
 		userId: user.id,
 		email: user.email,
-		access: user.access
+		access: user.access,
 	};
 }
 
@@ -139,7 +139,7 @@ export async function checkIsSuperAdmin(): Promise<boolean> {
  */
 export async function getVirtualOwnerContext(
 	userId: string,
-	agencyId: string
+	agencyId: string,
 ): Promise<AgencyContext | null> {
 	// Verify user is super admin
 	const [user] = await db
@@ -162,7 +162,7 @@ export async function getVirtualOwnerContext(
 			primaryColor: agencies.primaryColor,
 			secondaryColor: agencies.secondaryColor,
 			accentColor: agencies.accentColor,
-			status: agencies.status
+			status: agencies.status,
 		})
 		.from(agencies)
 		.where(eq(agencies.id, agencyId))
@@ -176,7 +176,7 @@ export async function getVirtualOwnerContext(
 	return {
 		agencyId: agency.id,
 		userId,
-		role: 'owner', // Super admins get owner-level access
+		role: "owner", // Super admins get owner-level access
 		agency: {
 			id: agency.id,
 			name: agency.name,
@@ -185,7 +185,7 @@ export async function getVirtualOwnerContext(
 			primaryColor: agency.primaryColor,
 			secondaryColor: agency.secondaryColor,
 			accentColor: agency.accentColor,
-			status: agency.status
-		}
+			status: agency.status,
+		},
 	};
 }

@@ -5,25 +5,25 @@
  * All functions are protected by permission checks and agency scoping.
  */
 
-import { query, command } from '$app/server';
-import * as v from 'valibot';
-import { db } from '$lib/server/db';
-import { agencyProfiles, invoices } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
-import { getAgencyContext } from '$lib/server/agency';
-import { hasPermission } from '$lib/server/permissions';
-import Stripe from 'stripe';
-import { env } from '$env/dynamic/public';
-import { env as privateEnv } from '$env/dynamic/private';
-import { error } from '@sveltejs/kit';
+import { query, command } from "$app/server";
+import * as v from "valibot";
+import { db } from "$lib/server/db";
+import { agencyProfiles, invoices } from "$lib/server/schema";
+import { eq } from "drizzle-orm";
+import { getAgencyContext } from "$lib/server/agency";
+import { hasPermission } from "$lib/server/permissions";
+import Stripe from "stripe";
+import { env } from "$env/dynamic/public";
+import { env as privateEnv } from "$env/dynamic/private";
+import { error } from "@sveltejs/kit";
 
 // Lazy-initialize Stripe to avoid module-load-time errors
 let _stripe: Stripe | null = null;
 function getStripe(): Stripe {
 	if (!_stripe) {
-		const secretKey = privateEnv['STRIPE_SECRET_KEY'];
+		const secretKey = privateEnv["STRIPE_SECRET_KEY"];
 		if (!secretKey) {
-			throw new Error('STRIPE_SECRET_KEY environment variable is not set');
+			throw new Error("STRIPE_SECRET_KEY environment variable is not set");
 		}
 		_stripe = new Stripe(secretKey);
 	}
@@ -31,7 +31,7 @@ function getStripe(): Stripe {
 }
 
 function isStripeConfigured(): boolean {
-	return !!privateEnv['STRIPE_SECRET_KEY'];
+	return !!privateEnv["STRIPE_SECRET_KEY"];
 }
 
 // =============================================================================
@@ -39,11 +39,11 @@ function isStripeConfigured(): boolean {
 // =============================================================================
 
 const CreatePaymentLinkSchema = v.object({
-	invoiceId: v.pipe(v.string(), v.uuid())
+	invoiceId: v.pipe(v.string(), v.uuid()),
 });
 
 const DisablePaymentLinkSchema = v.object({
-	invoiceId: v.pipe(v.string(), v.uuid())
+	invoiceId: v.pipe(v.string(), v.uuid()),
 });
 
 // =============================================================================
@@ -56,53 +56,53 @@ const DisablePaymentLinkSchema = v.object({
 export const getStripeConnectionStatus = query(async () => {
 	const context = await getAgencyContext();
 
-	if (!hasPermission(context.role, 'stripe:view_status')) {
-		throw error(403, 'Permission denied: stripe:view_status');
+	if (!hasPermission(context.role, "stripe:view_status")) {
+		throw error(403, "Permission denied: stripe:view_status");
 	}
 
 	// Check if Stripe is configured
 	if (!isStripeConfigured()) {
 		return {
 			connected: false,
-			status: 'not_configured' as const,
+			status: "not_configured" as const,
 			accountId: null,
 			chargesEnabled: false,
 			payoutsEnabled: false,
 			onboardingComplete: false,
-			connectedAt: null
+			connectedAt: null,
 		};
 	}
 
 	const profile = await db.query.agencyProfiles.findFirst({
-		where: eq(agencyProfiles.agencyId, context.agencyId)
+		where: eq(agencyProfiles.agencyId, context.agencyId),
 	});
 
 	if (!profile) {
 		return {
 			connected: false,
-			status: 'not_connected' as const,
+			status: "not_connected" as const,
 			accountId: null,
 			chargesEnabled: false,
 			payoutsEnabled: false,
 			onboardingComplete: false,
-			connectedAt: null
+			connectedAt: null,
 		};
 	}
 
 	return {
 		connected: !!profile.stripeAccountId,
 		status: profile.stripeAccountStatus as
-			| 'not_connected'
-			| 'not_configured'
-			| 'pending'
-			| 'active'
-			| 'restricted'
-			| 'disabled',
+			| "not_connected"
+			| "not_configured"
+			| "pending"
+			| "active"
+			| "restricted"
+			| "disabled",
 		accountId: profile.stripeAccountId,
 		chargesEnabled: profile.stripeChargesEnabled,
 		payoutsEnabled: profile.stripePayoutsEnabled,
 		onboardingComplete: profile.stripeOnboardingComplete,
-		connectedAt: profile.stripeConnectedAt
+		connectedAt: profile.stripeConnectedAt,
 	};
 });
 
@@ -113,12 +113,12 @@ export const getStripeConnectionStatus = query(async () => {
 export const disconnectStripeAccount = command(async () => {
 	const context = await getAgencyContext();
 
-	if (!hasPermission(context.role, 'stripe:disconnect')) {
-		throw error(403, 'Permission denied: stripe:disconnect');
+	if (!hasPermission(context.role, "stripe:disconnect")) {
+		throw error(403, "Permission denied: stripe:disconnect");
 	}
 
 	const profile = await db.query.agencyProfiles.findFirst({
-		where: eq(agencyProfiles.agencyId, context.agencyId)
+		where: eq(agencyProfiles.agencyId, context.agencyId),
 	});
 
 	if (!profile?.stripeAccountId) {
@@ -135,7 +135,7 @@ export const disconnectStripeAccount = command(async () => {
 		.set({
 			stripePaymentLinkId: null,
 			stripePaymentLinkUrl: null,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(invoices.agencyId, context.agencyId));
 
@@ -144,12 +144,12 @@ export const disconnectStripeAccount = command(async () => {
 		.update(agencyProfiles)
 		.set({
 			stripeAccountId: null,
-			stripeAccountStatus: 'not_connected',
+			stripeAccountStatus: "not_connected",
 			stripeOnboardingComplete: false,
 			stripePayoutsEnabled: false,
 			stripeChargesEnabled: false,
 			stripeConnectedAt: null,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(agencyProfiles.agencyId, context.agencyId));
 
@@ -162,16 +162,16 @@ export const disconnectStripeAccount = command(async () => {
 export const refreshStripeAccountStatus = command(async () => {
 	const context = await getAgencyContext();
 
-	if (!hasPermission(context.role, 'stripe:view_status')) {
-		throw error(403, 'Permission denied: stripe:view_status');
+	if (!hasPermission(context.role, "stripe:view_status")) {
+		throw error(403, "Permission denied: stripe:view_status");
 	}
 
 	const profile = await db.query.agencyProfiles.findFirst({
-		where: eq(agencyProfiles.agencyId, context.agencyId)
+		where: eq(agencyProfiles.agencyId, context.agencyId),
 	});
 
 	if (!profile?.stripeAccountId) {
-		return { success: false, error: 'No Stripe account connected' };
+		return { success: false, error: "No Stripe account connected" };
 	}
 
 	try {
@@ -179,17 +179,17 @@ export const refreshStripeAccountStatus = command(async () => {
 
 		// Determine account status based on actual capabilities
 		// Prioritize charges_enabled as the key indicator
-		let status: 'active' | 'restricted' | 'disabled' = 'active';
+		let status: "active" | "restricted" | "disabled" = "active";
 		if (account.charges_enabled) {
 			// If charges are enabled, account is functional
-			status = 'active';
+			status = "active";
 		} else if (account.requirements?.disabled_reason) {
-			status = 'disabled';
+			status = "disabled";
 		} else if (
 			account.requirements?.currently_due &&
 			account.requirements.currently_due.length > 0
 		) {
-			status = 'restricted';
+			status = "restricted";
 		}
 
 		// Update agency profile
@@ -200,7 +200,7 @@ export const refreshStripeAccountStatus = command(async () => {
 				stripeOnboardingComplete: account.details_submitted || false,
 				stripePayoutsEnabled: account.payouts_enabled || false,
 				stripeChargesEnabled: account.charges_enabled || false,
-				updatedAt: new Date()
+				updatedAt: new Date(),
 			})
 			.where(eq(agencyProfiles.id, profile.id));
 
@@ -209,11 +209,11 @@ export const refreshStripeAccountStatus = command(async () => {
 			status,
 			chargesEnabled: account.charges_enabled,
 			payoutsEnabled: account.payouts_enabled,
-			onboardingComplete: account.details_submitted
+			onboardingComplete: account.details_submitted,
 		};
 	} catch (err) {
-		console.error('Error refreshing Stripe account status:', err);
-		return { success: false, error: 'Failed to refresh account status' };
+		console.error("Error refreshing Stripe account status:", err);
+		return { success: false, error: "Failed to refresh account status" };
 	}
 });
 
@@ -227,29 +227,27 @@ export const refreshStripeAccountStatus = command(async () => {
 export const createPaymentLink = command(CreatePaymentLinkSchema, async (data) => {
 	const context = await getAgencyContext();
 
-	if (!hasPermission(context.role, 'invoice:create_payment_link')) {
-		throw error(403, 'Permission denied: invoice:create_payment_link');
+	if (!hasPermission(context.role, "invoice:create_payment_link")) {
+		throw error(403, "Permission denied: invoice:create_payment_link");
 	}
 
 	// Get the invoice
 	const invoice = await db.query.invoices.findFirst({
-		where: eq(invoices.id, data.invoiceId)
+		where: eq(invoices.id, data.invoiceId),
 	});
 
 	if (!invoice) {
-		throw new Error('Invoice not found');
+		throw new Error("Invoice not found");
 	}
 
 	// Verify invoice belongs to this agency
 	if (invoice.agencyId !== context.agencyId) {
-		throw new Error('Invoice not found');
+		throw new Error("Invoice not found");
 	}
 
 	// Check invoice status - can only create payment link for sent/viewed/overdue invoices
-	if (!['sent', 'viewed', 'overdue'].includes(invoice.status)) {
-		throw new Error(
-			`Cannot create payment link for invoice with status: ${invoice.status}`
-		);
+	if (!["sent", "viewed", "overdue"].includes(invoice.status)) {
+		throw new Error(`Cannot create payment link for invoice with status: ${invoice.status}`);
 	}
 
 	// Check if payment link already exists
@@ -257,41 +255,41 @@ export const createPaymentLink = command(CreatePaymentLinkSchema, async (data) =
 		return {
 			success: true,
 			paymentLinkId: invoice.stripePaymentLinkId,
-			paymentLinkUrl: invoice.stripePaymentLinkUrl
+			paymentLinkUrl: invoice.stripePaymentLinkUrl,
 		};
 	}
 
 	// Get agency profile for Stripe account
 	const profile = await db.query.agencyProfiles.findFirst({
-		where: eq(agencyProfiles.agencyId, context.agencyId)
+		where: eq(agencyProfiles.agencyId, context.agencyId),
 	});
 
 	if (!profile?.stripeAccountId) {
-		throw new Error('Stripe account not connected');
+		throw new Error("Stripe account not connected");
 	}
 
 	if (!profile.stripeChargesEnabled) {
-		throw new Error('Stripe charges not enabled. Complete Stripe onboarding first.');
+		throw new Error("Stripe charges not enabled. Complete Stripe onboarding first.");
 	}
 
 	try {
 		// Create a price for this invoice on the connected account
 		const price = await getStripe().prices.create(
 			{
-				currency: 'aud',
+				currency: "aud",
 				unit_amount: Math.round(parseFloat(invoice.total as string) * 100),
 				product_data: {
 					name: `Invoice ${invoice.invoiceNumber}`,
 					metadata: {
 						invoice_id: invoice.id,
 						agency_id: invoice.agencyId,
-						invoice_number: invoice.invoiceNumber
-					}
-				}
+						invoice_number: invoice.invoiceNumber,
+					},
+				},
 			},
 			{
-				stripeAccount: profile.stripeAccountId
-			}
+				stripeAccount: profile.stripeAccountId,
+			},
 		);
 
 		// Create payment link
@@ -301,18 +299,18 @@ export const createPaymentLink = command(CreatePaymentLinkSchema, async (data) =
 				metadata: {
 					invoice_id: invoice.id,
 					invoice_number: invoice.invoiceNumber,
-					agency_id: invoice.agencyId
+					agency_id: invoice.agencyId,
 				},
 				after_completion: {
-					type: 'redirect',
+					type: "redirect",
 					redirect: {
-						url: `${env['PUBLIC_CLIENT_URL']}/i/${invoice.slug}?paid=true`
-					}
-				}
+						url: `${env["PUBLIC_CLIENT_URL"]}/i/${invoice.slug}?paid=true`,
+					},
+				},
 			},
 			{
-				stripeAccount: profile.stripeAccountId
-			}
+				stripeAccount: profile.stripeAccountId,
+			},
 		);
 
 		// Store payment link on invoice
@@ -321,21 +319,21 @@ export const createPaymentLink = command(CreatePaymentLinkSchema, async (data) =
 			.set({
 				stripePaymentLinkId: paymentLink.id,
 				stripePaymentLinkUrl: paymentLink.url,
-				updatedAt: new Date()
+				updatedAt: new Date(),
 			})
 			.where(eq(invoices.id, invoice.id));
 
 		return {
 			success: true,
 			paymentLinkId: paymentLink.id,
-			paymentLinkUrl: paymentLink.url
+			paymentLinkUrl: paymentLink.url,
 		};
 	} catch (err) {
-		console.error('Error creating payment link:', err);
+		console.error("Error creating payment link:", err);
 		if (err instanceof Stripe.errors.StripeError) {
 			throw new Error(`Stripe error: ${err.message}`);
 		}
-		throw new Error('Failed to create payment link');
+		throw new Error("Failed to create payment link");
 	}
 });
 
@@ -346,7 +344,7 @@ export const getPaymentLink = query(v.pipe(v.string(), v.uuid()), async (invoice
 	const context = await getAgencyContext();
 
 	const invoice = await db.query.invoices.findFirst({
-		where: eq(invoices.id, invoiceId)
+		where: eq(invoices.id, invoiceId),
 	});
 
 	if (!invoice || invoice.agencyId !== context.agencyId) {
@@ -356,7 +354,7 @@ export const getPaymentLink = query(v.pipe(v.string(), v.uuid()), async (invoice
 	return {
 		paymentLinkId: invoice.stripePaymentLinkId,
 		paymentLinkUrl: invoice.stripePaymentLinkUrl,
-		hasPaymentLink: !!invoice.stripePaymentLinkUrl
+		hasPaymentLink: !!invoice.stripePaymentLinkUrl,
 	};
 });
 
@@ -367,17 +365,17 @@ export const getPaymentLink = query(v.pipe(v.string(), v.uuid()), async (invoice
 export const disablePaymentLink = command(DisablePaymentLinkSchema, async (data) => {
 	const context = await getAgencyContext();
 
-	if (!hasPermission(context.role, 'invoice:cancel')) {
-		throw error(403, 'Permission denied: invoice:cancel');
+	if (!hasPermission(context.role, "invoice:cancel")) {
+		throw error(403, "Permission denied: invoice:cancel");
 	}
 
 	// Get the invoice
 	const invoice = await db.query.invoices.findFirst({
-		where: eq(invoices.id, data.invoiceId)
+		where: eq(invoices.id, data.invoiceId),
 	});
 
 	if (!invoice || invoice.agencyId !== context.agencyId) {
-		throw new Error('Invoice not found');
+		throw new Error("Invoice not found");
 	}
 
 	// If no payment link, nothing to disable
@@ -387,7 +385,7 @@ export const disablePaymentLink = command(DisablePaymentLinkSchema, async (data)
 
 	// Get agency profile for Stripe account
 	const profile = await db.query.agencyProfiles.findFirst({
-		where: eq(agencyProfiles.agencyId, context.agencyId)
+		where: eq(agencyProfiles.agencyId, context.agencyId),
 	});
 
 	if (!profile?.stripeAccountId) {
@@ -397,7 +395,7 @@ export const disablePaymentLink = command(DisablePaymentLinkSchema, async (data)
 			.set({
 				stripePaymentLinkId: null,
 				stripePaymentLinkUrl: null,
-				updatedAt: new Date()
+				updatedAt: new Date(),
 			})
 			.where(eq(invoices.id, invoice.id));
 
@@ -409,11 +407,11 @@ export const disablePaymentLink = command(DisablePaymentLinkSchema, async (data)
 		await getStripe().paymentLinks.update(
 			invoice.stripePaymentLinkId,
 			{ active: false },
-			{ stripeAccount: profile.stripeAccountId }
+			{ stripeAccount: profile.stripeAccountId },
 		);
 	} catch (err) {
 		// Log but don't fail - the payment link might already be deactivated
-		console.error('Error deactivating payment link in Stripe:', err);
+		console.error("Error deactivating payment link in Stripe:", err);
 	}
 
 	// Clear from invoice record
@@ -422,7 +420,7 @@ export const disablePaymentLink = command(DisablePaymentLinkSchema, async (data)
 		.set({
 			stripePaymentLinkId: null,
 			stripePaymentLinkUrl: null,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(invoices.id, invoice.id));
 

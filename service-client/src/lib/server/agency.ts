@@ -7,17 +7,21 @@
  * Adapted from BetterKit organization middleware patterns.
  */
 
-import { getRequestEvent } from '$app/server';
-import { error } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { agencies, agencyMemberships, users } from '$lib/server/schema';
-import { eq, and } from 'drizzle-orm';
-import { getUserId } from '$lib/server/auth';
-import type { AgencyRole } from '$lib/server/schema';
-import { getImpersonatedAgencyId, getVirtualOwnerContext, isSuperAdmin } from '$lib/server/super-admin';
+import { getRequestEvent } from "$app/server";
+import { error } from "@sveltejs/kit";
+import { db } from "$lib/server/db";
+import { agencies, agencyMemberships, users } from "$lib/server/schema";
+import { eq, and } from "drizzle-orm";
+import { getUserId } from "$lib/server/auth";
+import type { AgencyRole } from "$lib/server/schema";
+import {
+	getImpersonatedAgencyId,
+	getVirtualOwnerContext,
+	isSuperAdmin,
+} from "$lib/server/super-admin";
 
 // Cookie name for storing current agency
-const CURRENT_AGENCY_COOKIE = 'current_agency_id';
+const CURRENT_AGENCY_COOKIE = "current_agency_id";
 
 /**
  * Agency context returned by getAgencyContext()
@@ -106,12 +110,10 @@ export async function getAgencyContext(): Promise<AgencyContext> {
 		const [firstMembership] = await db
 			.select({
 				agencyId: agencyMemberships.agencyId,
-				role: agencyMemberships.role
+				role: agencyMemberships.role,
 			})
 			.from(agencyMemberships)
-			.where(
-				and(eq(agencyMemberships.userId, userId), eq(agencyMemberships.status, 'active'))
-			)
+			.where(and(eq(agencyMemberships.userId, userId), eq(agencyMemberships.status, "active")))
 			.limit(1);
 
 		if (firstMembership) {
@@ -121,14 +123,14 @@ export async function getAgencyContext(): Promise<AgencyContext> {
 
 	// If user has no agencies, throw error
 	if (!agencyId) {
-		throw error(403, 'No agency access. Please create or join an agency.');
+		throw error(403, "No agency access. Please create or join an agency.");
 	}
 
 	// Get full context with agency details
 	const context = await getFullAgencyContext(userId, agencyId);
 
 	if (!context) {
-		throw error(403, 'Agency access denied');
+		throw error(403, "Agency access denied");
 	}
 
 	return context;
@@ -140,11 +142,11 @@ export async function getAgencyContext(): Promise<AgencyContext> {
 export function setAgencyCookie(agencyId: string): void {
 	const event = getRequestEvent();
 	event?.cookies.set(CURRENT_AGENCY_COOKIE, agencyId, {
-		path: '/',
+		path: "/",
 		httpOnly: true,
-		secure: process.env['NODE_ENV'] === 'production',
-		sameSite: 'lax',
-		maxAge: 60 * 60 * 24 * 30 // 30 days
+		secure: process.env["NODE_ENV"] === "production",
+		sameSite: "lax",
+		maxAge: 60 * 60 * 24 * 30, // 30 days
 	});
 }
 
@@ -156,21 +158,17 @@ export async function getAgencyContextBySlug(slug: string): Promise<AgencyContex
 	const userId = getUserId();
 
 	// Get agency by slug
-	const [agency] = await db
-		.select()
-		.from(agencies)
-		.where(eq(agencies.slug, slug))
-		.limit(1);
+	const [agency] = await db.select().from(agencies).where(eq(agencies.slug, slug)).limit(1);
 
 	if (!agency) {
-		throw error(404, 'Agency not found');
+		throw error(404, "Agency not found");
 	}
 
 	// Verify user membership
 	const context = await getFullAgencyContext(userId, agency.id);
 
 	if (!context) {
-		throw error(403, 'You do not have access to this agency');
+		throw error(403, "You do not have access to this agency");
 	}
 
 	return context;
@@ -188,16 +186,16 @@ export async function switchAgency(agencyId: string): Promise<void> {
 	const membership = await verifyMembership(userId, agencyId);
 
 	if (!membership) {
-		throw error(403, 'You do not have access to this agency');
+		throw error(403, "You do not have access to this agency");
 	}
 
 	// Update cookie
 	event?.cookies.set(CURRENT_AGENCY_COOKIE, agencyId, {
-		path: '/',
+		path: "/",
 		httpOnly: true,
-		secure: process.env['NODE_ENV'] === 'production',
-		sameSite: 'lax',
-		maxAge: 60 * 60 * 24 * 30 // 30 days
+		secure: process.env["NODE_ENV"] === "production",
+		sameSite: "lax",
+		maxAge: 60 * 60 * 24 * 30, // 30 days
 	});
 }
 
@@ -207,18 +205,18 @@ export async function switchAgency(agencyId: string): Promise<void> {
  */
 export async function requireAgencyRole(
 	allowedRoles: AgencyRole[],
-	agencyId?: string
+	agencyId?: string,
 ): Promise<AgencyContext> {
 	const context = agencyId
 		? await getFullAgencyContext(getUserId(), agencyId)
 		: await getAgencyContext();
 
 	if (!context) {
-		throw error(403, 'Agency access denied');
+		throw error(403, "Agency access denied");
 	}
 
 	if (!allowedRoles.includes(context.role)) {
-		throw error(403, `This action requires one of these roles: ${allowedRoles.join(', ')}`);
+		throw error(403, `This action requires one of these roles: ${allowedRoles.join(", ")}`);
 	}
 
 	return context;
@@ -230,7 +228,7 @@ export async function requireAgencyRole(
  */
 export async function hasAgencyRole(
 	allowedRoles: AgencyRole[],
-	agencyId?: string
+	agencyId?: string,
 ): Promise<boolean> {
 	try {
 		const context = agencyId
@@ -272,8 +270,8 @@ async function verifyMembership(userId: string, agencyId: string) {
 			and(
 				eq(agencyMemberships.userId, userId),
 				eq(agencyMemberships.agencyId, agencyId),
-				eq(agencyMemberships.status, 'active')
-			)
+				eq(agencyMemberships.status, "active"),
+			),
 		)
 		.limit(1);
 
@@ -285,7 +283,7 @@ async function verifyMembership(userId: string, agencyId: string) {
  */
 async function getFullAgencyContext(
 	userId: string,
-	agencyId: string
+	agencyId: string,
 ): Promise<AgencyContext | null> {
 	// Get membership and agency in one query
 	const [result] = await db
@@ -299,7 +297,7 @@ async function getFullAgencyContext(
 			primaryColor: agencies.primaryColor,
 			secondaryColor: agencies.secondaryColor,
 			accentColor: agencies.accentColor,
-			status: agencies.status
+			status: agencies.status,
 		})
 		.from(agencyMemberships)
 		.innerJoin(agencies, eq(agencyMemberships.agencyId, agencies.id))
@@ -307,9 +305,9 @@ async function getFullAgencyContext(
 			and(
 				eq(agencyMemberships.userId, userId),
 				eq(agencyMemberships.agencyId, agencyId),
-				eq(agencyMemberships.status, 'active'),
-				eq(agencies.status, 'active')
-			)
+				eq(agencyMemberships.status, "active"),
+				eq(agencies.status, "active"),
+			),
 		)
 		.limit(1);
 
@@ -329,8 +327,8 @@ async function getFullAgencyContext(
 			primaryColor: result.primaryColor,
 			secondaryColor: result.secondaryColor,
 			accentColor: result.accentColor,
-			status: result.status
-		}
+			status: result.status,
+		},
 	};
 }
 
@@ -342,35 +340,35 @@ async function getFullAgencyContext(
  * Check if a role can perform admin actions.
  */
 export function canAdminister(role: AgencyRole): boolean {
-	return role === 'owner' || role === 'admin';
+	return role === "owner" || role === "admin";
 }
 
 /**
  * Check if a role can manage members.
  */
 export function canManageMembers(role: AgencyRole): boolean {
-	return role === 'owner' || role === 'admin';
+	return role === "owner" || role === "admin";
 }
 
 /**
  * Check if a role can update agency settings.
  */
 export function canUpdateSettings(role: AgencyRole): boolean {
-	return role === 'owner' || role === 'admin';
+	return role === "owner" || role === "admin";
 }
 
 /**
  * Check if a role can delete the agency.
  */
 export function canDeleteAgency(role: AgencyRole): boolean {
-	return role === 'owner';
+	return role === "owner";
 }
 
 /**
  * Check if a role can transfer ownership.
  */
 export function canTransferOwnership(role: AgencyRole): boolean {
-	return role === 'owner';
+	return role === "owner";
 }
 
 // =============================================================================
@@ -381,20 +379,20 @@ export function canTransferOwnership(role: AgencyRole): boolean {
  * Reserved slugs that cannot be used as agency slugs.
  */
 export const RESERVED_SLUGS = [
-	'admin',
-	'dashboard',
-	'settings',
-	'agencies',
-	'api',
-	'auth',
-	'super-admin',
-	'consultation',
-	'login',
-	'logout',
-	'signup',
-	'register',
-	'profile',
-	'account'
+	"admin",
+	"dashboard",
+	"settings",
+	"agencies",
+	"api",
+	"auth",
+	"super-admin",
+	"consultation",
+	"login",
+	"logout",
+	"signup",
+	"register",
+	"profile",
+	"account",
 ];
 
 /**
@@ -403,8 +401,8 @@ export const RESERVED_SLUGS = [
 export function generateSlug(name: string): string {
 	return name
 		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, '-')
-		.replace(/^-|-$/g, '')
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "")
 		.slice(0, 50);
 }
 

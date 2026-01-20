@@ -5,30 +5,40 @@
  * Uses Valibot for validation (NOT Zod).
  */
 
-import { query, command } from '$app/server';
-import * as v from 'valibot';
-import { db } from '$lib/server/db';
-import { agencyDocumentBranding } from '$lib/server/schema';
-import { requireAgencyRole, getAgencyContext } from '$lib/server/agency';
-import { eq, and } from 'drizzle-orm';
+import { query, command } from "$app/server";
+import * as v from "valibot";
+import { db } from "$lib/server/db";
+import { agencyDocumentBranding } from "$lib/server/schema";
+import { requireAgencyRole, getAgencyContext } from "$lib/server/agency";
+import { eq, and } from "drizzle-orm";
 
 // =============================================================================
 // Validation Schemas
 // =============================================================================
 
-const DocumentTypeSchema = v.picklist(['contract', 'invoice', 'questionnaire', 'proposal', 'email']);
+const DocumentTypeSchema = v.picklist([
+	"contract",
+	"invoice",
+	"questionnaire",
+	"proposal",
+	"email",
+]);
 
 const GetDocumentBrandingSchema = v.object({
-	documentType: DocumentTypeSchema
+	documentType: DocumentTypeSchema,
 });
 
 const UpdateDocumentBrandingSchema = v.object({
 	documentType: DocumentTypeSchema,
 	useCustomBranding: v.boolean(),
 	logoUrl: v.optional(v.nullable(v.string())),
-	primaryColor: v.optional(v.nullable(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color')))),
-	accentColor: v.optional(v.nullable(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color')))),
-	accentGradient: v.optional(v.nullable(v.string()))
+	primaryColor: v.optional(
+		v.nullable(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"))),
+	),
+	accentColor: v.optional(
+		v.nullable(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"))),
+	),
+	accentGradient: v.optional(v.nullable(v.string())),
 });
 
 // =============================================================================
@@ -48,8 +58,8 @@ export const getDocumentBranding = query(GetDocumentBrandingSchema, async (data)
 		.where(
 			and(
 				eq(agencyDocumentBranding.agencyId, context.agencyId),
-				eq(agencyDocumentBranding.documentType, data.documentType)
-			)
+				eq(agencyDocumentBranding.documentType, data.documentType),
+			),
 		)
 		.limit(1);
 
@@ -69,7 +79,7 @@ export const getAllDocumentBrandings = query(async () => {
 		.where(eq(agencyDocumentBranding.agencyId, context.agencyId));
 
 	// Return as a map for easier access by document type
-	const brandingMap: Record<string, typeof overrides[number]> = {};
+	const brandingMap: Record<string, (typeof overrides)[number]> = {};
 	for (const override of overrides) {
 		brandingMap[override.documentType] = override;
 	}
@@ -86,7 +96,7 @@ export const getAllDocumentBrandings = query(async () => {
  * Admin/owner only.
  */
 export const updateDocumentBranding = command(UpdateDocumentBrandingSchema, async (data) => {
-	await requireAgencyRole(['owner', 'admin']);
+	await requireAgencyRole(["owner", "admin"]);
 	const context = await getAgencyContext();
 
 	// Check if override exists
@@ -96,19 +106,19 @@ export const updateDocumentBranding = command(UpdateDocumentBrandingSchema, asyn
 		.where(
 			and(
 				eq(agencyDocumentBranding.agencyId, context.agencyId),
-				eq(agencyDocumentBranding.documentType, data.documentType)
-			)
+				eq(agencyDocumentBranding.documentType, data.documentType),
+			),
 		)
 		.limit(1);
 
 	// Build update object - handle null vs undefined properly
 	const updateData = {
 		useCustomBranding: data.useCustomBranding,
-		logoUrl: data.logoUrl === null ? null : (data.logoUrl || null),
-		primaryColor: data.primaryColor === null ? null : (data.primaryColor || null),
-		accentColor: data.accentColor === null ? null : (data.accentColor || null),
-		accentGradient: data.accentGradient === null ? null : (data.accentGradient || null),
-		updatedAt: new Date()
+		logoUrl: data.logoUrl === null ? null : data.logoUrl || null,
+		primaryColor: data.primaryColor === null ? null : data.primaryColor || null,
+		accentColor: data.accentColor === null ? null : data.accentColor || null,
+		accentGradient: data.accentGradient === null ? null : data.accentGradient || null,
+		updatedAt: new Date(),
 	};
 
 	let result;
@@ -126,7 +136,7 @@ export const updateDocumentBranding = command(UpdateDocumentBrandingSchema, asyn
 			.values({
 				agencyId: context.agencyId,
 				documentType: data.documentType,
-				...updateData
+				...updateData,
 			})
 			.returning();
 	}
@@ -141,7 +151,7 @@ export const updateDocumentBranding = command(UpdateDocumentBrandingSchema, asyn
 export const deleteDocumentBranding = command(
 	v.object({ documentType: DocumentTypeSchema }),
 	async (data) => {
-		await requireAgencyRole(['owner', 'admin']);
+		await requireAgencyRole(["owner", "admin"]);
 		const context = await getAgencyContext();
 
 		await db
@@ -149,10 +159,10 @@ export const deleteDocumentBranding = command(
 			.where(
 				and(
 					eq(agencyDocumentBranding.agencyId, context.agencyId),
-					eq(agencyDocumentBranding.documentType, data.documentType)
-				)
+					eq(agencyDocumentBranding.documentType, data.documentType),
+				),
 			);
 
 		return { success: true };
-	}
+	},
 );

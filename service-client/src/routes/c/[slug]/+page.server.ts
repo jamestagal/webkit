@@ -5,43 +5,39 @@
  * Records view count and updates status if needed.
  */
 
-import type { PageServerLoad, Actions } from './$types';
-import { db } from '$lib/server/db';
-import { contracts, agencies, agencyProfiles, contractSchedules } from '$lib/server/schema';
-import { eq, sql, inArray } from 'drizzle-orm';
-import { error, fail } from '@sveltejs/kit';
+import type { PageServerLoad, Actions } from "./$types";
+import { db } from "$lib/server/db";
+import { contracts, agencies, agencyProfiles, contractSchedules } from "$lib/server/schema";
+import { eq, sql, inArray } from "drizzle-orm";
+import { error, fail } from "@sveltejs/kit";
 
 export const load: PageServerLoad = async ({ params, url }) => {
 	const { slug } = params;
-	const isPreview = url.searchParams.get('preview') === 'true';
+	const isPreview = url.searchParams.get("preview") === "true";
 
 	// Fetch contract by slug
-	const [contract] = await db
-		.select()
-		.from(contracts)
-		.where(eq(contracts.slug, slug))
-		.limit(1);
+	const [contract] = await db.select().from(contracts).where(eq(contracts.slug, slug)).limit(1);
 
 	if (!contract) {
-		throw error(404, 'Contract not found');
+		throw error(404, "Contract not found");
 	}
 
 	// Check if expired
 	const isExpired =
 		contract.validUntil &&
 		new Date(contract.validUntil) < new Date() &&
-		!['signed', 'completed'].includes(contract.status);
+		!["signed", "completed"].includes(contract.status);
 
 	// Record view only if NOT in preview mode (fire-and-forget, don't await)
 	if (!isPreview) {
 		const updates: Record<string, unknown> = {
 			viewCount: sql`${contracts.viewCount} + 1`,
-			lastViewedAt: new Date()
+			lastViewedAt: new Date(),
 		};
 
 		// If status is 'sent', change to 'viewed'
-		if (contract.status === 'sent') {
-			updates['status'] = 'viewed';
+		if (contract.status === "sent") {
+			updates["status"] = "viewed";
 		}
 
 		db.update(contracts)
@@ -80,7 +76,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 				id: contractSchedules.id,
 				name: contractSchedules.name,
 				content: contractSchedules.content,
-				displayOrder: contractSchedules.displayOrder
+				displayOrder: contractSchedules.displayOrder,
 			})
 			.from(contractSchedules)
 			.where(inArray(contractSchedules.id, includedScheduleIds))
@@ -90,12 +86,12 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	return {
 		contract: {
 			...contract,
-			status: isExpired ? 'expired' : contract.status
+			status: isExpired ? "expired" : contract.status,
 		},
 		agency,
 		profile,
 		includedSchedules,
-		isPreview
+		isPreview,
 	};
 };
 
@@ -104,42 +100,38 @@ export const actions: Actions = {
 		const { slug } = params;
 		const formData = await request.formData();
 
-		const signatoryName = formData.get('signatoryName')?.toString() || '';
-		const signatoryTitle = formData.get('signatoryTitle')?.toString() || '';
-		const agreedToTerms = formData.get('agreedToTerms') === 'true';
+		const signatoryName = formData.get("signatoryName")?.toString() || "";
+		const signatoryTitle = formData.get("signatoryTitle")?.toString() || "";
+		const agreedToTerms = formData.get("agreedToTerms") === "true";
 
 		// Validation
 		if (!signatoryName) {
-			return fail(400, { error: 'Signatory name is required' });
+			return fail(400, { error: "Signatory name is required" });
 		}
 
 		if (!agreedToTerms) {
-			return fail(400, { error: 'You must agree to the terms and conditions' });
+			return fail(400, { error: "You must agree to the terms and conditions" });
 		}
 
 		// Fetch contract
-		const [contract] = await db
-			.select()
-			.from(contracts)
-			.where(eq(contracts.slug, slug))
-			.limit(1);
+		const [contract] = await db.select().from(contracts).where(eq(contracts.slug, slug)).limit(1);
 
 		if (!contract) {
-			return fail(404, { error: 'Contract not found' });
+			return fail(404, { error: "Contract not found" });
 		}
 
 		// Verify contract can be signed
-		if (!['sent', 'viewed'].includes(contract.status)) {
-			return fail(400, { error: 'Contract cannot be signed in current state' });
+		if (!["sent", "viewed"].includes(contract.status)) {
+			return fail(400, { error: "Contract cannot be signed in current state" });
 		}
 
 		// Check if expired
 		if (contract.validUntil && new Date(contract.validUntil) < new Date()) {
-			return fail(400, { error: 'Contract has expired' });
+			return fail(400, { error: "Contract has expired" });
 		}
 
 		// Get client info
-		let clientIp = '';
+		let clientIp = "";
 		try {
 			clientIp = getClientAddress();
 		} catch {
@@ -150,12 +142,12 @@ export const actions: Actions = {
 		await db
 			.update(contracts)
 			.set({
-				status: 'signed',
+				status: "signed",
 				clientSignatoryName: signatoryName,
 				clientSignatoryTitle: signatoryTitle || null,
 				clientSignedAt: new Date(),
 				clientSignatureIp: clientIp,
-				updatedAt: new Date()
+				updatedAt: new Date(),
 			})
 			.where(eq(contracts.id, contract.id));
 
@@ -163,5 +155,5 @@ export const actions: Actions = {
 		// TODO: Send notification to agency
 
 		return { success: true };
-	}
+	},
 };

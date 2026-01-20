@@ -15,24 +15,27 @@
  * - data: {"type":"error","code":"...","message":"..."}
  */
 
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { db } from '$lib/server/db';
-import { proposals, consultations, agencies, agencyMemberships, type AgencyRole } from '$lib/server/schema';
-import { eq, and } from 'drizzle-orm';
-import { canModifyResource } from '$lib/server/permissions';
+import { json } from "@sveltejs/kit";
+import type { RequestHandler } from "./$types";
+import { db } from "$lib/server/db";
 import {
-	canGenerateWithAI,
-	incrementAIGenerationCount
-} from '$lib/server/subscription';
-import { streamProposalContent, validateContext } from '$lib/server/services/claude.service';
+	proposals,
+	consultations,
+	agencies,
+	agencyMemberships,
+	type AgencyRole,
+} from "$lib/server/schema";
+import { eq, and } from "drizzle-orm";
+import { canModifyResource } from "$lib/server/permissions";
+import { canGenerateWithAI, incrementAIGenerationCount } from "$lib/server/subscription";
+import { streamProposalContent, validateContext } from "$lib/server/services/claude.service";
 import {
 	buildContextFromProposal,
-	type PerformanceDataContext
-} from '$lib/server/prompts/prompt-builder';
-import { ALL_SECTIONS, type ProposalSection } from '$lib/server/prompts/proposal-sections';
-import { AIServiceError, AIErrorCode } from '$lib/server/services/ai-errors';
-import { logActivity } from '$lib/server/db-helpers';
+	type PerformanceDataContext,
+} from "$lib/server/prompts/prompt-builder";
+import { ALL_SECTIONS, type ProposalSection } from "$lib/server/prompts/proposal-sections";
+import { AIServiceError, AIErrorCode } from "$lib/server/services/ai-errors";
+import { logActivity } from "$lib/server/db-helpers";
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const { proposalId } = params;
@@ -40,7 +43,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	// Check authentication
 	const userId = locals.user?.id;
 	if (!userId) {
-		return json({ error: 'Not authenticated' }, { status: 401 });
+		return json({ error: "Not authenticated" }, { status: 401 });
 	}
 
 	// Parse request body
@@ -50,54 +53,49 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		sections = body.sections;
 
 		if (!Array.isArray(sections) || sections.length === 0) {
-			return json({ error: 'sections array required' }, { status: 400 });
+			return json({ error: "sections array required" }, { status: 400 });
 		}
 
 		// Validate sections are valid
 		const invalidSections = sections.filter((s) => !ALL_SECTIONS.includes(s as ProposalSection));
 		if (invalidSections.length > 0) {
-			return json(
-				{ error: `Invalid sections: ${invalidSections.join(', ')}` },
-				{ status: 400 }
-			);
+			return json({ error: `Invalid sections: ${invalidSections.join(", ")}` }, { status: 400 });
 		}
 	} catch {
-		return json({ error: 'Invalid JSON body' }, { status: 400 });
+		return json({ error: "Invalid JSON body" }, { status: 400 });
 	}
 
 	// Get proposal
-	const [proposal] = await db
-		.select()
-		.from(proposals)
-		.where(eq(proposals.id, proposalId))
-		.limit(1);
+	const [proposal] = await db.select().from(proposals).where(eq(proposals.id, proposalId)).limit(1);
 
 	if (!proposal) {
-		return json({ error: 'Proposal not found' }, { status: 404 });
+		return json({ error: "Proposal not found" }, { status: 404 });
 	}
 
 	// Check user has access to this agency
 	const [membership] = await db
 		.select({
-			role: agencyMemberships.role
+			role: agencyMemberships.role,
 		})
 		.from(agencyMemberships)
 		.where(
 			and(
 				eq(agencyMemberships.userId, userId),
 				eq(agencyMemberships.agencyId, proposal.agencyId),
-				eq(agencyMemberships.status, 'active')
-			)
+				eq(agencyMemberships.status, "active"),
+			),
 		)
 		.limit(1);
 
 	if (!membership) {
-		return json({ error: 'Access denied' }, { status: 403 });
+		return json({ error: "Access denied" }, { status: 403 });
 	}
 
 	// Check modify permission
-	if (!canModifyResource(membership.role as AgencyRole, proposal.createdBy || '', userId, 'proposal')) {
-		return json({ error: 'Permission denied' }, { status: 403 });
+	if (
+		!canModifyResource(membership.role as AgencyRole, proposal.createdBy || "", userId, "proposal")
+	) {
+		return json({ error: "Permission denied" }, { status: 403 });
 	}
 
 	// Check rate limit
@@ -105,13 +103,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!rateLimitResult.allowed) {
 		return json(
 			{
-				error: 'Rate limit exceeded',
+				error: "Rate limit exceeded",
 				code: AIErrorCode.RATE_LIMIT_EXCEEDED,
 				current: rateLimitResult.current,
 				limit: rateLimitResult.limit,
-				resetsAt: rateLimitResult.resetsAt.toISOString()
+				resetsAt: rateLimitResult.resetsAt.toISOString(),
 			},
-			{ status: 429 }
+			{ status: 429 },
 		);
 	}
 
@@ -134,18 +132,19 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		.limit(1);
 
 	if (!agency) {
-		return json({ error: 'Agency not found' }, { status: 404 });
+		return json({ error: "Agency not found" }, { status: 404 });
 	}
 
 	// Build prompt context
 	const agencyContext = {
 		businessName: agency.name,
 		brandVoice: null as string | null,
-		usps: null as string[] | null
+		usps: null as string[] | null,
 	};
 
 	// Use fresh consultation performanceData if available, fall back to proposal's cached copy
-	const performanceData = (consultation?.performanceData || proposal.performanceData) as PerformanceDataContext | null;
+	const performanceData = (consultation?.performanceData ||
+		proposal.performanceData) as PerformanceDataContext | null;
 
 	const promptContext = buildContextFromProposal(
 		{
@@ -161,7 +160,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			consultationPainPoints: proposal.consultationPainPoints as {
 				urgency_level?: string;
 			} | null,
-			performanceData
+			performanceData,
 		},
 		consultation
 			? {
@@ -171,10 +170,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 					timeline: consultation.timeline,
 					designStyles: consultation.designStyles,
 					admiredWebsites: consultation.admiredWebsites,
-					consultationNotes: consultation.consultationNotes
+					consultationNotes: consultation.consultationNotes,
 				}
 			: null,
-		agencyContext
+		agencyContext,
 	);
 
 	// Validate context
@@ -182,11 +181,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!validation.valid) {
 		return json(
 			{
-				error: `Missing required fields: ${validation.missingFields.join(', ')}`,
+				error: `Missing required fields: ${validation.missingFields.join(", ")}`,
 				code: AIErrorCode.CONTEXT_INSUFFICIENT,
-				missingFields: validation.missingFields
+				missingFields: validation.missingFields,
 			},
-			{ status: 400 }
+			{ status: 400 },
 		);
 	}
 
@@ -203,11 +202,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 				// Stream from Claude
 				for await (const event of streamProposalContent(
 					promptContext,
-					sections as ProposalSection[]
+					sections as ProposalSection[],
 				)) {
 					// On successful completion, transform content for frontend (but DON'T save to DB)
 					// Content is only saved when user explicitly clicks "Apply" then "Save"
-					if (event.type === 'done') {
+					if (event.type === "done") {
 						const content = event.content;
 
 						// Transform AI output to DB-compatible format for frontend
@@ -215,74 +214,72 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 						const transformed: Record<string, unknown> = {};
 
 						if (content.executiveSummary) {
-							transformed['executiveSummary'] = content.executiveSummary;
+							transformed["executiveSummary"] = content.executiveSummary;
 						}
 						if (content.opportunityContent) {
-							transformed['opportunityContent'] = content.opportunityContent;
+							transformed["opportunityContent"] = content.opportunityContent;
 						}
 						if (content.currentIssues && content.currentIssues.length > 0) {
-							transformed['currentIssues'] = content.currentIssues.map((issue) => ({
+							transformed["currentIssues"] = content.currentIssues.map((issue) => ({
 								text: `${issue.title}: ${issue.description}`,
-								checked: false
+								checked: false,
 							}));
 						}
 						if (content.performanceStandards && content.performanceStandards.length > 0) {
-							transformed['performanceStandards'] = content.performanceStandards.map(
-								(std) => ({
-									label: std.metric,
-									value: `${std.current} → ${std.target}`,
-									icon: undefined
-								})
-							);
+							transformed["performanceStandards"] = content.performanceStandards.map((std) => ({
+								label: std.metric,
+								value: `${std.current} → ${std.target}`,
+								icon: undefined,
+							}));
 						}
 						if (content.proposedPages && content.proposedPages.length > 0) {
-							transformed['proposedPages'] = content.proposedPages.map((page) => ({
+							transformed["proposedPages"] = content.proposedPages.map((page) => ({
 								name: page.name,
 								description: page.purpose,
-								features: page.features || []
+								features: page.features || [],
 							}));
 						}
 						if (content.timeline && content.timeline.length > 0) {
-							transformed['timeline'] = content.timeline.map((phase) => ({
+							transformed["timeline"] = content.timeline.map((phase) => ({
 								week: phase.timing,
 								title: phase.phase,
-								description: phase.deliverables.join(', ')
+								description: phase.deliverables.join(", "),
 							}));
 						}
 						if (content.nextSteps && content.nextSteps.length > 0) {
-							transformed['nextSteps'] = content.nextSteps.map((step) => ({
+							transformed["nextSteps"] = content.nextSteps.map((step) => ({
 								text: `${step.action}: ${step.description}`,
-								completed: false
+								completed: false,
 							}));
 						}
 						if (content.closingContent) {
-							transformed['closingContent'] = content.closingContent;
+							transformed["closingContent"] = content.closingContent;
 						}
 
 						// Send modified done event with transformed content
 						// The original event.content has raw AI format, transformed has DB format
 						// Also include fresh performanceData so it can be synced to the proposal
 						sendEvent({
-							type: 'done',
+							type: "done",
 							content: event.content,
 							transformed,
 							generatedSections: event.generatedSections,
 							failedSections: event.failedSections,
-							performanceData: performanceData || null
+							performanceData: performanceData || null,
 						});
 
 						// Increment rate limit counter (generation counts even if not saved)
 						await incrementAIGenerationCount(proposal.agencyId);
 
 						// Log activity
-						await logActivity('proposal.ai_generated', 'proposal', proposalId, {
+						await logActivity("proposal.ai_generated", "proposal", proposalId, {
 							metadata: {
 								sections,
 								generatedSections: event.generatedSections,
 								failedSections: event.failedSections,
 								streaming: true,
-								autoSaved: false
-							}
+								autoSaved: false,
+							},
 						});
 					} else {
 						// For chunk events, send as-is
@@ -292,22 +289,22 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			} catch (err) {
 				// Send error event
 				const errorEvent = {
-					type: 'error',
+					type: "error",
 					code: err instanceof AIServiceError ? err.code : AIErrorCode.UNKNOWN,
-					message: err instanceof Error ? err.message : 'Unknown error'
+					message: err instanceof Error ? err.message : "Unknown error",
 				};
 				sendEvent(errorEvent);
 			} finally {
 				controller.close();
 			}
-		}
+		},
 	});
 
 	return new Response(stream, {
 		headers: {
-			'Content-Type': 'text/event-stream',
-			'Cache-Control': 'no-cache',
-			Connection: 'keep-alive'
-		}
+			"Content-Type": "text/event-stream",
+			"Cache-Control": "no-cache",
+			Connection: "keep-alive",
+		},
 	});
 };

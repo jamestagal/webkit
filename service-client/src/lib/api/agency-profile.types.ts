@@ -6,7 +6,7 @@ export interface SetupChecklistItem {
 	id: string;
 	label: string;
 	description: string;
-	status: 'complete' | 'incomplete' | 'optional';
+	status: "complete" | "incomplete" | "optional";
 	required: boolean;
 	link: string;
 	count?: number;

@@ -9,8 +9,8 @@
 export {
 	ALL_SECTIONS,
 	SECTION_DISPLAY_NAMES,
-	type ProposalSection
-} from '$lib/constants/proposal-sections';
+	type ProposalSection,
+} from "$lib/constants/proposal-sections";
 
 export const SECTION_PROMPTS: Record<string, string> = {
 	executiveSummary: `Generate a 2-3 paragraph executive summary that:
@@ -92,5 +92,5 @@ Customize based on their urgency level and any notes from consultation.`,
 - Includes a soft call to action
 - Length: 50-100 words
 - Tone: warm, confident, not salesy
-- IMPORTANT: Plain text only, no markdown formatting`
+- IMPORTANT: Plain text only, no markdown formatting`,
 };

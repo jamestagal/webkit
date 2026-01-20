@@ -11,10 +11,10 @@ export {
 	ERROR_MESSAGES,
 	getErrorMessage,
 	isRetryableError,
-	type ErrorMessageInfo
-} from '$lib/constants/ai-errors';
+	type ErrorMessageInfo,
+} from "$lib/constants/ai-errors";
 
-import { AIErrorCode } from '$lib/constants/ai-errors';
+import { AIErrorCode } from "$lib/constants/ai-errors";
 
 /**
  * Custom error class for AI service errors (server-side only)
@@ -24,10 +24,10 @@ export class AIServiceError extends Error {
 		message: string,
 		public code: AIErrorCode,
 		public retryable: boolean = false,
-		public details?: Record<string, unknown>
+		public details?: Record<string, unknown>,
 	) {
 		super(message);
-		this.name = 'AIServiceError';
+		this.name = "AIServiceError";
 	}
 
 	/**
@@ -38,7 +38,7 @@ export class AIServiceError extends Error {
 			name: this.name,
 			message: this.message,
 			code: this.code,
-			retryable: this.retryable
+			retryable: this.retryable,
 		};
 	}
 }
@@ -48,7 +48,7 @@ export class AIServiceError extends Error {
  */
 export function fromAnthropicError(error: { status?: number; message?: string }): AIServiceError {
 	const status = error.status;
-	const message = error.message || 'Unknown AI API error';
+	const message = error.message || "Unknown AI API error";
 
 	if (status === 401) {
 		return new AIServiceError(message, AIErrorCode.API_KEY_INVALID, false);

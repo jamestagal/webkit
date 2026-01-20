@@ -5,7 +5,7 @@
  * Used by email service to attach PDFs to emails.
  */
 
-import { env } from '$env/dynamic/public';
+import { env } from "$env/dynamic/public";
 
 // =============================================================================
 // Types
@@ -27,7 +27,7 @@ export interface PdfFetchResult {
  */
 export async function fetchProposalPdf(
 	proposalId: string,
-	cookies: string
+	cookies: string,
 ): Promise<PdfFetchResult> {
 	return fetchPdf(`/api/proposals/${proposalId}/pdf`, `proposal-${proposalId}.pdf`, cookies);
 }
@@ -44,7 +44,7 @@ export async function fetchInvoicePdf(invoiceId: string, cookies: string): Promi
  */
 export async function fetchContractPdf(
 	contractId: string,
-	cookies: string
+	cookies: string,
 ): Promise<PdfFetchResult> {
 	return fetchPdf(`/api/contracts/${contractId}/pdf`, `contract-${contractId}.pdf`, cookies);
 }
@@ -55,18 +55,18 @@ export async function fetchContractPdf(
 async function fetchPdf(
 	endpoint: string,
 	defaultFilename: string,
-	cookies: string
+	cookies: string,
 ): Promise<PdfFetchResult> {
 	try {
-		const baseUrl = env.PUBLIC_CLIENT_URL || 'http://localhost:3004';
+		const baseUrl = env.PUBLIC_CLIENT_URL || "http://localhost:3004";
 		const url = `${baseUrl}${endpoint}`;
 
 		const response = await fetch(url, {
-			method: 'GET',
+			method: "GET",
 			headers: {
 				Cookie: cookies,
-				Accept: 'application/pdf'
-			}
+				Accept: "application/pdf",
+			},
 		});
 
 		if (!response.ok) {
@@ -74,7 +74,7 @@ async function fetchPdf(
 			console.error(`Failed to fetch PDF from ${endpoint}:`, response.status, errorText);
 			return {
 				success: false,
-				error: `Failed to fetch PDF: ${response.status}`
+				error: `Failed to fetch PDF: ${response.status}`,
 			};
 		}
 
@@ -83,7 +83,7 @@ async function fetchPdf(
 		const buffer = Buffer.from(arrayBuffer);
 
 		// Try to get filename from Content-Disposition header
-		const contentDisposition = response.headers.get('Content-Disposition');
+		const contentDisposition = response.headers.get("Content-Disposition");
 		let filename = defaultFilename;
 		if (contentDisposition) {
 			const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
@@ -95,13 +95,13 @@ async function fetchPdf(
 		return {
 			success: true,
 			buffer,
-			filename
+			filename,
 		};
 	} catch (err) {
-		console.error('Error fetching PDF:', err);
+		console.error("Error fetching PDF:", err);
 		return {
 			success: false,
-			error: err instanceof Error ? err.message : 'Unknown error fetching PDF'
+			error: err instanceof Error ? err.message : "Unknown error fetching PDF",
 		};
 	}
 }

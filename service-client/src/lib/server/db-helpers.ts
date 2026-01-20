@@ -10,18 +10,18 @@
  * - Provide audit logging for sensitive operations
  */
 
-import { db } from '$lib/server/db';
-import { getAgencyContext, type AgencyContext } from '$lib/server/agency';
+import { db } from "$lib/server/db";
+import { getAgencyContext, type AgencyContext } from "$lib/server/agency";
 import {
 	consultations,
 	consultationDrafts,
 	consultationVersions,
 	agencyActivityLog,
-	type AgencyActivityLogInsert
-} from '$lib/server/schema';
-import { eq, and, desc, asc, type SQL } from 'drizzle-orm';
-import { error } from '@sveltejs/kit';
-import { getRequestEvent } from '$app/server';
+	type AgencyActivityLogInsert,
+} from "$lib/server/schema";
+import { eq, and, desc, asc, type SQL } from "drizzle-orm";
+import { error } from "@sveltejs/kit";
+import { getRequestEvent } from "$app/server";
 
 // =============================================================================
 // Agency-Scoped Query Wrapper
@@ -38,7 +38,7 @@ import { getRequestEvent } from '$app/server';
  * });
  */
 export async function withAgencyScope<T>(
-	queryFn: (agencyId: string, context: AgencyContext) => Promise<T>
+	queryFn: (agencyId: string, context: AgencyContext) => Promise<T>,
 ): Promise<T> {
 	const context = await getAgencyContext();
 	return queryFn(context.agencyId, context);
@@ -49,7 +49,7 @@ export async function withAgencyScope<T>(
  * Use this when you need to filter by both agency and user.
  */
 export async function withUserAgencyScope<T>(
-	queryFn: (agencyId: string, userId: string, context: AgencyContext) => Promise<T>
+	queryFn: (agencyId: string, userId: string, context: AgencyContext) => Promise<T>,
 ): Promise<T> {
 	const context = await getAgencyContext();
 	const userId = context.userId;
@@ -68,8 +68,8 @@ export async function getConsultationsForAgency(options?: {
 	limit?: number;
 	offset?: number;
 	status?: string;
-	orderBy?: 'created' | 'updated';
-	orderDir?: 'asc' | 'desc';
+	orderBy?: "created" | "updated";
+	orderDir?: "asc" | "desc";
 }) {
 	return withUserAgencyScope(async (agencyId, _userId, _context) => {
 		const conditions: SQL[] = [eq(consultations.agencyId, agencyId)];
@@ -81,9 +81,9 @@ export async function getConsultationsForAgency(options?: {
 		}
 
 		const orderColumn =
-			options?.orderBy === 'updated' ? consultations.updatedAt : consultations.createdAt;
+			options?.orderBy === "updated" ? consultations.updatedAt : consultations.createdAt;
 
-		const orderFn = options?.orderDir === 'asc' ? asc : desc;
+		const orderFn = options?.orderDir === "asc" ? asc : desc;
 
 		let query = db
 			.select()
@@ -111,7 +111,7 @@ export async function getConsultationById(consultationId: string) {
 	return withUserAgencyScope(async (agencyId, _userId, _context) => {
 		const conditions: SQL[] = [
 			eq(consultations.id, consultationId),
-			eq(consultations.agencyId, agencyId)
+			eq(consultations.agencyId, agencyId),
 		];
 
 		// v2: All agency members can access all consultations
@@ -123,7 +123,7 @@ export async function getConsultationById(consultationId: string) {
 			.limit(1);
 
 		if (!consultation) {
-			throw error(404, 'Consultation not found');
+			throw error(404, "Consultation not found");
 		}
 
 		return consultation;
@@ -137,11 +137,11 @@ export async function getConsultationDraftById(consultationId: string) {
 	return withUserAgencyScope(async (agencyId, userId, context) => {
 		const conditions: SQL[] = [
 			eq(consultationDrafts.consultationId, consultationId),
-			eq(consultationDrafts.agencyId, agencyId)
+			eq(consultationDrafts.agencyId, agencyId),
 		];
 
 		// Members can only access their own drafts
-		if (context.role === 'member') {
+		if (context.role === "member") {
 			conditions.push(eq(consultationDrafts.userId, userId));
 		}
 
@@ -166,8 +166,8 @@ export async function getConsultationVersions(consultationId: string) {
 			.where(
 				and(
 					eq(consultationVersions.consultationId, consultationId),
-					eq(consultationVersions.agencyId, agencyId)
-				)
+					eq(consultationVersions.agencyId, agencyId),
+				),
 			)
 			.orderBy(desc(consultationVersions.versionNumber));
 	});
@@ -194,11 +194,11 @@ export async function verifyConsultationAccess(consultationId: string): Promise<
 		.limit(1);
 
 	if (!result || !result.agencyId) {
-		throw error(404, 'Consultation not found');
+		throw error(404, "Consultation not found");
 	}
 
 	if (result.agencyId !== context.agencyId) {
-		throw error(403, 'Access denied: Consultation does not belong to your agency');
+		throw error(403, "Access denied: Consultation does not belong to your agency");
 	}
 
 	// v2: All agency members can access all consultations
@@ -223,16 +223,16 @@ export async function verifyDraftAccess(consultationId: string): Promise<{
 		.limit(1);
 
 	if (!result || !result.agencyId) {
-		throw error(404, 'Draft not found');
+		throw error(404, "Draft not found");
 	}
 
 	if (result.agencyId !== context.agencyId) {
-		throw error(403, 'Access denied: Draft does not belong to your agency');
+		throw error(403, "Access denied: Draft does not belong to your agency");
 	}
 
 	// For members, also verify user ownership
-	if (context.role === 'member' && result.userId !== context.userId) {
-		throw error(403, 'Access denied: You do not own this draft');
+	if (context.role === "member" && result.userId !== context.userId) {
+		throw error(403, "Access denied: You do not own this draft");
 	}
 
 	return { agencyId: result.agencyId, userId: result.userId };
@@ -254,7 +254,7 @@ export async function logActivity(
 		oldValues?: Record<string, unknown>;
 		newValues?: Record<string, unknown>;
 		metadata?: Record<string, unknown>;
-	}
+	},
 ): Promise<void> {
 	try {
 		const context = await getAgencyContext();
@@ -262,10 +262,11 @@ export async function logActivity(
 
 		// Extract IP and User Agent from request
 		// IP address must be null (not 'unknown') for inet column type
-		const ipAddress = event?.request.headers.get('x-forwarded-for') ||
-			event?.request.headers.get('cf-connecting-ip') ||
+		const ipAddress =
+			event?.request.headers.get("x-forwarded-for") ||
+			event?.request.headers.get("cf-connecting-ip") ||
 			null;
-		const userAgent = event?.request.headers.get('user-agent') || 'unknown';
+		const userAgent = event?.request.headers.get("user-agent") || "unknown";
 
 		const logEntry: AgencyActivityLogInsert = {
 			agencyId: context.agencyId,
@@ -277,13 +278,13 @@ export async function logActivity(
 			newValues: details?.newValues,
 			ipAddress,
 			userAgent,
-			metadata: details?.metadata ?? {}
+			metadata: details?.metadata ?? {},
 		};
 
 		await db.insert(agencyActivityLog).values(logEntry);
 	} catch (err) {
 		// Don't fail the main operation if logging fails
-		console.error('Failed to log activity:', err);
+		console.error("Failed to log activity:", err);
 	}
 }
 
@@ -298,7 +299,7 @@ export async function logActivities(
 		oldValues?: Record<string, unknown>;
 		newValues?: Record<string, unknown>;
 		metadata?: Record<string, unknown>;
-	}>
+	}>,
 ): Promise<void> {
 	if (entries.length === 0) return;
 
@@ -307,10 +308,11 @@ export async function logActivities(
 		const event = getRequestEvent();
 
 		// IP address must be null (not 'unknown') for inet column type
-		const ipAddress = event?.request.headers.get('x-forwarded-for') ||
-			event?.request.headers.get('cf-connecting-ip') ||
+		const ipAddress =
+			event?.request.headers.get("x-forwarded-for") ||
+			event?.request.headers.get("cf-connecting-ip") ||
 			null;
-		const userAgent = event?.request.headers.get('user-agent') || 'unknown';
+		const userAgent = event?.request.headers.get("user-agent") || "unknown";
 
 		const logEntries: AgencyActivityLogInsert[] = entries.map((entry) => ({
 			agencyId: context.agencyId,
@@ -322,12 +324,12 @@ export async function logActivities(
 			newValues: entry.newValues,
 			ipAddress,
 			userAgent,
-			metadata: entry.metadata ?? {}
+			metadata: entry.metadata ?? {},
 		}));
 
 		await db.insert(agencyActivityLog).values(logEntries);
 	} catch (err) {
-		console.error('Failed to log activities:', err);
+		console.error("Failed to log activities:", err);
 	}
 }
 
@@ -337,47 +339,47 @@ export async function logActivities(
 
 export const AUDIT_ACTIONS = {
 	// Agency
-	AGENCY_CREATED: 'agency.created',
-	AGENCY_UPDATED: 'agency.updated',
-	AGENCY_BRANDING_UPDATED: 'agency.branding_updated',
-	AGENCY_DELETED: 'agency.deleted',
-	AGENCY_DELETION_SCHEDULED: 'agency.deletion_scheduled',
-	AGENCY_DELETION_CANCELLED: 'agency.deletion_cancelled',
+	AGENCY_CREATED: "agency.created",
+	AGENCY_UPDATED: "agency.updated",
+	AGENCY_BRANDING_UPDATED: "agency.branding_updated",
+	AGENCY_DELETED: "agency.deleted",
+	AGENCY_DELETION_SCHEDULED: "agency.deletion_scheduled",
+	AGENCY_DELETION_CANCELLED: "agency.deletion_cancelled",
 
 	// Members
-	MEMBER_INVITED: 'member.invited',
-	MEMBER_ACCEPTED: 'member.accepted',
-	MEMBER_REMOVED: 'member.removed',
-	MEMBER_ROLE_CHANGED: 'member.role_changed',
+	MEMBER_INVITED: "member.invited",
+	MEMBER_ACCEPTED: "member.accepted",
+	MEMBER_REMOVED: "member.removed",
+	MEMBER_ROLE_CHANGED: "member.role_changed",
 
 	// Consultations
-	CONSULTATION_CREATED: 'consultation.created',
-	CONSULTATION_UPDATED: 'consultation.updated',
-	CONSULTATION_DELETED: 'consultation.deleted',
-	CONSULTATION_COMPLETED: 'consultation.completed',
+	CONSULTATION_CREATED: "consultation.created",
+	CONSULTATION_UPDATED: "consultation.updated",
+	CONSULTATION_DELETED: "consultation.deleted",
+	CONSULTATION_COMPLETED: "consultation.completed",
 
 	// Proposals
-	PROPOSAL_CREATED: 'proposal.created',
-	PROPOSAL_SENT: 'proposal.sent',
-	PROPOSAL_VIEWED: 'proposal.viewed',
-	PROPOSAL_ACCEPTED: 'proposal.accepted',
-	PROPOSAL_DECLINED: 'proposal.declined',
+	PROPOSAL_CREATED: "proposal.created",
+	PROPOSAL_SENT: "proposal.sent",
+	PROPOSAL_VIEWED: "proposal.viewed",
+	PROPOSAL_ACCEPTED: "proposal.accepted",
+	PROPOSAL_DECLINED: "proposal.declined",
 
 	// Settings
-	SETTINGS_UPDATED: 'settings.updated',
-	FORM_OPTIONS_UPDATED: 'form_options.updated',
-	TEMPLATE_CREATED: 'template.created',
-	TEMPLATE_UPDATED: 'template.updated',
-	TEMPLATE_DELETED: 'template.deleted',
+	SETTINGS_UPDATED: "settings.updated",
+	FORM_OPTIONS_UPDATED: "form_options.updated",
+	TEMPLATE_CREATED: "template.created",
+	TEMPLATE_UPDATED: "template.updated",
+	TEMPLATE_DELETED: "template.deleted",
 
 	// Security
-	LOGIN: 'security.login',
-	LOGOUT: 'security.logout',
-	PASSWORD_CHANGED: 'security.password_changed',
-	API_KEY_GENERATED: 'security.api_key_generated',
+	LOGIN: "security.login",
+	LOGOUT: "security.logout",
+	PASSWORD_CHANGED: "security.password_changed",
+	API_KEY_GENERATED: "security.api_key_generated",
 
 	// Data
-	DATA_EXPORTED: 'data.exported'
+	DATA_EXPORTED: "data.exported",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
@@ -387,13 +389,13 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 // =============================================================================
 
 export const ENTITY_TYPES = {
-	AGENCY: 'agency',
-	MEMBER: 'member',
-	CONSULTATION: 'consultation',
-	PROPOSAL: 'proposal',
-	TEMPLATE: 'template',
-	FORM_OPTION: 'form_option',
-	USER: 'user'
+	AGENCY: "agency",
+	MEMBER: "member",
+	CONSULTATION: "consultation",
+	PROPOSAL: "proposal",
+	TEMPLATE: "template",
+	FORM_OPTION: "form_option",
+	USER: "user",
 } as const;
 
 export type EntityType = (typeof ENTITY_TYPES)[keyof typeof ENTITY_TYPES];

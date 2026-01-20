@@ -7,40 +7,40 @@
  * Uses Valibot for validation (NOT Zod)
  */
 
-import { query, command } from '$app/server';
-import { env } from '$env/dynamic/public';
-import * as v from 'valibot';
-import { db } from '$lib/server/db';
+import { query, command } from "$app/server";
+import { env } from "$env/dynamic/public";
+import * as v from "valibot";
+import { db } from "$lib/server/db";
 import {
 	questionnaireResponses,
 	contracts,
 	invoices,
 	agencies,
-	agencyProfiles
-} from '$lib/server/schema';
-import { getAgencyContext } from '$lib/server/agency';
-import { logActivity } from '$lib/server/db-helpers';
-import { canAccessResource } from '$lib/server/permissions';
-import { eq, and, asc } from 'drizzle-orm';
-import { sendEmail } from '$lib/server/services/email.service';
-import { generateQuestionnaireCompletedEmail } from '$lib/templates/email-templates';
-import { nanoid } from 'nanoid';
-import type { QuestionnaireResponses, QuestionnaireAccessResult } from './questionnaire.types';
+	agencyProfiles,
+} from "$lib/server/schema";
+import { getAgencyContext } from "$lib/server/agency";
+import { logActivity } from "$lib/server/db-helpers";
+import { canAccessResource } from "$lib/server/permissions";
+import { eq, and, asc } from "drizzle-orm";
+import { sendEmail } from "$lib/server/services/email.service";
+import { generateQuestionnaireCompletedEmail } from "$lib/templates/email-templates";
+import { nanoid } from "nanoid";
+import type { QuestionnaireResponses, QuestionnaireAccessResult } from "./questionnaire.types";
 
 // =============================================================================
 // Validation Schemas
 // =============================================================================
 
-const QuestionnaireStatusSchema = v.picklist(['not_started', 'in_progress', 'completed']);
+const QuestionnaireStatusSchema = v.picklist(["not_started", "in_progress", "completed"]);
 
 const SaveProgressSchema = v.object({
 	questionnaireId: v.pipe(v.string(), v.uuid()),
 	responses: v.record(v.string(), v.any()),
-	currentSection: v.pipe(v.number(), v.minValue(0), v.maxValue(7))
+	currentSection: v.pipe(v.number(), v.minValue(0), v.maxValue(7)),
 });
 
 const SubmitQuestionnaireSchema = v.object({
-	questionnaireId: v.pipe(v.string(), v.uuid())
+	questionnaireId: v.pipe(v.string(), v.uuid()),
 });
 
 // =============================================================================
@@ -54,40 +54,40 @@ const SubmitQuestionnaireSchema = v.object({
 function calculateCompletionPercentage(responses: QuestionnaireResponses): number {
 	const requiredFields = [
 		// Section 1 (3 required)
-		'first_name',
-		'last_name',
-		'email',
+		"first_name",
+		"last_name",
+		"email",
 		// Section 2 (2 required)
-		'company_name',
-		'registered_address',
+		"company_name",
+		"registered_address",
 		// Section 3 (1 required)
-		'displayed_business_name',
+		"displayed_business_name",
 		// Section 4 (2 required)
-		'has_domain',
-		'has_google_business',
+		"has_domain",
+		"has_google_business",
 		// Section 5 (5 required)
-		'business_story',
-		'areas_served',
-		'target_customers',
-		'top_services',
-		'differentiators',
+		"business_story",
+		"areas_served",
+		"target_customers",
+		"top_services",
+		"differentiators",
 		// Section 6 (4 required)
-		'pages_wanted',
-		'customer_actions',
-		'key_information',
-		'calls_to_action',
+		"pages_wanted",
+		"customer_actions",
+		"key_information",
+		"calls_to_action",
 		// Section 7 (2 required)
-		'reference_websites',
-		'aesthetic_description',
+		"reference_websites",
+		"aesthetic_description",
 		// Section 8 (2 required)
-		'timeline',
-		'google_analytics'
+		"timeline",
+		"google_analytics",
 	];
 
 	let filledCount = 0;
 	for (const field of requiredFields) {
 		const value = responses[field as keyof QuestionnaireResponses];
-		if (value !== undefined && value !== null && value !== '') {
+		if (value !== undefined && value !== null && value !== "") {
 			filledCount++;
 		}
 	}
@@ -99,16 +99,16 @@ function calculateCompletionPercentage(responses: QuestionnaireResponses): numbe
  * Build pre-fill data from contract.
  */
 function getPrefillData(contract: typeof contracts.$inferSelect): Partial<QuestionnaireResponses> {
-	const nameParts = (contract.clientContactName || '').split(' ');
+	const nameParts = (contract.clientContactName || "").split(" ");
 	return {
 		// Personal info from contract
-		first_name: nameParts[0] || '',
-		last_name: nameParts.slice(1).join(' ') || '',
-		email: contract.clientEmail || '',
+		first_name: nameParts[0] || "",
+		last_name: nameParts.slice(1).join(" ") || "",
+		email: contract.clientEmail || "",
 		// Company from contract
-		company_name: contract.clientBusinessName || '',
+		company_name: contract.clientBusinessName || "",
 		// Display info defaults to company name (client can change)
-		displayed_business_name: contract.clientBusinessName || ''
+		displayed_business_name: contract.clientBusinessName || "",
 	};
 }
 
@@ -132,12 +132,12 @@ export const getQuestionnaireByContract = query(
 			.limit(1);
 
 		if (!contract) {
-			throw new Error('Contract not found');
+			throw new Error("Contract not found");
 		}
 
 		// Check access permission
-		if (!canAccessResource(context.role, contract.createdBy || '', context.userId, 'contract')) {
-			throw new Error('Permission denied');
+		if (!canAccessResource(context.role, contract.createdBy || "", context.userId, "contract")) {
+			throw new Error("Permission denied");
 		}
 
 		// Get questionnaire if exists
@@ -148,7 +148,7 @@ export const getQuestionnaireByContract = query(
 			.limit(1);
 
 		return questionnaire || null;
-	}
+	},
 );
 
 /**
@@ -159,14 +159,10 @@ export const checkQuestionnaireAccess = query(
 	v.pipe(v.string(), v.minLength(1)),
 	async (slug: string): Promise<QuestionnaireAccessResult> => {
 		// Find contract by slug
-		const [contract] = await db
-			.select()
-			.from(contracts)
-			.where(eq(contracts.slug, slug))
-			.limit(1);
+		const [contract] = await db.select().from(contracts).where(eq(contracts.slug, slug)).limit(1);
 
 		if (!contract) {
-			return { allowed: false, reason: 'contract_not_found' };
+			return { allowed: false, reason: "contract_not_found" };
 		}
 
 		// Get agency info for display
@@ -183,13 +179,13 @@ export const checkQuestionnaireAccess = query(
 			.limit(1);
 
 		// Check 1: Contract must be signed
-		if (!['signed', 'completed'].includes(contract.status)) {
+		if (!["signed", "completed"].includes(contract.status)) {
 			return {
 				allowed: false,
-				reason: 'contract_not_signed',
+				reason: "contract_not_signed",
 				contract,
 				...(agency && { agency }),
-				...(agencyProfile && { agencyProfile })
+				...(agencyProfile && { agencyProfile }),
 			};
 		}
 
@@ -201,13 +197,13 @@ export const checkQuestionnaireAccess = query(
 			.orderBy(asc(invoices.createdAt))
 			.limit(1);
 
-		if (firstInvoice && firstInvoice.status !== 'paid') {
+		if (firstInvoice && firstInvoice.status !== "paid") {
 			return {
 				allowed: false,
-				reason: 'payment_required',
+				reason: "payment_required",
 				contract,
 				...(agency && { agency }),
-				...(agencyProfile && { agencyProfile })
+				...(agencyProfile && { agencyProfile }),
 			};
 		}
 
@@ -219,14 +215,14 @@ export const checkQuestionnaireAccess = query(
 			.limit(1);
 
 		// If questionnaire already completed, still allow view but flag it
-		if (questionnaire?.status === 'completed') {
+		if (questionnaire?.status === "completed") {
 			return {
 				allowed: true,
-				reason: 'already_completed',
+				reason: "already_completed",
 				contract,
 				...(agency && { agency }),
 				...(agencyProfile && { agencyProfile }),
-				questionnaire
+				questionnaire,
 			};
 		}
 
@@ -240,12 +236,12 @@ export const checkQuestionnaireAccess = query(
 					slug: nanoid(12),
 					agencyId: contract.agencyId,
 					contractId: contract.id,
-					clientBusinessName: contract.clientBusinessName || '',
-					clientEmail: contract.clientEmail || '',
+					clientBusinessName: contract.clientBusinessName || "",
+					clientEmail: contract.clientEmail || "",
 					responses: prefillData,
 					currentSection: 0,
 					completionPercentage: calculateCompletionPercentage(prefillData),
-					status: 'not_started'
+					status: "not_started",
 				})
 				.returning();
 
@@ -253,7 +249,7 @@ export const checkQuestionnaireAccess = query(
 		}
 
 		if (!questionnaire) {
-			throw new Error('Failed to create or retrieve questionnaire');
+			throw new Error("Failed to create or retrieve questionnaire");
 		}
 
 		return {
@@ -261,9 +257,9 @@ export const checkQuestionnaireAccess = query(
 			contract,
 			...(agency && { agency }),
 			...(agencyProfile && { agencyProfile }),
-			questionnaire
+			questionnaire,
 		};
-	}
+	},
 );
 
 /**
@@ -274,11 +270,7 @@ export const getQuestionnaireBySlug = query(
 	v.pipe(v.string(), v.minLength(1)),
 	async (slug: string) => {
 		// Find contract by slug
-		const [contract] = await db
-			.select()
-			.from(contracts)
-			.where(eq(contracts.slug, slug))
-			.limit(1);
+		const [contract] = await db.select().from(contracts).where(eq(contracts.slug, slug)).limit(1);
 
 		if (!contract) {
 			return null;
@@ -304,9 +296,9 @@ export const getQuestionnaireBySlug = query(
 
 		return {
 			questionnaire,
-			agencyProfile: agencyProfile || null
+			agencyProfile: agencyProfile || null,
 		};
-	}
+	},
 );
 
 // =============================================================================
@@ -326,26 +318,26 @@ export const saveQuestionnaireProgress = command(SaveProgressSchema, async (data
 		.limit(1);
 
 	if (!existing) {
-		throw new Error('Questionnaire not found');
+		throw new Error("Questionnaire not found");
 	}
 
 	// Cannot modify completed questionnaire
-	if (existing.status === 'completed') {
-		throw new Error('Questionnaire already completed');
+	if (existing.status === "completed") {
+		throw new Error("Questionnaire already completed");
 	}
 
 	// Merge responses (preserve existing, update with new)
 	const existingResponses = (existing.responses || {}) as QuestionnaireResponses;
 	const mergedResponses = {
 		...existingResponses,
-		...data.responses
+		...data.responses,
 	} as QuestionnaireResponses;
 
 	// Calculate completion percentage
 	const completionPercentage = calculateCompletionPercentage(mergedResponses);
 
 	// Determine status
-	const status = completionPercentage > 0 ? 'in_progress' : 'not_started';
+	const status = completionPercentage > 0 ? "in_progress" : "not_started";
 
 	// Update questionnaire
 	const [questionnaire] = await db
@@ -355,9 +347,9 @@ export const saveQuestionnaireProgress = command(SaveProgressSchema, async (data
 			currentSection: data.currentSection,
 			completionPercentage,
 			status,
-			startedAt: existing.startedAt || (status === 'in_progress' ? new Date() : null),
+			startedAt: existing.startedAt || (status === "in_progress" ? new Date() : null),
 			lastActivityAt: new Date(),
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(questionnaireResponses.id, data.questionnaireId))
 		.returning();
@@ -378,12 +370,12 @@ export const submitQuestionnaire = command(SubmitQuestionnaireSchema, async (dat
 		.limit(1);
 
 	if (!existing) {
-		throw new Error('Questionnaire not found');
+		throw new Error("Questionnaire not found");
 	}
 
 	// Cannot submit already completed
-	if (existing.status === 'completed') {
-		throw new Error('Questionnaire already submitted');
+	if (existing.status === "completed") {
+		throw new Error("Questionnaire already submitted");
 	}
 
 	// Get contract for logging and email (if linked)
@@ -414,68 +406,73 @@ export const submitQuestionnaire = command(SubmitQuestionnaireSchema, async (dat
 	const [questionnaire] = await db
 		.update(questionnaireResponses)
 		.set({
-			status: 'completed',
+			status: "completed",
 			completionPercentage: 100,
 			completedAt: new Date(),
 			lastActivityAt: new Date(),
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(questionnaireResponses.id, data.questionnaireId))
 		.returning();
 
 	if (!questionnaire) {
-		throw new Error('Failed to update questionnaire');
+		throw new Error("Failed to update questionnaire");
 	}
 
 	// Log activity
-	await logActivity('questionnaire.completed', 'questionnaire', questionnaire.id, {
+	await logActivity("questionnaire.completed", "questionnaire", questionnaire.id, {
 		newValues: {
 			contractId: existing.contractId,
-			clientName: contract?.clientContactName || existing.clientBusinessName || 'Unknown'
-		}
+			clientName: contract?.clientContactName || existing.clientBusinessName || "Unknown",
+		},
 	});
 
 	// Send notification email to agency
 	if (agency?.email) {
 		try {
-			const baseUrl = env.PUBLIC_CLIENT_URL || 'https://webkit.au';
+			const baseUrl = env.PUBLIC_CLIENT_URL || "https://webkit.au";
 			// Use contract link if available, otherwise use questionnaire by slug
 			const questionnaireUrl = contract
 				? `${baseUrl}/${agency.slug}/contracts/${contract.id}`
 				: `${baseUrl}/q/${existing.slug}`;
 
 			// Get client info from contract if linked, otherwise from questionnaire
-			const clientName = contract?.clientContactName || contract?.clientBusinessName || existing.clientBusinessName || 'Client';
-			const clientBusinessName = contract?.clientBusinessName || existing.clientBusinessName || undefined;
-			const clientEmail = contract?.clientEmail || existing.clientEmail || '';
+			const clientName =
+				contract?.clientContactName ||
+				contract?.clientBusinessName ||
+				existing.clientBusinessName ||
+				"Client";
+			const clientBusinessName =
+				contract?.clientBusinessName || existing.clientBusinessName || undefined;
+			const clientEmail = contract?.clientEmail || existing.clientEmail || "";
 
 			const emailContent = generateQuestionnaireCompletedEmail({
 				agency: {
 					name: agencyProfile?.tradingName || agency.name,
 					primaryColor: agency.primaryColor || undefined,
-					logoUrl: agency.logoUrl || undefined
+					logoUrl: agency.logoUrl || undefined,
 				},
 				client: {
 					name: clientName,
 					businessName: clientBusinessName,
-					email: clientEmail
+					email: clientEmail,
 				},
 				...(contract && {
 					contract: {
-						number: contract.contractNumber
-					}
+						number: contract.contractNumber,
+					},
 				}),
-				questionnaireUrl
+				questionnaireUrl,
 			});
 
 			await sendEmail({
 				to: agency.email,
 				subject: emailContent.subject,
-				html: emailContent.bodyHtml
+				html: emailContent.bodyHtml,
 			});
 		} catch (err) {
 			// Log error but don't fail the submission
-			console.error('Failed to send questionnaire completion email:', err);
+			console.error("Failed to send questionnaire completion email:", err);
 		}
 	}
 
@@ -489,8 +486,8 @@ const QuestionnaireFiltersSchema = v.optional(
 	v.object({
 		status: v.optional(QuestionnaireStatusSchema),
 		limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(100))),
-		offset: v.optional(v.pipe(v.number(), v.minValue(0)))
-	})
+		offset: v.optional(v.pipe(v.number(), v.minValue(0))),
+	}),
 );
 
 export const getQuestionnaires = query(QuestionnaireFiltersSchema, async (filters) => {
@@ -524,7 +521,7 @@ const CreateQuestionnaireSchema = v.object({
 	clientEmail: v.pipe(v.string(), v.email()),
 	contractId: v.optional(v.pipe(v.string(), v.uuid())),
 	proposalId: v.optional(v.pipe(v.string(), v.uuid())),
-	consultationId: v.optional(v.pipe(v.string(), v.uuid()))
+	consultationId: v.optional(v.pipe(v.string(), v.uuid())),
 });
 
 /**
@@ -542,7 +539,7 @@ export const createQuestionnaire = command(CreateQuestionnaireSchema, async (dat
 			.where(and(eq(contracts.id, data.contractId), eq(contracts.agencyId, context.agencyId)))
 			.limit(1);
 		if (!contract) {
-			throw new Error('Contract not found');
+			throw new Error("Contract not found");
 		}
 	}
 
@@ -553,7 +550,7 @@ export const createQuestionnaire = command(CreateQuestionnaireSchema, async (dat
 	const prefillData: Partial<QuestionnaireResponses> = {
 		email: data.clientEmail,
 		company_name: data.clientBusinessName,
-		displayed_business_name: data.clientBusinessName
+		displayed_business_name: data.clientBusinessName,
 	};
 
 	// Create questionnaire
@@ -570,20 +567,20 @@ export const createQuestionnaire = command(CreateQuestionnaireSchema, async (dat
 			responses: prefillData,
 			currentSection: 0,
 			completionPercentage: calculateCompletionPercentage(prefillData),
-			status: 'not_started'
+			status: "not_started",
 		})
 		.returning();
 
 	if (!questionnaire) {
-		throw new Error('Failed to create questionnaire');
+		throw new Error("Failed to create questionnaire");
 	}
 
 	// Log activity
-	await logActivity('questionnaire.created', 'questionnaire', questionnaire.id, {
+	await logActivity("questionnaire.created", "questionnaire", questionnaire.id, {
 		newValues: {
 			clientBusinessName: data.clientBusinessName,
-			clientEmail: data.clientEmail
-		}
+			clientEmail: data.clientEmail,
+		},
 	});
 
 	return questionnaire;
@@ -605,33 +602,33 @@ export const deleteQuestionnaire = command(
 			.where(
 				and(
 					eq(questionnaireResponses.id, questionnaireId),
-					eq(questionnaireResponses.agencyId, context.agencyId)
-				)
+					eq(questionnaireResponses.agencyId, context.agencyId),
+				),
 			)
 			.limit(1);
 
 		if (!existing) {
-			throw new Error('Questionnaire not found');
+			throw new Error("Questionnaire not found");
 		}
 
 		// Cannot delete completed questionnaires
-		if (existing.status === 'completed') {
-			throw new Error('Cannot delete completed questionnaire');
+		if (existing.status === "completed") {
+			throw new Error("Cannot delete completed questionnaire");
 		}
 
 		await db.delete(questionnaireResponses).where(eq(questionnaireResponses.id, questionnaireId));
 
 		// Log activity
-		await logActivity('questionnaire.deleted', 'questionnaire', questionnaireId, {
+		await logActivity("questionnaire.deleted", "questionnaire", questionnaireId, {
 			oldValues: {
 				clientBusinessName: existing.clientBusinessName,
 				clientEmail: existing.clientEmail,
-				status: existing.status
-			}
+				status: existing.status,
+			},
 		});
 
 		return { success: true };
-	}
+	},
 );
 
 /**
@@ -648,17 +645,17 @@ export const getQuestionnaireById = query(
 			.where(
 				and(
 					eq(questionnaireResponses.id, questionnaireId),
-					eq(questionnaireResponses.agencyId, context.agencyId)
-				)
+					eq(questionnaireResponses.agencyId, context.agencyId),
+				),
 			)
 			.limit(1);
 
 		if (!questionnaire) {
-			throw new Error('Questionnaire not found');
+			throw new Error("Questionnaire not found");
 		}
 
 		return questionnaire;
-	}
+	},
 );
 
 /**
@@ -707,7 +704,7 @@ export const getQuestionnaireByOwnSlug = query(
 			questionnaire,
 			agency: agency || null,
 			agencyProfile: agencyProfile || null,
-			contract
+			contract,
 		};
-	}
+	},
 );

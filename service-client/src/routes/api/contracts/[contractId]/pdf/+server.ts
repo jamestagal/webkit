@@ -6,45 +6,45 @@
  * Uses Gotenberg for HTML-to-PDF conversion with professional template.
  */
 
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { db } from '$lib/server/db';
-import { contracts, agencies, agencyProfiles, contractSchedules } from '$lib/server/schema';
-import { eq, inArray } from 'drizzle-orm';
-import { generateContractPdfHtml } from '$lib/templates/contract-pdf';
-import { env } from '$env/dynamic/private';
+import { json } from "@sveltejs/kit";
+import type { RequestHandler } from "./$types";
+import { db } from "$lib/server/db";
+import { contracts, agencies, agencyProfiles, contractSchedules } from "$lib/server/schema";
+import { eq, inArray } from "drizzle-orm";
+import { generateContractPdfHtml } from "$lib/templates/contract-pdf";
+import { env } from "$env/dynamic/private";
 
-const GOTENBERG_URL = env['GOTENBERG_URL'] || 'http://localhost:3003';
+const GOTENBERG_URL = env["GOTENBERG_URL"] || "http://localhost:3003";
 
 export const GET: RequestHandler = async ({ params }) => {
 	const { contractId } = params;
 
 	if (!contractId) {
-		return json({ error: 'Contract ID is required' }, { status: 400 });
+		return json({ error: "Contract ID is required" }, { status: 400 });
 	}
 
 	try {
 		// Fetch contract
 		const contract = await db.query.contracts.findFirst({
-			where: eq(contracts.id, contractId)
+			where: eq(contracts.id, contractId),
 		});
 
 		if (!contract) {
-			return json({ error: 'Contract not found' }, { status: 404 });
+			return json({ error: "Contract not found" }, { status: 404 });
 		}
 
 		// Fetch related data
 		const [agency, profile] = await Promise.all([
 			db.query.agencies.findFirst({
-				where: eq(agencies.id, contract.agencyId)
+				where: eq(agencies.id, contract.agencyId),
 			}),
 			db.query.agencyProfiles.findFirst({
-				where: eq(agencyProfiles.agencyId, contract.agencyId)
-			})
+				where: eq(agencyProfiles.agencyId, contract.agencyId),
+			}),
 		]);
 
 		if (!agency) {
-			return json({ error: 'Agency not found' }, { status: 404 });
+			return json({ error: "Agency not found" }, { status: 404 });
 		}
 
 		// Fetch included schedules
@@ -53,7 +53,7 @@ export const GET: RequestHandler = async ({ params }) => {
 
 		if (includedScheduleIds.length > 0) {
 			includedSchedules = await db.query.contractSchedules.findMany({
-				where: inArray(contractSchedules.id, includedScheduleIds)
+				where: inArray(contractSchedules.id, includedScheduleIds),
 			});
 		}
 
@@ -62,32 +62,32 @@ export const GET: RequestHandler = async ({ params }) => {
 			contract,
 			agency,
 			profile: profile || null,
-			includedSchedules
+			includedSchedules,
 		});
 
 		// Convert to PDF using Gotenberg
 		const formData = new FormData();
-		formData.append('files', new Blob([html], { type: 'text/html' }), 'index.html');
+		formData.append("files", new Blob([html], { type: "text/html" }), "index.html");
 
 		// Gotenberg options for A4
-		formData.append('paperWidth', '8.27'); // A4 width in inches
-		formData.append('paperHeight', '11.69'); // A4 height in inches
-		formData.append('marginTop', '0.4');
-		formData.append('marginBottom', '0.4');
-		formData.append('marginLeft', '0.4');
-		formData.append('marginRight', '0.4');
-		formData.append('printBackground', 'true');
-		formData.append('preferCssPageSize', 'true');
+		formData.append("paperWidth", "8.27"); // A4 width in inches
+		formData.append("paperHeight", "11.69"); // A4 height in inches
+		formData.append("marginTop", "0.4");
+		formData.append("marginBottom", "0.4");
+		formData.append("marginLeft", "0.4");
+		formData.append("marginRight", "0.4");
+		formData.append("printBackground", "true");
+		formData.append("preferCssPageSize", "true");
 
 		const pdfResponse = await fetch(`${GOTENBERG_URL}/forms/chromium/convert/html`, {
-			method: 'POST',
-			body: formData
+			method: "POST",
+			body: formData,
 		});
 
 		if (!pdfResponse.ok) {
 			const errorText = await pdfResponse.text();
-			console.error('Gotenberg error:', errorText);
-			return json({ error: 'Failed to generate PDF' }, { status: 500 });
+			console.error("Gotenberg error:", errorText);
+			return json({ error: "Failed to generate PDF" }, { status: 500 });
 		}
 
 		const pdfBuffer = await pdfResponse.arrayBuffer();
@@ -98,15 +98,15 @@ export const GET: RequestHandler = async ({ params }) => {
 		return new Response(pdfBuffer, {
 			status: 200,
 			headers: {
-				'Content-Type': 'application/pdf',
-				'Content-Disposition': `attachment; filename="${filename}"`,
-				'Content-Length': pdfBuffer.byteLength.toString(),
-				'Cache-Control': 'private, max-age=60'
-			}
+				"Content-Type": "application/pdf",
+				"Content-Disposition": `attachment; filename="${filename}"`,
+				"Content-Length": pdfBuffer.byteLength.toString(),
+				"Cache-Control": "private, max-age=60",
+			},
 		});
 	} catch (err) {
-		console.error('PDF generation error:', err);
-		const message = err instanceof Error ? err.message : 'PDF generation failed';
+		console.error("PDF generation error:", err);
+		const message = err instanceof Error ? err.message : "PDF generation failed";
 		return json({ error: message }, { status: 500 });
 	}
 };

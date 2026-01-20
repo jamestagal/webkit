@@ -3,7 +3,7 @@ import adapterNode from "@sveltejs/adapter-node";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 
 // Use Cloudflare adapter for production/preview, Node for local dev
-const isCloudflare = process.env.CF_PAGES === '1' || process.env.CLOUDFLARE === '1';
+const isCloudflare = process.env.CF_PAGES === "1" || process.env.CLOUDFLARE === "1";
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -14,8 +14,8 @@ const config = {
 	// Enable async in Svelte templates for remote functions
 	compilerOptions: {
 		experimental: {
-			async: true
-		}
+			async: true,
+		},
 	},
 
 	kit: {
@@ -23,9 +23,9 @@ const config = {
 		adapter: isCloudflare ? adapterCloudflare() : adapterNode(),
 		alias: {},
 		experimental: {
-			remoteFunctions: true
-		}
-	}
+			remoteFunctions: true,
+		},
+	},
 };
 
 export default config;

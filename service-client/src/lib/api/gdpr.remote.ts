@@ -11,9 +11,9 @@
  * - Activity log anonymization
  */
 
-import { query, command } from '$app/server';
-import * as v from 'valibot';
-import { db } from '$lib/server/db';
+import { query, command } from "$app/server";
+import * as v from "valibot";
+import { db } from "$lib/server/db";
 import {
 	agencies,
 	agencyMemberships,
@@ -23,13 +23,13 @@ import {
 	consultations,
 	consultationDrafts,
 	consultationVersions,
-	users
-} from '$lib/server/schema';
-import { getAgencyContext } from '$lib/server/agency';
-import { requirePermission } from '$lib/server/permissions';
-import { logActivity, AUDIT_ACTIONS, ENTITY_TYPES } from '$lib/server/db-helpers';
-import { eq, inArray } from 'drizzle-orm';
-import { error } from '@sveltejs/kit';
+	users,
+} from "$lib/server/schema";
+import { getAgencyContext } from "$lib/server/agency";
+import { requirePermission } from "$lib/server/permissions";
+import { logActivity, AUDIT_ACTIONS, ENTITY_TYPES } from "$lib/server/db-helpers";
+import { eq, inArray } from "drizzle-orm";
+import { error } from "@sveltejs/kit";
 
 // =============================================================================
 // Constants
@@ -52,7 +52,7 @@ export const getDeletionStatus = query(async () => {
 	const [agency] = await db
 		.select({
 			deletedAt: agencies.deletedAt,
-			deletionScheduledFor: agencies.deletionScheduledFor
+			deletionScheduledFor: agencies.deletionScheduledFor,
 		})
 		.from(agencies)
 		.where(eq(agencies.id, context.agencyId))
@@ -64,12 +64,14 @@ export const getDeletionStatus = query(async () => {
 
 	const now = new Date();
 	const scheduledDate = new Date(agency.deletionScheduledFor);
-	const daysRemaining = Math.ceil((scheduledDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+	const daysRemaining = Math.ceil(
+		(scheduledDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+	);
 
 	return {
 		scheduledFor: agency.deletionScheduledFor,
 		daysRemaining: Math.max(0, daysRemaining),
-		canCancel: daysRemaining > 0
+		canCancel: daysRemaining > 0,
 	};
 });
 
@@ -78,7 +80,7 @@ export const getDeletionStatus = query(async () => {
  * Only accessible by agency owner.
  */
 export const exportAgencyData = query(async () => {
-	await requirePermission('data:export');
+	await requirePermission("data:export");
 	const context = await getAgencyContext();
 
 	// Get agency details
@@ -89,7 +91,7 @@ export const exportAgencyData = query(async () => {
 		.limit(1);
 
 	if (!agency) {
-		throw error(404, 'Agency not found');
+		throw error(404, "Agency not found");
 	}
 
 	// Get all members
@@ -101,7 +103,7 @@ export const exportAgencyData = query(async () => {
 			displayName: agencyMemberships.displayName,
 			invitedAt: agencyMemberships.invitedAt,
 			acceptedAt: agencyMemberships.acceptedAt,
-			userEmail: users.email
+			userEmail: users.email,
 		})
 		.from(agencyMemberships)
 		.innerJoin(users, eq(agencyMemberships.userId, users.id))
@@ -146,7 +148,7 @@ export const exportAgencyData = query(async () => {
 			action: agencyActivityLog.action,
 			entityType: agencyActivityLog.entityType,
 			createdAt: agencyActivityLog.createdAt,
-			metadata: agencyActivityLog.metadata
+			metadata: agencyActivityLog.metadata,
 		})
 		.from(agencyActivityLog)
 		.where(eq(agencyActivityLog.agencyId, context.agencyId))
@@ -157,7 +159,7 @@ export const exportAgencyData = query(async () => {
 
 	return {
 		exportedAt: new Date().toISOString(),
-		exportVersion: '1.0',
+		exportVersion: "1.0",
 		agency: {
 			id: agency.id,
 			name: agency.name,
@@ -169,14 +171,14 @@ export const exportAgencyData = query(async () => {
 				logoUrl: agency.logoUrl,
 				primaryColor: agency.primaryColor,
 				secondaryColor: agency.secondaryColor,
-				accentColor: agency.accentColor
+				accentColor: agency.accentColor,
 			},
 			subscription: {
 				tier: agency.subscriptionTier,
-				status: agency.status
+				status: agency.status,
 			},
 			createdAt: agency.createdAt,
-			updatedAt: agency.updatedAt
+			updatedAt: agency.updatedAt,
 		},
 		members: members.map((m) => ({
 			id: m.id,
@@ -185,7 +187,7 @@ export const exportAgencyData = query(async () => {
 			role: m.role,
 			status: m.status,
 			invitedAt: m.invitedAt,
-			acceptedAt: m.acceptedAt
+			acceptedAt: m.acceptedAt,
 		})),
 		formOptions: formOptions.map((opt) => ({
 			category: opt.category,
@@ -193,7 +195,7 @@ export const exportAgencyData = query(async () => {
 			label: opt.label,
 			isDefault: opt.isDefault,
 			isActive: opt.isActive,
-			metadata: opt.metadata
+			metadata: opt.metadata,
 		})),
 		templates: templates.map((t) => ({
 			id: t.id,
@@ -203,7 +205,7 @@ export const exportAgencyData = query(async () => {
 			headerContent: t.headerContent,
 			footerContent: t.footerContent,
 			settings: t.settings,
-			createdAt: t.createdAt
+			createdAt: t.createdAt,
 		})),
 		consultations: allConsultations.map((c) => ({
 			id: c.id,
@@ -227,7 +229,7 @@ export const exportAgencyData = query(async () => {
 			admiredWebsites: c.admiredWebsites,
 			consultationNotes: c.consultationNotes,
 			createdAt: c.createdAt,
-			updatedAt: c.updatedAt
+			updatedAt: c.updatedAt,
 		})),
 		drafts: drafts.map((d) => ({
 			id: d.id,
@@ -235,7 +237,7 @@ export const exportAgencyData = query(async () => {
 			// v2 drafts may have different structure - include available fields
 			draftNotes: d.draftNotes,
 			createdAt: d.createdAt,
-			updatedAt: d.updatedAt
+			updatedAt: d.updatedAt,
 		})),
 		versions: versions.map((v) => ({
 			id: v.id,
@@ -243,14 +245,14 @@ export const exportAgencyData = query(async () => {
 			versionNumber: v.versionNumber,
 			status: v.status,
 			changeSummary: v.changeSummary,
-			createdAt: v.createdAt
+			createdAt: v.createdAt,
 		})),
 		activityLog: activityLog.map((a) => ({
 			action: a.action,
 			entityType: a.entityType,
-			createdAt: a.createdAt
+			createdAt: a.createdAt,
 			// Note: Sensitive details omitted for privacy
-		}))
+		})),
 	};
 });
 
@@ -264,10 +266,10 @@ export const exportAgencyData = query(async () => {
  */
 export const scheduleAgencyDeletion = command(
 	v.object({
-		confirmationPhrase: v.pipe(v.string(), v.minLength(1))
+		confirmationPhrase: v.pipe(v.string(), v.minLength(1)),
 	}),
 	async (data) => {
-		await requirePermission('agency:delete');
+		await requirePermission("agency:delete");
 		const context = await getAgencyContext();
 
 		// Get agency name for confirmation
@@ -278,7 +280,7 @@ export const scheduleAgencyDeletion = command(
 			.limit(1);
 
 		if (!agency) {
-			throw error(404, 'Agency not found');
+			throw error(404, "Agency not found");
 		}
 
 		// Require exact name match for confirmation
@@ -295,7 +297,7 @@ export const scheduleAgencyDeletion = command(
 			.limit(1);
 
 		if (current?.deletionScheduledFor) {
-			throw error(400, 'Agency is already scheduled for deletion');
+			throw error(400, "Agency is already scheduled for deletion");
 		}
 
 		// Schedule deletion
@@ -306,24 +308,29 @@ export const scheduleAgencyDeletion = command(
 			.update(agencies)
 			.set({
 				deletionScheduledFor: deletionDate,
-				updatedAt: new Date()
+				updatedAt: new Date(),
 			})
 			.where(eq(agencies.id, context.agencyId));
 
 		// Log the action
-		await logActivity(AUDIT_ACTIONS.AGENCY_DELETION_SCHEDULED, ENTITY_TYPES.AGENCY, context.agencyId, {
-			newValues: {
-				deletionScheduledFor: deletionDate.toISOString(),
-				gracePeriodDays: DELETION_GRACE_PERIOD_DAYS
-			}
-		});
+		await logActivity(
+			AUDIT_ACTIONS.AGENCY_DELETION_SCHEDULED,
+			ENTITY_TYPES.AGENCY,
+			context.agencyId,
+			{
+				newValues: {
+					deletionScheduledFor: deletionDate.toISOString(),
+					gracePeriodDays: DELETION_GRACE_PERIOD_DAYS,
+				},
+			},
+		);
 
 		return {
 			scheduledFor: deletionDate,
 			gracePeriodDays: DELETION_GRACE_PERIOD_DAYS,
-			message: `Agency scheduled for deletion on ${deletionDate.toLocaleDateString()}. You can cancel this within ${DELETION_GRACE_PERIOD_DAYS} days.`
+			message: `Agency scheduled for deletion on ${deletionDate.toLocaleDateString()}. You can cancel this within ${DELETION_GRACE_PERIOD_DAYS} days.`,
 		};
-	}
+	},
 );
 
 /**
@@ -331,35 +338,35 @@ export const scheduleAgencyDeletion = command(
  * Only accessible by agency owner during grace period.
  */
 export const cancelAgencyDeletion = command(async () => {
-	await requirePermission('agency:delete');
+	await requirePermission("agency:delete");
 	const context = await getAgencyContext();
 
 	// Check if scheduled for deletion
 	const [agency] = await db
 		.select({
 			deletionScheduledFor: agencies.deletionScheduledFor,
-			deletedAt: agencies.deletedAt
+			deletedAt: agencies.deletedAt,
 		})
 		.from(agencies)
 		.where(eq(agencies.id, context.agencyId))
 		.limit(1);
 
 	if (!agency) {
-		throw error(404, 'Agency not found');
+		throw error(404, "Agency not found");
 	}
 
 	if (agency.deletedAt) {
-		throw error(400, 'Agency has already been deleted');
+		throw error(400, "Agency has already been deleted");
 	}
 
 	if (!agency.deletionScheduledFor) {
-		throw error(400, 'Agency is not scheduled for deletion');
+		throw error(400, "Agency is not scheduled for deletion");
 	}
 
 	// Check if still within grace period
 	const now = new Date();
 	if (new Date(agency.deletionScheduledFor) <= now) {
-		throw error(400, 'Grace period has expired. Deletion cannot be cancelled.');
+		throw error(400, "Grace period has expired. Deletion cannot be cancelled.");
 	}
 
 	// Cancel deletion
@@ -367,19 +374,24 @@ export const cancelAgencyDeletion = command(async () => {
 		.update(agencies)
 		.set({
 			deletionScheduledFor: null,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(agencies.id, context.agencyId));
 
 	// Log the action
-	await logActivity(AUDIT_ACTIONS.AGENCY_DELETION_CANCELLED, ENTITY_TYPES.AGENCY, context.agencyId, {
-		oldValues: {
-			deletionScheduledFor: agency.deletionScheduledFor
-		}
-	});
+	await logActivity(
+		AUDIT_ACTIONS.AGENCY_DELETION_CANCELLED,
+		ENTITY_TYPES.AGENCY,
+		context.agencyId,
+		{
+			oldValues: {
+				deletionScheduledFor: agency.deletionScheduledFor,
+			},
+		},
+	);
 
 	return {
-		message: 'Agency deletion has been cancelled. Your agency will not be deleted.'
+		message: "Agency deletion has been cancelled. Your agency will not be deleted.",
 	};
 });
 
@@ -394,27 +406,27 @@ async function performSoftDelete(agencyId: string): Promise<void> {
 	const [agency] = await db
 		.select({
 			deletionScheduledFor: agencies.deletionScheduledFor,
-			deletedAt: agencies.deletedAt
+			deletedAt: agencies.deletedAt,
 		})
 		.from(agencies)
 		.where(eq(agencies.id, agencyId))
 		.limit(1);
 
 	if (!agency) {
-		throw new Error('Agency not found');
+		throw new Error("Agency not found");
 	}
 
 	if (agency.deletedAt) {
-		throw new Error('Agency already deleted');
+		throw new Error("Agency already deleted");
 	}
 
 	if (!agency.deletionScheduledFor) {
-		throw new Error('Agency not scheduled for deletion');
+		throw new Error("Agency not scheduled for deletion");
 	}
 
 	const now = new Date();
 	if (new Date(agency.deletionScheduledFor) > now) {
-		throw new Error('Grace period has not expired');
+		throw new Error("Grace period has not expired");
 	}
 
 	// Perform soft delete
@@ -422,8 +434,8 @@ async function performSoftDelete(agencyId: string): Promise<void> {
 		.update(agencies)
 		.set({
 			deletedAt: now,
-			status: 'cancelled',
-			updatedAt: now
+			status: "cancelled",
+			updatedAt: now,
 		})
 		.where(eq(agencies.id, agencyId));
 
@@ -431,8 +443,8 @@ async function performSoftDelete(agencyId: string): Promise<void> {
 	await db
 		.update(agencyMemberships)
 		.set({
-			status: 'suspended',
-			updatedAt: now
+			status: "suspended",
+			updatedAt: now,
 		})
 		.where(eq(agencyMemberships.agencyId, agencyId));
 
@@ -443,15 +455,12 @@ async function performSoftDelete(agencyId: string): Promise<void> {
 			userId: null,
 			ipAddress: null,
 			userAgent: null,
-			metadata: {}
+			metadata: {},
 		})
 		.where(eq(agencyActivityLog.agencyId, agencyId));
 
 	// Clear user default agency references
-	await db
-		.update(users)
-		.set({ defaultAgencyId: null })
-		.where(eq(users.defaultAgencyId, agencyId));
+	await db.update(users).set({ defaultAgencyId: null }).where(eq(users.defaultAgencyId, agencyId));
 }
 
 /**
@@ -469,14 +478,14 @@ export const exportUserData = query(async () => {
 			phone: users.phone,
 			avatar: users.avatar,
 			created: users.created,
-			updated: users.updated
+			updated: users.updated,
 		})
 		.from(users)
 		.where(eq(users.id, context.userId))
 		.limit(1);
 
 	if (!user) {
-		throw error(404, 'User not found');
+		throw error(404, "User not found");
 	}
 
 	// Get all memberships
@@ -488,7 +497,7 @@ export const exportUserData = query(async () => {
 			status: agencyMemberships.status,
 			displayName: agencyMemberships.displayName,
 			invitedAt: agencyMemberships.invitedAt,
-			acceptedAt: agencyMemberships.acceptedAt
+			acceptedAt: agencyMemberships.acceptedAt,
 		})
 		.from(agencyMemberships)
 		.innerJoin(agencies, eq(agencyMemberships.agencyId, agencies.id))
@@ -503,7 +512,7 @@ export const exportUserData = query(async () => {
 						id: consultations.id,
 						agencyId: consultations.agencyId,
 						status: consultations.status,
-						createdAt: consultations.createdAt
+						createdAt: consultations.createdAt,
 					})
 					.from(consultations)
 					.where(inArray(consultations.agencyId, userAgencyIds))
@@ -511,14 +520,14 @@ export const exportUserData = query(async () => {
 
 	return {
 		exportedAt: new Date().toISOString(),
-		exportVersion: '1.0',
+		exportVersion: "1.0",
 		user: {
 			id: user.id,
 			email: user.email,
 			phone: user.phone,
 			avatar: user.avatar,
 			accountCreated: user.created,
-			lastUpdated: user.updated
+			lastUpdated: user.updated,
 		},
 		memberships: memberships.map((m) => ({
 			agencyId: m.agencyId,
@@ -527,10 +536,9 @@ export const exportUserData = query(async () => {
 			status: m.status,
 			displayName: m.displayName,
 			invitedAt: m.invitedAt,
-			acceptedAt: m.acceptedAt
+			acceptedAt: m.acceptedAt,
 		})),
 		consultationsCreated: userConsultations.length,
-		consultationIds: userConsultations.map((c) => c.id)
+		consultationIds: userConsultations.map((c) => c.id),
 	};
 });
-

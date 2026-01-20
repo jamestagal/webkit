@@ -25,9 +25,9 @@ export interface CurrentIssue {
 	/** Business-impact focused description */
 	description: string;
 	/** Severity level */
-	impact: 'high' | 'medium' | 'low';
+	impact: "high" | "medium" | "low";
 	/** Where this issue was identified */
-	source: 'pagespeed' | 'consultation' | 'inferred';
+	source: "pagespeed" | "consultation" | "inferred";
 	/** Optional: specific metric or data point */
 	metric?: string;
 }
@@ -61,7 +61,7 @@ export interface ROIProjection {
 	currentEstimate: string;
 	projectedEstimate: string;
 	improvement: string;
-	confidence: 'low' | 'medium' | 'high';
+	confidence: "low" | "medium" | "high";
 }
 
 export interface ProposedPage {
@@ -70,7 +70,7 @@ export interface ProposedPage {
 	/** Brief description of page purpose */
 	purpose: string;
 	/** Priority level */
-	priority: 'essential' | 'recommended' | 'optional';
+	priority: "essential" | "recommended" | "optional";
 	/** Key features/sections on this page */
 	features?: string[];
 }
@@ -96,122 +96,122 @@ export interface NextStep {
 	/** Brief description */
 	description: string;
 	/** Who is responsible */
-	owner: 'client' | 'agency' | 'both';
+	owner: "client" | "agency" | "both";
 }
 
 /**
  * JSON Schema for validating AI response (used with Ajv)
  */
 export const AI_PROPOSAL_SCHEMA = {
-	type: 'object',
+	type: "object",
 	properties: {
-		executiveSummary: { type: 'string', minLength: 100, maxLength: 2000 },
-		opportunityContent: { type: 'string', minLength: 50, maxLength: 1500 },
+		executiveSummary: { type: "string", minLength: 100, maxLength: 2000 },
+		opportunityContent: { type: "string", minLength: 50, maxLength: 1500 },
 		currentIssues: {
-			type: 'array',
+			type: "array",
 			items: {
-				type: 'object',
-				required: ['title', 'description', 'impact', 'source'],
+				type: "object",
+				required: ["title", "description", "impact", "source"],
 				properties: {
-					title: { type: 'string' },
-					description: { type: 'string' },
-					impact: { enum: ['high', 'medium', 'low'] },
-					source: { enum: ['pagespeed', 'consultation', 'inferred'] },
-					metric: { type: 'string' }
-				}
+					title: { type: "string" },
+					description: { type: "string" },
+					impact: { enum: ["high", "medium", "low"] },
+					source: { enum: ["pagespeed", "consultation", "inferred"] },
+					metric: { type: "string" },
+				},
 			},
 			minItems: 1,
-			maxItems: 10
+			maxItems: 10,
 		},
 		performanceStandards: {
-			type: 'array',
+			type: "array",
 			items: {
-				type: 'object',
-				required: ['metric', 'current', 'target', 'improvement'],
+				type: "object",
+				required: ["metric", "current", "target", "improvement"],
 				properties: {
-					metric: { type: 'string' },
-					current: { type: 'string' },
-					target: { type: 'string' },
-					improvement: { type: 'string' },
-					businessImpact: { type: 'string' }
-				}
-			}
+					metric: { type: "string" },
+					current: { type: "string" },
+					target: { type: "string" },
+					improvement: { type: "string" },
+					businessImpact: { type: "string" },
+				},
+			},
 		},
 		roiAnalysis: {
-			type: 'object',
-			required: ['disclaimer', 'projections', 'assumptions', 'timePeriod'],
+			type: "object",
+			required: ["disclaimer", "projections", "assumptions", "timePeriod"],
 			properties: {
-				disclaimer: { type: 'string' },
+				disclaimer: { type: "string" },
 				projections: {
-					type: 'array',
+					type: "array",
 					items: {
-						type: 'object',
+						type: "object",
 						required: [
-							'metric',
-							'currentEstimate',
-							'projectedEstimate',
-							'improvement',
-							'confidence'
+							"metric",
+							"currentEstimate",
+							"projectedEstimate",
+							"improvement",
+							"confidence",
 						],
 						properties: {
-							metric: { type: 'string' },
-							currentEstimate: { type: 'string' },
-							projectedEstimate: { type: 'string' },
-							improvement: { type: 'string' },
-							confidence: { enum: ['low', 'medium', 'high'] }
-						}
-					}
+							metric: { type: "string" },
+							currentEstimate: { type: "string" },
+							projectedEstimate: { type: "string" },
+							improvement: { type: "string" },
+							confidence: { enum: ["low", "medium", "high"] },
+						},
+					},
 				},
-				assumptions: { type: 'array', items: { type: 'string' } },
-				timePeriod: { type: 'string' }
-			}
+				assumptions: { type: "array", items: { type: "string" } },
+				timePeriod: { type: "string" },
+			},
 		},
 		proposedPages: {
-			type: 'array',
+			type: "array",
 			items: {
-				type: 'object',
-				required: ['name', 'purpose', 'priority'],
+				type: "object",
+				required: ["name", "purpose", "priority"],
 				properties: {
-					name: { type: 'string' },
-					purpose: { type: 'string' },
-					priority: { enum: ['essential', 'recommended', 'optional'] },
-					features: { type: 'array', items: { type: 'string' } }
-				}
+					name: { type: "string" },
+					purpose: { type: "string" },
+					priority: { enum: ["essential", "recommended", "optional"] },
+					features: { type: "array", items: { type: "string" } },
+				},
 			},
 			minItems: 3,
-			maxItems: 15
+			maxItems: 15,
 		},
 		timeline: {
-			type: 'array',
+			type: "array",
 			items: {
-				type: 'object',
-				required: ['phase', 'duration', 'timing', 'deliverables'],
+				type: "object",
+				required: ["phase", "duration", "timing", "deliverables"],
 				properties: {
-					phase: { type: 'string' },
-					duration: { type: 'string' },
-					timing: { type: 'string' },
-					deliverables: { type: 'array', items: { type: 'string' } },
-					clientTasks: { type: 'array', items: { type: 'string' } }
-				}
-			}
+					phase: { type: "string" },
+					duration: { type: "string" },
+					timing: { type: "string" },
+					deliverables: { type: "array", items: { type: "string" } },
+					clientTasks: { type: "array", items: { type: "string" } },
+				},
+			},
 		},
 		nextSteps: {
-			type: 'array',
+			type: "array",
 			items: {
-				type: 'object',
-				required: ['order', 'action', 'description', 'owner'],
+				type: "object",
+				required: ["order", "action", "description", "owner"],
 				properties: {
-					order: { type: 'number' },
-					action: { type: 'string' },
-					description: { type: 'string' },
-					owner: { enum: ['client', 'agency', 'both'] }
-				}
+					order: { type: "number" },
+					action: { type: "string" },
+					description: { type: "string" },
+					owner: { enum: ["client", "agency", "both"] },
+				},
 			},
 			minItems: 3,
-			maxItems: 7
+			maxItems: 7,
 		},
-		closingContent: { type: 'string', minLength: 30, maxLength: 500 }
-	}
+		closingContent: { type: "string", minLength: 30, maxLength: 500 },
+	},
 } as const;
 
 /**
@@ -222,4 +222,6 @@ export type AIProposalSectionKey = keyof AIProposalOutput;
 /**
  * Map of section keys to their value types
  */
-export type AIProposalSectionValue<K extends AIProposalSectionKey> = NonNullable<AIProposalOutput[K]>;
+export type AIProposalSectionValue<K extends AIProposalSectionKey> = NonNullable<
+	AIProposalOutput[K]
+>;

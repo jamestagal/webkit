@@ -5,8 +5,8 @@
  * Uses inline styles for maximum PDF compatibility.
  */
 
-import type { Contract, ContractSchedule, Agency, AgencyProfile } from '$lib/server/schema';
-import type { EffectiveBranding } from '$lib/server/document-branding';
+import type { Contract, ContractSchedule, Agency, AgencyProfile } from "$lib/server/schema";
+import type { EffectiveBranding } from "$lib/server/document-branding";
 
 export interface ContractPdfData {
 	contract: Contract;
@@ -21,11 +21,11 @@ export interface ContractPdfData {
  * Format a decimal string or number as currency (AUD)
  */
 function formatCurrency(value: string | number | null): string {
-	const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
-	return new Intl.NumberFormat('en-AU', {
-		style: 'currency',
-		currency: 'AUD',
-		minimumFractionDigits: 2
+	const num = typeof value === "string" ? parseFloat(value) : (value ?? 0);
+	return new Intl.NumberFormat("en-AU", {
+		style: "currency",
+		currency: "AUD",
+		minimumFractionDigits: 2,
 	}).format(num);
 }
 
@@ -33,12 +33,12 @@ function formatCurrency(value: string | number | null): string {
  * Format a date for display
  */
 function formatDate(date: Date | string | null): string {
-	if (!date) return '';
-	const d = typeof date === 'string' ? new Date(date) : date;
-	return d.toLocaleDateString('en-AU', {
-		day: 'numeric',
-		month: 'long',
-		year: 'numeric'
+	if (!date) return "";
+	const d = typeof date === "string" ? new Date(date) : date;
+	return d.toLocaleDateString("en-AU", {
+		day: "numeric",
+		month: "long",
+		year: "numeric",
 	});
 }
 
@@ -47,17 +47,17 @@ function formatDate(date: Date | string | null): string {
  */
 function getStatusColor(status: string): { bg: string; text: string } {
 	switch (status) {
-		case 'signed':
-		case 'completed':
-			return { bg: '#dcfce7', text: '#166534' };
-		case 'sent':
-		case 'viewed':
-			return { bg: '#fef3c7', text: '#92400e' };
-		case 'expired':
-		case 'terminated':
-			return { bg: '#fee2e2', text: '#991b1b' };
+		case "signed":
+		case "completed":
+			return { bg: "#dcfce7", text: "#166534" };
+		case "sent":
+		case "viewed":
+			return { bg: "#fef3c7", text: "#92400e" };
+		case "expired":
+		case "terminated":
+			return { bg: "#fee2e2", text: "#991b1b" };
 		default:
-			return { bg: '#e0e7ff', text: '#3730a3' };
+			return { bg: "#e0e7ff", text: "#3730a3" };
 	}
 }
 
@@ -80,13 +80,13 @@ function buildAgencyAddress(agency: Agency, profile: AgencyProfile | null): stri
 	if (profile?.addressLine1) parts.push(profile.addressLine1);
 	if (profile?.addressLine2) parts.push(profile.addressLine2);
 	if (profile?.city || profile?.state || profile?.postcode) {
-		parts.push([profile?.city, profile?.state, profile?.postcode].filter(Boolean).join(' '));
+		parts.push([profile?.city, profile?.state, profile?.postcode].filter(Boolean).join(" "));
 	}
 	if (agency.email) parts.push(agency.email);
 	if (agency.phone) parts.push(agency.phone);
 	if (profile?.abn) parts.push(`ABN: ${profile.abn}`);
 
-	return parts.join('<br>');
+	return parts.join("<br>");
 }
 
 /**
@@ -103,7 +103,7 @@ function buildClientAddress(contract: Contract): string {
 	if (contract.clientEmail) parts.push(contract.clientEmail);
 	if (contract.clientPhone) parts.push(contract.clientPhone);
 
-	return parts.join('<br>');
+	return parts.join("<br>");
 }
 
 /**
@@ -111,11 +111,11 @@ function buildClientAddress(contract: Contract): string {
  */
 function escapeHtml(text: string): string {
 	return text
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;')
-		.replace(/'/g, '&#039;');
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#039;");
 }
 
 /**
@@ -124,20 +124,20 @@ function escapeHtml(text: string): string {
 export function generateContractPdfHtml(data: ContractPdfData): string {
 	const { contract, agency, profile, includedSchedules, brandingOverride } = data;
 	const statusColor = getStatusColor(contract.status);
-	const isSigned = contract.status === 'signed' || contract.status === 'completed';
+	const isSigned = contract.status === "signed" || contract.status === "completed";
 
 	// Use branding override if provided, otherwise fall back to agency branding
 	const logoUrl = brandingOverride?.logoUrl || agency.logoUrl;
-	const accentColor = brandingOverride?.primaryColor || agency.primaryColor || '#6366f1';
+	const accentColor = brandingOverride?.primaryColor || agency.primaryColor || "#6366f1";
 
 	// Get visible fields
 	const visibleFields = (contract.visibleFields as string[]) || [
-		'services',
-		'commencementDate',
-		'completionDate',
-		'price',
-		'paymentTerms',
-		'specialConditions'
+		"services",
+		"commencementDate",
+		"completionDate",
+		"price",
+		"paymentTerms",
+		"specialConditions",
 	];
 
 	// Build schedule sections HTML
@@ -153,9 +153,9 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 					${schedule.content}
 				</div>
 			</div>
-		`
+		`,
 		)
-		.join('');
+		.join("");
 
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -201,7 +201,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 			user-select: none;
 		}
 		`
-				: ''
+				: ""
 		}
 		/* Schedule content heading overrides */
 		.schedule-content h1,
@@ -227,7 +227,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 	</style>
 </head>
 <body>
-	${isSigned ? '<div class="signed-watermark">SIGNED</div>' : ''}
+	${isSigned ? '<div class="signed-watermark">SIGNED</div>' : ""}
 	<div class="container">
 		<!-- Header -->
 		<div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 3px solid ${accentColor};">
@@ -243,7 +243,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 				<div style="font-family: monospace; font-size: 16px; color: #6b7280;">#${contract.contractNumber}</div>
 				<div style="margin-top: 8px;">
 					<span style="display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; background: ${statusColor.bg}; color: ${statusColor.text}; text-transform: uppercase;">
-						${contract.status.replace('_', ' ')}
+						${contract.status.replace("_", " ")}
 					</span>
 				</div>
 			</div>
@@ -276,64 +276,64 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 				<div style="font-weight: 500;">${formatDate(contract.validUntil)}</div>
 			</div>
 			${
-				isFieldVisible(visibleFields, 'commencementDate') && contract.commencementDate
+				isFieldVisible(visibleFields, "commencementDate") && contract.commencementDate
 					? `
 			<div>
 				<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Commencement</div>
 				<div style="font-weight: 500;">${formatDate(contract.commencementDate)}</div>
 			</div>
 			`
-					: '<div></div>'
+					: "<div></div>"
 			}
 			${
-				isFieldVisible(visibleFields, 'completionDate') && contract.completionDate
+				isFieldVisible(visibleFields, "completionDate") && contract.completionDate
 					? `
 			<div>
 				<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Completion</div>
 				<div style="font-weight: 500;">${formatDate(contract.completionDate)}</div>
 			</div>
 			`
-					: '<div></div>'
+					: "<div></div>"
 			}
 		</div>
 
 		<!-- Services Description -->
 		${
-			isFieldVisible(visibleFields, 'services') && contract.servicesDescription
+			isFieldVisible(visibleFields, "services") && contract.servicesDescription
 				? `
 		<div style="margin: 32px 0; page-break-inside: avoid;">
 			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Services</h2>
 			<p style="font-size: 14px; line-height: 1.7; color: #374151;">${escapeHtml(contract.servicesDescription)}</p>
 		</div>
 		`
-				: ''
+				: ""
 		}
 
 		<!-- Contract Value -->
 		${
-			isFieldVisible(visibleFields, 'price')
+			isFieldVisible(visibleFields, "price")
 				? `
 		<div style="margin: 32px 0; padding: 24px; background: linear-gradient(135deg, ${accentColor}10 0%, ${accentColor}05 100%); border-radius: 12px; border: 1px solid ${accentColor}20; page-break-inside: avoid;">
 			<div style="display: flex; justify-content: space-between; align-items: center;">
 				<div>
 					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Contract Value</div>
 					<div style="font-size: 32px; font-weight: bold; color: ${accentColor};">${formatCurrency(contract.totalPrice)}</div>
-					<div style="font-size: 13px; color: #6b7280; margin-top: 4px;">${contract.priceIncludesGst ? 'Inclusive of GST' : 'Exclusive of GST'}</div>
+					<div style="font-size: 13px; color: #6b7280; margin-top: 4px;">${contract.priceIncludesGst ? "Inclusive of GST" : "Exclusive of GST"}</div>
 				</div>
 				${
-					isFieldVisible(visibleFields, 'paymentTerms') && contract.paymentTerms
+					isFieldVisible(visibleFields, "paymentTerms") && contract.paymentTerms
 						? `
 				<div style="text-align: right; max-width: 300px;">
 					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Payment Terms</div>
 					<div style="font-size: 13px; color: #374151; line-height: 1.6;">${escapeHtml(contract.paymentTerms)}</div>
 				</div>
 				`
-						: ''
+						: ""
 				}
 			</div>
 		</div>
 		`
-				: ''
+				: ""
 		}
 
 		<!-- Terms & Conditions -->
@@ -347,7 +347,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 			</div>
 		</div>
 		`
-				: ''
+				: ""
 		}
 
 		<!-- Schedule A Sections -->
@@ -368,19 +368,19 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 			</div>
 		</div>
 		`
-					: ''
+					: ""
 		}
 
 		<!-- Special Conditions -->
 		${
-			isFieldVisible(visibleFields, 'specialConditions') && contract.specialConditions
+			isFieldVisible(visibleFields, "specialConditions") && contract.specialConditions
 				? `
 		<div style="margin: 32px 0; page-break-inside: avoid;">
 			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Special Conditions</h2>
 			<p style="font-size: 14px; line-height: 1.7; color: #374151; white-space: pre-wrap;">${escapeHtml(contract.specialConditions)}</p>
 		</div>
 		`
-				: ''
+				: ""
 		}
 
 		<!-- Signatures -->
@@ -398,7 +398,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 							? `
 					<div style="margin-top: 16px;">
 						<div style="font-size: 16px; font-weight: 600; color: #111827;">${escapeHtml(contract.agencySignatoryName)}</div>
-						${contract.agencySignatoryTitle ? `<div style="font-size: 13px; color: #6b7280; margin-top: 2px;">${escapeHtml(contract.agencySignatoryTitle)}</div>` : ''}
+						${contract.agencySignatoryTitle ? `<div style="font-size: 13px; color: #6b7280; margin-top: 2px;">${escapeHtml(contract.agencySignatoryTitle)}</div>` : ""}
 						<div style="font-size: 12px; color: #9ca3af; margin-top: 8px;">Signed: ${formatDate(contract.agencySignedAt || contract.sentAt)}</div>
 					</div>
 					`
@@ -412,7 +412,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 				<!-- Client Signature -->
 				<div style="padding: 20px; background: #f9fafb; border-radius: 8px;">
 					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
-						For ${escapeHtml(contract.clientBusinessName || 'Client')}
+						For ${escapeHtml(contract.clientBusinessName || "Client")}
 					</div>
 					${
 						contract.clientSignatoryName
@@ -422,7 +422,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
 							<div style="font-size: 16px; font-weight: 600; color: #111827;">${escapeHtml(contract.clientSignatoryName)}</div>
 						</div>
-						${contract.clientSignatoryTitle ? `<div style="font-size: 13px; color: #6b7280; margin-top: 2px; margin-left: 28px;">${escapeHtml(contract.clientSignatoryTitle)}</div>` : ''}
+						${contract.clientSignatoryTitle ? `<div style="font-size: 13px; color: #6b7280; margin-top: 2px; margin-left: 28px;">${escapeHtml(contract.clientSignatoryTitle)}</div>` : ""}
 						<div style="font-size: 12px; color: #16a34a; margin-top: 8px; margin-left: 28px;">Signed: ${formatDate(contract.clientSignedAt)}</div>
 					</div>
 					`

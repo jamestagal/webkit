@@ -5,23 +5,23 @@
  * Ported from Plentify project with TypeScript types.
  */
 
-import { config } from 'dotenv';
-import { resolve } from 'path';
-import type { PerformanceData, WebVitalMetric } from '$lib/server/schema';
+import { config } from "dotenv";
+import { resolve } from "path";
+import type { PerformanceData, WebVitalMetric } from "$lib/server/schema";
 
 // Load .env file explicitly
-config({ path: resolve(process.cwd(), '.env') });
+config({ path: resolve(process.cwd(), ".env") });
 const env = process.env;
 
 // Configuration
 // Use Google's API directly with API key, or fall back to proxy
-const GOOGLE_PAGESPEED_API = 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed';
-const PAGESPEED_API_KEY = env['PAGESPEED_API_KEY'] || '';
-const PAGESPEED_PROXY_URL = env['PAGESPEED_API_URL'] || '';
+const GOOGLE_PAGESPEED_API = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
+const PAGESPEED_API_KEY = env["PAGESPEED_API_KEY"] || "";
+const PAGESPEED_PROXY_URL = env["PAGESPEED_API_URL"] || "";
 
-const DEFAULT_STRATEGY = 'mobile';
+const DEFAULT_STRATEGY = "mobile";
 // Request all Lighthouse categories for full audit
-const CATEGORIES = ['performance', 'accessibility', 'best-practices', 'seo'] as const;
+const CATEGORIES = ["performance", "accessibility", "best-practices", "seo"] as const;
 
 // =============================================================================
 // Types
@@ -47,7 +47,7 @@ interface LighthouseResult {
 	categories: {
 		performance?: LighthouseCategoryScore;
 		accessibility?: LighthouseCategoryScore;
-		'best-practices'?: LighthouseCategoryScore;
+		"best-practices"?: LighthouseCategoryScore;
 		seo?: LighthouseCategoryScore;
 	};
 	audits: Record<string, LighthouseAudit>;
@@ -65,7 +65,7 @@ interface ParsedMetric {
 	description: string;
 	rawValue: number | null;
 	displayValue: string;
-	category: 'good' | 'needs-improvement' | 'poor' | 'unknown';
+	category: "good" | "needs-improvement" | "poor" | "unknown";
 	formattedValue: string;
 }
 
@@ -100,13 +100,13 @@ export interface PageSpeedResult {
 // =============================================================================
 
 const THRESHOLDS: Record<string, { good: number; needsImprovement: number }> = {
-	'largest-contentful-paint': { good: 2.5, needsImprovement: 4.0 }, // seconds
-	'cumulative-layout-shift': { good: 0.1, needsImprovement: 0.25 }, // unitless
-	'interaction-to-next-paint': { good: 0.2, needsImprovement: 0.5 }, // seconds
+	"largest-contentful-paint": { good: 2.5, needsImprovement: 4.0 }, // seconds
+	"cumulative-layout-shift": { good: 0.1, needsImprovement: 0.25 }, // unitless
+	"interaction-to-next-paint": { good: 0.2, needsImprovement: 0.5 }, // seconds
 	interactive: { good: 3.8, needsImprovement: 7.3 }, // seconds
-	'first-contentful-paint': { good: 1.8, needsImprovement: 3.0 }, // seconds
-	'speed-index': { good: 3.4, needsImprovement: 5.8 }, // seconds
-	'total-blocking-time': { good: 200, needsImprovement: 600 } // milliseconds
+	"first-contentful-paint": { good: 1.8, needsImprovement: 3.0 }, // seconds
+	"speed-index": { good: 3.4, needsImprovement: 5.8 }, // seconds
+	"total-blocking-time": { good: 200, needsImprovement: 600 }, // milliseconds
 };
 
 // =============================================================================
@@ -123,10 +123,10 @@ function normalizeMetricValue(audit: LighthouseAudit | undefined): number | null
 
 	// Convert milliseconds to seconds for time-based metrics
 	if (
-		(audit.id === 'largest-contentful-paint' ||
-			audit.id === 'first-contentful-paint' ||
-			audit.id === 'interactive' ||
-			audit.id === 'speed-index') &&
+		(audit.id === "largest-contentful-paint" ||
+			audit.id === "first-contentful-paint" ||
+			audit.id === "interactive" ||
+			audit.id === "speed-index") &&
 		value > 1000
 	) {
 		value = value / 1000;
@@ -140,31 +140,31 @@ function normalizeMetricValue(audit: LighthouseAudit | undefined): number | null
  */
 function getPerformanceCategory(
 	metricId: string,
-	value: number | null
-): 'good' | 'needs-improvement' | 'poor' | 'unknown' {
-	if (value === null) return 'unknown';
+	value: number | null,
+): "good" | "needs-improvement" | "poor" | "unknown" {
+	if (value === null) return "unknown";
 
 	const threshold = THRESHOLDS[metricId] || { good: 0, needsImprovement: 0 };
 
-	if (metricId === 'total-blocking-time') {
+	if (metricId === "total-blocking-time") {
 		// In ms, lower is better
-		if (value <= threshold.good) return 'good';
-		if (value <= threshold.needsImprovement) return 'needs-improvement';
-		return 'poor';
-	} else if (metricId === 'interaction-to-next-paint') {
+		if (value <= threshold.good) return "good";
+		if (value <= threshold.needsImprovement) return "needs-improvement";
+		return "poor";
+	} else if (metricId === "interaction-to-next-paint") {
 		// Special handling for INP
 		if (value > 1) {
-			if (value <= 2) return 'needs-improvement';
-			return 'poor';
+			if (value <= 2) return "needs-improvement";
+			return "poor";
 		}
-		if (value <= threshold.good) return 'good';
-		if (value <= threshold.needsImprovement) return 'needs-improvement';
-		return 'poor';
+		if (value <= threshold.good) return "good";
+		if (value <= threshold.needsImprovement) return "needs-improvement";
+		return "poor";
 	} else {
 		// All other metrics
-		if (value <= threshold.good) return 'good';
-		if (value <= threshold.needsImprovement) return 'needs-improvement';
-		return 'poor';
+		if (value <= threshold.good) return "good";
+		if (value <= threshold.needsImprovement) return "needs-improvement";
+		return "poor";
 	}
 }
 
@@ -173,12 +173,12 @@ function getPerformanceCategory(
  */
 function createFallbackResult(score: number): PageSpeedResult {
 	const fallbackMetric: ParsedMetric = {
-		title: '',
-		description: '',
+		title: "",
+		description: "",
 		rawValue: null,
-		displayValue: 'N/A',
-		category: 'unknown',
-		formattedValue: 'N/A'
+		displayValue: "N/A",
+		category: "unknown",
+		formattedValue: "N/A",
 	};
 
 	return {
@@ -187,31 +187,34 @@ function createFallbackResult(score: number): PageSpeedResult {
 		bestPractices: 0,
 		seo: 0,
 		metrics: {
-			LCP: { ...fallbackMetric, title: 'Largest Contentful Paint' },
-			CLS: { ...fallbackMetric, title: 'Cumulative Layout Shift' },
-			INP: { ...fallbackMetric, title: 'Interaction to Next Paint' },
-			FCP: { ...fallbackMetric, title: 'First Contentful Paint' },
-			TBT: { ...fallbackMetric, title: 'Total Blocking Time' },
-			SI: { ...fallbackMetric, title: 'Speed Index' }
+			LCP: { ...fallbackMetric, title: "Largest Contentful Paint" },
+			CLS: { ...fallbackMetric, title: "Cumulative Layout Shift" },
+			INP: { ...fallbackMetric, title: "Interaction to Next Paint" },
+			FCP: { ...fallbackMetric, title: "First Contentful Paint" },
+			TBT: { ...fallbackMetric, title: "Total Blocking Time" },
+			SI: { ...fallbackMetric, title: "Speed Index" },
 		},
 		recommendations: [
 			{
-				title: 'Optimize server response time',
-				description: 'Reduce server response times',
-				score: 0
+				title: "Optimize server response time",
+				description: "Reduce server response times",
+				score: 0,
 			},
 			{
-				title: 'Eliminate render-blocking resources',
-				description: 'Resources block the first paint of your page',
-				score: 0
+				title: "Eliminate render-blocking resources",
+				description: "Resources block the first paint of your page",
+				score: 0,
 			},
 			{
-				title: 'Reduce unused JavaScript',
-				description: 'Reduce unused JavaScript to decrease payload sizes',
-				score: 0
-			}
+				title: "Reduce unused JavaScript",
+				description: "Reduce unused JavaScript to decrease payload sizes",
+				score: 0,
+			},
 		],
-		priorityRecommendations: ['Optimize server response time', 'Eliminate render-blocking resources']
+		priorityRecommendations: [
+			"Optimize server response time",
+			"Eliminate render-blocking resources",
+		],
 	};
 }
 
@@ -229,22 +232,22 @@ export async function fetchPageSpeedData(url: string): Promise<PageSpeedResponse
 	if (PAGESPEED_API_KEY) {
 		// Use Google's API directly with API key
 		apiUrl = new URL(GOOGLE_PAGESPEED_API);
-		apiUrl.searchParams.set('key', PAGESPEED_API_KEY);
+		apiUrl.searchParams.set("key", PAGESPEED_API_KEY);
 	} else if (PAGESPEED_PROXY_URL) {
 		// Fall back to proxy (which adds its own API key)
 		apiUrl = new URL(PAGESPEED_PROXY_URL);
 	} else {
-		throw new Error('PageSpeed API not configured. Set PAGESPEED_API_KEY or PAGESPEED_API_URL.');
+		throw new Error("PageSpeed API not configured. Set PAGESPEED_API_KEY or PAGESPEED_API_URL.");
 	}
 
-	apiUrl.searchParams.set('url', url);
-	apiUrl.searchParams.set('strategy', DEFAULT_STRATEGY);
+	apiUrl.searchParams.set("url", url);
+	apiUrl.searchParams.set("strategy", DEFAULT_STRATEGY);
 	// Request all Lighthouse categories
 	for (const category of CATEGORIES) {
-		apiUrl.searchParams.append('category', category);
+		apiUrl.searchParams.append("category", category);
 	}
 
-	console.log('Fetching PageSpeed data from:', apiUrl.toString().replace(PAGESPEED_API_KEY, '***'));
+	console.log("Fetching PageSpeed data from:", apiUrl.toString().replace(PAGESPEED_API_KEY, "***"));
 	const response = await fetch(apiUrl.toString());
 
 	if (!response.ok) {
@@ -262,10 +265,16 @@ export async function fetchPageSpeedData(url: string): Promise<PageSpeedResponse
 	}
 
 	const data = await response.json();
-	console.log('PageSpeed API response keys:', Object.keys(data));
+	console.log("PageSpeed API response keys:", Object.keys(data));
 	if (data.lighthouseResult) {
-		console.log('lighthouseResult.categories:', Object.keys(data.lighthouseResult.categories || {}));
-		console.log('lighthouseResult.audits count:', Object.keys(data.lighthouseResult.audits || {}).length);
+		console.log(
+			"lighthouseResult.categories:",
+			Object.keys(data.lighthouseResult.categories || {}),
+		);
+		console.log(
+			"lighthouseResult.audits count:",
+			Object.keys(data.lighthouseResult.audits || {}).length,
+		);
 	}
 	return data;
 }
@@ -275,27 +284,27 @@ export async function fetchPageSpeedData(url: string): Promise<PageSpeedResponse
  */
 export function parsePageSpeedResults(pageSpeedData: PageSpeedResponse): PageSpeedResult {
 	if (!pageSpeedData) {
-		console.warn('PageSpeed data is undefined or null, using fallback');
+		console.warn("PageSpeed data is undefined or null, using fallback");
 		return createFallbackResult(50);
 	}
 
 	if (!pageSpeedData.lighthouseResult) {
-		console.warn('Missing lighthouseResult in PageSpeed data, using fallback');
-		console.warn('Received data:', JSON.stringify(pageSpeedData).slice(0, 500));
+		console.warn("Missing lighthouseResult in PageSpeed data, using fallback");
+		console.warn("Received data:", JSON.stringify(pageSpeedData).slice(0, 500));
 		return createFallbackResult(45);
 	}
 
 	const { lighthouseResult } = pageSpeedData;
 
 	if (!lighthouseResult.categories?.performance) {
-		console.warn('Missing performance category, using fallback');
-		console.warn('Available categories:', Object.keys(lighthouseResult.categories || {}));
+		console.warn("Missing performance category, using fallback");
+		console.warn("Available categories:", Object.keys(lighthouseResult.categories || {}));
 		return createFallbackResult(40);
 	}
 
-	if (typeof lighthouseResult.categories.performance.score !== 'number') {
-		console.warn('Performance score is not a number, using fallback');
-		console.warn('Score value:', lighthouseResult.categories.performance.score);
+	if (typeof lighthouseResult.categories.performance.score !== "number") {
+		console.warn("Performance score is not a number, using fallback");
+		console.warn("Score value:", lighthouseResult.categories.performance.score);
 		return createFallbackResult(35);
 	}
 
@@ -304,8 +313,8 @@ export function parsePageSpeedResults(pageSpeedData: PageSpeedResponse): PageSpe
 	const accessibilityScore = lighthouseResult.categories.accessibility
 		? Math.round(lighthouseResult.categories.accessibility.score * 100)
 		: 0;
-	const bestPracticesScore = lighthouseResult.categories['best-practices']
-		? Math.round(lighthouseResult.categories['best-practices'].score * 100)
+	const bestPracticesScore = lighthouseResult.categories["best-practices"]
+		? Math.round(lighthouseResult.categories["best-practices"].score * 100)
 		: 0;
 	const seoScore = lighthouseResult.categories.seo
 		? Math.round(lighthouseResult.categories.seo.score * 100)
@@ -314,107 +323,106 @@ export function parsePageSpeedResults(pageSpeedData: PageSpeedResponse): PageSpe
 	// Get raw audits
 	const audits = lighthouseResult.audits || {};
 	const rawMetrics = {
-		lcp: audits['largest-contentful-paint'],
-		cls: audits['cumulative-layout-shift'],
-		inp: audits['interaction-to-next-paint'],
-		tti: audits['interactive'],
-		fcp: audits['first-contentful-paint'],
-		tbt: audits['total-blocking-time'],
-		si: audits['speed-index']
+		lcp: audits["largest-contentful-paint"],
+		cls: audits["cumulative-layout-shift"],
+		inp: audits["interaction-to-next-paint"],
+		tti: audits["interactive"],
+		fcp: audits["first-contentful-paint"],
+		tbt: audits["total-blocking-time"],
+		si: audits["speed-index"],
 	};
 
 	// Process metrics
-	const metrics: PageSpeedResult['metrics'] = {
+	const metrics: PageSpeedResult["metrics"] = {
 		LCP: {
-			title: 'Largest Contentful Paint (LCP)',
-			description: 'How quickly does the main content load?',
+			title: "Largest Contentful Paint (LCP)",
+			description: "How quickly does the main content load?",
 			rawValue: normalizeMetricValue(rawMetrics.lcp),
-			displayValue: rawMetrics.lcp?.displayValue || 'N/A',
+			displayValue: rawMetrics.lcp?.displayValue || "N/A",
 			category: getPerformanceCategory(
-				'largest-contentful-paint',
-				normalizeMetricValue(rawMetrics.lcp)
+				"largest-contentful-paint",
+				normalizeMetricValue(rawMetrics.lcp),
 			),
 			formattedValue:
 				normalizeMetricValue(rawMetrics.lcp) !== null
 					? `${normalizeMetricValue(rawMetrics.lcp)!.toFixed(1)}s`
-					: 'N/A'
+					: "N/A",
 		},
 		CLS: {
-			title: 'Cumulative Layout Shift (CLS)',
-			description: 'Does the page layout shift unexpectedly?',
+			title: "Cumulative Layout Shift (CLS)",
+			description: "Does the page layout shift unexpectedly?",
 			rawValue: normalizeMetricValue(rawMetrics.cls),
-			displayValue: rawMetrics.cls?.displayValue || 'N/A',
+			displayValue: rawMetrics.cls?.displayValue || "N/A",
 			category: getPerformanceCategory(
-				'cumulative-layout-shift',
-				normalizeMetricValue(rawMetrics.cls)
+				"cumulative-layout-shift",
+				normalizeMetricValue(rawMetrics.cls),
 			),
 			formattedValue:
 				normalizeMetricValue(rawMetrics.cls) !== null
 					? normalizeMetricValue(rawMetrics.cls)!.toFixed(2)
-					: 'N/A'
+					: "N/A",
 		},
 		INP: {
-			title: 'Interaction to Next Paint (INP)',
-			description: 'How quickly does the page respond to user input?',
+			title: "Interaction to Next Paint (INP)",
+			description: "How quickly does the page respond to user input?",
 			rawValue: normalizeMetricValue(rawMetrics.inp) || normalizeMetricValue(rawMetrics.tti),
-			displayValue:
-				rawMetrics.inp?.displayValue || rawMetrics.tti?.displayValue || 'N/A',
+			displayValue: rawMetrics.inp?.displayValue || rawMetrics.tti?.displayValue || "N/A",
 			category: (() => {
 				const value = normalizeMetricValue(rawMetrics.inp) || normalizeMetricValue(rawMetrics.tti);
 				if (value !== null && value >= 1 && value < 20) {
-					if (value <= 0.2) return 'good';
-					if (value <= 0.5) return 'needs-improvement';
-					return 'poor';
+					if (value <= 0.2) return "good";
+					if (value <= 0.5) return "needs-improvement";
+					return "poor";
 				}
 				return getPerformanceCategory(
-					rawMetrics.inp ? 'interaction-to-next-paint' : 'interactive',
-					value
+					rawMetrics.inp ? "interaction-to-next-paint" : "interactive",
+					value,
 				);
 			})(),
 			formattedValue: (() => {
 				const value = normalizeMetricValue(rawMetrics.inp) || normalizeMetricValue(rawMetrics.tti);
-				if (value === null) return 'N/A';
+				if (value === null) return "N/A";
 				if (value >= 1 && value < 20) return `${value.toFixed(1)}s`;
 				if (value >= 100) return `${value.toFixed(0)}ms`;
 				return `${value.toFixed(1)}s`;
-			})()
+			})(),
 		},
 		FCP: {
-			title: 'First Contentful Paint (FCP)',
-			description: 'How quickly does content first appear?',
+			title: "First Contentful Paint (FCP)",
+			description: "How quickly does content first appear?",
 			rawValue: normalizeMetricValue(rawMetrics.fcp),
-			displayValue: rawMetrics.fcp?.displayValue || 'N/A',
+			displayValue: rawMetrics.fcp?.displayValue || "N/A",
 			category: getPerformanceCategory(
-				'first-contentful-paint',
-				normalizeMetricValue(rawMetrics.fcp)
+				"first-contentful-paint",
+				normalizeMetricValue(rawMetrics.fcp),
 			),
 			formattedValue:
 				normalizeMetricValue(rawMetrics.fcp) !== null
 					? `${normalizeMetricValue(rawMetrics.fcp)!.toFixed(1)}s`
-					: 'N/A'
+					: "N/A",
 		},
 		TBT: {
-			title: 'Total Blocking Time (TBT)',
-			description: 'How much time is blocked by scripts?',
+			title: "Total Blocking Time (TBT)",
+			description: "How much time is blocked by scripts?",
 			rawValue: normalizeMetricValue(rawMetrics.tbt),
-			displayValue: rawMetrics.tbt?.displayValue || 'N/A',
-			category: getPerformanceCategory('total-blocking-time', normalizeMetricValue(rawMetrics.tbt)),
+			displayValue: rawMetrics.tbt?.displayValue || "N/A",
+			category: getPerformanceCategory("total-blocking-time", normalizeMetricValue(rawMetrics.tbt)),
 			formattedValue:
 				normalizeMetricValue(rawMetrics.tbt) !== null
 					? `${normalizeMetricValue(rawMetrics.tbt)!.toFixed(0)}ms`
-					: 'N/A'
+					: "N/A",
 		},
 		SI: {
-			title: 'Speed Index (SI)',
-			description: 'How quickly content is visibly populated?',
+			title: "Speed Index (SI)",
+			description: "How quickly content is visibly populated?",
 			rawValue: normalizeMetricValue(rawMetrics.si),
-			displayValue: rawMetrics.si?.displayValue || 'N/A',
-			category: getPerformanceCategory('speed-index', normalizeMetricValue(rawMetrics.si)),
+			displayValue: rawMetrics.si?.displayValue || "N/A",
+			category: getPerformanceCategory("speed-index", normalizeMetricValue(rawMetrics.si)),
 			formattedValue:
 				normalizeMetricValue(rawMetrics.si) !== null
 					? `${normalizeMetricValue(rawMetrics.si)!.toFixed(1)}s`
-					: 'N/A'
-		}
+					: "N/A",
+		},
 	};
 
 	// Extract recommendations (opportunities)
@@ -425,17 +433,17 @@ export function parsePageSpeedResults(pageSpeedData: PageSpeedResponse): PageSpe
 		.filter(
 			(audit): audit is LighthouseAudit =>
 				audit !== undefined &&
-				audit.details?.type === 'opportunity' &&
-				typeof audit.score === 'number' &&
+				audit.details?.type === "opportunity" &&
+				typeof audit.score === "number" &&
 				audit.score < 1 &&
-				!!audit.displayValue
+				!!audit.displayValue,
 		)
 		.sort((a, b) => (a.score || 0) - (b.score || 0))
 		.map((audit) => ({
-			title: audit.title || 'Unnamed Audit',
-			description: audit.description || '',
+			title: audit.title || "Unnamed Audit",
+			description: audit.description || "",
 			score: audit.score || 0,
-			displayValue: audit.displayValue || 'N/A'
+			displayValue: audit.displayValue || "N/A",
 		}));
 
 	recommendations.push(...opportunities);
@@ -446,15 +454,15 @@ export function parsePageSpeedResults(pageSpeedData: PageSpeedResponse): PageSpe
 			.filter(
 				(audit): audit is LighthouseAudit =>
 					audit !== undefined &&
-					audit.details?.type === 'diagnostic' &&
-					typeof audit.score === 'number' &&
-					audit.score < 0.9
+					audit.details?.type === "diagnostic" &&
+					typeof audit.score === "number" &&
+					audit.score < 0.9,
 			)
 			.slice(0, 5)
 			.map((audit) => ({
-				title: audit.title || 'Unnamed Audit',
-				description: audit.description || '',
-				score: audit.score || 0
+				title: audit.title || "Unnamed Audit",
+				description: audit.description || "",
+				score: audit.score || 0,
 			}));
 
 		recommendations.push(...diagnostics);
@@ -464,20 +472,20 @@ export function parsePageSpeedResults(pageSpeedData: PageSpeedResponse): PageSpe
 	if (recommendations.length === 0) {
 		recommendations.push(
 			{
-				title: 'Optimize server response time',
-				description: 'Reduce server response times',
-				score: 0
+				title: "Optimize server response time",
+				description: "Reduce server response times",
+				score: 0,
 			},
 			{
-				title: 'Eliminate render-blocking resources',
-				description: 'Resources block the first paint of your page',
-				score: 0
+				title: "Eliminate render-blocking resources",
+				description: "Resources block the first paint of your page",
+				score: 0,
 			},
 			{
-				title: 'Reduce unused JavaScript',
-				description: 'Reduce unused JavaScript to decrease payload sizes',
-				score: 0
-			}
+				title: "Reduce unused JavaScript",
+				description: "Reduce unused JavaScript to decrease payload sizes",
+				score: 0,
+			},
 		);
 	}
 
@@ -491,7 +499,7 @@ export function parsePageSpeedResults(pageSpeedData: PageSpeedResponse): PageSpe
 		seo: seoScore,
 		metrics,
 		recommendations: recommendations.slice(0, 10),
-		priorityRecommendations
+		priorityRecommendations,
 	};
 }
 
@@ -501,8 +509,8 @@ export function parsePageSpeedResults(pageSpeedData: PageSpeedResponse): PageSpe
 export function toPerformanceData(result: PageSpeedResult, url: string): PerformanceData {
 	const convertMetric = (metric: ParsedMetric): WebVitalMetric => ({
 		value: metric.formattedValue,
-		category: metric.category === 'unknown' ? 'poor' : metric.category,
-		description: metric.description
+		category: metric.category === "unknown" ? "poor" : metric.category,
+		description: metric.description,
 	});
 
 	return {
@@ -520,11 +528,11 @@ export function toPerformanceData(result: PageSpeedResult, url: string): Perform
 			INP: convertMetric(result.metrics.INP),
 			FCP: convertMetric(result.metrics.FCP),
 			TBT: convertMetric(result.metrics.TBT),
-			SI: convertMetric(result.metrics.SI)
+			SI: convertMetric(result.metrics.SI),
 		},
 		recommendations: result.priorityRecommendations,
 		auditedAt: new Date().toISOString(),
-		auditedUrl: url
+		auditedUrl: url,
 	};
 }
 

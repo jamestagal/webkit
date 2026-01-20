@@ -8,8 +8,8 @@
  * All demo entities are prefixed with "Demo:" for easy identification and cleanup.
  */
 
-import { query, command } from '$app/server';
-import { db } from '$lib/server/db';
+import { query, command } from "$app/server";
+import { db } from "$lib/server/db";
 import {
 	consultations,
 	proposals,
@@ -18,18 +18,18 @@ import {
 	invoices,
 	invoiceLineItems,
 	agencyPackages,
-	agencyAddons
-} from '$lib/server/schema';
-import { getAgencyContext } from '$lib/server/agency';
-import { eq, and, inArray, like, desc } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
+	agencyAddons,
+} from "$lib/server/schema";
+import { getAgencyContext } from "$lib/server/agency";
+import { eq, and, inArray, like, desc } from "drizzle-orm";
+import { nanoid } from "nanoid";
 import {
 	DEMO_CONSULTATION,
 	DEMO_PROPOSAL,
 	DEMO_CONTRACT,
 	DEMO_QUESTIONNAIRE,
-	DEMO_INVOICE
-} from './demo-data';
+	DEMO_INVOICE,
+} from "./demo-data";
 
 // =============================================================================
 // Query Functions (Read Operations)
@@ -45,12 +45,7 @@ export const getDemoDataStatus = query(async () => {
 	const [demo] = await db
 		.select({ id: consultations.id })
 		.from(consultations)
-		.where(
-			and(
-				eq(consultations.agencyId, agencyId),
-				like(consultations.businessName, 'Demo:%')
-			)
-		)
+		.where(and(eq(consultations.agencyId, agencyId), like(consultations.businessName, "Demo:%")))
 		.limit(1);
 
 	return { hasDemoData: !!demo };
@@ -73,16 +68,11 @@ export const loadDemoData = command(async () => {
 	const [existing] = await db
 		.select({ id: consultations.id })
 		.from(consultations)
-		.where(
-			and(
-				eq(consultations.agencyId, agencyId),
-				like(consultations.businessName, 'Demo:%')
-			)
-		)
+		.where(and(eq(consultations.agencyId, agencyId), like(consultations.businessName, "Demo:%")))
 		.limit(1);
 
 	if (existing) {
-		return { success: false, error: 'Demo data already exists' };
+		return { success: false, error: "Demo data already exists" };
 	}
 
 	// Generate unique IDs for all entities
@@ -148,7 +138,7 @@ export const loadDemoData = command(async () => {
 		admiredWebsites: DEMO_CONSULTATION.admiredWebsites,
 		consultationNotes: DEMO_CONSULTATION.consultationNotes,
 		// Metadata
-		status: 'completed'
+		status: "completed",
 	});
 
 	// 2. Create proposal linked to consultation
@@ -160,7 +150,7 @@ export const loadDemoData = command(async () => {
 				oneTimePrice: selectedPackage.oneTimePrice,
 				hostingFee: selectedPackage.hostingFee,
 				discountPercent: 10,
-				discountNote: 'Demo: 10% new client discount'
+				discountNote: "Demo: 10% new client discount",
 			}
 		: null;
 
@@ -199,7 +189,7 @@ export const loadDemoData = command(async () => {
 		customPricing,
 		validUntil: DEMO_PROPOSAL.validUntil,
 		viewCount: 0,
-		createdBy: userId
+		createdBy: userId,
 	});
 
 	// 3. Create contract linked to proposal
@@ -230,7 +220,7 @@ export const loadDemoData = command(async () => {
 		viewCount: 0,
 		visibleFields: DEMO_CONTRACT.visibleFields,
 		includedScheduleIds: DEMO_CONTRACT.includedScheduleIds,
-		createdBy: userId
+		createdBy: userId,
 	});
 
 	// 4. Create questionnaire linked to contract
@@ -249,7 +239,7 @@ export const loadDemoData = command(async () => {
 		status: DEMO_QUESTIONNAIRE.status,
 		startedAt: DEMO_QUESTIONNAIRE.startedAt,
 		completedAt: DEMO_QUESTIONNAIRE.completedAt,
-		lastActivityAt: DEMO_QUESTIONNAIRE.lastActivityAt
+		lastActivityAt: DEMO_QUESTIONNAIRE.lastActivityAt,
 	});
 
 	// 5. Create invoice linked to contract
@@ -282,20 +272,20 @@ export const loadDemoData = command(async () => {
 		publicNotes: DEMO_INVOICE.publicNotes,
 		viewCount: 0,
 		onlinePaymentEnabled: DEMO_INVOICE.onlinePaymentEnabled,
-		createdBy: userId
+		createdBy: userId,
 	});
 
 	// 6. Create invoice line item
 	await db.insert(invoiceLineItems).values({
 		id: crypto.randomUUID(),
 		invoiceId,
-		description: 'Demo: Website Design Deposit (50%)',
-		quantity: '1.00',
-		unitPrice: '2227.27',
-		amount: '2227.27',
+		description: "Demo: Website Design Deposit (50%)",
+		quantity: "1.00",
+		unitPrice: "2227.27",
+		amount: "2227.27",
 		isTaxable: true,
 		sortOrder: 0,
-		category: 'setup'
+		category: "setup",
 	});
 
 	return {
@@ -305,17 +295,15 @@ export const loadDemoData = command(async () => {
 			proposalId,
 			contractId,
 			questionnaireId,
-			invoiceId
+			invoiceId,
 		},
 		// Include info about linked packages/addons (helps user understand if they need to create these first)
-		linkedPackage: selectedPackage
-			? { id: selectedPackage.id, name: selectedPackage.name }
-			: null,
+		linkedPackage: selectedPackage ? { id: selectedPackage.id, name: selectedPackage.name } : null,
 		linkedAddons: availableAddons.map((a) => ({ id: a.id, name: a.name })),
 		note:
 			!selectedPackage && selectedAddonIds.length === 0
-				? 'No packages or addons found. Create packages in Settings > Packages to see them in the demo proposal.'
-				: undefined
+				? "No packages or addons found. Create packages in Settings > Packages to see them in the demo proposal."
+				: undefined,
 	};
 });
 
@@ -331,12 +319,7 @@ export const clearDemoData = command(async () => {
 	const demoConsultations = await db
 		.select({ id: consultations.id })
 		.from(consultations)
-		.where(
-			and(
-				eq(consultations.agencyId, agencyId),
-				like(consultations.businessName, 'Demo:%')
-			)
-		);
+		.where(and(eq(consultations.agencyId, agencyId), like(consultations.businessName, "Demo:%")));
 
 	if (demoConsultations.length === 0) {
 		return { success: true, deleted: 0 };
@@ -349,10 +332,7 @@ export const clearDemoData = command(async () => {
 		.select({ id: proposals.id })
 		.from(proposals)
 		.where(
-			and(
-				eq(proposals.agencyId, agencyId),
-				inArray(proposals.consultationId, consultationIds)
-			)
+			and(eq(proposals.agencyId, agencyId), inArray(proposals.consultationId, consultationIds)),
 		);
 
 	const proposalIds = demoProposals.map((p) => p.id);
@@ -363,12 +343,7 @@ export const clearDemoData = command(async () => {
 		const demoContracts = await db
 			.select({ id: contracts.id })
 			.from(contracts)
-			.where(
-				and(
-					eq(contracts.agencyId, agencyId),
-					inArray(contracts.proposalId, proposalIds)
-				)
-			);
+			.where(and(eq(contracts.agencyId, agencyId), inArray(contracts.proposalId, proposalIds)));
 		contractIds = demoContracts.map((c) => c.id);
 	}
 
@@ -378,12 +353,7 @@ export const clearDemoData = command(async () => {
 		const demoInvoices = await db
 			.select({ id: invoices.id })
 			.from(invoices)
-			.where(
-				and(
-					eq(invoices.agencyId, agencyId),
-					inArray(invoices.proposalId, proposalIds)
-				)
-			);
+			.where(and(eq(invoices.agencyId, agencyId), inArray(invoices.proposalId, proposalIds)));
 		invoiceIds = demoInvoices.map((i) => i.id);
 	}
 
@@ -391,9 +361,7 @@ export const clearDemoData = command(async () => {
 
 	// 1. Delete invoice line items
 	if (invoiceIds.length > 0) {
-		await db
-			.delete(invoiceLineItems)
-			.where(inArray(invoiceLineItems.invoiceId, invoiceIds));
+		await db.delete(invoiceLineItems).where(inArray(invoiceLineItems.invoiceId, invoiceIds));
 	}
 
 	// 2. Delete invoices
@@ -408,8 +376,8 @@ export const clearDemoData = command(async () => {
 			.where(
 				and(
 					eq(questionnaireResponses.agencyId, agencyId),
-					inArray(questionnaireResponses.consultationId, consultationIds)
-				)
+					inArray(questionnaireResponses.consultationId, consultationIds),
+				),
 			);
 	}
 
@@ -424,9 +392,7 @@ export const clearDemoData = command(async () => {
 	}
 
 	// 6. Delete consultations
-	await db
-		.delete(consultations)
-		.where(inArray(consultations.id, consultationIds));
+	await db.delete(consultations).where(inArray(consultations.id, consultationIds));
 
 	return {
 		success: true,
@@ -434,7 +400,7 @@ export const clearDemoData = command(async () => {
 			consultations: consultationIds.length,
 			proposals: proposalIds.length,
 			contracts: contractIds.length,
-			invoices: invoiceIds.length
-		}
+			invoices: invoiceIds.length,
+		},
 	};
 });

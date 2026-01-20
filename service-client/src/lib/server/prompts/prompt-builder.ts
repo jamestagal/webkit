@@ -5,8 +5,8 @@
  * for Claude to generate proposal sections.
  */
 
-import { PROPOSAL_SYSTEM_PROMPT } from './proposal-system';
-import { SECTION_PROMPTS, type ProposalSection } from './proposal-sections';
+import { PROPOSAL_SYSTEM_PROMPT } from "./proposal-system";
+import { SECTION_PROMPTS, type ProposalSection } from "./proposal-sections";
 
 /**
  * Performance data from PageSpeed audit
@@ -24,7 +24,7 @@ export interface PerformanceDataContext {
  */
 export interface AgencyContext {
 	name: string;
-	brandVoice?: 'professional' | 'friendly' | 'technical' | undefined;
+	brandVoice?: "professional" | "friendly" | "technical" | undefined;
 	packages?: Array<{ name: string; priceRange: string; features: string[] }>;
 	usps?: string[] | undefined;
 }
@@ -38,12 +38,12 @@ export interface PromptContext {
 	contactPerson: string;
 	industry: string;
 	businessType: string;
-	websiteStatus: 'refresh' | 'rebuild' | 'none';
+	websiteStatus: "refresh" | "rebuild" | "none";
 	website?: string | undefined;
 
 	// Challenges & Goals
 	primaryChallenges: string[];
-	urgencyLevel: 'low' | 'medium' | 'high' | 'critical';
+	urgencyLevel: "low" | "medium" | "high" | "critical";
 	primaryGoals: string[];
 	conversionGoal?: string | undefined;
 	budgetRange: string;
@@ -84,35 +84,35 @@ export function buildProposalPrompt(request: GenerationRequest): {
 - Contact Person: ${context.contactPerson}
 - Industry: ${context.industry}
 - Business Type: ${context.businessType}
-- Current Website: ${context.website || 'None'}
+- Current Website: ${context.website || "None"}
 - Website Status: ${context.websiteStatus}
 
 ## Challenges
-${context.primaryChallenges.map((c) => `- ${c}`).join('\n')}
+${context.primaryChallenges.map((c) => `- ${c}`).join("\n")}
 - Urgency Level: ${context.urgencyLevel}
 
 ## Goals
-${context.primaryGoals.map((g) => `- ${g}`).join('\n')}
-- Primary Conversion Goal: ${context.conversionGoal || 'Not specified'}
+${context.primaryGoals.map((g) => `- ${g}`).join("\n")}
+- Primary Conversion Goal: ${context.conversionGoal || "Not specified"}
 - Budget Range: ${context.budgetRange}
-- Timeline Preference: ${context.timeline || 'Flexible'}
+- Timeline Preference: ${context.timeline || "Flexible"}
 
 ## Design Preferences
-${context.designStyles?.length ? `- Preferred Styles: ${context.designStyles.join(', ')}` : '- No style preferences specified'}
-${context.admiredWebsites ? `- Admired Websites: ${context.admiredWebsites}` : ''}
-${context.consultationNotes ? `- Additional Notes: ${context.consultationNotes}` : ''}
+${context.designStyles?.length ? `- Preferred Styles: ${context.designStyles.join(", ")}` : "- No style preferences specified"}
+${context.admiredWebsites ? `- Admired Websites: ${context.admiredWebsites}` : ""}
+${context.consultationNotes ? `- Additional Notes: ${context.consultationNotes}` : ""}
 
-${context.performanceData ? buildPerformanceSection(context.performanceData) : '## PageSpeed Data\nNo audit data available. Use industry-standard benchmarks for performance targets.'}
+${context.performanceData ? buildPerformanceSection(context.performanceData) : "## PageSpeed Data\nNo audit data available. Use industry-standard benchmarks for performance targets."}
 
 ## Agency Context
 - Agency Name: ${context.agency.name}
-${context.agency.brandVoice ? `- Brand Voice: ${context.agency.brandVoice}` : ''}
-${context.agency.usps?.length ? `- Key Differentiators: ${context.agency.usps.join(', ')}` : ''}
-${context.agency.packages?.length ? buildPackagesContext(context.agency.packages) : ''}
+${context.agency.brandVoice ? `- Brand Voice: ${context.agency.brandVoice}` : ""}
+${context.agency.usps?.length ? `- Key Differentiators: ${context.agency.usps.join(", ")}` : ""}
+${context.agency.packages?.length ? buildPackagesContext(context.agency.packages) : ""}
 
 ## Sections to Generate
 Generate ONLY the following sections:
-${sections.map((s) => `- ${s}: ${interpolatePrompt(SECTION_PROMPTS[s] || '', context)}`).join('\n\n')}
+${sections.map((s) => `- ${s}: ${interpolatePrompt(SECTION_PROMPTS[s] || "", context)}`).join("\n\n")}
 
 ## Required Output Format
 Return a JSON object with these exact keys:
@@ -122,7 +122,7 @@ Remember: Return ONLY the JSON object, no other text.`;
 
 	return {
 		system: PROPOSAL_SYSTEM_PROMPT,
-		user: userPrompt
+		user: userPrompt,
 	};
 }
 
@@ -135,29 +135,32 @@ function buildPerformanceSection(data: PerformanceDataContext): string {
 	const recommendations = data.recommendations || [];
 
 	const metricsText = Object.entries(metrics)
-		.map(([key, val]) => `  - ${key}: ${val?.value || 'N/A'} (${val?.category || 'unknown'})`)
-		.join('\n');
+		.map(([key, val]) => `  - ${key}: ${val?.value || "N/A"} (${val?.category || "unknown"})`)
+		.join("\n");
 
 	return `## PageSpeed Audit Data
-- Audited URL: ${data.auditedUrl || 'Unknown'}
-- Audited At: ${data.auditedAt || 'Unknown'}
-- Overall Performance Score: ${data.performance ?? 'N/A'}/100
+- Audited URL: ${data.auditedUrl || "Unknown"}
+- Audited At: ${data.auditedAt || "Unknown"}
+- Overall Performance Score: ${data.performance ?? "N/A"}/100
 
 ### Core Web Vitals
-${metricsText || '  - No metrics available'}
+${metricsText || "  - No metrics available"}
 
 ### Google's Recommendations
-${recommendations.slice(0, 5).map((r) => `- ${r}`).join('\n') || '- No recommendations available'}`;
+${
+	recommendations
+		.slice(0, 5)
+		.map((r) => `- ${r}`)
+		.join("\n") || "- No recommendations available"
+}`;
 }
 
 /**
  * Build the packages context section
  */
-function buildPackagesContext(
-	packages: NonNullable<AgencyContext['packages']>
-): string {
+function buildPackagesContext(packages: NonNullable<AgencyContext["packages"]>): string {
 	return `- Available Packages:
-${packages.map((p) => `  - ${p.name} (${p.priceRange}): ${p.features.slice(0, 3).join(', ')}`).join('\n')}`;
+${packages.map((p) => `  - ${p.name} (${p.priceRange}): ${p.features.slice(0, 3).join(", ")}`).join("\n")}`;
 }
 
 /**
@@ -169,7 +172,7 @@ function interpolatePrompt(prompt: string, context: PromptContext): string {
 		.replace(/{businessType}/g, context.businessType)
 		.replace(/{websiteStatus}/g, context.websiteStatus)
 		.replace(/{contactPerson}/g, context.contactPerson)
-		.replace(/{timeline}/g, context.timeline || 'flexible')
+		.replace(/{timeline}/g, context.timeline || "flexible")
 		.replace(/{budgetRange}/g, context.budgetRange);
 }
 
@@ -181,19 +184,34 @@ function buildOutputSchema(sections: ProposalSection[]): Record<string, unknown>
 	const schema: Record<string, unknown> = {};
 	sections.forEach((s) => {
 		// Provide explicit structure for array sections
-		if (s === 'currentIssues') {
-			schema[s] = [{ title: 'string', description: 'string', impact: 'high|medium|low', source: 'pagespeed|consultation|inferred' }];
-		} else if (s === 'performanceStandards') {
-			schema[s] = [{ metric: 'string', current: 'string', target: 'string', improvement: 'string' }];
-		} else if (s === 'proposedPages') {
-			schema[s] = [{ name: 'string', purpose: 'string', priority: 'essential|recommended|optional' }];
-		} else if (s === 'timeline') {
-			schema[s] = [{ phase: 'string', duration: 'string', timing: 'string', deliverables: ['string'] }];
-		} else if (s === 'nextSteps') {
-			schema[s] = [{ order: 'number', action: 'string', description: 'string', owner: 'client|agency|both' }];
+		if (s === "currentIssues") {
+			schema[s] = [
+				{
+					title: "string",
+					description: "string",
+					impact: "high|medium|low",
+					source: "pagespeed|consultation|inferred",
+				},
+			];
+		} else if (s === "performanceStandards") {
+			schema[s] = [
+				{ metric: "string", current: "string", target: "string", improvement: "string" },
+			];
+		} else if (s === "proposedPages") {
+			schema[s] = [
+				{ name: "string", purpose: "string", priority: "essential|recommended|optional" },
+			];
+		} else if (s === "timeline") {
+			schema[s] = [
+				{ phase: "string", duration: "string", timing: "string", deliverables: ["string"] },
+			];
+		} else if (s === "nextSteps") {
+			schema[s] = [
+				{ order: "number", action: "string", description: "string", owner: "client|agency|both" },
+			];
 		} else {
 			// String sections
-			schema[s] = '<string content>';
+			schema[s] = "<string content>";
 		}
 	});
 	return schema;
@@ -203,10 +221,10 @@ function buildOutputSchema(sections: ProposalSection[]): Record<string, unknown>
  * Validate that performanceData has the expected structure from PageSpeed audit
  */
 function isValidPerformanceData(data: unknown): data is PerformanceDataContext {
-	if (!data || typeof data !== 'object') return false;
+	if (!data || typeof data !== "object") return false;
 	const obj = data as Record<string, unknown>;
 	// At minimum, should have a performance score
-	return typeof obj['performance'] === 'number';
+	return typeof obj["performance"] === "number";
 }
 
 /**
@@ -241,37 +259,41 @@ export function buildContextFromProposal(
 		businessName: string;
 		brandVoice?: string | null;
 		usps?: string[] | null;
-	}
+	},
 ): PromptContext {
 	// Validate brandVoice is a valid value
-	const validBrandVoices = ['professional', 'friendly', 'technical'] as const;
-	const brandVoice = agency.brandVoice && validBrandVoices.includes(agency.brandVoice as typeof validBrandVoices[number])
-		? (agency.brandVoice as AgencyContext['brandVoice'])
-		: undefined;
+	const validBrandVoices = ["professional", "friendly", "technical"] as const;
+	const brandVoice =
+		agency.brandVoice &&
+		validBrandVoices.includes(agency.brandVoice as (typeof validBrandVoices)[number])
+			? (agency.brandVoice as AgencyContext["brandVoice"])
+			: undefined;
 
 	return {
-		businessName: proposal.clientBusinessName || 'Unknown Business',
-		contactPerson: proposal.clientContactName || 'Client',
-		industry: consultation?.industry || 'General',
-		businessType: consultation?.businessType || 'Business',
-		websiteStatus: (consultation?.websiteStatus as PromptContext['websiteStatus']) || 'refresh',
+		businessName: proposal.clientBusinessName || "Unknown Business",
+		contactPerson: proposal.clientContactName || "Client",
+		industry: consultation?.industry || "General",
+		businessType: consultation?.businessType || "Business",
+		websiteStatus: (consultation?.websiteStatus as PromptContext["websiteStatus"]) || "refresh",
 		website: proposal.clientWebsite || undefined,
 		primaryChallenges: proposal.consultationChallenges || [],
 		urgencyLevel:
-			(proposal.consultationPainPoints?.urgency_level as PromptContext['urgencyLevel']) || 'medium',
+			(proposal.consultationPainPoints?.urgency_level as PromptContext["urgencyLevel"]) || "medium",
 		primaryGoals: proposal.consultationGoals?.primary_goals || [],
 		conversionGoal: proposal.consultationGoals?.conversion_goal,
-		budgetRange: proposal.consultationGoals?.budget_range || 'unknown',
+		budgetRange: proposal.consultationGoals?.budget_range || "unknown",
 		timeline: consultation?.timeline || undefined,
 		designStyles: consultation?.designStyles || undefined,
 		admiredWebsites: consultation?.admiredWebsites || undefined,
 		consultationNotes: consultation?.consultationNotes || undefined,
 		// Only include performanceData if it has meaningful content
-		performanceData: isValidPerformanceData(proposal.performanceData) ? proposal.performanceData : undefined,
+		performanceData: isValidPerformanceData(proposal.performanceData)
+			? proposal.performanceData
+			: undefined,
 		agency: {
 			name: agency.businessName,
 			brandVoice,
-			usps: agency.usps || undefined
-		}
+			usps: agency.usps || undefined,
+		},
 	};
 }

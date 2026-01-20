@@ -11,6 +11,7 @@
 		email: string;
 		status: string;
 		subscriptionTier: string;
+		isFreemium: boolean;
 		createdAt: Date;
 		memberCount: number;
 	}
@@ -184,9 +185,14 @@
 							<span class="badge {getStatusBadgeClass(agency.status)} badge-sm capitalize">
 								{agency.status}
 							</span>
-							<span class="badge {getTierBadgeClass(agency.subscriptionTier)} badge-sm capitalize">
-								{agency.subscriptionTier}
-							</span>
+							<div class="flex items-center gap-1">
+								<span class="badge {getTierBadgeClass(agency.subscriptionTier)} badge-sm capitalize">
+									{agency.subscriptionTier}
+								</span>
+								{#if agency.isFreemium}
+									<span class="badge badge-warning badge-sm">Free</span>
+								{/if}
+							</div>
 						</div>
 					</div>
 					<div class="mt-3 flex items-center justify-between text-sm text-base-content/60">
@@ -227,9 +233,14 @@
 								</span>
 							</td>
 							<td>
-								<span class="badge {getTierBadgeClass(agency.subscriptionTier)} badge-sm capitalize">
-									{agency.subscriptionTier}
-								</span>
+								<div class="flex items-center gap-1">
+									<span class="badge {getTierBadgeClass(agency.subscriptionTier)} badge-sm capitalize">
+										{agency.subscriptionTier}
+									</span>
+									{#if agency.isFreemium}
+										<span class="badge badge-warning badge-sm">Free</span>
+									{/if}
+								</div>
 							</td>
 							<td>{agency.memberCount}</td>
 							<td class="text-sm text-base-content/60">{formatDate(agency.createdAt)}</td>

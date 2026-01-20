@@ -5,13 +5,13 @@
  * No actual questionnaire is created - this is just for previewing the form flow.
  */
 
-import type { PageServerLoad } from './$types';
+import type { PageServerLoad } from "./$types";
 
 export const load: PageServerLoad = async ({ parent }) => {
 	const { agency, agencyProfile } = await parent();
 
 	return {
 		agency,
-		agencyProfile
+		agencyProfile,
 	};
 };

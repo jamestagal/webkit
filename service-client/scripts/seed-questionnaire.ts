@@ -16,86 +16,78 @@
  * Example: npx tsx scripts/seed-questionnaire.ts plentify
  */
 
-import { drizzle } from 'drizzle-orm/node-postgres';
-import pkg from 'pg';
+import { drizzle } from "drizzle-orm/node-postgres";
+import pkg from "pg";
 const { Pool } = pkg;
-import { eq, and, desc } from 'drizzle-orm';
-import {
-	pgTable,
-	uuid,
-	text,
-	jsonb,
-	timestamp,
-	varchar,
-	integer
-} from 'drizzle-orm/pg-core';
+import { eq, and, desc } from "drizzle-orm";
+import { pgTable, uuid, text, jsonb, timestamp, varchar, integer } from "drizzle-orm/pg-core";
 
 // ============================================================================
 // SCHEMA DEFINITIONS (Minimal for seeding)
 // ============================================================================
 
-const agencies = pgTable('agencies', {
-	id: uuid('id').primaryKey(),
-	name: text('name').notNull(),
-	slug: text('slug').notNull().unique()
+const agencies = pgTable("agencies", {
+	id: uuid("id").primaryKey(),
+	name: text("name").notNull(),
+	slug: text("slug").notNull().unique(),
 });
 
-const contracts = pgTable('contracts', {
-	id: uuid('id').primaryKey(),
-	agencyId: uuid('agency_id').notNull(),
-	contractNumber: varchar('contract_number', { length: 50 }).notNull(),
-	clientBusinessName: text('client_business_name').notNull().default(''),
-	status: varchar('status', { length: 50 }).notNull().default('draft'),
-	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+const contracts = pgTable("contracts", {
+	id: uuid("id").primaryKey(),
+	agencyId: uuid("agency_id").notNull(),
+	contractNumber: varchar("contract_number", { length: 50 }).notNull(),
+	clientBusinessName: text("client_business_name").notNull().default(""),
+	status: varchar("status", { length: 50 }).notNull().default("draft"),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-const proposals = pgTable('proposals', {
-	id: uuid('id').primaryKey(),
-	agencyId: uuid('agency_id').notNull(),
-	proposalNumber: varchar('proposal_number', { length: 50 }).notNull(),
-	clientBusinessName: text('client_business_name').notNull().default(''),
-	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+const proposals = pgTable("proposals", {
+	id: uuid("id").primaryKey(),
+	agencyId: uuid("agency_id").notNull(),
+	proposalNumber: varchar("proposal_number", { length: 50 }).notNull(),
+	clientBusinessName: text("client_business_name").notNull().default(""),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-const questionnaireResponses = pgTable('questionnaire_responses', {
-	id: uuid('id').primaryKey(),
-	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-	agencyId: uuid('agency_id').notNull(),
-	slug: varchar('slug', { length: 100 }).notNull().unique(),
-	contractId: uuid('contract_id'),
-	proposalId: uuid('proposal_id'),
-	consultationId: uuid('consultation_id'),
-	clientBusinessName: text('client_business_name').notNull().default(''),
-	clientEmail: varchar('client_email', { length: 255 }).notNull().default(''),
-	responses: jsonb('responses').notNull().default({}),
-	currentSection: integer('current_section').notNull().default(0),
-	completionPercentage: integer('completion_percentage').notNull().default(0),
-	status: varchar('status', { length: 50 }).notNull().default('not_started'),
-	startedAt: timestamp('started_at', { withTimezone: true }),
-	completedAt: timestamp('completed_at', { withTimezone: true }),
-	lastActivityAt: timestamp('last_activity_at', { withTimezone: true })
+const questionnaireResponses = pgTable("questionnaire_responses", {
+	id: uuid("id").primaryKey(),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	agencyId: uuid("agency_id").notNull(),
+	slug: varchar("slug", { length: 100 }).notNull().unique(),
+	contractId: uuid("contract_id"),
+	proposalId: uuid("proposal_id"),
+	consultationId: uuid("consultation_id"),
+	clientBusinessName: text("client_business_name").notNull().default(""),
+	clientEmail: varchar("client_email", { length: 255 }).notNull().default(""),
+	responses: jsonb("responses").notNull().default({}),
+	currentSection: integer("current_section").notNull().default(0),
+	completionPercentage: integer("completion_percentage").notNull().default(0),
+	status: varchar("status", { length: 50 }).notNull().default("not_started"),
+	startedAt: timestamp("started_at", { withTimezone: true }),
+	completedAt: timestamp("completed_at", { withTimezone: true }),
+	lastActivityAt: timestamp("last_activity_at", { withTimezone: true }),
 });
 
 // ============================================================================
 // COMPREHENSIVE QUESTIONNAIRE DATA FOR MURRAY'S PLUMBING
 // ============================================================================
 
-const QUESTIONNAIRE_ID = '99999999-7777-7777-7777-111111111111';
+const QUESTIONNAIRE_ID = "99999999-7777-7777-7777-111111111111";
 
 const questionnaireData = {
 	// -------------------------------------------------------------------------
 	// Section 1: Business Overview
 	// -------------------------------------------------------------------------
-	business_name: 'Murrays Plumbing',
-	business_tagline: 'Brisbane\'s Most Trusted Plumber Since 2010',
+	business_name: "Murrays Plumbing",
+	business_tagline: "Brisbane's Most Trusted Plumber Since 2010",
 	business_description: `Murray's Plumbing is a family-owned plumbing business serving the Greater Brisbane area for over 15 years. Founded by Steve Murray, a third-generation plumber, we specialize in residential and commercial plumbing services.
 
 Our team of 8 licensed plumbers provides 24/7 emergency services, hot water system installations, blocked drain clearing, gas fitting, and bathroom renovations. We're known for our reliability, transparent pricing, and exceptional customer service.
 
 With over 127 five-star Google reviews and a 4.8 rating, we've built our reputation on doing the job right the first time. We're licensed, fully insured, and committed to providing Brisbane families with honest, quality plumbing services.`,
-	years_in_business: '15',
-	number_of_employees: '8',
+	years_in_business: "15",
+	number_of_employees: "8",
 	target_audience: `Our primary customers are:
 - Homeowners in Brisbane suburbs (ages 35-65)
 - Property managers and real estate agencies
@@ -115,24 +107,25 @@ Key demographics:
 5. Family Values - We treat your home like our own
 6. Warranty Guarantee - All work backed by 12-month warranty`,
 	main_services: [
-		'Emergency plumbing (24/7)',
-		'Hot water system installation and repairs',
-		'Blocked drain clearing and CCTV inspection',
-		'Gas fitting and gas leak detection',
-		'Bathroom renovations and remodelling',
-		'Commercial plumbing maintenance',
-		'Backflow prevention and testing',
-		'Water leak detection and repair',
-		'Tap and toilet repairs',
-		'Rainwater tank installation'
+		"Emergency plumbing (24/7)",
+		"Hot water system installation and repairs",
+		"Blocked drain clearing and CCTV inspection",
+		"Gas fitting and gas leak detection",
+		"Bathroom renovations and remodelling",
+		"Commercial plumbing maintenance",
+		"Backflow prevention and testing",
+		"Water leak detection and repair",
+		"Tap and toilet repairs",
+		"Rainwater tank installation",
 	],
-	service_areas: 'Greater Brisbane including: Brisbane CBD, Northside (Chermside, Aspley, Albany Creek, Strathpine), Southside (Eight Mile Plains, Sunnybank, Carindale, Cleveland), Western Suburbs (Indooroopilly, Kenmore, Chapel Hill), and Ipswich region.',
+	service_areas:
+		"Greater Brisbane including: Brisbane CBD, Northside (Chermside, Aspley, Albany Creek, Strathpine), Southside (Eight Mile Plains, Sunnybank, Carindale, Cleveland), Western Suburbs (Indooroopilly, Kenmore, Chapel Hill), and Ipswich region.",
 
 	// -------------------------------------------------------------------------
 	// Section 2: Brand Identity
 	// -------------------------------------------------------------------------
-	existing_logo: 'yes',
-	logo_satisfaction: 'satisfied_minor_updates',
+	existing_logo: "yes",
+	logo_satisfaction: "satisfied_minor_updates",
 	brand_colors: `Current brand colors:
 - Primary Blue: #0066CC (trustworthy, professional)
 - Accent Orange: #FF6600 (emergency, action)
@@ -152,7 +145,7 @@ We'd like to keep these colors as they're on our vehicles, uniforms, and signage
 3. Salmon Plumbing (salmonplumbing.com.au) - Good mobile experience
 
 What we like: Clear emergency buttons, service area maps, before/after galleries`,
-	brand_tone_of_voice: 'friendly_professional',
+	brand_tone_of_voice: "friendly_professional",
 	existing_brand_assets: `We have the following brand assets to provide:
 - High-resolution logo (AI, EPS, PNG formats)
 - Vehicle wrap designs (shows our color scheme)
@@ -164,8 +157,8 @@ What we like: Clear emergency buttons, service area maps, before/after galleries
 	// -------------------------------------------------------------------------
 	// Section 3: Current Website
 	// -------------------------------------------------------------------------
-	has_current_website: 'yes',
-	current_website_url: 'https://murraysplumbing.com.au',
+	has_current_website: "yes",
+	current_website_url: "https://murraysplumbing.com.au",
 	current_website_likes: `What we like about our current site:
 - Our phone number is displayed
 - Basic contact form works (sometimes)
@@ -190,7 +183,7 @@ What we like: Clear emergency buttons, service area maps, before/after galleries
 - Conversion rate: Approximately 1.5% (very poor)
 
 We're spending $2,000/month on Google Ads but getting poor results due to the landing page.`,
-	domain_hosting_access: 'yes',
+	domain_hosting_access: "yes",
 	domain_hosting_details: `Domain: murraysplumbing.com.au
 Registrar: Crazy Domains (we have login)
 Current hosting: GoDaddy shared hosting
@@ -202,13 +195,9 @@ We have all logins and are happy to transfer to recommended hosting.`,
 	// -------------------------------------------------------------------------
 	// Section 4: Website Goals
 	// -------------------------------------------------------------------------
-	primary_website_goal: 'lead_generation',
-	secondary_website_goals: [
-		'brand_awareness',
-		'customer_support',
-		'showcase_portfolio'
-	],
-	target_monthly_leads: '50+',
+	primary_website_goal: "lead_generation",
+	secondary_website_goals: ["brand_awareness", "customer_support", "showcase_portfolio"],
+	target_monthly_leads: "50+",
 	success_metrics: `How we'll measure success:
 1. Lead Volume: 50+ qualified leads per month (from current 5-10)
 2. Search Rankings: Top 3 for "plumber Brisbane", "emergency plumber Brisbane"
@@ -236,45 +225,45 @@ We have all logins and are happy to transfer to recommended hosting.`,
 	// Section 5: Content & Features
 	// -------------------------------------------------------------------------
 	required_pages: [
-		'Home',
-		'About Us / Our Story',
-		'Services (main hub)',
-		'Emergency Plumbing',
-		'Hot Water Systems',
-		'Blocked Drains',
-		'Gas Fitting',
-		'Bathroom Renovations',
-		'Commercial Plumbing',
-		'Service Areas (Brisbane regions)',
-		'Projects / Gallery',
-		'Reviews & Testimonials',
-		'Blog / Plumbing Tips',
-		'Contact Us',
-		'Book Online',
-		'FAQ'
+		"Home",
+		"About Us / Our Story",
+		"Services (main hub)",
+		"Emergency Plumbing",
+		"Hot Water Systems",
+		"Blocked Drains",
+		"Gas Fitting",
+		"Bathroom Renovations",
+		"Commercial Plumbing",
+		"Service Areas (Brisbane regions)",
+		"Projects / Gallery",
+		"Reviews & Testimonials",
+		"Blog / Plumbing Tips",
+		"Contact Us",
+		"Book Online",
+		"FAQ",
 	],
 	must_have_features: [
-		'Click-to-call emergency button (sticky on mobile)',
-		'Online booking/appointment system',
-		'Contact form with service selection',
-		'Google Reviews integration',
-		'Live chat widget',
-		'Service area map (interactive)',
-		'Before/after project gallery',
-		'Team member profiles',
-		'Blog for SEO content',
-		'FAQ section with schema markup',
-		'SSL certificate',
-		'Mobile-first responsive design'
+		"Click-to-call emergency button (sticky on mobile)",
+		"Online booking/appointment system",
+		"Contact form with service selection",
+		"Google Reviews integration",
+		"Live chat widget",
+		"Service area map (interactive)",
+		"Before/after project gallery",
+		"Team member profiles",
+		"Blog for SEO content",
+		"FAQ section with schema markup",
+		"SSL certificate",
+		"Mobile-first responsive design",
 	],
 	nice_to_have_features: [
-		'Customer portal for job history',
-		'Video testimonials section',
-		'Cost calculator / quote estimator',
-		'Emergency SMS alerts signup',
-		'Seasonal maintenance reminders',
-		'Referral program signup',
-		'Newsletter subscription'
+		"Customer portal for job history",
+		"Video testimonials section",
+		"Cost calculator / quote estimator",
+		"Emergency SMS alerts signup",
+		"Seasonal maintenance reminders",
+		"Referral program signup",
+		"Newsletter subscription",
 	],
 	content_provision: `Content we can provide:
 - Company history and founder story
@@ -303,29 +292,29 @@ Would like 2-4 articles ready at launch, with template for future posts.`,
 	// -------------------------------------------------------------------------
 	// Section 6: Design Preferences
 	// -------------------------------------------------------------------------
-	design_style_preference: 'modern_professional',
+	design_style_preference: "modern_professional",
 	website_examples_liked: `Websites we like for inspiration:
 1. fallonsolutions.com.au - Clean, professional, great imagery
 2. oneflare.com.au/plumbers - Good search/filter functionality
 3. dulux.com.au - Modern design, great use of color
 4. jimsmowing.com.au - Simple, clear service areas`,
 	design_elements_preferred: [
-		'Large hero image with clear call-to-action',
-		'Trust badges and certifications prominently displayed',
-		'Google reviews widget in header/sidebar',
-		'Interactive service area map',
-		'Before/after image sliders',
-		'Team photos showing real employees',
-		'Clear pricing indicators',
-		'Video content integration'
+		"Large hero image with clear call-to-action",
+		"Trust badges and certifications prominently displayed",
+		"Google reviews widget in header/sidebar",
+		"Interactive service area map",
+		"Before/after image sliders",
+		"Team photos showing real employees",
+		"Clear pricing indicators",
+		"Video content integration",
 	],
 	design_elements_to_avoid: [
-		'Stock photos of generic plumbers',
-		'Cluttered layouts with too much text',
-		'Auto-playing background videos',
-		'Pop-ups that block content immediately',
-		'Tiny fonts or low contrast text',
-		'Complicated navigation menus'
+		"Stock photos of generic plumbers",
+		"Cluttered layouts with too much text",
+		"Auto-playing background videos",
+		"Pop-ups that block content immediately",
+		"Tiny fonts or low contrast text",
+		"Complicated navigation menus",
 	],
 	imagery_preferences: `Photography/imagery needs:
 - Real photos of our team preferred over stock
@@ -338,22 +327,22 @@ We have professional photos of:
 - All 8 team members
 - Company vehicles (wrapped with branding)
 - 50+ completed projects`,
-	mobile_importance: '10_critical',
+	mobile_importance: "10_critical",
 
 	// -------------------------------------------------------------------------
 	// Section 7: Technical Requirements
 	// -------------------------------------------------------------------------
-	cms_preference: 'open_to_recommendation',
-	cms_experience: 'basic',
+	cms_preference: "open_to_recommendation",
+	cms_experience: "basic",
 	integrations_required: [
-		'Google Analytics 4',
-		'Google Search Console',
-		'Google Business Profile',
-		'ServiceM8 or similar job management (future)',
-		'Stripe for online deposits',
-		'Live chat (Intercom or similar)',
-		'Email marketing (Mailchimp)',
-		'Google Calendar for bookings'
+		"Google Analytics 4",
+		"Google Search Console",
+		"Google Business Profile",
+		"ServiceM8 or similar job management (future)",
+		"Stripe for online deposits",
+		"Live chat (Intercom or similar)",
+		"Email marketing (Mailchimp)",
+		"Google Calendar for bookings",
 	],
 	email_requirements: `Email setup:
 Current: G Suite (Google Workspace)
@@ -369,7 +358,8 @@ We're happy with G Suite and want to keep using it.`,
 - GDPR/Privacy compliance
 - Secure booking system
 - reCAPTCHA on contact forms`,
-	accessibility_requirements: 'WCAG 2.1 AA compliance where practical. Important as some older customers may have vision impairments.',
+	accessibility_requirements:
+		"WCAG 2.1 AA compliance where practical. Important as some older customers may have vision impairments.",
 	performance_requirements: `Performance targets:
 - Page load under 2 seconds
 - Mobile-first optimization
@@ -380,9 +370,9 @@ We're happy with G Suite and want to keep using it.`,
 	// -------------------------------------------------------------------------
 	// Section 8: Project Timeline & Budget
 	// -------------------------------------------------------------------------
-	ideal_launch_date: 'Within 10 weeks (before winter hot water season)',
-	hard_deadline: 'Must be live by June 1st for hot water season',
-	budget_range: '$5,000 - $10,000 for initial build',
+	ideal_launch_date: "Within 10 weeks (before winter hot water season)",
+	hard_deadline: "Must be live by June 1st for hot water season",
+	budget_range: "$5,000 - $10,000 for initial build",
 	ongoing_budget: `Ongoing investment:
 - Monthly hosting/maintenance: up to $200/month
 - SEO/marketing: separate budget $500-1000/month (Phase 2)
@@ -406,7 +396,7 @@ Both will need to approve designs. Steve is primary contact.`,
 - Need clear training on how to update the site ourselves
 - Would like quarterly check-ins after launch for first year
 
-Looking forward to finally having a website that represents the quality of our work!`
+Looking forward to finally having a website that represents the quality of our work!`,
 };
 
 // ============================================================================
@@ -417,19 +407,19 @@ async function seedQuestionnaire() {
 	const agencySlug = process.argv[2];
 
 	if (!agencySlug) {
-		console.error('Usage: npx tsx scripts/seed-questionnaire.ts <agency-slug>');
-		console.error('Example: npx tsx scripts/seed-questionnaire.ts plentify');
+		console.error("Usage: npx tsx scripts/seed-questionnaire.ts <agency-slug>");
+		console.error("Example: npx tsx scripts/seed-questionnaire.ts plentify");
 		process.exit(1);
 	}
 
-	console.log('Connecting to database...');
+	console.log("Connecting to database...");
 
 	const pool = new Pool({
-		host: process.env.POSTGRES_HOST || 'localhost',
-		port: parseInt(process.env.POSTGRES_PORT || '5432'),
-		database: process.env.POSTGRES_DB || 'postgres',
-		user: process.env.POSTGRES_USER || 'postgres',
-		password: process.env.POSTGRES_PASSWORD || 'postgres'
+		host: process.env.POSTGRES_HOST || "localhost",
+		port: parseInt(process.env.POSTGRES_PORT || "5432"),
+		database: process.env.POSTGRES_DB || "postgres",
+		user: process.env.POSTGRES_USER || "postgres",
+		password: process.env.POSTGRES_PASSWORD || "postgres",
 	});
 
 	const db = drizzle(pool);
@@ -437,15 +427,11 @@ async function seedQuestionnaire() {
 	try {
 		// 1. Find the agency
 		console.log(`\nLooking for agency: ${agencySlug}...`);
-		const [agency] = await db
-			.select()
-			.from(agencies)
-			.where(eq(agencies.slug, agencySlug))
-			.limit(1);
+		const [agency] = await db.select().from(agencies).where(eq(agencies.slug, agencySlug)).limit(1);
 
 		if (!agency) {
 			console.error(`\n❌ Agency not found with slug: ${agencySlug}`);
-			console.error('Please run seed-demo-data.ts first.');
+			console.error("Please run seed-demo-data.ts first.");
 			process.exit(1);
 		}
 
@@ -455,10 +441,12 @@ async function seedQuestionnaire() {
 		const [contract] = await db
 			.select()
 			.from(contracts)
-			.where(and(
-				eq(contracts.agencyId, agency.id),
-				eq(contracts.clientBusinessName, 'Murrays Plumbing')
-			))
+			.where(
+				and(
+					eq(contracts.agencyId, agency.id),
+					eq(contracts.clientBusinessName, "Murrays Plumbing"),
+				),
+			)
 			.orderBy(desc(contracts.createdAt))
 			.limit(1);
 
@@ -470,10 +458,12 @@ async function seedQuestionnaire() {
 		const [proposal] = await db
 			.select()
 			.from(proposals)
-			.where(and(
-				eq(proposals.agencyId, agency.id),
-				eq(proposals.clientBusinessName, 'Murrays Plumbing')
-			))
+			.where(
+				and(
+					eq(proposals.agencyId, agency.id),
+					eq(proposals.clientBusinessName, "Murrays Plumbing"),
+				),
+			)
 			.orderBy(desc(proposals.createdAt))
 			.limit(1);
 
@@ -496,10 +486,10 @@ async function seedQuestionnaire() {
 		}
 
 		// 5. Generate questionnaire slug
-		const questionnaireSlug = 'murrays-plumbing-questionnaire-' + Date.now().toString(36);
+		const questionnaireSlug = "murrays-plumbing-questionnaire-" + Date.now().toString(36);
 
 		// 6. Create the questionnaire
-		console.log('\nCreating questionnaire for Murray\'s Plumbing...');
+		console.log("\nCreating questionnaire for Murray's Plumbing...");
 
 		await db.insert(questionnaireResponses).values({
 			id: QUESTIONNAIRE_ID,
@@ -508,24 +498,24 @@ async function seedQuestionnaire() {
 			contractId: contract?.id || null,
 			proposalId: proposal?.id || null,
 			consultationId: null,
-			clientBusinessName: 'Murrays Plumbing',
-			clientEmail: 'steve@murraysplumbing.com.au',
+			clientBusinessName: "Murrays Plumbing",
+			clientEmail: "steve@murraysplumbing.com.au",
 			responses: questionnaireData,
 			currentSection: 8, // All sections complete
 			completionPercentage: 100,
-			status: 'completed',
+			status: "completed",
 			startedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // Started 2 days ago
 			completedAt: new Date(),
 			lastActivityAt: new Date(),
 			createdAt: new Date(),
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		});
 
 		// Success!
-		console.log('\n' + '='.repeat(60));
-		console.log('✅ QUESTIONNAIRE SEEDED SUCCESSFULLY!');
-		console.log('='.repeat(60));
-		console.log('\nQuestionnaire Details:');
+		console.log("\n" + "=".repeat(60));
+		console.log("✅ QUESTIONNAIRE SEEDED SUCCESSFULLY!");
+		console.log("=".repeat(60));
+		console.log("\nQuestionnaire Details:");
 		console.log(`  ID: ${QUESTIONNAIRE_ID}`);
 		console.log(`  Client: Murrays Plumbing`);
 		console.log(`  Status: completed (100%)`);
@@ -537,22 +527,21 @@ async function seedQuestionnaire() {
 		if (proposal) {
 			console.log(`  Linked Proposal: ${proposal.proposalNumber}`);
 		}
-		console.log('\nSections Completed:');
-		console.log('  1. Business Overview ✓');
-		console.log('  2. Brand Identity ✓');
-		console.log('  3. Current Website ✓');
-		console.log('  4. Website Goals ✓');
-		console.log('  5. Content & Features ✓');
-		console.log('  6. Design Preferences ✓');
-		console.log('  7. Technical Requirements ✓');
-		console.log('  8. Project Timeline & Budget ✓');
+		console.log("\nSections Completed:");
+		console.log("  1. Business Overview ✓");
+		console.log("  2. Brand Identity ✓");
+		console.log("  3. Current Website ✓");
+		console.log("  4. Website Goals ✓");
+		console.log("  5. Content & Features ✓");
+		console.log("  6. Design Preferences ✓");
+		console.log("  7. Technical Requirements ✓");
+		console.log("  8. Project Timeline & Budget ✓");
 		console.log(`\nView at:`);
 		console.log(`  Admin: https://app.webkit.au/${agencySlug}/questionnaires`);
 		console.log(`  Public: https://app.webkit.au/q/${questionnaireSlug}`);
-		console.log('\n');
-
+		console.log("\n");
 	} catch (error) {
-		console.error('\n❌ Error seeding questionnaire:', error);
+		console.error("\n❌ Error seeding questionnaire:", error);
 		process.exit(1);
 	} finally {
 		await pool.end();

@@ -5,7 +5,12 @@
  * Separated from remote functions for proper module exports.
  */
 
-import type { agencies, agencyProfiles, contracts, QuestionnaireResponse } from '$lib/server/schema';
+import type {
+	agencies,
+	agencyProfiles,
+	contracts,
+	QuestionnaireResponse,
+} from "$lib/server/schema";
 
 // =============================================================================
 // Types
@@ -30,9 +35,9 @@ export type QuestionnaireResponses = {
 	opening_hours?: string;
 
 	// Section 4: Domain & Technical
-	has_domain?: 'yes' | 'no';
+	has_domain?: "yes" | "no";
 	domain_name?: string;
-	has_google_business?: 'yes' | 'no';
+	has_google_business?: "yes" | "no";
 
 	// Section 5: About Your Business
 	business_story?: string;
@@ -62,7 +67,7 @@ export type QuestionnaireResponses = {
 
 	// Section 8: Final Details
 	timeline?: string;
-	google_analytics?: 'yes' | 'no';
+	google_analytics?: "yes" | "no";
 	referral_source?: string;
 	other_services_interest?: string[];
 	marketing_permissions?: string[];
@@ -70,7 +75,7 @@ export type QuestionnaireResponses = {
 
 export type QuestionnaireAccessResult = {
 	allowed: boolean;
-	reason?: 'contract_not_found' | 'contract_not_signed' | 'payment_required' | 'already_completed';
+	reason?: "contract_not_found" | "contract_not_signed" | "payment_required" | "already_completed";
 	contract?: typeof contracts.$inferSelect;
 	agency?: typeof agencies.$inferSelect;
 	agencyProfile?: typeof agencyProfiles.$inferSelect;

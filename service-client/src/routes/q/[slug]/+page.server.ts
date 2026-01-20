@@ -7,9 +7,9 @@
  * 2. Contract slug (backward compatibility for contract-linked questionnaires)
  */
 
-import type { PageServerLoad } from './$types';
-import { getQuestionnaireByOwnSlug, checkQuestionnaireAccess } from '$lib/api/questionnaire.remote';
-import { error } from '@sveltejs/kit';
+import type { PageServerLoad } from "./$types";
+import { getQuestionnaireByOwnSlug, checkQuestionnaireAccess } from "$lib/api/questionnaire.remote";
+import { error } from "@sveltejs/kit";
 
 export const load: PageServerLoad = async ({ params }) => {
 	const { slug } = params;
@@ -26,19 +26,19 @@ export const load: PageServerLoad = async ({ params }) => {
 		// (questionnaire is only created when contract is signed and first invoice paid)
 		return {
 			allowed: true,
-			reason: questionnaire.status === 'completed' ? 'already_completed' : undefined,
+			reason: questionnaire.status === "completed" ? "already_completed" : undefined,
 			contract,
 			agency,
 			agencyProfile,
-			questionnaire
+			questionnaire,
 		};
 	}
 
 	// Fallback: Try to find by contract slug (backward compatibility)
 	const result = await checkQuestionnaireAccess(slug);
 
-	if (result.reason === 'contract_not_found') {
-		throw error(404, 'Questionnaire not found');
+	if (result.reason === "contract_not_found") {
+		throw error(404, "Questionnaire not found");
 	}
 
 	return {
@@ -47,6 +47,6 @@ export const load: PageServerLoad = async ({ params }) => {
 		contract: result.contract || null,
 		agency: result.agency || null,
 		agencyProfile: result.agencyProfile || null,
-		questionnaire: result.questionnaire || null
+		questionnaire: result.questionnaire || null,
 	};
 };

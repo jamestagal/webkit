@@ -5,7 +5,7 @@
  * Used by remote functions for form validation.
  */
 
-import * as v from 'valibot';
+import * as v from "valibot";
 
 // =============================================================================
 // Common Schemas
@@ -18,7 +18,7 @@ export const ConsultationIdSchema = v.pipe(v.string(), v.uuid());
 export const SocialMediaSchema = v.object({
 	linkedin: v.optional(v.string()),
 	facebook: v.optional(v.string()),
-	instagram: v.optional(v.string())
+	instagram: v.optional(v.string()),
 });
 
 // =============================================================================
@@ -28,7 +28,7 @@ export const SocialMediaSchema = v.object({
 export const ContactBusinessSchema = v.object({
 	business_name: v.optional(v.pipe(v.string(), v.maxLength(255))),
 	contact_person: v.optional(v.pipe(v.string(), v.maxLength(255))),
-	email: v.pipe(v.string(), v.email('Valid email required')),
+	email: v.pipe(v.string(), v.email("Valid email required")),
 	phone: v.optional(v.pipe(v.string(), v.maxLength(50))),
 	website: v.optional(
 		v.pipe(
@@ -36,15 +36,15 @@ export const ContactBusinessSchema = v.object({
 			v.transform((val) => {
 				// Auto-add https if missing
 				if (val && !val.match(/^https?:\/\//)) {
-					return 'https://' + val;
+					return "https://" + val;
 				}
 				return val;
-			})
-		)
+			}),
+		),
 	),
 	social_media: v.optional(SocialMediaSchema),
-	industry: v.pipe(v.string(), v.minLength(1, 'Industry is required')),
-	business_type: v.pipe(v.string(), v.minLength(1, 'Business type is required'))
+	industry: v.pipe(v.string(), v.minLength(1, "Industry is required")),
+	business_type: v.pipe(v.string(), v.minLength(1, "Business type is required")),
 });
 
 export type ContactBusinessInput = v.InferInput<typeof ContactBusinessSchema>;
@@ -55,15 +55,9 @@ export type ContactBusinessOutput = v.InferOutput<typeof ContactBusinessSchema>;
 // =============================================================================
 
 export const SituationSchema = v.object({
-	website_status: v.picklist(['none', 'refresh', 'rebuild'], 'Website status is required'),
-	primary_challenges: v.pipe(
-		v.array(v.string()),
-		v.minLength(1, 'Select at least one challenge')
-	),
-	urgency_level: v.picklist(
-		['low', 'medium', 'high', 'critical'],
-		'Urgency level is required'
-	)
+	website_status: v.picklist(["none", "refresh", "rebuild"], "Website status is required"),
+	primary_challenges: v.pipe(v.array(v.string()), v.minLength(1, "Select at least one challenge")),
+	urgency_level: v.picklist(["low", "medium", "high", "critical"], "Urgency level is required"),
 });
 
 export type SituationInput = v.InferInput<typeof SituationSchema>;
@@ -74,16 +68,13 @@ export type SituationOutput = v.InferOutput<typeof SituationSchema>;
 // =============================================================================
 
 export const GoalsBudgetSchema = v.object({
-	primary_goals: v.pipe(v.array(v.string()), v.minLength(1, 'Select at least one goal')),
+	primary_goals: v.pipe(v.array(v.string()), v.minLength(1, "Select at least one goal")),
 	conversion_goal: v.optional(v.string()),
-	budget_range: v.pipe(v.string(), v.minLength(1, 'Budget range is required')),
+	budget_range: v.pipe(v.string(), v.minLength(1, "Budget range is required")),
 	// Allow empty string (from select default) or valid timeline values
 	timeline: v.optional(
-		v.union([
-			v.literal(''),
-			v.picklist(['asap', '1-3-months', '3-6-months', 'flexible'])
-		])
-	)
+		v.union([v.literal(""), v.picklist(["asap", "1-3-months", "3-6-months", "flexible"])]),
+	),
 });
 
 export type GoalsBudgetInput = v.InferInput<typeof GoalsBudgetSchema>;
@@ -96,7 +87,7 @@ export type GoalsBudgetOutput = v.InferOutput<typeof GoalsBudgetSchema>;
 export const PreferencesNotesSchema = v.object({
 	design_styles: v.optional(v.array(v.string())),
 	admired_websites: v.optional(v.pipe(v.string(), v.maxLength(2000))),
-	consultation_notes: v.optional(v.pipe(v.string(), v.maxLength(5000)))
+	consultation_notes: v.optional(v.pipe(v.string(), v.maxLength(5000))),
 });
 
 export type PreferencesNotesInput = v.InferInput<typeof PreferencesNotesSchema>;
@@ -110,7 +101,7 @@ export const ConsultationDataSchema = v.object({
 	contact_business: ContactBusinessSchema,
 	situation: SituationSchema,
 	goals_budget: GoalsBudgetSchema,
-	preferences_notes: PreferencesNotesSchema
+	preferences_notes: PreferencesNotesSchema,
 });
 
 export type ConsultationDataInput = v.InferInput<typeof ConsultationDataSchema>;
@@ -123,7 +114,7 @@ export type ConsultationDataOutput = v.InferOutput<typeof ConsultationDataSchema
 // Create consultation (Step 1 - no ID yet)
 export const CreateConsultationSchema = v.object({
 	agencyId: v.pipe(v.string(), v.uuid()),
-	...ContactBusinessSchema.entries
+	...ContactBusinessSchema.entries,
 });
 
 export type CreateConsultationInput = v.InferInput<typeof CreateConsultationSchema>;
@@ -131,7 +122,7 @@ export type CreateConsultationInput = v.InferInput<typeof CreateConsultationSche
 // Update Step 1
 export const UpdateContactBusinessSchema = v.object({
 	consultationId: ConsultationIdSchema,
-	...ContactBusinessSchema.entries
+	...ContactBusinessSchema.entries,
 });
 
 export type UpdateContactBusinessInput = v.InferInput<typeof UpdateContactBusinessSchema>;
@@ -139,7 +130,7 @@ export type UpdateContactBusinessInput = v.InferInput<typeof UpdateContactBusine
 // Update Step 2
 export const UpdateSituationSchema = v.object({
 	consultationId: ConsultationIdSchema,
-	...SituationSchema.entries
+	...SituationSchema.entries,
 });
 
 export type UpdateSituationInput = v.InferInput<typeof UpdateSituationSchema>;
@@ -147,7 +138,7 @@ export type UpdateSituationInput = v.InferInput<typeof UpdateSituationSchema>;
 // Update Step 3
 export const UpdateGoalsBudgetSchema = v.object({
 	consultationId: ConsultationIdSchema,
-	...GoalsBudgetSchema.entries
+	...GoalsBudgetSchema.entries,
 });
 
 export type UpdateGoalsBudgetInput = v.InferInput<typeof UpdateGoalsBudgetSchema>;
@@ -155,14 +146,14 @@ export type UpdateGoalsBudgetInput = v.InferInput<typeof UpdateGoalsBudgetSchema
 // Update Step 4
 export const UpdatePreferencesNotesSchema = v.object({
 	consultationId: ConsultationIdSchema,
-	...PreferencesNotesSchema.entries
+	...PreferencesNotesSchema.entries,
 });
 
 export type UpdatePreferencesNotesInput = v.InferInput<typeof UpdatePreferencesNotesSchema>;
 
 // Complete Consultation
 export const CompleteConsultationSchema = v.object({
-	consultationId: ConsultationIdSchema
+	consultationId: ConsultationIdSchema,
 });
 
 export type CompleteConsultationInput = v.InferInput<typeof CompleteConsultationSchema>;
@@ -181,7 +172,7 @@ export const ContactInfoSchema = v.object({
 	email: v.optional(v.pipe(v.string(), v.email())),
 	phone: v.optional(v.pipe(v.string(), v.maxLength(50))),
 	website: v.optional(v.string()),
-	social_media: v.optional(v.record(v.string(), v.string()))
+	social_media: v.optional(v.record(v.string(), v.string())),
 });
 
 /** @deprecated Use SituationSchema instead */
@@ -189,9 +180,9 @@ export const PainPointsSchema = v.object({
 	consultationId: ConsultationIdSchema,
 	primary_challenges: v.optional(v.array(v.string())),
 	technical_issues: v.optional(v.array(v.string())),
-	urgency_level: v.optional(v.picklist(['low', 'medium', 'high', 'critical'])),
+	urgency_level: v.optional(v.picklist(["low", "medium", "high", "critical"])),
 	impact_assessment: v.optional(v.string()),
-	current_solution_gaps: v.optional(v.array(v.string()))
+	current_solution_gaps: v.optional(v.array(v.string())),
 });
 
 /** @deprecated Use GoalsBudgetSchema instead */
@@ -205,11 +196,11 @@ export const GoalsObjectivesSchema = v.object({
 		v.object({
 			desired_start: v.optional(v.string()),
 			target_completion: v.optional(v.string()),
-			milestones: v.optional(v.array(v.string()))
-		})
+			milestones: v.optional(v.array(v.string())),
+		}),
 	),
 	budget_range: v.optional(v.string()),
-	budget_constraints: v.optional(v.array(v.string()))
+	budget_constraints: v.optional(v.array(v.string())),
 });
 
 /** @deprecated Use ContactBusinessSchema instead */
@@ -220,7 +211,7 @@ export const BusinessContextSchema = v.object({
 	team_size: v.optional(v.number()),
 	current_platform: v.optional(v.string()),
 	digital_presence: v.optional(v.array(v.string())),
-	marketing_channels: v.optional(v.array(v.string()))
+	marketing_channels: v.optional(v.array(v.string())),
 });
 
 /** @deprecated */
@@ -230,7 +221,7 @@ export const CreateConsultationWithContactInfoSchema = v.object({
 	email: v.optional(v.pipe(v.string(), v.email())),
 	phone: v.optional(v.string()),
 	website: v.optional(v.string()),
-	social_media: v.optional(v.record(v.string(), v.string()))
+	social_media: v.optional(v.record(v.string(), v.string())),
 });
 
 /** @deprecated */
@@ -240,5 +231,5 @@ export const AutoSaveDraftSchema = v.object({
 	business_context: v.optional(v.record(v.string(), v.any())),
 	pain_points: v.optional(v.record(v.string(), v.any())),
 	goals_objectives: v.optional(v.record(v.string(), v.any())),
-	draft_notes: v.optional(v.string())
+	draft_notes: v.optional(v.string()),
 });

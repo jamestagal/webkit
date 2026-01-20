@@ -14,9 +14,9 @@ import {
 	House,
 	Settings,
 	Users,
-	ClipboardList
-} from 'lucide-svelte';
-import type { ComponentType } from 'svelte';
+	ClipboardList,
+} from "lucide-svelte";
+import type { ComponentType } from "svelte";
 
 export interface FeatureConfig {
 	key: string;
@@ -29,52 +29,62 @@ export interface FeatureConfig {
 }
 
 /** Feature key types for type-safe access */
-export type FeatureKey = 'consultations' | 'proposals' | 'contracts' | 'invoices' | 'questionnaires';
+export type FeatureKey =
+	| "consultations"
+	| "proposals"
+	| "contracts"
+	| "invoices"
+	| "questionnaires";
 
 /**
  * Core feature configurations with consistent icons and colors
  */
 export const FEATURES: Record<FeatureKey, FeatureConfig> = {
 	consultations: {
-		key: 'consultations',
-		title: 'Consultations',
-		description: 'Discover client needs through guided discovery sessions. Capture pain points, goals, and requirements.',
+		key: "consultations",
+		title: "Consultations",
+		description:
+			"Discover client needs through guided discovery sessions. Capture pain points, goals, and requirements.",
 		icon: MessageCircle,
-		color: '#6366f1', // Indigo
-		colorLight: '#6366f115'
+		color: "#6366f1", // Indigo
+		colorLight: "#6366f115",
 	},
 	proposals: {
-		key: 'proposals',
-		title: 'Proposals',
-		description: 'Create compelling proposals with performance audits, ROI projections, and professional pricing.',
+		key: "proposals",
+		title: "Proposals",
+		description:
+			"Create compelling proposals with performance audits, ROI projections, and professional pricing.",
 		icon: FileText,
-		color: '#8b5cf6', // Violet
-		colorLight: '#8b5cf615'
+		color: "#8b5cf6", // Violet
+		colorLight: "#8b5cf615",
 	},
 	contracts: {
-		key: 'contracts',
-		title: 'Contracts',
-		description: 'Generate legally-binding agreements with e-signatures. Protect your business and clients.',
+		key: "contracts",
+		title: "Contracts",
+		description:
+			"Generate legally-binding agreements with e-signatures. Protect your business and clients.",
 		icon: FileSignature,
-		color: '#06b6d4', // Cyan
-		colorLight: '#06b6d415'
+		color: "#06b6d4", // Cyan
+		colorLight: "#06b6d415",
 	},
 	invoices: {
-		key: 'invoices',
-		title: 'Invoices',
-		description: 'Send professional invoices with online payments. Track payments and automate reminders.',
+		key: "invoices",
+		title: "Invoices",
+		description:
+			"Send professional invoices with online payments. Track payments and automate reminders.",
 		icon: Receipt,
-		color: '#10b981', // Emerald
-		colorLight: '#10b98115'
+		color: "#10b981", // Emerald
+		colorLight: "#10b98115",
 	},
 	questionnaires: {
-		key: 'questionnaires',
-		title: 'Questionnaires',
-		description: 'Collect project requirements from clients. Gather content, branding, and technical details.',
+		key: "questionnaires",
+		title: "Questionnaires",
+		description:
+			"Collect project requirements from clients. Gather content, branding, and technical details.",
 		icon: ClipboardCheck,
-		color: '#f59e0b', // Amber
-		colorLight: '#f59e0b15'
-	}
+		color: "#f59e0b", // Amber
+		colorLight: "#f59e0b15",
+	},
 };
 
 /**
@@ -83,33 +93,33 @@ export const FEATURES: Record<FeatureKey, FeatureConfig> = {
  */
 export const NAV_FEATURES = {
 	dashboard: {
-		key: 'dashboard',
-		title: 'Dashboard',
+		key: "dashboard",
+		title: "Dashboard",
 		icon: House,
-		color: '#64748b', // Slate
-		colorLight: '#64748b15'
+		color: "#64748b", // Slate
+		colorLight: "#64748b15",
 	},
 	consultationHistory: {
-		key: 'consultationHistory',
-		title: 'My Consultations',
+		key: "consultationHistory",
+		title: "My Consultations",
 		icon: ClipboardList,
-		color: '#6366f1', // Same as consultations
-		colorLight: '#6366f115'
+		color: "#6366f1", // Same as consultations
+		colorLight: "#6366f115",
 	},
 	settings: {
-		key: 'settings',
-		title: 'Settings',
+		key: "settings",
+		title: "Settings",
 		icon: Settings,
-		color: '#64748b', // Slate
-		colorLight: '#64748b15'
+		color: "#64748b", // Slate
+		colorLight: "#64748b15",
 	},
 	members: {
-		key: 'members',
-		title: 'Members',
+		key: "members",
+		title: "Members",
 		icon: Users,
-		color: '#64748b', // Slate
-		colorLight: '#64748b15'
-	}
+		color: "#64748b", // Slate
+		colorLight: "#64748b15",
+	},
 };
 
 /**

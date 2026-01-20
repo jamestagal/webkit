@@ -13,12 +13,12 @@
  * - account.application.deauthorized: Mark as disconnected
  */
 
-import type { RequestHandler } from './$types';
-import { db } from '$lib/server/db';
-import { invoices, agencyProfiles } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
-import Stripe from 'stripe';
-import { env } from '$env/dynamic/private';
+import type { RequestHandler } from "./$types";
+import { db } from "$lib/server/db";
+import { invoices, agencyProfiles } from "$lib/server/schema";
+import { eq } from "drizzle-orm";
+import Stripe from "stripe";
+import { env } from "$env/dynamic/private";
 
 // Lazy-initialize Stripe to avoid build-time errors
 let _stripe: Stripe | null = null;
@@ -26,7 +26,7 @@ function getStripe(): Stripe {
 	if (!_stripe) {
 		const secretKey = env.STRIPE_SECRET_KEY;
 		if (!secretKey) {
-			throw new Error('STRIPE_SECRET_KEY is not configured');
+			throw new Error("STRIPE_SECRET_KEY is not configured");
 		}
 		_stripe = new Stripe(secretKey);
 	}
@@ -35,16 +35,16 @@ function getStripe(): Stripe {
 
 export const POST: RequestHandler = async ({ request }) => {
 	const payload = await request.text();
-	const sig = request.headers.get('stripe-signature');
+	const sig = request.headers.get("stripe-signature");
 
 	if (!sig) {
-		return new Response('Missing stripe-signature header', { status: 400 });
+		return new Response("Missing stripe-signature header", { status: 400 });
 	}
 
 	const webhookSecret = env.STRIPE_WEBHOOK_SECRET;
 	if (!webhookSecret) {
-		console.error('STRIPE_WEBHOOK_SECRET is not configured');
-		return new Response('Webhook not configured', { status: 500 });
+		console.error("STRIPE_WEBHOOK_SECRET is not configured");
+		return new Response("Webhook not configured", { status: 500 });
 	}
 
 	let event: Stripe.Event;
@@ -52,8 +52,8 @@ export const POST: RequestHandler = async ({ request }) => {
 	try {
 		event = getStripe().webhooks.constructEvent(payload, sig, webhookSecret);
 	} catch (err) {
-		console.error('Webhook signature verification failed:', err);
-		return new Response('Webhook signature verification failed', { status: 400 });
+		console.error("Webhook signature verification failed:", err);
+		return new Response("Webhook signature verification failed", { status: 400 });
 	}
 
 	// For Connect webhooks, check if it's from a connected account
@@ -61,19 +61,19 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	try {
 		switch (event.type) {
-			case 'checkout.session.completed':
+			case "checkout.session.completed":
 				await handleCheckoutComplete(event.data.object as Stripe.Checkout.Session);
 				break;
 
-			case 'payment_intent.succeeded':
+			case "payment_intent.succeeded":
 				await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
 				break;
 
-			case 'account.updated':
+			case "account.updated":
 				await handleAccountUpdate(event.data.object as Stripe.Account);
 				break;
 
-			case 'account.application.deauthorized':
+			case "account.application.deauthorized":
 				if (connectedAccountId) {
 					await handleAccountDeauthorized(connectedAccountId);
 				}
@@ -84,10 +84,10 @@ export const POST: RequestHandler = async ({ request }) => {
 				console.log(`Unhandled Stripe event: ${event.type}`);
 		}
 
-		return new Response('OK', { status: 200 });
+		return new Response("OK", { status: 200 });
 	} catch (err) {
-		console.error('Error processing webhook:', err);
-		return new Response('Webhook processing failed', { status: 500 });
+		console.error("Error processing webhook:", err);
+		return new Response("Webhook processing failed", { status: 500 });
 	}
 };
 
@@ -98,13 +98,13 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
 	const invoiceId = session.metadata?.invoice_id;
 
 	if (!invoiceId) {
-		console.log('Checkout completed but no invoice_id in metadata');
+		console.log("Checkout completed but no invoice_id in metadata");
 		return;
 	}
 
 	// Get the invoice
 	const invoice = await db.query.invoices.findFirst({
-		where: eq(invoices.id, invoiceId)
+		where: eq(invoices.id, invoiceId),
 	});
 
 	if (!invoice) {
@@ -113,7 +113,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
 	}
 
 	// Skip if already paid (idempotency)
-	if (invoice.status === 'paid') {
+	if (invoice.status === "paid") {
 		console.log(`Invoice ${invoiceId} already marked as paid`);
 		return;
 	}
@@ -122,14 +122,14 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
 	await db
 		.update(invoices)
 		.set({
-			status: 'paid',
+			status: "paid",
 			paidAt: new Date(),
-			paymentMethod: 'card',
+			paymentMethod: "card",
 			paymentReference: (session.payment_intent as string) || session.id,
-			paymentNotes: `Stripe payment - ${session.customer_email || 'Online checkout'}`,
+			paymentNotes: `Stripe payment - ${session.customer_email || "Online checkout"}`,
 			stripeCheckoutSessionId: session.id,
 			stripePaymentIntentId: session.payment_intent as string,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(invoices.id, invoiceId));
 
@@ -152,7 +152,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 		.update(invoices)
 		.set({
 			stripePaymentIntentId: paymentIntent.id,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(invoices.id, invoiceId));
 }
@@ -163,7 +163,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 async function handleAccountUpdate(account: Stripe.Account) {
 	// Find agency profile with this Stripe account
 	const profile = await db.query.agencyProfiles.findFirst({
-		where: eq(agencyProfiles.stripeAccountId, account.id)
+		where: eq(agencyProfiles.stripeAccountId, account.id),
 	});
 
 	if (!profile) {
@@ -172,14 +172,11 @@ async function handleAccountUpdate(account: Stripe.Account) {
 	}
 
 	// Determine account status
-	let status: 'active' | 'restricted' | 'disabled' = 'active';
+	let status: "active" | "restricted" | "disabled" = "active";
 	if (account.requirements?.disabled_reason) {
-		status = 'disabled';
-	} else if (
-		account.requirements?.currently_due &&
-		account.requirements.currently_due.length > 0
-	) {
-		status = 'restricted';
+		status = "disabled";
+	} else if (account.requirements?.currently_due && account.requirements.currently_due.length > 0) {
+		status = "restricted";
 	}
 
 	// Update agency profile with latest account status
@@ -190,7 +187,7 @@ async function handleAccountUpdate(account: Stripe.Account) {
 			stripeOnboardingComplete: account.details_submitted || false,
 			stripePayoutsEnabled: account.payouts_enabled || false,
 			stripeChargesEnabled: account.charges_enabled || false,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(agencyProfiles.id, profile.id));
 
@@ -203,7 +200,7 @@ async function handleAccountUpdate(account: Stripe.Account) {
 async function handleAccountDeauthorized(stripeAccountId: string) {
 	// Find and update the agency profile
 	const profile = await db.query.agencyProfiles.findFirst({
-		where: eq(agencyProfiles.stripeAccountId, stripeAccountId)
+		where: eq(agencyProfiles.stripeAccountId, stripeAccountId),
 	});
 
 	if (!profile) {
@@ -215,12 +212,12 @@ async function handleAccountDeauthorized(stripeAccountId: string) {
 		.update(agencyProfiles)
 		.set({
 			stripeAccountId: null,
-			stripeAccountStatus: 'not_connected',
+			stripeAccountStatus: "not_connected",
 			stripeOnboardingComplete: false,
 			stripePayoutsEnabled: false,
 			stripeChargesEnabled: false,
 			stripeConnectedAt: null,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(agencyProfiles.id, profile.id));
 
@@ -230,7 +227,7 @@ async function handleAccountDeauthorized(stripeAccountId: string) {
 		.set({
 			stripePaymentLinkId: null,
 			stripePaymentLinkUrl: null,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(invoices.agencyId, profile.agencyId));
 

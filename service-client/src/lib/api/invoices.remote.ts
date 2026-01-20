@@ -8,9 +8,9 @@
  * Uses Valibot for validation (NOT Zod)
  */
 
-import { query, command } from '$app/server';
-import * as v from 'valibot';
-import { db } from '$lib/server/db';
+import { query, command } from "$app/server";
+import * as v from "valibot";
+import { db } from "$lib/server/db";
 import {
 	invoices,
 	invoiceLineItems,
@@ -22,36 +22,36 @@ import {
 	agencyAddons,
 	users,
 	agencyMemberships,
-	type Invoice
-} from '$lib/server/schema';
-import { getAgencyContext } from '$lib/server/agency';
-import { logActivity } from '$lib/server/db-helpers';
+	type Invoice,
+} from "$lib/server/schema";
+import { getAgencyContext } from "$lib/server/agency";
+import { logActivity } from "$lib/server/db-helpers";
 import {
 	hasPermission,
 	canAccessResource,
 	canModifyResource,
-	canDeleteResource
-} from '$lib/server/permissions';
-import { eq, and, desc, asc, gte, lte, inArray, sql } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
+	canDeleteResource,
+} from "$lib/server/permissions";
+import { eq, and, desc, asc, gte, lte, inArray, sql } from "drizzle-orm";
+import { nanoid } from "nanoid";
 
 // =============================================================================
 // Validation Schemas
 // =============================================================================
 
 const InvoiceStatusSchema = v.picklist([
-	'draft',
-	'sent',
-	'viewed',
-	'paid',
-	'overdue',
-	'cancelled',
-	'refunded'
+	"draft",
+	"sent",
+	"viewed",
+	"paid",
+	"overdue",
+	"cancelled",
+	"refunded",
 ]);
 
-const PaymentMethodSchema = v.picklist(['bank_transfer', 'card', 'cash', 'other']);
+const PaymentMethodSchema = v.picklist(["bank_transfer", "card", "cash", "other"]);
 
-const PaymentTermsSchema = v.picklist(['DUE_ON_RECEIPT', 'NET_7', 'NET_14', 'NET_30', 'CUSTOM']);
+const PaymentTermsSchema = v.picklist(["DUE_ON_RECEIPT", "NET_7", "NET_14", "NET_30", "CUSTOM"]);
 
 const LineItemSchema = v.object({
 	description: v.pipe(v.string(), v.minLength(1)),
@@ -60,7 +60,7 @@ const LineItemSchema = v.object({
 	isTaxable: v.optional(v.boolean(), true),
 	category: v.optional(v.string()),
 	packageId: v.optional(v.nullable(v.string())),
-	addonId: v.optional(v.nullable(v.string()))
+	addonId: v.optional(v.nullable(v.string())),
 });
 
 const CreateInvoiceSchema = v.object({
@@ -80,7 +80,7 @@ const CreateInvoiceSchema = v.object({
 	publicNotes: v.optional(v.string()),
 	discountAmount: v.optional(v.string()),
 	discountDescription: v.optional(v.string()),
-	lineItems: v.array(LineItemSchema)
+	lineItems: v.array(LineItemSchema),
 });
 
 const UpdateInvoiceSchema = v.object({
@@ -99,7 +99,7 @@ const UpdateInvoiceSchema = v.object({
 	publicNotes: v.optional(v.string()),
 	discountAmount: v.optional(v.string()),
 	discountDescription: v.optional(v.string()),
-	lineItems: v.optional(v.array(LineItemSchema))
+	lineItems: v.optional(v.array(LineItemSchema)),
 });
 
 const RecordPaymentSchema = v.object({
@@ -107,7 +107,7 @@ const RecordPaymentSchema = v.object({
 	paymentMethod: PaymentMethodSchema,
 	paymentReference: v.optional(v.string()),
 	paymentNotes: v.optional(v.string()),
-	paidAt: v.optional(v.string())
+	paidAt: v.optional(v.string()),
 });
 
 const InvoiceFiltersSchema = v.optional(
@@ -115,8 +115,8 @@ const InvoiceFiltersSchema = v.optional(
 		status: v.optional(InvoiceStatusSchema),
 		fromDate: v.optional(v.string()),
 		toDate: v.optional(v.string()),
-		search: v.optional(v.string())
-	})
+		search: v.optional(v.string()),
+	}),
 );
 
 // =============================================================================
@@ -132,7 +132,11 @@ async function generateUniqueSlug(): Promise<string> {
 	const maxAttempts = 10;
 
 	while (attempts < maxAttempts) {
-		const existing = await db.select({ id: invoices.id }).from(invoices).where(eq(invoices.slug, slug)).limit(1);
+		const existing = await db
+			.select({ id: invoices.id })
+			.from(invoices)
+			.where(eq(invoices.slug, slug))
+			.limit(1);
 
 		if (existing.length === 0) {
 			return slug;
@@ -151,7 +155,7 @@ async function generateUniqueSlug(): Promise<string> {
  */
 function generateInvoiceNumber(prefix: string, nextNumber: number): string {
 	const year = new Date().getFullYear();
-	const paddedNumber = String(nextNumber).padStart(4, '0');
+	const paddedNumber = String(nextNumber).padStart(4, "0");
 	return `${prefix}-${year}-${paddedNumber}`;
 }
 
@@ -162,15 +166,15 @@ function calculateDueDate(issueDate: Date, paymentTerms: string): Date {
 	const due = new Date(issueDate);
 
 	switch (paymentTerms) {
-		case 'DUE_ON_RECEIPT':
+		case "DUE_ON_RECEIPT":
 			return due;
-		case 'NET_7':
+		case "NET_7":
 			due.setDate(due.getDate() + 7);
 			return due;
-		case 'NET_14':
+		case "NET_14":
 			due.setDate(due.getDate() + 14);
 			return due;
-		case 'NET_30':
+		case "NET_30":
 			due.setDate(due.getDate() + 30);
 			return due;
 		default:
@@ -186,13 +190,13 @@ function calculateInvoiceTotals(
 	lineItems: Array<{ amount: string; isTaxable?: boolean }>,
 	gstRegistered: boolean,
 	gstRate: number,
-	discountAmount: number = 0
+	discountAmount: number = 0,
 ): { subtotal: number; gstAmount: number; total: number } {
-	const subtotal = lineItems.reduce((sum, item) => sum + parseFloat(item.amount || '0'), 0);
+	const subtotal = lineItems.reduce((sum, item) => sum + parseFloat(item.amount || "0"), 0);
 
 	const taxableAmount = lineItems
 		.filter((item) => item.isTaxable !== false)
-		.reduce((sum, item) => sum + parseFloat(item.amount || '0'), 0);
+		.reduce((sum, item) => sum + parseFloat(item.amount || "0"), 0);
 
 	const gstAmount = gstRegistered ? taxableAmount * (gstRate / 100) : 0;
 
@@ -201,7 +205,7 @@ function calculateInvoiceTotals(
 	return {
 		subtotal: Math.round(subtotal * 100) / 100,
 		gstAmount: Math.round(gstAmount * 100) / 100,
-		total: Math.round(total * 100) / 100
+		total: Math.round(total * 100) / 100,
 	};
 }
 
@@ -214,10 +218,10 @@ function calculateInvoiceTotals(
  * Returns the invoice with potentially updated status.
  */
 async function checkAndUpdateOverdueStatus<T extends { id: string; status: string; dueDate: Date }>(
-	invoice: T
+	invoice: T,
 ): Promise<T> {
 	// Only check invoices that are sent or viewed (not draft, paid, cancelled, etc.)
-	if (!['sent', 'viewed'].includes(invoice.status)) {
+	if (!["sent", "viewed"].includes(invoice.status)) {
 		return invoice;
 	}
 
@@ -229,10 +233,13 @@ async function checkAndUpdateOverdueStatus<T extends { id: string; status: strin
 
 	if (now > dueDate) {
 		// Update status in database
-		await db.update(invoices).set({ status: 'overdue', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
+		await db
+			.update(invoices)
+			.set({ status: "overdue", updatedAt: new Date() })
+			.where(eq(invoices.id, invoice.id));
 
 		// Return invoice with updated status
-		return { ...invoice, status: 'overdue' };
+		return { ...invoice, status: "overdue" };
 	}
 
 	return invoice;
@@ -241,9 +248,9 @@ async function checkAndUpdateOverdueStatus<T extends { id: string; status: strin
 /**
  * Check and update overdue status for multiple invoices.
  */
-async function checkAndUpdateOverdueStatusBatch<T extends { id: string; status: string; dueDate: Date }>(
-	invoiceList: T[]
-): Promise<T[]> {
+async function checkAndUpdateOverdueStatusBatch<
+	T extends { id: string; status: string; dueDate: Date },
+>(invoiceList: T[]): Promise<T[]> {
 	const results: T[] = [];
 
 	for (const invoice of invoiceList) {
@@ -326,7 +333,9 @@ export const getInvoices = query(InvoiceFiltersSchema, async (filters) => {
 			createdAt: invoices.createdAt,
 			updatedAt: invoices.updatedAt,
 			// Join to get creator name
-			creatorName: sql<string | null>`COALESCE(${agencyMemberships.displayName}, ${users.email})`.as('creator_name')
+			creatorName: sql<
+				string | null
+			>`COALESCE(${agencyMemberships.displayName}, ${users.email})`.as("creator_name"),
 		})
 		.from(invoices)
 		.leftJoin(users, eq(invoices.createdBy, users.id))
@@ -334,8 +343,8 @@ export const getInvoices = query(InvoiceFiltersSchema, async (filters) => {
 			agencyMemberships,
 			and(
 				eq(invoices.createdBy, agencyMemberships.userId),
-				eq(invoices.agencyId, agencyMemberships.agencyId)
-			)
+				eq(invoices.agencyId, agencyMemberships.agencyId),
+			),
 		)
 		.where(and(...conditions))
 		.orderBy(desc(invoices.createdAt));
@@ -350,7 +359,7 @@ export const getInvoices = query(InvoiceFiltersSchema, async (filters) => {
 			(inv) =>
 				inv.invoiceNumber.toLowerCase().includes(searchLower) ||
 				inv.clientBusinessName.toLowerCase().includes(searchLower) ||
-				inv.clientEmail.toLowerCase().includes(searchLower)
+				inv.clientEmail.toLowerCase().includes(searchLower),
 		);
 	}
 
@@ -370,12 +379,12 @@ export const getInvoice = query(v.pipe(v.string(), v.uuid()), async (invoiceId) 
 		.limit(1);
 
 	if (!invoice) {
-		throw new Error('Invoice not found');
+		throw new Error("Invoice not found");
 	}
 
 	// Check access permission
-	if (!canAccessResource(context.role, invoice.createdBy || '', context.userId, 'invoice')) {
-		throw new Error('Permission denied');
+	if (!canAccessResource(context.role, invoice.createdBy || "", context.userId, "invoice")) {
+		throw new Error("Permission denied");
 	}
 
 	// Check and update overdue status
@@ -412,7 +421,11 @@ export const getInvoiceBySlug = query(v.pipe(v.string(), v.minLength(1)), async 
 		.orderBy(asc(invoiceLineItems.sortOrder));
 
 	// Get agency info for display
-	const [agency] = await db.select().from(agencies).where(eq(agencies.id, invoice.agencyId)).limit(1);
+	const [agency] = await db
+		.select()
+		.from(agencies)
+		.where(eq(agencies.id, invoice.agencyId))
+		.limit(1);
 
 	const [profile] = await db
 		.select()
@@ -433,7 +446,7 @@ export const getInvoiceStats = query(async () => {
 		.select({
 			status: invoices.status,
 			total: invoices.total,
-			dueDate: invoices.dueDate
+			dueDate: invoices.dueDate,
 		})
 		.from(invoices)
 		.where(eq(invoices.agencyId, context.agencyId));
@@ -446,7 +459,7 @@ export const getInvoiceStats = query(async () => {
 		overdueCount: 0,
 		overdueTotal: 0,
 		paidCount: 0,
-		paidTotal: 0
+		paidTotal: 0,
 	};
 
 	const now = new Date();
@@ -456,29 +469,29 @@ export const getInvoiceStats = query(async () => {
 
 		// Check if sent/viewed invoices are actually overdue
 		let effectiveStatus = inv.status;
-		if (['sent', 'viewed'].includes(inv.status)) {
+		if (["sent", "viewed"].includes(inv.status)) {
 			const dueDate = new Date(inv.dueDate);
 			dueDate.setHours(23, 59, 59, 999);
 			if (now > dueDate) {
-				effectiveStatus = 'overdue';
+				effectiveStatus = "overdue";
 			}
 		}
 
 		switch (effectiveStatus) {
-			case 'draft':
+			case "draft":
 				stats.draftCount++;
 				stats.draftTotal += amount;
 				break;
-			case 'sent':
-			case 'viewed':
+			case "sent":
+			case "viewed":
 				stats.awaitingCount++;
 				stats.awaitingTotal += amount;
 				break;
-			case 'paid':
+			case "paid":
 				stats.paidCount++;
 				stats.paidTotal += amount;
 				break;
-			case 'overdue':
+			case "overdue":
 				stats.overdueCount++;
 				stats.overdueTotal += amount;
 				break;
@@ -498,8 +511,8 @@ export const getInvoiceStats = query(async () => {
 export const createInvoice = command(CreateInvoiceSchema, async (data) => {
 	const context = await getAgencyContext();
 
-	if (!hasPermission(context.role, 'invoice:create')) {
-		throw new Error('Permission denied');
+	if (!hasPermission(context.role, "invoice:create")) {
+		throw new Error("Permission denied");
 	}
 
 	// Get agency profile for GST/payment settings
@@ -511,8 +524,8 @@ export const createInvoice = command(CreateInvoiceSchema, async (data) => {
 
 	// Generate invoice number
 	const invoiceNumber = generateInvoiceNumber(
-		profile?.invoicePrefix || 'INV',
-		profile?.nextInvoiceNumber || 1
+		profile?.invoicePrefix || "INV",
+		profile?.nextInvoiceNumber || 1,
 	);
 
 	// Generate slug
@@ -520,24 +533,24 @@ export const createInvoice = command(CreateInvoiceSchema, async (data) => {
 
 	// Calculate dates
 	const issueDate = data.issueDate ? new Date(data.issueDate) : new Date();
-	const paymentTerms = data.paymentTerms || profile?.defaultPaymentTerms || 'NET_14';
+	const paymentTerms = data.paymentTerms || profile?.defaultPaymentTerms || "NET_14";
 	const dueDate = data.dueDate ? new Date(data.dueDate) : calculateDueDate(issueDate, paymentTerms);
 
 	// Calculate line item amounts
 	const lineItemsWithAmounts = data.lineItems.map((item, index) => ({
 		...item,
-		amount: (parseFloat(item.quantity || '1') * parseFloat(item.unitPrice || '0')).toFixed(2),
+		amount: (parseFloat(item.quantity || "1") * parseFloat(item.unitPrice || "0")).toFixed(2),
 		sortOrder: index,
-		isTaxable: item.isTaxable ?? true
+		isTaxable: item.isTaxable ?? true,
 	}));
 
 	// Calculate totals
-	const discountAmount = parseFloat(data.discountAmount || '0');
+	const discountAmount = parseFloat(data.discountAmount || "0");
 	const { subtotal, gstAmount, total } = calculateInvoiceTotals(
 		lineItemsWithAmounts,
 		profile?.gstRegistered ?? true,
-		parseFloat(profile?.gstRate || '10.00'),
-		discountAmount
+		parseFloat(profile?.gstRate || "10.00"),
+		discountAmount,
 	);
 
 	// Create invoice
@@ -549,32 +562,32 @@ export const createInvoice = command(CreateInvoiceSchema, async (data) => {
 			contractId: data.contractId || null,
 			invoiceNumber,
 			slug,
-			status: 'draft',
+			status: "draft",
 			clientBusinessName: data.clientBusinessName,
-			clientContactName: data.clientContactName || '',
+			clientContactName: data.clientContactName || "",
 			clientEmail: data.clientEmail,
-			clientPhone: data.clientPhone || '',
-			clientAddress: data.clientAddress || '',
-			clientAbn: data.clientAbn || '',
+			clientPhone: data.clientPhone || "",
+			clientAddress: data.clientAddress || "",
+			clientAbn: data.clientAbn || "",
 			issueDate,
 			dueDate,
 			subtotal: subtotal.toFixed(2),
 			discountAmount: discountAmount.toFixed(2),
-			discountDescription: data.discountDescription || '',
+			discountDescription: data.discountDescription || "",
 			gstAmount: gstAmount.toFixed(2),
 			total: total.toFixed(2),
 			gstRegistered: profile?.gstRegistered ?? true,
-			gstRate: profile?.gstRate || '10.00',
+			gstRate: profile?.gstRate || "10.00",
 			paymentTerms,
-			paymentTermsCustom: data.paymentTermsCustom || '',
-			notes: data.notes || '',
-			publicNotes: data.publicNotes || '',
-			createdBy: context.userId
+			paymentTermsCustom: data.paymentTermsCustom || "",
+			notes: data.notes || "",
+			publicNotes: data.publicNotes || "",
+			createdBy: context.userId,
 		})
 		.returning();
 
 	if (!invoice) {
-		throw new Error('Failed to create invoice');
+		throw new Error("Failed to create invoice");
 	}
 
 	// Create line items
@@ -589,7 +602,7 @@ export const createInvoice = command(CreateInvoiceSchema, async (data) => {
 			sortOrder: item.sortOrder,
 			category: item.category || null,
 			packageId: item.packageId || null,
-			addonId: item.addonId || null
+			addonId: item.addonId || null,
 		});
 	}
 
@@ -602,8 +615,8 @@ export const createInvoice = command(CreateInvoiceSchema, async (data) => {
 	}
 
 	// Log activity
-	await logActivity('invoice.created', 'invoice', invoice.id, {
-		newValues: { invoiceNumber }
+	await logActivity("invoice.created", "invoice", invoice.id, {
+		newValues: { invoiceNumber },
 	});
 
 	return invoice;
@@ -612,324 +625,337 @@ export const createInvoice = command(CreateInvoiceSchema, async (data) => {
 /**
  * Create invoice from accepted proposal.
  */
-export const createInvoiceFromProposal = command(v.pipe(v.string(), v.uuid()), async (proposalId) => {
-	const context = await getAgencyContext();
+export const createInvoiceFromProposal = command(
+	v.pipe(v.string(), v.uuid()),
+	async (proposalId) => {
+		const context = await getAgencyContext();
 
-	if (!hasPermission(context.role, 'invoice:create')) {
-		throw new Error('Permission denied');
-	}
+		if (!hasPermission(context.role, "invoice:create")) {
+			throw new Error("Permission denied");
+		}
 
-	// Load proposal
-	const [proposal] = await db
-		.select()
-		.from(proposals)
-		.where(and(eq(proposals.id, proposalId), eq(proposals.agencyId, context.agencyId)))
-		.limit(1);
-
-	if (!proposal) {
-		throw new Error('Proposal not found');
-	}
-
-	if (proposal.status !== 'accepted') {
-		throw new Error('Can only create invoice from accepted proposal');
-	}
-
-	// Get agency profile
-	const [profile] = await db
-		.select()
-		.from(agencyProfiles)
-		.where(eq(agencyProfiles.agencyId, context.agencyId))
-		.limit(1);
-
-	// Generate invoice number
-	const invoiceNumber = generateInvoiceNumber(
-		profile?.invoicePrefix || 'INV',
-		profile?.nextInvoiceNumber || 1
-	);
-
-	const slug = await generateUniqueSlug();
-	const issueDate = new Date();
-	const paymentTerms = profile?.defaultPaymentTerms || 'NET_14';
-	const dueDate = calculateDueDate(issueDate, paymentTerms);
-
-	// Build line items from proposal package
-	const lineItems: Array<{
-		description: string;
-		quantity: string;
-		unitPrice: string;
-		amount: string;
-		isTaxable: boolean;
-		sortOrder: number;
-		category: string | null;
-		packageId: string | null;
-		addonId: string | null;
-	}> = [];
-
-	// Get selected package
-	if (proposal.selectedPackageId) {
-		const [pkg] = await db
+		// Load proposal
+		const [proposal] = await db
 			.select()
-			.from(agencyPackages)
-			.where(eq(agencyPackages.id, proposal.selectedPackageId))
+			.from(proposals)
+			.where(and(eq(proposals.id, proposalId), eq(proposals.agencyId, context.agencyId)))
 			.limit(1);
 
-		if (pkg) {
-			// Setup fee
-			if (pkg.setupFee && parseFloat(pkg.setupFee) > 0) {
-				lineItems.push({
-					description: `${pkg.name} - Setup & Development`,
-					quantity: '1.00',
-					unitPrice: pkg.setupFee,
-					amount: pkg.setupFee,
-					isTaxable: true,
-					sortOrder: lineItems.length,
-					category: 'setup',
-					packageId: pkg.id,
-					addonId: null
-				});
-			}
-
-			// One-time price (for lump sum)
-			if (pkg.pricingModel === 'lump_sum' && pkg.oneTimePrice && parseFloat(pkg.oneTimePrice) > 0) {
-				lineItems.push({
-					description: `${pkg.name} - Website Development`,
-					quantity: '1.00',
-					unitPrice: pkg.oneTimePrice,
-					amount: pkg.oneTimePrice,
-					isTaxable: true,
-					sortOrder: lineItems.length,
-					category: 'development',
-					packageId: pkg.id,
-					addonId: null
-				});
-			}
+		if (!proposal) {
+			throw new Error("Proposal not found");
 		}
-	}
 
-	// Get selected addons
-	const selectedAddonIds = (proposal.selectedAddons as string[]) || [];
-	if (selectedAddonIds.length > 0) {
-		const addons = await db
+		if (proposal.status !== "accepted") {
+			throw new Error("Can only create invoice from accepted proposal");
+		}
+
+		// Get agency profile
+		const [profile] = await db
 			.select()
-			.from(agencyAddons)
-			.where(inArray(agencyAddons.id, selectedAddonIds));
+			.from(agencyProfiles)
+			.where(eq(agencyProfiles.agencyId, context.agencyId))
+			.limit(1);
 
-		for (const addon of addons) {
-			if (addon.pricingType === 'one_time' && addon.price) {
+		// Generate invoice number
+		const invoiceNumber = generateInvoiceNumber(
+			profile?.invoicePrefix || "INV",
+			profile?.nextInvoiceNumber || 1,
+		);
+
+		const slug = await generateUniqueSlug();
+		const issueDate = new Date();
+		const paymentTerms = profile?.defaultPaymentTerms || "NET_14";
+		const dueDate = calculateDueDate(issueDate, paymentTerms);
+
+		// Build line items from proposal package
+		const lineItems: Array<{
+			description: string;
+			quantity: string;
+			unitPrice: string;
+			amount: string;
+			isTaxable: boolean;
+			sortOrder: number;
+			category: string | null;
+			packageId: string | null;
+			addonId: string | null;
+		}> = [];
+
+		// Get selected package
+		if (proposal.selectedPackageId) {
+			const [pkg] = await db
+				.select()
+				.from(agencyPackages)
+				.where(eq(agencyPackages.id, proposal.selectedPackageId))
+				.limit(1);
+
+			if (pkg) {
+				// Setup fee
+				if (pkg.setupFee && parseFloat(pkg.setupFee) > 0) {
+					lineItems.push({
+						description: `${pkg.name} - Setup & Development`,
+						quantity: "1.00",
+						unitPrice: pkg.setupFee,
+						amount: pkg.setupFee,
+						isTaxable: true,
+						sortOrder: lineItems.length,
+						category: "setup",
+						packageId: pkg.id,
+						addonId: null,
+					});
+				}
+
+				// One-time price (for lump sum)
+				if (
+					pkg.pricingModel === "lump_sum" &&
+					pkg.oneTimePrice &&
+					parseFloat(pkg.oneTimePrice) > 0
+				) {
+					lineItems.push({
+						description: `${pkg.name} - Website Development`,
+						quantity: "1.00",
+						unitPrice: pkg.oneTimePrice,
+						amount: pkg.oneTimePrice,
+						isTaxable: true,
+						sortOrder: lineItems.length,
+						category: "development",
+						packageId: pkg.id,
+						addonId: null,
+					});
+				}
+			}
+		}
+
+		// Get selected addons
+		const selectedAddonIds = (proposal.selectedAddons as string[]) || [];
+		if (selectedAddonIds.length > 0) {
+			const addons = await db
+				.select()
+				.from(agencyAddons)
+				.where(inArray(agencyAddons.id, selectedAddonIds));
+
+			for (const addon of addons) {
+				if (addon.pricingType === "one_time" && addon.price) {
+					lineItems.push({
+						description: addon.name,
+						quantity: "1.00",
+						unitPrice: addon.price,
+						amount: addon.price,
+						isTaxable: true,
+						sortOrder: lineItems.length,
+						category: "addon",
+						packageId: null,
+						addonId: addon.id,
+					});
+				}
+			}
+		}
+
+		// If no items from package, use custom pricing if available
+		const customPricing = proposal.customPricing as {
+			setupFee?: string;
+			oneTimePrice?: string;
+		} | null;
+		if (lineItems.length === 0 && customPricing) {
+			const customPrice = customPricing.setupFee || customPricing.oneTimePrice;
+			if (customPrice && parseFloat(customPrice) > 0) {
 				lineItems.push({
-					description: addon.name,
-					quantity: '1.00',
-					unitPrice: addon.price,
-					amount: addon.price,
+					description: "Website Design & Development",
+					quantity: "1.00",
+					unitPrice: customPrice,
+					amount: customPrice,
 					isTaxable: true,
-					sortOrder: lineItems.length,
-					category: 'addon',
+					sortOrder: 0,
+					category: "development",
 					packageId: null,
-					addonId: addon.id
+					addonId: null,
 				});
 			}
 		}
-	}
 
-	// If no items from package, use custom pricing if available
-	const customPricing = proposal.customPricing as { setupFee?: string; oneTimePrice?: string } | null;
-	if (lineItems.length === 0 && customPricing) {
-		const customPrice = customPricing.setupFee || customPricing.oneTimePrice;
-		if (customPrice && parseFloat(customPrice) > 0) {
-			lineItems.push({
-				description: 'Website Design & Development',
-				quantity: '1.00',
-				unitPrice: customPrice,
-				amount: customPrice,
-				isTaxable: true,
-				sortOrder: 0,
-				category: 'development',
-				packageId: null,
-				addonId: null
+		// Calculate totals
+		const { subtotal, gstAmount, total } = calculateInvoiceTotals(
+			lineItems,
+			profile?.gstRegistered ?? true,
+			parseFloat(profile?.gstRate || "10.00"),
+		);
+
+		// Create invoice
+		const [invoice] = await db
+			.insert(invoices)
+			.values({
+				agencyId: context.agencyId,
+				proposalId,
+				invoiceNumber,
+				slug,
+				status: "draft",
+				clientBusinessName: proposal.clientBusinessName,
+				clientContactName: proposal.clientContactName,
+				clientEmail: proposal.clientEmail,
+				clientPhone: proposal.clientPhone || "",
+				clientAddress: "",
+				clientAbn: "",
+				issueDate,
+				dueDate,
+				subtotal: subtotal.toFixed(2),
+				gstAmount: gstAmount.toFixed(2),
+				total: total.toFixed(2),
+				gstRegistered: profile?.gstRegistered ?? true,
+				gstRate: profile?.gstRate || "10.00",
+				paymentTerms,
+				createdBy: context.userId,
+			})
+			.returning();
+
+		if (!invoice) {
+			throw new Error("Failed to create invoice");
+		}
+
+		// Create line items
+		for (const item of lineItems) {
+			await db.insert(invoiceLineItems).values({
+				invoiceId: invoice.id,
+				...item,
 			});
 		}
-	}
 
-	// Calculate totals
-	const { subtotal, gstAmount, total } = calculateInvoiceTotals(
-		lineItems,
-		profile?.gstRegistered ?? true,
-		parseFloat(profile?.gstRate || '10.00')
-	);
+		// Increment invoice number
+		if (profile) {
+			await db
+				.update(agencyProfiles)
+				.set({ nextInvoiceNumber: (profile.nextInvoiceNumber || 1) + 1 })
+				.where(eq(agencyProfiles.id, profile.id));
+		}
 
-	// Create invoice
-	const [invoice] = await db
-		.insert(invoices)
-		.values({
-			agencyId: context.agencyId,
-			proposalId,
-			invoiceNumber,
-			slug,
-			status: 'draft',
-			clientBusinessName: proposal.clientBusinessName,
-			clientContactName: proposal.clientContactName,
-			clientEmail: proposal.clientEmail,
-			clientPhone: proposal.clientPhone || '',
-			clientAddress: '',
-			clientAbn: '',
-			issueDate,
-			dueDate,
-			subtotal: subtotal.toFixed(2),
-			gstAmount: gstAmount.toFixed(2),
-			total: total.toFixed(2),
-			gstRegistered: profile?.gstRegistered ?? true,
-			gstRate: profile?.gstRate || '10.00',
-			paymentTerms,
-			createdBy: context.userId
-		})
-		.returning();
-
-	if (!invoice) {
-		throw new Error('Failed to create invoice');
-	}
-
-	// Create line items
-	for (const item of lineItems) {
-		await db.insert(invoiceLineItems).values({
-			invoiceId: invoice.id,
-			...item
+		await logActivity("invoice.created_from_proposal", "invoice", invoice.id, {
+			newValues: { invoiceNumber, proposalId },
 		});
-	}
 
-	// Increment invoice number
-	if (profile) {
-		await db
-			.update(agencyProfiles)
-			.set({ nextInvoiceNumber: (profile.nextInvoiceNumber || 1) + 1 })
-			.where(eq(agencyProfiles.id, profile.id));
-	}
-
-	await logActivity('invoice.created_from_proposal', 'invoice', invoice.id, {
-		newValues: { invoiceNumber, proposalId }
-	});
-
-	return invoice;
-});
+		return invoice;
+	},
+);
 
 /**
  * Create invoice from signed contract.
  */
-export const createInvoiceFromContract = command(v.pipe(v.string(), v.uuid()), async (contractId) => {
-	const context = await getAgencyContext();
+export const createInvoiceFromContract = command(
+	v.pipe(v.string(), v.uuid()),
+	async (contractId) => {
+		const context = await getAgencyContext();
 
-	if (!hasPermission(context.role, 'invoice:create')) {
-		throw new Error('Permission denied');
-	}
-
-	// Load contract
-	const [contract] = await db
-		.select()
-		.from(contracts)
-		.where(and(eq(contracts.id, contractId), eq(contracts.agencyId, context.agencyId)))
-		.limit(1);
-
-	if (!contract) {
-		throw new Error('Contract not found');
-	}
-
-	if (contract.status !== 'signed' && contract.status !== 'completed') {
-		throw new Error('Can only create invoice from signed or completed contract');
-	}
-
-	// Get agency profile
-	const [profile] = await db
-		.select()
-		.from(agencyProfiles)
-		.where(eq(agencyProfiles.agencyId, context.agencyId))
-		.limit(1);
-
-	// Generate invoice number
-	const invoiceNumber = generateInvoiceNumber(
-		profile?.invoicePrefix || 'INV',
-		profile?.nextInvoiceNumber || 1
-	);
-
-	const slug = await generateUniqueSlug();
-	const issueDate = new Date();
-	const paymentTerms = profile?.defaultPaymentTerms || 'NET_14';
-	const dueDate = calculateDueDate(issueDate, paymentTerms);
-
-	// Create a single line item from contract total
-	const lineItems = [
-		{
-			description: contract.servicesDescription || 'Services as per contract',
-			quantity: '1.00',
-			unitPrice: contract.totalPrice,
-			amount: contract.totalPrice,
-			isTaxable: true,
-			sortOrder: 0,
-			category: 'development' as const,
-			packageId: null,
-			addonId: null
+		if (!hasPermission(context.role, "invoice:create")) {
+			throw new Error("Permission denied");
 		}
-	];
 
-	// Calculate totals
-	const { subtotal, gstAmount, total } = calculateInvoiceTotals(
-		lineItems,
-		profile?.gstRegistered ?? true,
-		parseFloat(profile?.gstRate || '10.00')
-	);
+		// Load contract
+		const [contract] = await db
+			.select()
+			.from(contracts)
+			.where(and(eq(contracts.id, contractId), eq(contracts.agencyId, context.agencyId)))
+			.limit(1);
 
-	// Create invoice
-	const [invoice] = await db
-		.insert(invoices)
-		.values({
-			agencyId: context.agencyId,
-			contractId,
-			proposalId: contract.proposalId,
-			invoiceNumber,
-			slug,
-			status: 'draft',
-			clientBusinessName: contract.clientBusinessName,
-			clientContactName: contract.clientContactName,
-			clientEmail: contract.clientEmail,
-			clientPhone: contract.clientPhone || '',
-			clientAddress: contract.clientAddress || '',
-			clientAbn: '',
-			issueDate,
-			dueDate,
-			subtotal: subtotal.toFixed(2),
-			gstAmount: gstAmount.toFixed(2),
-			total: total.toFixed(2),
-			gstRegistered: profile?.gstRegistered ?? true,
-			gstRate: profile?.gstRate || '10.00',
-			paymentTerms,
-			createdBy: context.userId
-		})
-		.returning();
+		if (!contract) {
+			throw new Error("Contract not found");
+		}
 
-	if (!invoice) {
-		throw new Error('Failed to create invoice');
-	}
+		if (contract.status !== "signed" && contract.status !== "completed") {
+			throw new Error("Can only create invoice from signed or completed contract");
+		}
 
-	// Create line items
-	for (const item of lineItems) {
-		await db.insert(invoiceLineItems).values({
-			invoiceId: invoice.id,
-			...item
+		// Get agency profile
+		const [profile] = await db
+			.select()
+			.from(agencyProfiles)
+			.where(eq(agencyProfiles.agencyId, context.agencyId))
+			.limit(1);
+
+		// Generate invoice number
+		const invoiceNumber = generateInvoiceNumber(
+			profile?.invoicePrefix || "INV",
+			profile?.nextInvoiceNumber || 1,
+		);
+
+		const slug = await generateUniqueSlug();
+		const issueDate = new Date();
+		const paymentTerms = profile?.defaultPaymentTerms || "NET_14";
+		const dueDate = calculateDueDate(issueDate, paymentTerms);
+
+		// Create a single line item from contract total
+		const lineItems = [
+			{
+				description: contract.servicesDescription || "Services as per contract",
+				quantity: "1.00",
+				unitPrice: contract.totalPrice,
+				amount: contract.totalPrice,
+				isTaxable: true,
+				sortOrder: 0,
+				category: "development" as const,
+				packageId: null,
+				addonId: null,
+			},
+		];
+
+		// Calculate totals
+		const { subtotal, gstAmount, total } = calculateInvoiceTotals(
+			lineItems,
+			profile?.gstRegistered ?? true,
+			parseFloat(profile?.gstRate || "10.00"),
+		);
+
+		// Create invoice
+		const [invoice] = await db
+			.insert(invoices)
+			.values({
+				agencyId: context.agencyId,
+				contractId,
+				proposalId: contract.proposalId,
+				invoiceNumber,
+				slug,
+				status: "draft",
+				clientBusinessName: contract.clientBusinessName,
+				clientContactName: contract.clientContactName,
+				clientEmail: contract.clientEmail,
+				clientPhone: contract.clientPhone || "",
+				clientAddress: contract.clientAddress || "",
+				clientAbn: "",
+				issueDate,
+				dueDate,
+				subtotal: subtotal.toFixed(2),
+				gstAmount: gstAmount.toFixed(2),
+				total: total.toFixed(2),
+				gstRegistered: profile?.gstRegistered ?? true,
+				gstRate: profile?.gstRate || "10.00",
+				paymentTerms,
+				createdBy: context.userId,
+			})
+			.returning();
+
+		if (!invoice) {
+			throw new Error("Failed to create invoice");
+		}
+
+		// Create line items
+		for (const item of lineItems) {
+			await db.insert(invoiceLineItems).values({
+				invoiceId: invoice.id,
+				...item,
+			});
+		}
+
+		// Increment invoice number
+		if (profile) {
+			await db
+				.update(agencyProfiles)
+				.set({ nextInvoiceNumber: (profile.nextInvoiceNumber || 1) + 1 })
+				.where(eq(agencyProfiles.id, profile.id));
+		}
+
+		await logActivity("invoice.created_from_contract", "invoice", invoice.id, {
+			newValues: { invoiceNumber, contractId },
 		});
-	}
 
-	// Increment invoice number
-	if (profile) {
-		await db
-			.update(agencyProfiles)
-			.set({ nextInvoiceNumber: (profile.nextInvoiceNumber || 1) + 1 })
-			.where(eq(agencyProfiles.id, profile.id));
-	}
-
-	await logActivity('invoice.created_from_contract', 'invoice', invoice.id, {
-		newValues: { invoiceNumber, contractId }
-	});
-
-	return invoice;
-});
+		return invoice;
+	},
+);
 
 /**
  * Update an invoice (only draft status).
@@ -944,17 +970,17 @@ export const updateInvoice = command(UpdateInvoiceSchema, async (data) => {
 		.limit(1);
 
 	if (!invoice) {
-		throw new Error('Invoice not found');
+		throw new Error("Invoice not found");
 	}
 
-	if (!canModifyResource(context.role, invoice.createdBy || '', context.userId, 'invoice')) {
-		throw new Error('Permission denied');
+	if (!canModifyResource(context.role, invoice.createdBy || "", context.userId, "invoice")) {
+		throw new Error("Permission denied");
 	}
 
 	// Allow editing for draft, sent, viewed, and overdue invoices
 	// Block editing for paid, cancelled, and refunded invoices
-	if (['paid', 'cancelled', 'refunded'].includes(invoice.status)) {
-		throw new Error('Cannot edit paid, cancelled, or refunded invoices');
+	if (["paid", "cancelled", "refunded"].includes(invoice.status)) {
+		throw new Error("Cannot edit paid, cancelled, or refunded invoices");
 	}
 
 	// Get agency profile for GST
@@ -972,9 +998,9 @@ export const updateInvoice = command(UpdateInvoiceSchema, async (data) => {
 		// Insert new line items
 		const lineItemsWithAmounts = data.lineItems.map((item, index) => ({
 			...item,
-			amount: (parseFloat(item.quantity || '1') * parseFloat(item.unitPrice || '0')).toFixed(2),
+			amount: (parseFloat(item.quantity || "1") * parseFloat(item.unitPrice || "0")).toFixed(2),
 			sortOrder: index,
-			isTaxable: item.isTaxable ?? true
+			isTaxable: item.isTaxable ?? true,
 		}));
 
 		for (const item of lineItemsWithAmounts) {
@@ -988,7 +1014,7 @@ export const updateInvoice = command(UpdateInvoiceSchema, async (data) => {
 				sortOrder: item.sortOrder,
 				category: item.category || null,
 				packageId: item.packageId || null,
-				addonId: item.addonId || null
+				addonId: item.addonId || null,
 			});
 		}
 
@@ -997,8 +1023,8 @@ export const updateInvoice = command(UpdateInvoiceSchema, async (data) => {
 		const { subtotal, gstAmount, total } = calculateInvoiceTotals(
 			lineItemsWithAmounts,
 			profile?.gstRegistered ?? true,
-			parseFloat(profile?.gstRate || '10.00'),
-			discountAmount
+			parseFloat(profile?.gstRate || "10.00"),
+			discountAmount,
 		);
 
 		// Update invoice with new totals
@@ -1008,7 +1034,7 @@ export const updateInvoice = command(UpdateInvoiceSchema, async (data) => {
 				subtotal: subtotal.toFixed(2),
 				gstAmount: gstAmount.toFixed(2),
 				total: total.toFixed(2),
-				updatedAt: new Date()
+				updatedAt: new Date(),
 			})
 			.where(eq(invoices.id, invoice.id));
 	}
@@ -1016,7 +1042,8 @@ export const updateInvoice = command(UpdateInvoiceSchema, async (data) => {
 	// Build update object
 	const updateData: Partial<Invoice> = { updatedAt: new Date() };
 
-	if (data.clientBusinessName !== undefined) updateData.clientBusinessName = data.clientBusinessName;
+	if (data.clientBusinessName !== undefined)
+		updateData.clientBusinessName = data.clientBusinessName;
 	if (data.clientContactName !== undefined) updateData.clientContactName = data.clientContactName;
 	if (data.clientEmail !== undefined) updateData.clientEmail = data.clientEmail;
 	if (data.clientPhone !== undefined) updateData.clientPhone = data.clientPhone;
@@ -1025,11 +1052,13 @@ export const updateInvoice = command(UpdateInvoiceSchema, async (data) => {
 	if (data.issueDate !== undefined) updateData.issueDate = new Date(data.issueDate);
 	if (data.dueDate !== undefined) updateData.dueDate = new Date(data.dueDate);
 	if (data.paymentTerms !== undefined) updateData.paymentTerms = data.paymentTerms;
-	if (data.paymentTermsCustom !== undefined) updateData.paymentTermsCustom = data.paymentTermsCustom;
+	if (data.paymentTermsCustom !== undefined)
+		updateData.paymentTermsCustom = data.paymentTermsCustom;
 	if (data.notes !== undefined) updateData.notes = data.notes;
 	if (data.publicNotes !== undefined) updateData.publicNotes = data.publicNotes;
 	if (data.discountAmount !== undefined) updateData.discountAmount = data.discountAmount;
-	if (data.discountDescription !== undefined) updateData.discountDescription = data.discountDescription;
+	if (data.discountDescription !== undefined)
+		updateData.discountDescription = data.discountDescription;
 
 	const [updated] = await db
 		.update(invoices)
@@ -1037,9 +1066,9 @@ export const updateInvoice = command(UpdateInvoiceSchema, async (data) => {
 		.where(eq(invoices.id, invoice.id))
 		.returning();
 
-	await logActivity('invoice.updated', 'invoice', invoice.id, {
+	await logActivity("invoice.updated", "invoice", invoice.id, {
 		oldValues: invoice,
-		newValues: updateData
+		newValues: updateData,
 	});
 
 	return updated;
@@ -1058,15 +1087,15 @@ export const deleteInvoice = command(v.pipe(v.string(), v.uuid()), async (invoic
 		.limit(1);
 
 	if (!invoice) {
-		throw new Error('Invoice not found');
+		throw new Error("Invoice not found");
 	}
 
-	if (!canDeleteResource(context.role, invoice.createdBy || '', context.userId, 'invoice')) {
-		throw new Error('Permission denied');
+	if (!canDeleteResource(context.role, invoice.createdBy || "", context.userId, "invoice")) {
+		throw new Error("Permission denied");
 	}
 
-	if (invoice.status !== 'draft') {
-		throw new Error('Can only delete draft invoices');
+	if (invoice.status !== "draft") {
+		throw new Error("Can only delete draft invoices");
 	}
 
 	// Delete line items first (cascade should handle this, but explicit)
@@ -1075,8 +1104,8 @@ export const deleteInvoice = command(v.pipe(v.string(), v.uuid()), async (invoic
 	// Delete invoice
 	await db.delete(invoices).where(eq(invoices.id, invoiceId));
 
-	await logActivity('invoice.deleted', 'invoice', invoiceId, {
-		oldValues: { invoiceNumber: invoice.invoiceNumber }
+	await logActivity("invoice.deleted", "invoice", invoiceId, {
+		oldValues: { invoiceNumber: invoice.invoiceNumber },
 	});
 
 	return { success: true };
@@ -1088,8 +1117,8 @@ export const deleteInvoice = command(v.pipe(v.string(), v.uuid()), async (invoic
 export const duplicateInvoice = command(v.pipe(v.string(), v.uuid()), async (invoiceId) => {
 	const context = await getAgencyContext();
 
-	if (!hasPermission(context.role, 'invoice:create')) {
-		throw new Error('Permission denied');
+	if (!hasPermission(context.role, "invoice:create")) {
+		throw new Error("Permission denied");
 	}
 
 	const [original] = await db
@@ -1099,7 +1128,7 @@ export const duplicateInvoice = command(v.pipe(v.string(), v.uuid()), async (inv
 		.limit(1);
 
 	if (!original) {
-		throw new Error('Invoice not found');
+		throw new Error("Invoice not found");
 	}
 
 	// Get agency profile for new invoice number
@@ -1110,8 +1139,8 @@ export const duplicateInvoice = command(v.pipe(v.string(), v.uuid()), async (inv
 		.limit(1);
 
 	const invoiceNumber = generateInvoiceNumber(
-		profile?.invoicePrefix || 'INV',
-		profile?.nextInvoiceNumber || 1
+		profile?.invoicePrefix || "INV",
+		profile?.nextInvoiceNumber || 1,
 	);
 	const slug = await generateUniqueSlug();
 	const issueDate = new Date();
@@ -1124,7 +1153,7 @@ export const duplicateInvoice = command(v.pipe(v.string(), v.uuid()), async (inv
 			agencyId: context.agencyId,
 			invoiceNumber,
 			slug,
-			status: 'draft',
+			status: "draft",
 			clientBusinessName: original.clientBusinessName,
 			clientContactName: original.clientContactName,
 			clientEmail: original.clientEmail,
@@ -1144,12 +1173,12 @@ export const duplicateInvoice = command(v.pipe(v.string(), v.uuid()), async (inv
 			paymentTermsCustom: original.paymentTermsCustom,
 			notes: original.notes,
 			publicNotes: original.publicNotes,
-			createdBy: context.userId
+			createdBy: context.userId,
 		})
 		.returning();
 
 	if (!newInvoice) {
-		throw new Error('Failed to duplicate invoice');
+		throw new Error("Failed to duplicate invoice");
 	}
 
 	// Copy line items
@@ -1170,7 +1199,7 @@ export const duplicateInvoice = command(v.pipe(v.string(), v.uuid()), async (inv
 			sortOrder: item.sortOrder,
 			category: item.category,
 			packageId: item.packageId,
-			addonId: item.addonId
+			addonId: item.addonId,
 		});
 	}
 
@@ -1182,8 +1211,8 @@ export const duplicateInvoice = command(v.pipe(v.string(), v.uuid()), async (inv
 			.where(eq(agencyProfiles.id, profile.id));
 	}
 
-	await logActivity('invoice.duplicated', 'invoice', newInvoice.id, {
-		newValues: { invoiceNumber, originalInvoiceId: invoiceId }
+	await logActivity("invoice.duplicated", "invoice", newInvoice.id, {
+		newValues: { invoiceNumber, originalInvoiceId: invoiceId },
 	});
 
 	return newInvoice;
@@ -1195,8 +1224,8 @@ export const duplicateInvoice = command(v.pipe(v.string(), v.uuid()), async (inv
 export const sendInvoice = command(v.pipe(v.string(), v.uuid()), async (invoiceId) => {
 	const context = await getAgencyContext();
 
-	if (!hasPermission(context.role, 'invoice:send')) {
-		throw new Error('Permission denied');
+	if (!hasPermission(context.role, "invoice:send")) {
+		throw new Error("Permission denied");
 	}
 
 	const [invoice] = await db
@@ -1206,25 +1235,25 @@ export const sendInvoice = command(v.pipe(v.string(), v.uuid()), async (invoiceI
 		.limit(1);
 
 	if (!invoice) {
-		throw new Error('Invoice not found');
+		throw new Error("Invoice not found");
 	}
 
-	if (invoice.status !== 'draft') {
-		throw new Error('Can only send draft invoices');
+	if (invoice.status !== "draft") {
+		throw new Error("Can only send draft invoices");
 	}
 
 	const [updated] = await db
 		.update(invoices)
 		.set({
-			status: 'sent',
+			status: "sent",
 			sentAt: new Date(),
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(invoices.id, invoiceId))
 		.returning();
 
-	await logActivity('invoice.sent', 'invoice', invoiceId, {
-		newValues: { status: 'sent' }
+	await logActivity("invoice.sent", "invoice", invoiceId, {
+		newValues: { status: "sent" },
 	});
 
 	return updated;
@@ -1243,12 +1272,12 @@ export const recordInvoiceView = command(v.pipe(v.string(), v.minLength(1)), asy
 	const updateData: Partial<Invoice> = {
 		viewCount: invoice.viewCount + 1,
 		lastViewedAt: new Date(),
-		updatedAt: new Date()
+		updatedAt: new Date(),
 	};
 
 	// If status is 'sent', change to 'viewed'
-	if (invoice.status === 'sent') {
-		updateData.status = 'viewed';
+	if (invoice.status === "sent") {
+		updateData.status = "viewed";
 	}
 
 	await db.update(invoices).set(updateData).where(eq(invoices.id, invoice.id));
@@ -1262,8 +1291,8 @@ export const recordInvoiceView = command(v.pipe(v.string(), v.minLength(1)), asy
 export const recordPayment = command(RecordPaymentSchema, async (data) => {
 	const context = await getAgencyContext();
 
-	if (!hasPermission(context.role, 'invoice:record_payment')) {
-		throw new Error('Permission denied');
+	if (!hasPermission(context.role, "invoice:record_payment")) {
+		throw new Error("Permission denied");
 	}
 
 	const [invoice] = await db
@@ -1273,15 +1302,15 @@ export const recordPayment = command(RecordPaymentSchema, async (data) => {
 		.limit(1);
 
 	if (!invoice) {
-		throw new Error('Invoice not found');
+		throw new Error("Invoice not found");
 	}
 
-	if (invoice.status === 'paid') {
-		throw new Error('Invoice is already paid');
+	if (invoice.status === "paid") {
+		throw new Error("Invoice is already paid");
 	}
 
-	if (invoice.status === 'cancelled' || invoice.status === 'refunded') {
-		throw new Error('Cannot record payment for cancelled or refunded invoice');
+	if (invoice.status === "cancelled" || invoice.status === "refunded") {
+		throw new Error("Cannot record payment for cancelled or refunded invoice");
 	}
 
 	const paidAt = data.paidAt ? new Date(data.paidAt) : new Date();
@@ -1289,22 +1318,22 @@ export const recordPayment = command(RecordPaymentSchema, async (data) => {
 	const [updated] = await db
 		.update(invoices)
 		.set({
-			status: 'paid',
+			status: "paid",
 			paidAt,
 			paymentMethod: data.paymentMethod,
 			paymentReference: data.paymentReference || null,
 			paymentNotes: data.paymentNotes || null,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(invoices.id, invoice.id))
 		.returning();
 
-	await logActivity('invoice.payment_recorded', 'invoice', invoice.id, {
+	await logActivity("invoice.payment_recorded", "invoice", invoice.id, {
 		newValues: {
 			paymentMethod: data.paymentMethod,
 			paymentReference: data.paymentReference,
-			paidAt
-		}
+			paidAt,
+		},
 	});
 
 	return updated;
@@ -1316,13 +1345,13 @@ export const recordPayment = command(RecordPaymentSchema, async (data) => {
 export const cancelInvoice = command(
 	v.object({
 		invoiceId: v.pipe(v.string(), v.uuid()),
-		reason: v.optional(v.string())
+		reason: v.optional(v.string()),
 	}),
 	async (data) => {
 		const context = await getAgencyContext();
 
-		if (!hasPermission(context.role, 'invoice:cancel')) {
-			throw new Error('Permission denied');
+		if (!hasPermission(context.role, "invoice:cancel")) {
+			throw new Error("Permission denied");
 		}
 
 		const [invoice] = await db
@@ -1332,33 +1361,35 @@ export const cancelInvoice = command(
 			.limit(1);
 
 		if (!invoice) {
-			throw new Error('Invoice not found');
+			throw new Error("Invoice not found");
 		}
 
-		if (invoice.status === 'paid') {
-			throw new Error('Cannot cancel a paid invoice. Use refund instead.');
+		if (invoice.status === "paid") {
+			throw new Error("Cannot cancel a paid invoice. Use refund instead.");
 		}
 
-		if (invoice.status === 'cancelled') {
-			throw new Error('Invoice is already cancelled');
+		if (invoice.status === "cancelled") {
+			throw new Error("Invoice is already cancelled");
 		}
 
 		const [updated] = await db
 			.update(invoices)
 			.set({
-				status: 'cancelled',
-				notes: data.reason ? `${invoice.notes}\n\nCancellation reason: ${data.reason}` : invoice.notes,
-				updatedAt: new Date()
+				status: "cancelled",
+				notes: data.reason
+					? `${invoice.notes}\n\nCancellation reason: ${data.reason}`
+					: invoice.notes,
+				updatedAt: new Date(),
 			})
 			.where(eq(invoices.id, invoice.id))
 			.returning();
 
-		await logActivity('invoice.cancelled', 'invoice', invoice.id, {
-			newValues: { status: 'cancelled', reason: data.reason }
+		await logActivity("invoice.cancelled", "invoice", invoice.id, {
+			newValues: { status: "cancelled", reason: data.reason },
 		});
 
 		return updated;
-	}
+	},
 );
 
 /**
@@ -1367,13 +1398,13 @@ export const cancelInvoice = command(
 export const refundInvoice = command(
 	v.object({
 		invoiceId: v.pipe(v.string(), v.uuid()),
-		reason: v.optional(v.string())
+		reason: v.optional(v.string()),
 	}),
 	async (data) => {
 		const context = await getAgencyContext();
 
-		if (!hasPermission(context.role, 'invoice:refund')) {
-			throw new Error('Permission denied');
+		if (!hasPermission(context.role, "invoice:refund")) {
+			throw new Error("Permission denied");
 		}
 
 		const [invoice] = await db
@@ -1383,29 +1414,29 @@ export const refundInvoice = command(
 			.limit(1);
 
 		if (!invoice) {
-			throw new Error('Invoice not found');
+			throw new Error("Invoice not found");
 		}
 
-		if (invoice.status !== 'paid') {
-			throw new Error('Can only refund paid invoices');
+		if (invoice.status !== "paid") {
+			throw new Error("Can only refund paid invoices");
 		}
 
 		const [updated] = await db
 			.update(invoices)
 			.set({
-				status: 'refunded',
+				status: "refunded",
 				notes: data.reason ? `${invoice.notes}\n\nRefund reason: ${data.reason}` : invoice.notes,
-				updatedAt: new Date()
+				updatedAt: new Date(),
 			})
 			.where(eq(invoices.id, invoice.id))
 			.returning();
 
-		await logActivity('invoice.refunded', 'invoice', invoice.id, {
-			newValues: { status: 'refunded', reason: data.reason }
+		await logActivity("invoice.refunded", "invoice", invoice.id, {
+			newValues: { status: "refunded", reason: data.reason },
 		});
 
 		return updated;
-	}
+	},
 );
 
 /**
@@ -1421,11 +1452,11 @@ export const recalculateInvoiceTotals = command(v.pipe(v.string(), v.uuid()), as
 		.limit(1);
 
 	if (!invoice) {
-		throw new Error('Invoice not found');
+		throw new Error("Invoice not found");
 	}
 
-	if (invoice.status !== 'draft') {
-		throw new Error('Can only recalculate draft invoices');
+	if (invoice.status !== "draft") {
+		throw new Error("Can only recalculate draft invoices");
 	}
 
 	// Get line items
@@ -1440,7 +1471,7 @@ export const recalculateInvoiceTotals = command(v.pipe(v.string(), v.uuid()), as
 		lineItems,
 		invoice.gstRegistered,
 		parseFloat(invoice.gstRate),
-		discountAmount
+		discountAmount,
 	);
 
 	const [updated] = await db
@@ -1449,7 +1480,7 @@ export const recalculateInvoiceTotals = command(v.pipe(v.string(), v.uuid()), as
 			subtotal: subtotal.toFixed(2),
 			gstAmount: gstAmount.toFixed(2),
 			total: total.toFixed(2),
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(invoices.id, invoiceId))
 		.returning();

@@ -8,9 +8,9 @@
  * Uses Valibot for validation (NOT Zod)
  */
 
-import { query, command } from '$app/server';
-import * as v from 'valibot';
-import { db } from '$lib/server/db';
+import { query, command } from "$app/server";
+import * as v from "valibot";
+import { db } from "$lib/server/db";
 import {
 	proposals,
 	agencyProfiles,
@@ -19,18 +19,14 @@ import {
 	consultations,
 	contracts,
 	users,
-	agencyMemberships
-} from '$lib/server/schema';
-import { getAgencyContext } from '$lib/server/agency';
-import { logActivity } from '$lib/server/db-helpers';
-import {
-	canAccessResource,
-	canModifyResource,
-	canDeleteResource
-} from '$lib/server/permissions';
-import { dataPipelineService } from '$lib/server/services/data-pipeline.service';
-import { eq, and, desc, sql, inArray } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
+	agencyMemberships,
+} from "$lib/server/schema";
+import { getAgencyContext } from "$lib/server/agency";
+import { logActivity } from "$lib/server/db-helpers";
+import { canAccessResource, canModifyResource, canDeleteResource } from "$lib/server/permissions";
+import { dataPipelineService } from "$lib/server/services/data-pipeline.service";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { nanoid } from "nanoid";
 
 // =============================================================================
 // Validation Schemas
@@ -38,7 +34,7 @@ import { nanoid } from 'nanoid';
 
 const ChecklistItemSchema = v.object({
 	text: v.string(),
-	checked: v.boolean()
+	checked: v.boolean(),
 });
 
 const PerformanceDataSchema = v.object({
@@ -47,7 +43,7 @@ const PerformanceDataSchema = v.object({
 	bestPractices: v.optional(v.pipe(v.number(), v.minValue(0), v.maxValue(100))),
 	seo: v.optional(v.pipe(v.number(), v.minValue(0), v.maxValue(100))),
 	loadTime: v.optional(v.string()),
-	issues: v.optional(v.array(v.string()))
+	issues: v.optional(v.array(v.string())),
 });
 
 const RoiAnalysisSchema = v.object({
@@ -56,25 +52,25 @@ const RoiAnalysisSchema = v.object({
 	conversionRate: v.optional(v.number()),
 	projectedLeads: v.optional(v.number()),
 	averageProjectValue: v.optional(v.number()),
-	projectedRevenue: v.optional(v.number())
+	projectedRevenue: v.optional(v.number()),
 });
 
 const PerformanceStandardSchema = v.object({
 	label: v.string(),
 	value: v.string(),
-	icon: v.optional(v.string())
+	icon: v.optional(v.string()),
 });
 
 const ProposedPageSchema = v.object({
 	name: v.string(),
 	description: v.optional(v.string()),
-	features: v.optional(v.array(v.string()))
+	features: v.optional(v.array(v.string())),
 });
 
 const TimelinePhaseSchema = v.object({
 	week: v.string(),
 	title: v.string(),
-	description: v.string()
+	description: v.string(),
 });
 
 const CustomPricingSchema = v.object({
@@ -83,19 +79,19 @@ const CustomPricingSchema = v.object({
 	oneTimePrice: v.optional(v.string()),
 	hostingFee: v.optional(v.string()),
 	discountPercent: v.optional(v.number()),
-	discountNote: v.optional(v.string())
+	discountNote: v.optional(v.string()),
 });
 
 // Next Step Item Schema (for editable checklist) - PART 2: Proposal Improvements
 const NextStepItemSchema = v.object({
 	text: v.string(),
-	completed: v.boolean()
+	completed: v.boolean(),
 });
 
 const CreateProposalSchema = v.object({
 	consultationId: v.optional(v.pipe(v.string(), v.uuid())),
 	selectedPackageId: v.optional(v.pipe(v.string(), v.uuid())),
-	title: v.optional(v.string())
+	title: v.optional(v.string()),
 });
 
 const UpdateProposalSchema = v.object({
@@ -136,17 +132,17 @@ const UpdateProposalSchema = v.object({
 	customPricing: v.optional(v.nullable(CustomPricingSchema)),
 
 	// Validity
-	validUntil: v.optional(v.nullable(v.string()))
+	validUntil: v.optional(v.nullable(v.string())),
 });
 
 const ProposalStatusSchema = v.picklist([
-	'draft',
-	'sent',
-	'viewed',
-	'accepted',
-	'declined',
-	'revision_requested',
-	'expired'
+	"draft",
+	"sent",
+	"viewed",
+	"accepted",
+	"declined",
+	"revision_requested",
+	"expired",
 ]);
 
 // =============================================================================
@@ -155,17 +151,17 @@ const ProposalStatusSchema = v.picklist([
 
 const AcceptProposalSchema = v.object({
 	slug: v.pipe(v.string(), v.minLength(1)),
-	comments: v.optional(v.pipe(v.string(), v.maxLength(2000)))
+	comments: v.optional(v.pipe(v.string(), v.maxLength(2000))),
 });
 
 const DeclineProposalSchema = v.object({
 	slug: v.pipe(v.string(), v.minLength(1)),
-	reason: v.optional(v.pipe(v.string(), v.maxLength(2000)))
+	reason: v.optional(v.pipe(v.string(), v.maxLength(2000))),
 });
 
 const RequestRevisionSchema = v.object({
 	slug: v.pipe(v.string(), v.minLength(1)),
-	notes: v.pipe(v.string(), v.minLength(10), v.maxLength(2000))
+	notes: v.pipe(v.string(), v.minLength(10), v.maxLength(2000)),
 });
 
 // =============================================================================
@@ -193,7 +189,7 @@ async function generateUniqueSlug(): Promise<string> {
 		attempts++;
 	}
 
-	throw new Error('Unable to generate unique slug');
+	throw new Error("Unable to generate unique slug");
 }
 
 /**
@@ -207,7 +203,7 @@ async function getNextProposalNumber(agencyId: string): Promise<string> {
 		.where(eq(agencyProfiles.agencyId, agencyId))
 		.limit(1);
 
-	const prefix = profile?.proposalPrefix || 'PROP';
+	const prefix = profile?.proposalPrefix || "PROP";
 	const nextNumber = profile?.nextProposalNumber || 1;
 
 	// Generate document number
@@ -219,7 +215,7 @@ async function getNextProposalNumber(agencyId: string): Promise<string> {
 			.update(agencyProfiles)
 			.set({
 				nextProposalNumber: nextNumber + 1,
-				updatedAt: new Date()
+				updatedAt: new Date(),
 			})
 			.where(eq(agencyProfiles.id, profile.id));
 	}
@@ -240,8 +236,8 @@ export const getProposals = query(
 		v.object({
 			status: v.optional(ProposalStatusSchema),
 			limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(100))),
-			offset: v.optional(v.pipe(v.number(), v.minValue(0)))
-		})
+			offset: v.optional(v.pipe(v.number(), v.minValue(0))),
+		}),
 	),
 	async (filters) => {
 		const context = await getAgencyContext();
@@ -281,7 +277,9 @@ export const getProposals = query(
 				createdAt: proposals.createdAt,
 				updatedAt: proposals.updatedAt,
 				// Join to get creator name
-				creatorName: sql<string | null>`COALESCE(${agencyMemberships.displayName}, ${users.email})`.as('creator_name')
+				creatorName: sql<
+					string | null
+				>`COALESCE(${agencyMemberships.displayName}, ${users.email})`.as("creator_name"),
 			})
 			.from(proposals)
 			.leftJoin(users, eq(proposals.createdBy, users.id))
@@ -289,8 +287,8 @@ export const getProposals = query(
 				agencyMemberships,
 				and(
 					eq(proposals.createdBy, agencyMemberships.userId),
-					eq(proposals.agencyId, agencyMemberships.agencyId)
-				)
+					eq(proposals.agencyId, agencyMemberships.agencyId),
+				),
 			)
 			.where(and(...conditions))
 			.orderBy(desc(proposals.createdAt))
@@ -298,7 +296,7 @@ export const getProposals = query(
 			.offset(offset);
 
 		return results;
-	}
+	},
 );
 
 /**
@@ -314,14 +312,12 @@ export const getProposal = query(v.pipe(v.string(), v.uuid()), async (proposalId
 		.limit(1);
 
 	if (!proposal) {
-		throw new Error('Proposal not found');
+		throw new Error("Proposal not found");
 	}
 
 	// Check access permission
-	if (
-		!canAccessResource(context.role, proposal.createdBy || '', context.userId, 'proposal')
-	) {
-		throw new Error('Permission denied');
+	if (!canAccessResource(context.role, proposal.createdBy || "", context.userId, "proposal")) {
+		throw new Error("Permission denied");
 	}
 
 	return proposal;
@@ -331,28 +327,21 @@ export const getProposal = query(v.pipe(v.string(), v.uuid()), async (proposalId
  * Get a proposal by public slug (for public view).
  * No authentication required.
  */
-export const getProposalBySlug = query(
-	v.pipe(v.string(), v.minLength(1)),
-	async (slug: string) => {
-		const [proposal] = await db
-			.select()
-			.from(proposals)
-			.where(eq(proposals.slug, slug))
-			.limit(1);
+export const getProposalBySlug = query(v.pipe(v.string(), v.minLength(1)), async (slug: string) => {
+	const [proposal] = await db.select().from(proposals).where(eq(proposals.slug, slug)).limit(1);
 
-		if (!proposal) {
-			return null;
-		}
-
-		// Check if expired
-		if (proposal.validUntil && new Date(proposal.validUntil) < new Date()) {
-			// Still return but with expired status
-			return { ...proposal, status: 'expired' as const };
-		}
-
-		return proposal;
+	if (!proposal) {
+		return null;
 	}
-);
+
+	// Check if expired
+	if (proposal.validUntil && new Date(proposal.validUntil) < new Date()) {
+		// Still return but with expired status
+		return { ...proposal, status: "expired" as const };
+	}
+
+	return proposal;
+});
 
 /**
  * Get proposal with related data (package, addons, consultation).
@@ -369,14 +358,12 @@ export const getProposalWithRelations = query(
 			.limit(1);
 
 		if (!proposal) {
-			throw new Error('Proposal not found');
+			throw new Error("Proposal not found");
 		}
 
 		// Check access permission
-		if (
-			!canAccessResource(context.role, proposal.createdBy || '', context.userId, 'proposal')
-		) {
-			throw new Error('Permission denied');
+		if (!canAccessResource(context.role, proposal.createdBy || "", context.userId, "proposal")) {
+			throw new Error("Permission denied");
 		}
 
 		// Fetch related data
@@ -398,10 +385,7 @@ export const getProposalWithRelations = query(
 				.select()
 				.from(agencyAddons)
 				.where(
-					and(
-						eq(agencyAddons.agencyId, context.agencyId),
-						inArray(agencyAddons.id, addonIds)
-					)
+					and(eq(agencyAddons.agencyId, context.agencyId), inArray(agencyAddons.id, addonIds)),
 				);
 		}
 
@@ -420,9 +404,9 @@ export const getProposalWithRelations = query(
 			proposal,
 			selectedPackage,
 			selectedAddons,
-			consultation
+			consultation,
 		};
-	}
+	},
 );
 
 // =============================================================================
@@ -451,34 +435,34 @@ export const createProposal = command(CreateProposalSchema, async (data) => {
 			.where(
 				and(
 					eq(consultations.id, data.consultationId),
-					eq(consultations.agencyId, context.agencyId)
-				)
+					eq(consultations.agencyId, context.agencyId),
+				),
 			)
 			.limit(1);
 
 		if (consultation) {
 			// v2 flat columns - extract client data directly
 			clientData = {
-				clientBusinessName: consultation.businessName || '',
-				clientContactName: consultation.contactPerson || '',
-				clientEmail: consultation.email || '',
-				clientPhone: consultation.phone || '',
-				clientWebsite: consultation.website || '',
+				clientBusinessName: consultation.businessName || "",
+				clientContactName: consultation.contactPerson || "",
+				clientEmail: consultation.email || "",
+				clientPhone: consultation.phone || "",
+				clientWebsite: consultation.website || "",
 				// Cache consultation insights for display in proposal editor (PART 2)
 				consultationPainPoints: {
 					primary_challenges: consultation.primaryChallenges || [],
-					urgency_level: consultation.urgencyLevel || ''
+					urgency_level: consultation.urgencyLevel || "",
 				},
 				consultationGoals: {
 					primary_goals: consultation.primaryGoals || [],
-					conversion_goal: consultation.conversionGoal || '',
-					budget_range: consultation.budgetRange || ''
+					conversion_goal: consultation.conversionGoal || "",
+					budget_range: consultation.budgetRange || "",
 				},
-				consultationChallenges: consultation.primaryChallenges || []
+				consultationChallenges: consultation.primaryChallenges || [],
 			};
 
 			// Copy performanceData from consultation if available (PageSpeed audit results)
-			if (consultation.performanceData && typeof consultation.performanceData === 'object') {
+			if (consultation.performanceData && typeof consultation.performanceData === "object") {
 				clientData.performanceData = consultation.performanceData;
 			}
 		}
@@ -492,20 +476,20 @@ export const createProposal = command(CreateProposalSchema, async (data) => {
 			consultationId: data.consultationId,
 			proposalNumber,
 			slug,
-			title: data.title || 'Website Proposal',
+			title: data.title || "Website Proposal",
 			selectedPackageId: data.selectedPackageId,
 			createdBy: context.userId,
-			...clientData
+			...clientData,
 		})
 		.returning();
 
 	// Log activity
-	await logActivity('proposal.created', 'proposal', proposal?.id, {
+	await logActivity("proposal.created", "proposal", proposal?.id, {
 		newValues: {
 			proposalNumber,
 			consultationId: data.consultationId,
-			selectedPackageId: data.selectedPackageId
-		}
+			selectedPackageId: data.selectedPackageId,
+		},
 	});
 
 	return proposal;
@@ -521,60 +505,60 @@ export const updateProposal = command(UpdateProposalSchema, async (data) => {
 	const [existing] = await db
 		.select()
 		.from(proposals)
-		.where(
-			and(eq(proposals.id, data.proposalId), eq(proposals.agencyId, context.agencyId))
-		)
+		.where(and(eq(proposals.id, data.proposalId), eq(proposals.agencyId, context.agencyId)))
 		.limit(1);
 
 	if (!existing) {
-		throw new Error('Proposal not found');
+		throw new Error("Proposal not found");
 	}
 
 	// Check modify permission
-	if (!canModifyResource(context.role, existing.createdBy || '', context.userId, 'proposal')) {
-		throw new Error('Permission denied');
+	if (!canModifyResource(context.role, existing.createdBy || "", context.userId, "proposal")) {
+		throw new Error("Permission denied");
 	}
 
 	// Build update object
 	const updates: Record<string, unknown> = { updatedAt: new Date() };
 
 	// Client info
-	if (data.clientBusinessName !== undefined) updates['clientBusinessName'] = data.clientBusinessName;
-	if (data.clientContactName !== undefined) updates['clientContactName'] = data.clientContactName;
-	if (data.clientEmail !== undefined) updates['clientEmail'] = data.clientEmail;
-	if (data.clientPhone !== undefined) updates['clientPhone'] = data.clientPhone;
-	if (data.clientWebsite !== undefined) updates['clientWebsite'] = data.clientWebsite;
+	if (data.clientBusinessName !== undefined)
+		updates["clientBusinessName"] = data.clientBusinessName;
+	if (data.clientContactName !== undefined) updates["clientContactName"] = data.clientContactName;
+	if (data.clientEmail !== undefined) updates["clientEmail"] = data.clientEmail;
+	if (data.clientPhone !== undefined) updates["clientPhone"] = data.clientPhone;
+	if (data.clientWebsite !== undefined) updates["clientWebsite"] = data.clientWebsite;
 
 	// Cover
-	if (data.title !== undefined) updates['title'] = data.title;
-	if (data.coverImage !== undefined) updates['coverImage'] = data.coverImage;
+	if (data.title !== undefined) updates["title"] = data.title;
+	if (data.coverImage !== undefined) updates["coverImage"] = data.coverImage;
 
 	// Content sections
-	if (data.performanceData !== undefined) updates['performanceData'] = data.performanceData;
-	if (data.opportunityContent !== undefined) updates['opportunityContent'] = data.opportunityContent;
-	if (data.currentIssues !== undefined) updates['currentIssues'] = data.currentIssues;
-	if (data.complianceIssues !== undefined) updates['complianceIssues'] = data.complianceIssues;
-	if (data.roiAnalysis !== undefined) updates['roiAnalysis'] = data.roiAnalysis;
+	if (data.performanceData !== undefined) updates["performanceData"] = data.performanceData;
+	if (data.opportunityContent !== undefined)
+		updates["opportunityContent"] = data.opportunityContent;
+	if (data.currentIssues !== undefined) updates["currentIssues"] = data.currentIssues;
+	if (data.complianceIssues !== undefined) updates["complianceIssues"] = data.complianceIssues;
+	if (data.roiAnalysis !== undefined) updates["roiAnalysis"] = data.roiAnalysis;
 	if (data.performanceStandards !== undefined)
-		updates['performanceStandards'] = data.performanceStandards;
+		updates["performanceStandards"] = data.performanceStandards;
 	if (data.localAdvantageContent !== undefined)
-		updates['localAdvantageContent'] = data.localAdvantageContent;
-	if (data.proposedPages !== undefined) updates['proposedPages'] = data.proposedPages;
-	if (data.timeline !== undefined) updates['timeline'] = data.timeline;
-	if (data.closingContent !== undefined) updates['closingContent'] = data.closingContent;
+		updates["localAdvantageContent"] = data.localAdvantageContent;
+	if (data.proposedPages !== undefined) updates["proposedPages"] = data.proposedPages;
+	if (data.timeline !== undefined) updates["timeline"] = data.timeline;
+	if (data.closingContent !== undefined) updates["closingContent"] = data.closingContent;
 
 	// New content sections (PART 2: Proposal Improvements)
-	if (data.executiveSummary !== undefined) updates['executiveSummary'] = data.executiveSummary;
-	if (data.nextSteps !== undefined) updates['nextSteps'] = data.nextSteps;
+	if (data.executiveSummary !== undefined) updates["executiveSummary"] = data.executiveSummary;
+	if (data.nextSteps !== undefined) updates["nextSteps"] = data.nextSteps;
 
 	// Package selection
-	if (data.selectedPackageId !== undefined) updates['selectedPackageId'] = data.selectedPackageId;
-	if (data.selectedAddons !== undefined) updates['selectedAddons'] = data.selectedAddons;
-	if (data.customPricing !== undefined) updates['customPricing'] = data.customPricing;
+	if (data.selectedPackageId !== undefined) updates["selectedPackageId"] = data.selectedPackageId;
+	if (data.selectedAddons !== undefined) updates["selectedAddons"] = data.selectedAddons;
+	if (data.customPricing !== undefined) updates["customPricing"] = data.customPricing;
 
 	// Validity
 	if (data.validUntil !== undefined) {
-		updates['validUntil'] = data.validUntil ? new Date(data.validUntil) : null;
+		updates["validUntil"] = data.validUntil ? new Date(data.validUntil) : null;
 	}
 
 	const [proposal] = await db
@@ -584,9 +568,9 @@ export const updateProposal = command(UpdateProposalSchema, async (data) => {
 		.returning();
 
 	// Log activity
-	await logActivity('proposal.updated', 'proposal', data.proposalId, {
+	await logActivity("proposal.updated", "proposal", data.proposalId, {
 		oldValues: { title: existing.title },
-		newValues: updates
+		newValues: updates,
 	});
 
 	return proposal;
@@ -595,36 +579,33 @@ export const updateProposal = command(UpdateProposalSchema, async (data) => {
 /**
  * Delete a proposal.
  */
-export const deleteProposal = command(
-	v.pipe(v.string(), v.uuid()),
-	async (proposalId: string) => {
-		const context = await getAgencyContext();
+export const deleteProposal = command(v.pipe(v.string(), v.uuid()), async (proposalId: string) => {
+	const context = await getAgencyContext();
 
-		// Verify proposal exists and belongs to agency
-		const [existing] = await db
-			.select()
-			.from(proposals)
-			.where(and(eq(proposals.id, proposalId), eq(proposals.agencyId, context.agencyId)))
-			.limit(1);
+	// Verify proposal exists and belongs to agency
+	const [existing] = await db
+		.select()
+		.from(proposals)
+		.where(and(eq(proposals.id, proposalId), eq(proposals.agencyId, context.agencyId)))
+		.limit(1);
 
-		if (!existing) {
-			throw new Error('Proposal not found');
-		}
-
-		// Check delete permission
-		if (!canDeleteResource(context.role, existing.createdBy || '', context.userId, 'proposal')) {
-			throw new Error('Permission denied');
-		}
-
-		// Delete proposal
-		await db.delete(proposals).where(eq(proposals.id, proposalId));
-
-		// Log activity
-		await logActivity('proposal.deleted', 'proposal', proposalId, {
-			oldValues: { proposalNumber: existing.proposalNumber, title: existing.title }
-		});
+	if (!existing) {
+		throw new Error("Proposal not found");
 	}
-);
+
+	// Check delete permission
+	if (!canDeleteResource(context.role, existing.createdBy || "", context.userId, "proposal")) {
+		throw new Error("Permission denied");
+	}
+
+	// Delete proposal
+	await db.delete(proposals).where(eq(proposals.id, proposalId));
+
+	// Log activity
+	await logActivity("proposal.deleted", "proposal", proposalId, {
+		oldValues: { proposalNumber: existing.proposalNumber, title: existing.title },
+	});
+});
 
 /**
  * Duplicate a proposal.
@@ -642,14 +623,12 @@ export const duplicateProposal = command(
 			.limit(1);
 
 		if (!existing) {
-			throw new Error('Proposal not found');
+			throw new Error("Proposal not found");
 		}
 
 		// Check access permission
-		if (
-			!canAccessResource(context.role, existing.createdBy || '', context.userId, 'proposal')
-		) {
-			throw new Error('Permission denied');
+		if (!canAccessResource(context.role, existing.createdBy || "", context.userId, "proposal")) {
+			throw new Error("Permission denied");
 		}
 
 		// Generate new number and slug
@@ -664,7 +643,7 @@ export const duplicateProposal = command(
 				consultationId: existing.consultationId,
 				proposalNumber,
 				slug,
-				status: 'draft',
+				status: "draft",
 				clientBusinessName: existing.clientBusinessName,
 				clientContactName: existing.clientContactName,
 				clientEmail: existing.clientEmail,
@@ -685,74 +664,77 @@ export const duplicateProposal = command(
 				selectedPackageId: existing.selectedPackageId,
 				selectedAddons: existing.selectedAddons,
 				customPricing: existing.customPricing,
-				createdBy: context.userId
+				createdBy: context.userId,
 			})
 			.returning();
 
 		// Log activity
-		await logActivity('proposal.duplicated', 'proposal', proposal?.id, {
-			metadata: { sourceProposalId: proposalId }
+		await logActivity("proposal.duplicated", "proposal", proposal?.id, {
+			metadata: { sourceProposalId: proposalId },
 		});
 
 		return proposal;
-	}
+	},
 );
 
 /**
  * Mark a proposal as ready (intermediate step before sending).
  */
-export const markProposalReady = command(v.pipe(v.string(), v.uuid()), async (proposalId: string) => {
-	const context = await getAgencyContext();
+export const markProposalReady = command(
+	v.pipe(v.string(), v.uuid()),
+	async (proposalId: string) => {
+		const context = await getAgencyContext();
 
-	// Verify proposal exists and belongs to agency
-	const [existing] = await db
-		.select()
-		.from(proposals)
-		.where(and(eq(proposals.id, proposalId), eq(proposals.agencyId, context.agencyId)))
-		.limit(1);
+		// Verify proposal exists and belongs to agency
+		const [existing] = await db
+			.select()
+			.from(proposals)
+			.where(and(eq(proposals.id, proposalId), eq(proposals.agencyId, context.agencyId)))
+			.limit(1);
 
-	if (!existing) {
-		throw new Error('Proposal not found');
-	}
+		if (!existing) {
+			throw new Error("Proposal not found");
+		}
 
-	// Check modify permission
-	if (!canModifyResource(context.role, existing.createdBy || '', context.userId, 'proposal')) {
-		throw new Error('Permission denied');
-	}
+		// Check modify permission
+		if (!canModifyResource(context.role, existing.createdBy || "", context.userId, "proposal")) {
+			throw new Error("Permission denied");
+		}
 
-	// Only draft proposals can be marked as ready
-	if (existing.status !== 'draft') {
-		throw new Error('Only draft proposals can be marked as ready');
-	}
+		// Only draft proposals can be marked as ready
+		if (existing.status !== "draft") {
+			throw new Error("Only draft proposals can be marked as ready");
+		}
 
-	// Update status to ready
-	let proposal;
-	try {
-		const [updated] = await db
-			.update(proposals)
-			.set({
-				status: 'ready',
-				updatedAt: new Date()
-			})
-			.where(eq(proposals.id, proposalId))
-			.returning();
-		proposal = updated;
-	} catch (err) {
-		console.error('Failed to update proposal status:', err);
-		throw new Error('Database error: Could not update proposal status');
-	}
+		// Update status to ready
+		let proposal;
+		try {
+			const [updated] = await db
+				.update(proposals)
+				.set({
+					status: "ready",
+					updatedAt: new Date(),
+				})
+				.where(eq(proposals.id, proposalId))
+				.returning();
+			proposal = updated;
+		} catch (err) {
+			console.error("Failed to update proposal status:", err);
+			throw new Error("Database error: Could not update proposal status");
+		}
 
-	if (!proposal) {
-		throw new Error('Failed to update proposal - no rows affected');
-	}
+		if (!proposal) {
+			throw new Error("Failed to update proposal - no rows affected");
+		}
 
-	// Log activity
-	await logActivity('proposal.ready', 'proposal', proposalId, {
-		newValues: { status: 'ready' }
-	});
+		// Log activity
+		await logActivity("proposal.ready", "proposal", proposalId, {
+			newValues: { status: "ready" },
+		});
 
-	return proposal;
-});
+		return proposal;
+	},
+);
 
 /**
  * Revert a ready proposal back to draft.
@@ -770,36 +752,36 @@ export const revertProposalToDraft = command(
 			.limit(1);
 
 		if (!existing) {
-			throw new Error('Proposal not found');
+			throw new Error("Proposal not found");
 		}
 
 		// Check modify permission
-		if (!canModifyResource(context.role, existing.createdBy || '', context.userId, 'proposal')) {
-			throw new Error('Permission denied');
+		if (!canModifyResource(context.role, existing.createdBy || "", context.userId, "proposal")) {
+			throw new Error("Permission denied");
 		}
 
 		// Only ready proposals can be reverted to draft
-		if (existing.status !== 'ready') {
-			throw new Error('Only ready proposals can be reverted to draft');
+		if (existing.status !== "ready") {
+			throw new Error("Only ready proposals can be reverted to draft");
 		}
 
 		// Update status to draft
 		const [proposal] = await db
 			.update(proposals)
 			.set({
-				status: 'draft',
-				updatedAt: new Date()
+				status: "draft",
+				updatedAt: new Date(),
 			})
 			.where(eq(proposals.id, proposalId))
 			.returning();
 
 		// Log activity
-		await logActivity('proposal.reverted_to_draft', 'proposal', proposalId, {
-			newValues: { status: 'draft' }
+		await logActivity("proposal.reverted_to_draft", "proposal", proposalId, {
+			newValues: { status: "draft" },
 		});
 
 		return proposal;
-	}
+	},
 );
 
 /**
@@ -816,28 +798,28 @@ export const sendProposal = command(v.pipe(v.string(), v.uuid()), async (proposa
 		.limit(1);
 
 	if (!existing) {
-		throw new Error('Proposal not found');
+		throw new Error("Proposal not found");
 	}
 
 	// Check modify permission
-	if (!canModifyResource(context.role, existing.createdBy || '', context.userId, 'proposal')) {
-		throw new Error('Permission denied');
+	if (!canModifyResource(context.role, existing.createdBy || "", context.userId, "proposal")) {
+		throw new Error("Permission denied");
 	}
 
 	// Update status to sent
 	const [proposal] = await db
 		.update(proposals)
 		.set({
-			status: 'sent',
+			status: "sent",
 			sentAt: new Date(),
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(proposals.id, proposalId))
 		.returning();
 
 	// Log activity
-	await logActivity('proposal.sent', 'proposal', proposalId, {
-		newValues: { status: 'sent', sentAt: new Date().toISOString() }
+	await logActivity("proposal.sent", "proposal", proposalId, {
+		newValues: { status: "sent", sentAt: new Date().toISOString() },
 	});
 
 	return proposal;
@@ -864,16 +846,16 @@ export const recordProposalView = command(
 		// Update view count and potentially status
 		const updates: Record<string, unknown> = {
 			viewCount: sql`${proposals.viewCount} + 1`,
-			lastViewedAt: new Date()
+			lastViewedAt: new Date(),
 		};
 
 		// If status is 'sent', change to 'viewed'
-		if (proposal.status === 'sent') {
-			updates['status'] = 'viewed';
+		if (proposal.status === "sent") {
+			updates["status"] = "viewed";
 		}
 
 		await db.update(proposals).set(updates).where(eq(proposals.id, proposal.id));
-	}
+	},
 );
 
 /**
@@ -882,7 +864,7 @@ export const recordProposalView = command(
 export const updateProposalStatus = command(
 	v.object({
 		proposalId: v.pipe(v.string(), v.uuid()),
-		status: ProposalStatusSchema
+		status: ProposalStatusSchema,
 	}),
 	async (data) => {
 		const context = await getAgencyContext();
@@ -895,24 +877,24 @@ export const updateProposalStatus = command(
 			.limit(1);
 
 		if (!existing) {
-			throw new Error('Proposal not found');
+			throw new Error("Proposal not found");
 		}
 
 		// Check modify permission
-		if (!canModifyResource(context.role, existing.createdBy || '', context.userId, 'proposal')) {
-			throw new Error('Permission denied');
+		if (!canModifyResource(context.role, existing.createdBy || "", context.userId, "proposal")) {
+			throw new Error("Permission denied");
 		}
 
 		// Update status with timestamp
 		const updates: Record<string, unknown> = {
 			status: data.status,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		};
 
-		if (data.status === 'accepted') {
-			updates['acceptedAt'] = new Date();
-		} else if (data.status === 'declined') {
-			updates['declinedAt'] = new Date();
+		if (data.status === "accepted") {
+			updates["acceptedAt"] = new Date();
+		} else if (data.status === "declined") {
+			updates["declinedAt"] = new Date();
 		}
 
 		const [proposal] = await db
@@ -922,13 +904,13 @@ export const updateProposalStatus = command(
 			.returning();
 
 		// Log activity
-		await logActivity('proposal.status_changed', 'proposal', data.proposalId, {
+		await logActivity("proposal.status_changed", "proposal", data.proposalId, {
 			oldValues: { status: existing.status },
-			newValues: { status: data.status }
+			newValues: { status: data.status },
 		});
 
 		return proposal;
-	}
+	},
 );
 
 // =============================================================================
@@ -956,7 +938,7 @@ async function generateUniqueContractSlug(): Promise<string> {
 		attempts++;
 	}
 
-	throw new Error('Unable to generate unique contract slug');
+	throw new Error("Unable to generate unique contract slug");
 }
 
 /**
@@ -969,7 +951,7 @@ async function getNextContractNumber(agencyId: string): Promise<string> {
 		.where(eq(agencyProfiles.agencyId, agencyId))
 		.limit(1);
 
-	const prefix = profile?.contractPrefix || 'CON';
+	const prefix = profile?.contractPrefix || "CON";
 	const nextNumber = profile?.nextContractNumber || 1;
 
 	// Generate document number
@@ -981,7 +963,7 @@ async function getNextContractNumber(agencyId: string): Promise<string> {
 			.update(agencyProfiles)
 			.set({
 				nextContractNumber: nextNumber + 1,
-				updatedAt: new Date()
+				updatedAt: new Date(),
 			})
 			.where(eq(agencyProfiles.id, profile.id));
 	}
@@ -1003,22 +985,22 @@ export const acceptProposal = command(AcceptProposalSchema, async (data) => {
 		.limit(1);
 
 	if (!proposal) {
-		throw new Error('Proposal not found');
+		throw new Error("Proposal not found");
 	}
 
 	// Validate status - only sent or viewed proposals can be accepted
-	if (proposal.status !== 'sent' && proposal.status !== 'viewed') {
-		throw new Error('Proposal cannot be accepted');
+	if (proposal.status !== "sent" && proposal.status !== "viewed") {
+		throw new Error("Proposal cannot be accepted");
 	}
 
 	// Update proposal status
 	await db
 		.update(proposals)
 		.set({
-			status: 'accepted',
+			status: "accepted",
 			acceptedAt: new Date(),
-			clientComments: data.comments || '',
-			updatedAt: new Date()
+			clientComments: data.comments || "",
+			updatedAt: new Date(),
 		})
 		.where(eq(proposals.id, proposal.id));
 
@@ -1029,7 +1011,7 @@ export const acceptProposal = command(AcceptProposalSchema, async (data) => {
 		contractSlug = await generateUniqueContractSlug();
 
 		// Calculate total price from custom pricing or package
-		let totalPrice = '0';
+		let totalPrice = "0";
 		const customPricing = proposal.customPricing as {
 			setupFee?: string;
 			monthlyPrice?: string;
@@ -1047,17 +1029,17 @@ export const acceptProposal = command(AcceptProposalSchema, async (data) => {
 			proposalId: proposal.id,
 			contractNumber,
 			slug: contractSlug,
-			status: 'draft',
+			status: "draft",
 			clientBusinessName: proposal.clientBusinessName,
 			clientContactName: proposal.clientContactName,
 			clientEmail: proposal.clientEmail,
 			clientPhone: proposal.clientPhone,
 			totalPrice,
-			createdBy: proposal.createdBy
+			createdBy: proposal.createdBy,
 		});
 	} catch (err) {
 		// Log error but don't fail the accept - contract can be created manually
-		console.error('Failed to auto-create contract:', err);
+		console.error("Failed to auto-create contract:", err);
 	}
 
 	return { success: true, contractSlug };
@@ -1076,22 +1058,22 @@ export const declineProposal = command(DeclineProposalSchema, async (data) => {
 		.limit(1);
 
 	if (!proposal) {
-		throw new Error('Proposal not found');
+		throw new Error("Proposal not found");
 	}
 
 	// Validate status - only sent or viewed proposals can be declined
-	if (proposal.status !== 'sent' && proposal.status !== 'viewed') {
-		throw new Error('Proposal cannot be declined');
+	if (proposal.status !== "sent" && proposal.status !== "viewed") {
+		throw new Error("Proposal cannot be declined");
 	}
 
 	// Update proposal status
 	await db
 		.update(proposals)
 		.set({
-			status: 'declined',
+			status: "declined",
 			declinedAt: new Date(),
-			declineReason: data.reason || '',
-			updatedAt: new Date()
+			declineReason: data.reason || "",
+			updatedAt: new Date(),
 		})
 		.where(eq(proposals.id, proposal.id));
 
@@ -1111,22 +1093,22 @@ export const requestProposalRevision = command(RequestRevisionSchema, async (dat
 		.limit(1);
 
 	if (!proposal) {
-		throw new Error('Proposal not found');
+		throw new Error("Proposal not found");
 	}
 
 	// Validate status - only sent or viewed proposals can request revision
-	if (proposal.status !== 'sent' && proposal.status !== 'viewed') {
-		throw new Error('Proposal cannot request revision');
+	if (proposal.status !== "sent" && proposal.status !== "viewed") {
+		throw new Error("Proposal cannot request revision");
 	}
 
 	// Update proposal status
 	await db
 		.update(proposals)
 		.set({
-			status: 'revision_requested',
+			status: "revision_requested",
 			revisionRequestedAt: new Date(),
 			revisionRequestNotes: data.notes,
-			updatedAt: new Date()
+			updatedAt: new Date(),
 		})
 		.where(eq(proposals.id, proposal.id));
 
@@ -1137,12 +1119,15 @@ export const requestProposalRevision = command(RequestRevisionSchema, async (dat
 // AI Proposal Generation
 // =============================================================================
 
-import { agencies } from '$lib/server/schema';
-import { generateProposalContent, validateContext } from '$lib/server/services/claude.service';
-import { buildContextFromProposal, type PerformanceDataContext } from '$lib/server/prompts/prompt-builder';
-import { ALL_SECTIONS, type ProposalSection } from '$lib/server/prompts/proposal-sections';
-import { AIServiceError, AIErrorCode } from '$lib/server/services/ai-errors';
-import { enforceAIGenerationLimit, incrementAIGenerationCount } from '$lib/server/subscription';
+import { agencies } from "$lib/server/schema";
+import { generateProposalContent, validateContext } from "$lib/server/services/claude.service";
+import {
+	buildContextFromProposal,
+	type PerformanceDataContext,
+} from "$lib/server/prompts/prompt-builder";
+import { ALL_SECTIONS, type ProposalSection } from "$lib/server/prompts/proposal-sections";
+import { AIServiceError, AIErrorCode } from "$lib/server/services/ai-errors";
+import { enforceAIGenerationLimit, incrementAIGenerationCount } from "$lib/server/subscription";
 
 /**
  * Schema for AI generation request
@@ -1151,8 +1136,8 @@ const GenerateProposalAISchema = v.object({
 	proposalId: v.pipe(v.string(), v.uuid()),
 	sections: v.pipe(
 		v.array(v.picklist([...ALL_SECTIONS])),
-		v.minLength(1, 'Select at least one section to generate')
-	)
+		v.minLength(1, "Select at least one section to generate"),
+	),
 });
 
 /**
@@ -1173,12 +1158,12 @@ export const generateProposalWithAI = command(GenerateProposalAISchema, async (d
 		.limit(1);
 
 	if (!proposal) {
-		throw new Error('Proposal not found');
+		throw new Error("Proposal not found");
 	}
 
 	// Check modify permission
-	if (!canModifyResource(context.role, proposal.createdBy || '', context.userId, 'proposal')) {
-		throw new Error('Permission denied');
+	if (!canModifyResource(context.role, proposal.createdBy || "", context.userId, "proposal")) {
+		throw new Error("Permission denied");
 	}
 
 	// Get consultation if linked (for additional context)
@@ -1195,21 +1180,21 @@ export const generateProposalWithAI = command(GenerateProposalAISchema, async (d
 	// Get agency for branding context
 	const [agency] = await db
 		.select({
-			name: agencies.name
+			name: agencies.name,
 		})
 		.from(agencies)
 		.where(eq(agencies.id, context.agencyId))
 		.limit(1);
 
 	if (!agency) {
-		throw new Error('Agency not found');
+		throw new Error("Agency not found");
 	}
 
 	// Map to expected format (brandVoice and usps are not in schema yet)
 	const agencyContext = {
 		businessName: agency.name,
 		brandVoice: null as string | null,
-		usps: null as string[] | null
+		usps: null as string[] | null,
 	};
 
 	// Build prompt context
@@ -1227,7 +1212,7 @@ export const generateProposalWithAI = command(GenerateProposalAISchema, async (d
 			consultationPainPoints: proposal.consultationPainPoints as {
 				urgency_level?: string;
 			} | null,
-			performanceData: proposal.performanceData as PerformanceDataContext | null
+			performanceData: proposal.performanceData as PerformanceDataContext | null,
 		},
 		consultation
 			? {
@@ -1237,29 +1222,28 @@ export const generateProposalWithAI = command(GenerateProposalAISchema, async (d
 					timeline: consultation.timeline,
 					designStyles: consultation.designStyles,
 					admiredWebsites: consultation.admiredWebsites,
-					consultationNotes: consultation.consultationNotes
+					consultationNotes: consultation.consultationNotes,
 				}
 			: null,
-		agencyContext
+		agencyContext,
 	);
 
 	// Validate context has minimum required data
 	const validation = validateContext(promptContext);
 	if (!validation.valid) {
 		throw new AIServiceError(
-			`Missing required fields: ${validation.missingFields.join(', ')}`,
+			`Missing required fields: ${validation.missingFields.join(", ")}`,
 			AIErrorCode.CONTEXT_INSUFFICIENT,
 			false,
-			{ missingFields: validation.missingFields }
+			{ missingFields: validation.missingFields },
 		);
 	}
 
 	// Generate content
-	const result = await generateProposalContent(
-		promptContext,
-		data.sections as ProposalSection[],
-		{ allowPartial: true, maxRetries: 2 }
-	);
+	const result = await generateProposalContent(promptContext, data.sections as ProposalSection[], {
+		allowPartial: true,
+		maxRetries: 2,
+	});
 
 	// Build update object from generated content
 	const updates: Record<string, unknown> = { updatedAt: new Date() };
@@ -1267,68 +1251,65 @@ export const generateProposalWithAI = command(GenerateProposalAISchema, async (d
 
 	// Map AI output to proposal fields
 	if (content.executiveSummary !== undefined) {
-		updates['executiveSummary'] = content.executiveSummary;
+		updates["executiveSummary"] = content.executiveSummary;
 	}
 	if (content.opportunityContent !== undefined) {
-		updates['opportunityContent'] = content.opportunityContent;
+		updates["opportunityContent"] = content.opportunityContent;
 	}
 	if (content.currentIssues !== undefined) {
 		// Convert to checklist format expected by proposal
-		updates['currentIssues'] = content.currentIssues.map((issue) => ({
+		updates["currentIssues"] = content.currentIssues.map((issue) => ({
 			text: `${issue.title}: ${issue.description}`,
-			checked: false
+			checked: false,
 		}));
 	}
 	if (content.performanceStandards !== undefined) {
 		// Convert to proposal format
-		updates['performanceStandards'] = content.performanceStandards.map((std) => ({
+		updates["performanceStandards"] = content.performanceStandards.map((std) => ({
 			label: std.metric,
 			value: `${std.current} → ${std.target}`,
-			icon: undefined
+			icon: undefined,
 		}));
 	}
 	if (content.proposedPages !== undefined) {
-		updates['proposedPages'] = content.proposedPages.map((page) => ({
+		updates["proposedPages"] = content.proposedPages.map((page) => ({
 			name: page.name,
 			description: page.purpose,
-			features: page.features || []
+			features: page.features || [],
 		}));
 	}
 	if (content.timeline !== undefined) {
-		updates['timeline'] = content.timeline.map((phase) => ({
+		updates["timeline"] = content.timeline.map((phase) => ({
 			week: phase.timing,
 			title: phase.phase,
-			description: phase.deliverables.join(', ')
+			description: phase.deliverables.join(", "),
 		}));
 	}
 	if (content.nextSteps !== undefined) {
-		updates['nextSteps'] = content.nextSteps.map((step) => ({
+		updates["nextSteps"] = content.nextSteps.map((step) => ({
 			text: `${step.action}: ${step.description}`,
-			completed: false
+			completed: false,
 		}));
 	}
 	if (content.closingContent !== undefined) {
-		updates['closingContent'] = content.closingContent;
+		updates["closingContent"] = content.closingContent;
 	}
 
 	// Update proposal with generated content
-	await db
-		.update(proposals)
-		.set(updates)
-		.where(eq(proposals.id, data.proposalId));
+	await db.update(proposals).set(updates).where(eq(proposals.id, data.proposalId));
 
 	// Increment rate limit counter after successful generation
 	await incrementAIGenerationCount(context.agencyId);
 
 	// Log activity
-	await logActivity('proposal.ai_generated', 'proposal', data.proposalId, {
+	await logActivity("proposal.ai_generated", "proposal", data.proposalId, {
 		metadata: {
 			sections: data.sections,
 			generatedSections: result.generatedSections,
 			failedSections: result.failedSections,
 			isPartial: result.isPartial,
-			usage: result.usage
-		}
+			usage: result.usage,
+		},
 	});
 
 	return {
@@ -1336,7 +1317,6 @@ export const generateProposalWithAI = command(GenerateProposalAISchema, async (d
 		content: result.content,
 		generatedSections: result.generatedSections,
 		failedSections: result.failedSections,
-		isPartial: result.isPartial
+		isPartial: result.isPartial,
 	};
 });
-

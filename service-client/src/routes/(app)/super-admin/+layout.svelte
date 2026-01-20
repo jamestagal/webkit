@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
-	import { LayoutDashboard, Building2, Users, ScrollText, Shield, LogOut, Menu } from 'lucide-svelte';
+	import { LayoutDashboard, Building2, Users, ScrollText, Shield, LogOut, Menu, Mail, Gift } from 'lucide-svelte';
 	import { stopImpersonation } from '$lib/api/super-admin.remote';
 	import { goto, invalidateAll } from '$app/navigation';
 
@@ -14,6 +14,8 @@
 		{ label: 'Dashboard', url: '/super-admin', icon: LayoutDashboard, exact: true },
 		{ label: 'Agencies', url: '/super-admin/agencies', icon: Building2 },
 		{ label: 'Users', url: '/super-admin/users', icon: Users },
+		{ label: 'Beta Invites', url: '/super-admin/beta-invites', icon: Mail },
+		{ label: 'Freemium Users', url: '/super-admin/freemium', icon: Gift },
 		{ label: 'Audit Log', url: '/super-admin/audit-log', icon: ScrollText }
 	];
 
