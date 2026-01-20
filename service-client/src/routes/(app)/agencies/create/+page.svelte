@@ -103,11 +103,13 @@
 </svelte:head>
 
 <div class="mx-auto max-w-xl">
-	<!-- Back link -->
-	<a href="/agencies" class="btn btn-ghost btn-sm mb-6">
-		<ArrowLeft class="h-4 w-4" />
-		Back to agencies
-	</a>
+	<!-- Back link - only show if user has existing agencies (not for beta invite onboarding) -->
+	{#if !data.hasInvite}
+		<a href="/agencies" class="btn btn-ghost btn-sm mb-6">
+			<ArrowLeft class="h-4 w-4" />
+			Back to agencies
+		</a>
+	{/if}
 
 	{#if data.hasInvite && data.inviteValid}
 		<!-- Beta Invite Banner -->
@@ -136,7 +138,7 @@
 		</div>
 		<h1 class="text-2xl font-bold">
 			{#if data.hasInvite && data.inviteValid}
-				Create Your Beta Agency
+				Create Your (Beta) Agency
 			{:else}
 				Create New Agency
 			{/if}

@@ -54,7 +54,8 @@ func (h *Handler) handleRefresh(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleLogout(w http.ResponseWriter, r *http.Request) {
 	returnURL := r.FormValue("return_url")
-	if returnURL != h.cfg.AdminURL && returnURL != h.cfg.ClientURL {
+	// Validate return URL starts with allowed base URLs (allows paths)
+	if !strings.HasPrefix(returnURL, h.cfg.AdminURL) && !strings.HasPrefix(returnURL, h.cfg.ClientURL) {
 		writeResponse(h.cfg, w, r, nil, pkg.UnauthorizedError{Err: errors.New("invalid origin")})
 		return
 	}

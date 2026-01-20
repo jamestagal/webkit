@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/mail"
+	"net/url"
 	"service-core/config"
 	"service-core/storage/query"
 	"strings"
@@ -232,7 +233,8 @@ func (s *Service) Login(
 	returnURL string,
 	provider Provider,
 ) (*URLResponse, error) {
-	if returnURL != s.cfg.AdminURL && returnURL != s.cfg.ClientURL {
+	// Validate return URL starts with allowed base URLs (allows paths like /agencies/create)
+	if !strings.HasPrefix(returnURL, s.cfg.AdminURL) && !strings.HasPrefix(returnURL, s.cfg.ClientURL) {
 		return nil, pkg.UnauthorizedError{Err: errors.New("invalid return URL")}
 	}
 
@@ -271,7 +273,7 @@ func (s *Service) Login(
 			return nil, v
 		}
 		subject := "Sign in to Webkit"
-		loginURL := s.cfg.CoreURL + `/login-callback/email?state=` + state + `&email=` + userEmail
+		loginURL := s.cfg.CoreURL + `/login-callback/email?state=` + url.QueryEscape(state) + `&email=` + url.QueryEscape(userEmail)
 		body := `<!DOCTYPE html>
 <html>
 <head>

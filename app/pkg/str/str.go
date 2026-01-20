@@ -20,15 +20,16 @@ func ParseInt32(s string) (int32, error) {
 	return int32(n), nil
 }
 
-// GenerateRandomBase64String generates a random base64 URL-safe string
+// GenerateRandomBase64String generates a random base64 URL-safe string without padding
 func GenerateRandomBase64String() (string, error) {
 	// Generate random bytes
 	randomBytes, err := generateRandomBytes()
 	if err != nil {
 		return "", err
 	}
-	// Encode the random bytes to a base64 URL-safe string
-	state := base64.URLEncoding.EncodeToString(randomBytes)
+	// Encode the random bytes to a base64 URL-safe string without padding
+	// Using RawURLEncoding to avoid '=' padding which can cause URL parsing issues
+	state := base64.RawURLEncoding.EncodeToString(randomBytes)
 	return state, nil
 }
 

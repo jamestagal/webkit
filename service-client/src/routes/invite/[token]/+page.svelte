@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { env } from '$env/dynamic/public';
-	import { getToast } from '$lib/ui/toast_store.svelte';
+	import { page } from '$app/state';
 
 	let { data } = $props();
 
-	const toast = getToast();
-	let magicLinkSent = $state(false);
 	let showOAuthOptions = $state(false);
+
+	// Check if we're returning from a magic link send (Core redirects back with ?send=true)
+	let magicLinkSent = $derived(page.url.searchParams.get('send') === 'true');
 
 	// Format date for display
 	function formatDate(date: string | Date | null): string {
@@ -17,11 +18,6 @@
 			month: 'long',
 			year: 'numeric'
 		});
-	}
-
-	function handleMagicLinkSubmit() {
-		magicLinkSent = true;
-		toast.success('Magic Link Sent', 'Check your email to continue');
 	}
 </script>
 
@@ -128,7 +124,6 @@
 						<form
 							method="post"
 							action={env.PUBLIC_CORE_URL + '/login'}
-							onsubmit={handleMagicLinkSubmit}
 						>
 							<input type="hidden" name="provider" value="email" />
 							<input type="hidden" name="email" value={data.email} />
