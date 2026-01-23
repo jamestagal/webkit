@@ -15,6 +15,7 @@
 	import { getProposalWithRelations, updateProposal, markProposalReady, revertProposalToDraft } from '$lib/api/proposals.remote';
 	import { sendProposalEmail } from '$lib/api/email.remote';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
+	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';
 	import AIPreviewModal from './AIPreviewModal.svelte';
 	import AIStreamingModal from './AIStreamingModal.svelte';
 	import AIErrorDisplay from '$lib/components/AIErrorDisplay.svelte';
@@ -113,6 +114,11 @@
 	let isSaving = $state(false);
 	let isSending = $state(false);
 	let activeSection = $state('client');
+
+	// Send email modal state
+	let sendModalOpen = $state(false);
+	let sendingEmail = $state(false);
+	let isResend = $state(false);
 
 	// AI generation state
 	let showAIModal = $state(false);
@@ -239,25 +245,27 @@
 		}
 	}
 
-	async function handleSend() {
-		if (!confirm(`Send this proposal to ${formData.clientEmail}?`)) {
-			return;
-		}
+	function openSendModal(resend = false) {
+		isResend = resend;
+		sendModalOpen = true;
+	}
 
-		isSending = true;
+	async function confirmSendEmail() {
+		sendingEmail = true;
 		try {
 			await handleSave(false);
 			const result = await sendProposalEmail({ proposalId });
 			await invalidateAll();
+			sendModalOpen = false;
 			if (result.success) {
-				toast.success('Proposal sent', `Email delivered to ${formData.clientEmail}`);
+				toast.success(isResend ? 'Proposal resent' : 'Proposal sent', `Email delivered to ${formData.clientEmail}`);
 			} else {
 				toast.error('Failed to send proposal', result.error || 'Unknown error');
 			}
 		} catch (err) {
 			toast.error('Failed to send', err instanceof Error ? err.message : 'Unknown error');
 		} finally {
-			isSending = false;
+			sendingEmail = false;
 		}
 	}
 
@@ -540,10 +548,10 @@
 							<button
 								type="button"
 								class="btn btn-primary btn-sm"
-								onclick={handleSend}
-								disabled={isSending}
+								onclick={() => openSendModal(proposal.status === 'revision_requested')}
+								disabled={sendingEmail}
 							>
-								{#if isSending}
+								{#if sendingEmail}
 									<span class="loading loading-spinner loading-sm"></span>
 								{:else}
 									<Send class="h-4 w-4" />
@@ -1524,3 +1532,15 @@
 		onclose={handleClosePreview}
 	/>
 {/if}
+
+<!-- Send Email Modal -->
+<SendEmailModal
+	open={sendModalOpen}
+	title={isResend ? 'Resend Proposal' : 'Send Proposal'}
+	documentType="proposal"
+	recipientEmail={formData.clientEmail}
+	recipientName={formData.clientContactName || formData.clientBusinessName}
+	loading={sendingEmail}
+	onConfirm={confirmSendEmail}
+	onCancel={() => sendModalOpen = false}
+/>

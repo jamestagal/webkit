@@ -25,6 +25,7 @@ import {
 	type SignatureConfig,
 } from "$lib/server/schema";
 import { getAgencyContext } from "$lib/server/agency";
+import { getOrCreateClient } from "$lib/api/clients.remote";
 import { logActivity } from "$lib/server/db-helpers";
 import {
 	hasPermission,
@@ -262,6 +263,7 @@ export const getContracts = query(ContractFiltersSchema, async (filters) => {
 			id: contracts.id,
 			agencyId: contracts.agencyId,
 			proposalId: contracts.proposalId,
+			clientId: contracts.clientId,
 			contractNumber: contracts.contractNumber,
 			slug: contracts.slug,
 			version: contracts.version,
@@ -552,6 +554,19 @@ export const createContractFromProposal = command(CreateContractSchema, async (d
 	const contractNumber = await getNextContractNumber(context.agencyId);
 	const slug = await generateUniqueSlug();
 
+	// Get or create unified client - inherit from proposal or create new
+	let clientId: string | null = proposal.clientId;
+	if (!clientId && proposal.clientEmail) {
+		const result = await getOrCreateClient({
+			businessName: proposal.clientBusinessName || proposal.clientContactName || "Unknown",
+			email: proposal.clientEmail,
+			contactName: proposal.clientContactName || null,
+		});
+		if (result.client) {
+			clientId = result.client.id;
+		}
+	}
+
 	// Calculate total price
 	const totalPrice = calculateTotalFromProposal(proposal, selectedPackage, selectedAddons);
 	const paymentTerms = buildPaymentTerms(proposal, selectedPackage);
@@ -615,6 +630,7 @@ export const createContractFromProposal = command(CreateContractSchema, async (d
 			agencyId: context.agencyId,
 			proposalId: proposal.id,
 			templateId: template?.id,
+			clientId, // Link to unified client
 			contractNumber,
 			slug,
 			// Client info snapshot

@@ -262,7 +262,17 @@
 
 								<p class="text-base-content/70 mt-1">
 									{proposal.proposalNumber} &bull;
-									{proposal.clientBusinessName || 'No client'}
+									{#if proposal.clientId}
+										<a
+											href="/{agencySlug}/clients/{proposal.clientId}"
+											class="link link-hover"
+											title="View client hub"
+										>
+											{proposal.clientBusinessName || 'No client'}
+										</a>
+									{:else}
+										{proposal.clientBusinessName || 'No client'}
+									{/if}
 								</p>
 
 								<div class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-base-content/60">

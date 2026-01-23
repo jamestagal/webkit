@@ -4,6 +4,7 @@
 	import { deleteInvoice, cancelInvoice } from '$lib/api/invoices.remote';
 	import { sendInvoiceEmail, sendInvoiceReminder } from '$lib/api/email.remote';
 	import { FEATURES } from '$lib/config/features';
+	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';
 	import {
 		Plus,
 		MoreVertical,
@@ -33,6 +34,12 @@
 	// Filter state
 	let statusFilter = $state<string | null>(null);
 
+	// Send email modal state
+	let sendModalOpen = $state(false);
+	let sendingEmail = $state(false);
+	let selectedInvoice = $state<{ id: string; clientEmail: string; clientBusinessName: string | null } | null>(null);
+	let emailAction = $state<'send' | 'resend' | 'reminder'>('send');
+
 	// Filtered invoices
 	let filteredInvoices = $derived(() => {
 		if (!statusFilter) return data.invoices;
@@ -49,51 +56,40 @@
 		paid: data.invoices.filter((i) => i.status === 'paid').length
 	});
 
-	async function handleSend(invoiceId: string, clientEmail: string) {
-		if (!confirm(`Send this invoice to ${clientEmail}?`)) return;
-
-		try {
-			const result = await sendInvoiceEmail({ invoiceId });
-			await invalidateAll();
-			if (result.success) {
-				toast.success('Invoice sent', `Email delivered to ${clientEmail}`);
-			} else {
-				toast.error('Failed to send invoice', result.error || 'Unknown error');
-			}
-		} catch (err) {
-			toast.error('Failed to send invoice', err instanceof Error ? err.message : '');
-		}
+	function openSendModal(invoice: { id: string; clientEmail: string; clientBusinessName: string | null }, action: 'send' | 'resend' | 'reminder') {
+		selectedInvoice = invoice;
+		emailAction = action;
+		sendModalOpen = true;
 	}
 
-	async function handleResend(invoiceId: string, clientEmail: string) {
-		if (!confirm(`Resend this invoice to ${clientEmail}?`)) return;
+	async function confirmSendEmail() {
+		if (!selectedInvoice) return;
+		sendingEmail = true;
 
 		try {
-			const result = await sendInvoiceEmail({ invoiceId });
-			await invalidateAll();
-			if (result.success) {
-				toast.success('Invoice resent', `Email delivered to ${clientEmail}`);
+			let result;
+			if (emailAction === 'reminder') {
+				result = await sendInvoiceReminder({ invoiceId: selectedInvoice.id });
 			} else {
-				toast.error('Failed to resend invoice', result.error || 'Unknown error');
+				result = await sendInvoiceEmail({ invoiceId: selectedInvoice.id });
+			}
+			await invalidateAll();
+			sendModalOpen = false;
+
+			if (result.success) {
+				const messages = {
+					send: ['Invoice sent', `Email delivered to ${selectedInvoice.clientEmail}`],
+					resend: ['Invoice resent', `Email delivered to ${selectedInvoice.clientEmail}`],
+					reminder: ['Reminder sent', `Payment reminder delivered to ${selectedInvoice.clientEmail}`]
+				};
+				toast.success(messages[emailAction][0], messages[emailAction][1]);
+			} else {
+				toast.error(`Failed to ${emailAction === 'reminder' ? 'send reminder' : 'send invoice'}`, result.error || 'Unknown error');
 			}
 		} catch (err) {
-			toast.error('Failed to resend invoice', err instanceof Error ? err.message : '');
-		}
-	}
-
-	async function handleSendReminder(invoiceId: string, clientEmail: string) {
-		if (!confirm(`Send a payment reminder to ${clientEmail}?`)) return;
-
-		try {
-			const result = await sendInvoiceReminder({ invoiceId });
-			await invalidateAll();
-			if (result.success) {
-				toast.success('Reminder sent', `Payment reminder delivered to ${clientEmail}`);
-			} else {
-				toast.error('Failed to send reminder', result.error || 'Unknown error');
-			}
-		} catch (err) {
-			toast.error('Failed to send reminder', err instanceof Error ? err.message : '');
+			toast.error('Failed to send', err instanceof Error ? err.message : '');
+		} finally {
+			sendingEmail = false;
 		}
 	}
 
@@ -308,7 +304,18 @@
 									</div>
 								</div>
 								<p class="text-sm text-base-content/70 mt-1 truncate">
-									{invoice.clientBusinessName || 'No client'}
+									{#if invoice.clientId}
+										<a
+											href="/{agencySlug}/clients/{invoice.clientId}"
+											class="link link-hover"
+											title="View client hub"
+											onclick={(e) => e.stopPropagation()}
+										>
+											{invoice.clientBusinessName || 'No client'}
+										</a>
+									{:else}
+										{invoice.clientBusinessName || 'No client'}
+									{/if}
 								</p>
 							</a>
 							<div class="flex items-start gap-2">
@@ -337,7 +344,7 @@
 										</li>
 										{#if invoice.status === 'draft'}
 											<li>
-												<button type="button" onclick={() => handleSend(invoice.id, invoice.clientEmail)}>
+												<button type="button" onclick={() => openSendModal({ id: invoice.id, clientEmail: invoice.clientEmail, clientBusinessName: invoice.clientBusinessName }, 'send')}>
 													<Send class="h-4 w-4" />
 													Send to Client
 												</button>
@@ -345,13 +352,13 @@
 										{/if}
 										{#if ['sent', 'viewed', 'overdue'].includes(invoice.status)}
 											<li>
-												<button type="button" onclick={() => handleResend(invoice.id, invoice.clientEmail)}>
+												<button type="button" onclick={() => openSendModal({ id: invoice.id, clientEmail: invoice.clientEmail, clientBusinessName: invoice.clientBusinessName }, 'resend')}>
 													<RefreshCw class="h-4 w-4" />
 													Resend Email
 												</button>
 											</li>
 											<li>
-												<button type="button" onclick={() => handleSendReminder(invoice.id, invoice.clientEmail)}>
+												<button type="button" onclick={() => openSendModal({ id: invoice.id, clientEmail: invoice.clientEmail, clientBusinessName: invoice.clientBusinessName }, 'reminder')}>
 													<Bell class="h-4 w-4" />
 													Send Reminder
 												</button>
@@ -433,7 +440,17 @@
 							</td>
 							<td>
 								<div class="flex flex-col">
-									<span>{invoice.clientBusinessName || 'No client'}</span>
+									{#if invoice.clientId}
+										<a
+											href="/{agencySlug}/clients/{invoice.clientId}"
+											class="link link-hover"
+											title="View client hub"
+										>
+											{invoice.clientBusinessName || 'No client'}
+										</a>
+									{:else}
+										<span>{invoice.clientBusinessName || 'No client'}</span>
+									{/if}
 									<span class="text-sm text-base-content/60">
 										{invoice.clientEmail || '-'}
 									</span>
@@ -485,7 +502,7 @@
 										</li>
 										{#if invoice.status === 'draft'}
 											<li>
-												<button type="button" onclick={() => handleSend(invoice.id, invoice.clientEmail)}>
+												<button type="button" onclick={() => openSendModal({ id: invoice.id, clientEmail: invoice.clientEmail, clientBusinessName: invoice.clientBusinessName }, 'send')}>
 													<Send class="h-4 w-4" />
 													Send to Client
 												</button>
@@ -507,13 +524,13 @@
 												</a>
 											</li>
 											<li>
-												<button type="button" onclick={() => handleResend(invoice.id, invoice.clientEmail)}>
+												<button type="button" onclick={() => openSendModal({ id: invoice.id, clientEmail: invoice.clientEmail, clientBusinessName: invoice.clientBusinessName }, 'resend')}>
 													<RefreshCw class="h-4 w-4" />
 													Resend Email
 												</button>
 											</li>
 											<li>
-												<button type="button" onclick={() => handleSendReminder(invoice.id, invoice.clientEmail)}>
+												<button type="button" onclick={() => openSendModal({ id: invoice.id, clientEmail: invoice.clientEmail, clientBusinessName: invoice.clientBusinessName }, 'reminder')}>
 													<Bell class="h-4 w-4" />
 													Send Reminder
 												</button>
@@ -566,3 +583,15 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Send Email Modal -->
+<SendEmailModal
+	open={sendModalOpen}
+	title={emailAction === 'send' ? 'Send Invoice' : emailAction === 'resend' ? 'Resend Invoice' : 'Send Payment Reminder'}
+	documentType={emailAction === 'reminder' ? 'payment reminder' : 'invoice'}
+	recipientEmail={selectedInvoice?.clientEmail || ''}
+	recipientName={selectedInvoice?.clientBusinessName}
+	loading={sendingEmail}
+	onConfirm={confirmSendEmail}
+	onCancel={() => sendModalOpen = false}
+/>

@@ -843,3 +843,553 @@ export function generateBetaInviteEmail(data: BetaInviteEmailData): EmailTemplat
 		bodyHtml: wrapEmail(content, primaryColor, undefined, "WebKit"),
 	};
 }
+
+// =============================================================================
+// Form Email Template
+// =============================================================================
+
+export interface FormEmailData {
+	agency: {
+		name: string;
+		email?: string | undefined;
+		phone?: string | undefined;
+		logoUrl?: string | undefined;
+		primaryColor?: string | undefined;
+	};
+	recipient: {
+		name: string;
+		businessName?: string | undefined;
+		email: string;
+	};
+	form: {
+		name: string;
+		publicUrl: string;
+	};
+	customMessage?: string | undefined;
+}
+
+/**
+ * Generate email for sending a form to a client
+ */
+export function generateFormEmail(data: FormEmailData): EmailTemplate {
+	const { agency, recipient, form, customMessage } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Hi ${recipient.name},
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            ${customMessage || `${agency.name} has sent you a form to complete. Please take a few minutes to fill it out at your earliest convenience.`}
+        </p>
+
+        <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Form</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${form.name}</td>
+                </tr>
+            </table>
+        </div>
+
+        <p style="margin: 0 0 24px 0; color: #4b5563;">
+            Click the button below to access and complete the form. Your progress will be saved automatically.
+        </p>
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${form.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                Complete Form
+            </a>
+        </div>
+
+        <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
+            If you have any questions, please reply to this email or contact ${agency.name}.
+        </p>
+
+        <p style="margin: 24px 0 0 0; color: #4b5563;">
+            Best regards,<br>
+            <strong>${agency.name}</strong>
+        </p>
+    `;
+
+	return {
+		subject: `Please complete: ${form.name} from ${agency.name}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
+	};
+}
+
+// =============================================================================
+// Contract Signed Notification Templates
+// =============================================================================
+
+export interface ContractSignedNotificationData {
+	agency: {
+		name: string;
+		email?: string | undefined;
+		primaryColor?: string | undefined;
+		logoUrl?: string | undefined;
+	};
+	contract: {
+		number: string;
+		publicUrl: string;
+	};
+	client: {
+		name: string;
+		businessName?: string | undefined;
+		email: string;
+	};
+	signedAt: string;
+	signatoryName: string;
+}
+
+/**
+ * Email sent to CLIENT confirming their signature was recorded
+ */
+export function generateContractSignedClientEmail(data: ContractSignedNotificationData): EmailTemplate {
+	const { agency, contract, client, signedAt, signatoryName } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Hi ${client.name},
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            Your signature has been successfully recorded on the contract from <strong>${agency.name}</strong>.
+        </p>
+
+        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Contract</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${contract.number}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Signed by</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${signatoryName}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Date</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${signedAt}</td>
+                </tr>
+            </table>
+        </div>
+
+        <p style="margin: 0 0 24px 0; color: #4b5563;">
+            You can view the signed contract at any time by clicking the button below.
+        </p>
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${contract.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Signed Contract
+            </a>
+        </div>
+
+        <p style="margin: 24px 0 0 0; color: #4b5563;">
+            Best regards,<br>
+            <strong>${agency.name}</strong>
+        </p>
+    `;
+
+	return {
+		subject: `Contract Signed - ${contract.number}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
+	};
+}
+
+/**
+ * Email sent to AGENCY notifying that a client has signed their contract
+ */
+export function generateContractSignedAgencyEmail(data: ContractSignedNotificationData): EmailTemplate {
+	const { agency, contract, client, signedAt, signatoryName } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Contract Signed
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            Great news! <strong>${client.businessName || client.name}</strong> has signed the contract.
+        </p>
+
+        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Contract</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${contract.number}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Client</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${client.businessName || client.name}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Signed by</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${signatoryName}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Date</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${signedAt}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${contract.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Contract
+            </a>
+        </div>
+    `;
+
+	return {
+		subject: `Contract Signed by ${client.businessName || client.name} - ${contract.number}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
+	};
+}
+
+// =============================================================================
+// Invoice Payment Notification Templates
+// =============================================================================
+
+export interface InvoicePaidNotificationData {
+	agency: {
+		name: string;
+		email?: string | undefined;
+		primaryColor?: string | undefined;
+		logoUrl?: string | undefined;
+	};
+	invoice: {
+		number: string;
+		total: string | number;
+		publicUrl: string;
+	};
+	client: {
+		name: string;
+		businessName?: string | undefined;
+		email: string;
+	};
+	paidAt: string;
+	paymentMethod?: string | undefined;
+}
+
+/**
+ * Email sent to CLIENT as a payment receipt/confirmation
+ */
+export function generateInvoicePaidClientEmail(data: InvoicePaidNotificationData): EmailTemplate {
+	const { agency, invoice, client, paidAt, paymentMethod } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Hi ${client.name},
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            Thank you! Your payment has been received for invoice <strong>${invoice.number}</strong> from <strong>${agency.name}</strong>.
+        </p>
+
+        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Invoice</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${invoice.number}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Amount Paid</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${formatCurrency(invoice.total)}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Date</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${paidAt}</td>
+                </tr>
+                ${paymentMethod ? `<tr>
+                    <td style="color: #6b7280; font-size: 14px;">Method</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${paymentMethod}</td>
+                </tr>` : ""}
+            </table>
+        </div>
+
+        <p style="margin: 0 0 24px 0; color: #4b5563;">
+            You can view your paid invoice at any time by clicking the button below.
+        </p>
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${invoice.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Invoice
+            </a>
+        </div>
+
+        <p style="margin: 24px 0 0 0; color: #4b5563;">
+            Best regards,<br>
+            <strong>${agency.name}</strong>
+        </p>
+    `;
+
+	return {
+		subject: `Payment Received - ${invoice.number}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
+	};
+}
+
+/**
+ * Email sent to AGENCY notifying that a client has paid an invoice
+ */
+export function generateInvoicePaidAgencyEmail(data: InvoicePaidNotificationData): EmailTemplate {
+	const { agency, invoice, client, paidAt, paymentMethod } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Payment Received
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            <strong>${client.businessName || client.name}</strong> has paid invoice <strong>${invoice.number}</strong>.
+        </p>
+
+        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Invoice</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${invoice.number}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Client</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${client.businessName || client.name}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Amount</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${formatCurrency(invoice.total)}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Date</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${paidAt}</td>
+                </tr>
+                ${paymentMethod ? `<tr>
+                    <td style="color: #6b7280; font-size: 14px;">Method</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${paymentMethod}</td>
+                </tr>` : ""}
+            </table>
+        </div>
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${invoice.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Invoice
+            </a>
+        </div>
+    `;
+
+	return {
+		subject: `Payment Received from ${client.businessName || client.name} - ${invoice.number}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
+	};
+}
+
+// =============================================================================
+// Proposal Response Notification Templates
+// =============================================================================
+
+export interface ProposalResponseNotificationData {
+	agency: {
+		name: string;
+		email?: string | undefined;
+		primaryColor?: string | undefined;
+		logoUrl?: string | undefined;
+	};
+	proposal: {
+		number: string;
+		publicUrl: string;
+	};
+	client: {
+		name: string;
+		businessName?: string | undefined;
+		email: string;
+	};
+	respondedAt: string;
+	comments?: string | undefined;
+	reason?: string | undefined;
+	notes?: string | undefined;
+	contractSlug?: string | undefined;
+}
+
+/**
+ * Email sent to AGENCY notifying that a client has accepted their proposal
+ */
+export function generateProposalAcceptedAgencyEmail(data: ProposalResponseNotificationData): EmailTemplate {
+	const { agency, proposal, client, respondedAt, comments, contractSlug } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Proposal Accepted
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            Great news! <strong>${client.businessName || client.name}</strong> has accepted your proposal.
+        </p>
+
+        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Proposal</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${proposal.number}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Client</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${client.businessName || client.name}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Accepted</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${respondedAt}</td>
+                </tr>
+            </table>
+        </div>
+
+        ${comments ? `
+        <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 0 0 24px 0;">
+            <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px; font-weight: 600; text-transform: uppercase;">Client Comments</p>
+            <p style="margin: 0; color: #374151; white-space: pre-wrap;">${comments}</p>
+        </div>
+        ` : ""}
+
+        ${contractSlug ? `
+        <p style="margin: 0 0 24px 0; color: #4b5563;">
+            A draft contract has been automatically created and is ready for your review.
+        </p>
+        ` : ""}
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${proposal.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Proposal
+            </a>
+        </div>
+    `;
+
+	return {
+		subject: `Proposal Accepted by ${client.businessName || client.name} - ${proposal.number}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
+	};
+}
+
+/**
+ * Email sent to AGENCY notifying that a client has declined their proposal
+ */
+export function generateProposalDeclinedAgencyEmail(data: ProposalResponseNotificationData): EmailTemplate {
+	const { agency, proposal, client, respondedAt, reason } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Proposal Declined
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            <strong>${client.businessName || client.name}</strong> has declined proposal <strong>${proposal.number}</strong>.
+        </p>
+
+        <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Proposal</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${proposal.number}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Client</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${client.businessName || client.name}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Declined</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${respondedAt}</td>
+                </tr>
+            </table>
+        </div>
+
+        ${reason ? `
+        <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 0 0 24px 0;">
+            <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px; font-weight: 600; text-transform: uppercase;">Reason Given</p>
+            <p style="margin: 0; color: #374151; white-space: pre-wrap;">${reason}</p>
+        </div>
+        ` : ""}
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${proposal.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Proposal
+            </a>
+        </div>
+    `;
+
+	return {
+		subject: `Proposal Declined by ${client.businessName || client.name} - ${proposal.number}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
+	};
+}
+
+/**
+ * Email sent to AGENCY notifying that a client has requested changes to their proposal
+ */
+export function generateProposalRevisionRequestedAgencyEmail(data: ProposalResponseNotificationData): EmailTemplate {
+	const { agency, proposal, client, respondedAt, notes } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Changes Requested
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            <strong>${client.businessName || client.name}</strong> has requested changes to proposal <strong>${proposal.number}</strong>.
+        </p>
+
+        <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Proposal</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${proposal.number}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Client</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${client.businessName || client.name}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Requested</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${respondedAt}</td>
+                </tr>
+            </table>
+        </div>
+
+        ${notes ? `
+        <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 0 0 24px 0;">
+            <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px; font-weight: 600; text-transform: uppercase;">Requested Changes</p>
+            <p style="margin: 0; color: #374151; white-space: pre-wrap;">${notes}</p>
+        </div>
+        ` : ""}
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${proposal.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Proposal
+            </a>
+        </div>
+    `;
+
+	return {
+		subject: `Changes Requested by ${client.businessName || client.name} - ${proposal.number}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
+	};
+}

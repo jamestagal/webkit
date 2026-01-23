@@ -15,6 +15,7 @@ import {
 	Settings,
 	Users,
 	ClipboardList,
+	Send,
 } from "lucide-svelte";
 import type { ComponentType } from "svelte";
 
@@ -34,7 +35,9 @@ export type FeatureKey =
 	| "proposals"
 	| "contracts"
 	| "invoices"
-	| "questionnaires";
+	| "questionnaires"
+	| "forms"
+	| "clients";
 
 /**
  * Core feature configurations with consistent icons and colors
@@ -84,6 +87,22 @@ export const FEATURES: Record<FeatureKey, FeatureConfig> = {
 		icon: ClipboardCheck,
 		color: "#f59e0b", // Amber
 		colorLight: "#f59e0b15",
+	},
+	forms: {
+		key: "forms",
+		title: "Forms",
+		description: "Send and track client form submissions with customizable templates.",
+		icon: Send,
+		color: "#ec4899", // Pink
+		colorLight: "#ec489915",
+	},
+	clients: {
+		key: "clients",
+		title: "Clients",
+		description: "Central hub for managing client relationships and viewing all linked documents.",
+		icon: Users,
+		color: "#14b8a6", // Teal
+		colorLight: "#14b8a615",
 	},
 };
 

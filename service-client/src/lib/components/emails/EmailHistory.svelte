@@ -8,9 +8,10 @@
 		proposalId?: string;
 		invoiceId?: string;
 		contractId?: string;
+		formSubmissionId?: string;
 	}
 
-	let { proposalId, invoiceId, contractId }: Props = $props();
+	let { proposalId, invoiceId, contractId, formSubmissionId }: Props = $props();
 
 	const toast = getToast();
 
@@ -21,7 +22,7 @@
 	async function loadEmails() {
 		loading = true;
 		try {
-			emails = await getEntityEmailLogs({ proposalId, invoiceId, contractId });
+			emails = await getEntityEmailLogs({ proposalId, invoiceId, contractId, formSubmissionId });
 		} catch (err) {
 			console.error('Failed to load email history:', err);
 		} finally {
@@ -75,6 +76,8 @@
 				return { class: 'badge-primary', icon: FileText, label: 'Proposal' };
 			case 'contract':
 				return { class: 'badge-primary', icon: FileText, label: 'Contract' };
+			case 'form_sent':
+				return { class: 'badge-primary', icon: FileText, label: 'Form' };
 			default:
 				return null; // Don't show badge for unknown types
 		}
@@ -93,7 +96,7 @@
 
 	// Load on mount
 	$effect(() => {
-		if (proposalId || invoiceId || contractId) {
+		if (proposalId || invoiceId || contractId || formSubmissionId) {
 			loadEmails();
 		}
 	});

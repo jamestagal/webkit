@@ -2,13 +2,26 @@
 	import { goto } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { createContractFromProposal } from '$lib/api/contracts.remote';
-	import { FileText, ArrowLeft, ArrowRight, CheckCircle, Star } from 'lucide-svelte';
+	import { FileText, ArrowLeft, ArrowRight, CheckCircle, Star, UserCircle } from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
 	const toast = getToast();
 	let { data }: PageProps = $props();
 
 	let agencySlug = $derived(data.agency.slug);
+
+	// Pre-fill from clientId URL param (Quick Create from Client Hub)
+	const prefillClientId = data.prefillClientId;
+	const prefillClientName = data.prefillClientName;
+
+	// Sort proposals: those matching prefillClientId first
+	const sortedProposals = prefillClientId
+		? [...data.proposals].sort((a, b) => {
+				const aMatch = a.clientId === prefillClientId ? 0 : 1;
+				const bMatch = b.clientId === prefillClientId ? 0 : 1;
+				return aMatch - bMatch;
+			})
+		: data.proposals;
 
 	// Form state
 	let selectedProposalId = $state<string | null>(null);
@@ -24,7 +37,7 @@
 	});
 
 	let selectedProposal = $derived(
-		data.proposals.find((p) => p.id === selectedProposalId) || null
+		sortedProposals.find((p) => p.id === selectedProposalId) || null
 	);
 
 	async function handleSubmit() {
@@ -82,7 +95,15 @@
 		</p>
 	</div>
 
-	{#if data.proposals.length === 0}
+	<!-- Client Context Banner (from Quick Create) -->
+	{#if prefillClientName}
+		<div class="alert bg-primary/10 border-primary/20">
+			<UserCircle class="h-5 w-5 text-primary" />
+			<span>Creating contract for <strong>{prefillClientName}</strong></span>
+		</div>
+	{/if}
+
+	{#if sortedProposals.length === 0}
 		<!-- No accepted proposals -->
 		<div class="card bg-base-100 border border-base-300">
 			<div class="card-body items-center text-center py-12">
@@ -128,7 +149,7 @@
 				</p>
 
 				<div class="grid gap-3 mt-4 sm:grid-cols-2 lg:grid-cols-3">
-					{#each data.proposals as proposal (proposal.id)}
+					{#each sortedProposals as proposal (proposal.id)}
 						<button
 							type="button"
 							class="card border transition-all text-left

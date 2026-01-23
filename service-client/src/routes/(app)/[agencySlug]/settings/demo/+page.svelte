@@ -3,13 +3,15 @@
 	import { loadDemoData, clearDemoData, getDemoDataStatus } from '$lib/api/demo.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
-	import { Sparkles, Trash2, Play, CheckCircle, FileText, MessageCircle, Receipt, ScrollText, AlertTriangle } from 'lucide-svelte';
+	import { Sparkles, Trash2, Play, CheckCircle, FileText, MessageCircle, Receipt, ScrollText, AlertTriangle, X, Loader2, Users } from 'lucide-svelte';
 
 	let { data } = $props();
 
 	const toast = getToast();
 	let isLoading = $state(false);
 	let hasDemoData = $state(false);
+	let showClearModal = $state(false);
+	let showLoadModal = $state(false);
 
 	// Check demo data status on mount
 	$effect(() => {
@@ -19,6 +21,7 @@
 	});
 
 	async function handleLoad() {
+		showLoadModal = false;
 		isLoading = true;
 		try {
 			const result = await loadDemoData();
@@ -38,10 +41,7 @@
 	}
 
 	async function handleClear() {
-		if (!confirm('Are you sure you want to delete all demo data? This cannot be undone.')) {
-			return;
-		}
-
+		showClearModal = false;
 		isLoading = true;
 		try {
 			await clearDemoData();
@@ -117,7 +117,7 @@
 
 		<div class="flex items-center gap-4">
 			{#if !hasDemoData}
-				<button class="btn btn-primary" onclick={handleLoad} disabled={isLoading || !data.isProfileComplete}>
+				<button class="btn btn-primary" onclick={() => showLoadModal = true} disabled={isLoading || !data.isProfileComplete}>
 					{#if isLoading}
 						<span class="loading loading-spinner loading-sm"></span>
 					{:else}
@@ -126,7 +126,7 @@
 					Load Demo Data
 				</button>
 			{:else}
-				<button class="btn btn-error btn-outline" onclick={handleClear} disabled={isLoading}>
+				<button class="btn btn-error btn-outline" onclick={() => showClearModal = true} disabled={isLoading}>
 					{#if isLoading}
 						<span class="loading loading-spinner loading-sm"></span>
 					{:else}
@@ -165,3 +165,123 @@
 		</SettingsSection>
 	{/if}
 </div>
+
+<!-- Load Demo Data Modal -->
+{#if showLoadModal}
+<dialog class="modal modal-open">
+	<div class="modal-box">
+		<button type="button" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick={() => showLoadModal = false}>
+			<X class="h-4 w-4" />
+		</button>
+
+		<div class="flex items-center gap-3 mb-4">
+			<div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+				<Sparkles class="h-5 w-5 text-primary" />
+			</div>
+			<h3 class="font-bold text-lg">Load Demo Data</h3>
+		</div>
+
+		<p class="text-base-content/70 mb-4">
+			This will create a complete Murray's Plumbing demo scenario including:
+		</p>
+
+		<div class="grid grid-cols-2 gap-2 mb-4">
+			<div class="flex items-center gap-2 text-sm p-2 bg-base-200 rounded">
+				<Users class="h-4 w-4 text-primary" />
+				<span>Client</span>
+			</div>
+			<div class="flex items-center gap-2 text-sm p-2 bg-base-200 rounded">
+				<MessageCircle class="h-4 w-4 text-primary" />
+				<span>Consultation</span>
+			</div>
+			<div class="flex items-center gap-2 text-sm p-2 bg-base-200 rounded">
+				<FileText class="h-4 w-4 text-primary" />
+				<span>Proposal</span>
+			</div>
+			<div class="flex items-center gap-2 text-sm p-2 bg-base-200 rounded">
+				<ScrollText class="h-4 w-4 text-primary" />
+				<span>Contract</span>
+			</div>
+			<div class="flex items-center gap-2 text-sm p-2 bg-base-200 rounded">
+				<Receipt class="h-4 w-4 text-primary" />
+				<span>Invoice</span>
+			</div>
+		</div>
+
+		<p class="text-sm text-base-content/60">
+			All entities are linked via a unified client record for easy tracking.
+		</p>
+
+		<div class="modal-action">
+			<button type="button" class="btn btn-ghost" onclick={() => showLoadModal = false}>
+				Cancel
+			</button>
+			<button type="button" class="btn btn-primary" onclick={handleLoad} disabled={isLoading}>
+				{#if isLoading}
+					<Loader2 class="h-4 w-4 animate-spin" />
+					Loading...
+				{:else}
+					<Play class="h-4 w-4" />
+					Load Demo Data
+				{/if}
+			</button>
+		</div>
+	</div>
+	<form method="dialog" class="modal-backdrop">
+		<button type="button" onclick={() => showLoadModal = false}>close</button>
+	</form>
+</dialog>
+{/if}
+
+<!-- Clear Demo Data Modal -->
+{#if showClearModal}
+<dialog class="modal modal-open">
+	<div class="modal-box">
+		<button type="button" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick={() => showClearModal = false}>
+			<X class="h-4 w-4" />
+		</button>
+
+		<div class="flex items-center gap-3 mb-4">
+			<div class="flex h-10 w-10 items-center justify-center rounded-full bg-error/10">
+				<Trash2 class="h-5 w-5 text-error" />
+			</div>
+			<h3 class="font-bold text-lg">Clear Demo Data</h3>
+		</div>
+
+		<p class="text-base-content/70 mb-4">
+			Are you sure you want to delete all demo data? This will remove:
+		</p>
+
+		<ul class="list-disc list-inside text-sm text-base-content/70 space-y-1 mb-4">
+			<li>Demo client (Murray's Plumbing)</li>
+			<li>All linked consultations</li>
+			<li>All linked proposals</li>
+			<li>All linked contracts</li>
+			<li>All linked invoices</li>
+		</ul>
+
+		<div class="alert alert-warning py-2">
+			<AlertTriangle class="h-4 w-4" />
+			<span class="text-sm">This action cannot be undone.</span>
+		</div>
+
+		<div class="modal-action">
+			<button type="button" class="btn btn-ghost" onclick={() => showClearModal = false}>
+				Cancel
+			</button>
+			<button type="button" class="btn btn-error" onclick={handleClear} disabled={isLoading}>
+				{#if isLoading}
+					<Loader2 class="h-4 w-4 animate-spin" />
+					Clearing...
+				{:else}
+					<Trash2 class="h-4 w-4" />
+					Clear Demo Data
+				{/if}
+			</button>
+		</div>
+	</div>
+	<form method="dialog" class="modal-backdrop">
+		<button type="button" onclick={() => showClearModal = false}>close</button>
+	</form>
+</dialog>
+{/if}

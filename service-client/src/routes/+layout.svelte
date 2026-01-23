@@ -2,6 +2,7 @@
 	import "../app.css";
 	import Toast from "$lib/ui/toast.svelte";
 	import { setToast } from "$lib/ui/toast_store.svelte";
+	import { page } from "$app/stores";
 
 	let { children } = $props();
 
@@ -10,6 +11,9 @@
 	let loaded = $state(false);
 	let checked = $state(false);
 	let isInIframe = $state(false);
+
+	// Hide theme toggle on public form pages (they use custom branding)
+	let isPublicFormPage = $derived($page.url.pathname.startsWith("/f/"));
 
 	$effect(() => {
 		// Check if we're inside an iframe (e.g., preview mode)
@@ -52,8 +56,8 @@
 	</div>
 </div>
 
-<!-- Theme Controller (hidden when inside iframe/preview) -->
-{#if !isInIframe}
+<!-- Theme Controller (hidden in iframe/preview and on public form pages) -->
+{#if !isInIframe && !isPublicFormPage}
 <div class="fixed right-0 bottom-0 z-30 p-4">
 	<label class="swap swap-rotate">
 		<input

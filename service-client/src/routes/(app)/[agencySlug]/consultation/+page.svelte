@@ -3,11 +3,15 @@
 	 * Agency-Scoped Consultation Form Page v2
 	 *
 	 * Uses the ConsultationPage component with the new 4-step form.
+	 * Supports pre-filling client data via ?clientId= URL parameter.
 	 */
 
 	import { page } from '$app/state';
 	import ConsultationPage from '$lib/components/consultation/ConsultationPage.svelte';
 	import { getExistingDraftConsultation } from '$lib/api/consultation.remote';
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
 
 	// Get agency ID from parent layout data
 	const agencyId = page.data.currentAgency?.id;
@@ -22,4 +26,4 @@
 	const consultation = await getExistingDraftConsultation();
 </script>
 
-<ConsultationPage {consultation} {agencyId} />
+<ConsultationPage {consultation} {agencyId} prefillClient={data.prefillClient} />

@@ -44,31 +44,85 @@
 
 	type Consultation = typeof consultations.$inferSelect;
 
+	// Type for pre-fill client data from URL param
+	type PrefillClient = {
+		businessName: string;
+		email: string;
+		contactName: string | null;
+		phone: string | null;
+	} | null;
+
 	const feature = FEATURES.consultations;
 	const toast = getToast();
 
 	// Props from server - consultation can be null (lazy creation pattern)
-	let { consultation: initialConsultation, agencyId }: { consultation: Consultation | null; agencyId: string } =
-		$props();
+	// prefillClient provides data from ?clientId= URL param for Quick Create from Client Hub
+	let {
+		consultation: initialConsultation,
+		agencyId,
+		prefillClient = null
+	}: {
+		consultation: Consultation | null;
+		agencyId: string;
+		prefillClient?: PrefillClient;
+	} = $props();
 
 	// Get agency slug from route params for navigation
 	let agencySlug = $derived(page.params.agencySlug);
 
 	// Initialize form state from props (one-time capture - form maintains user edits)
+	// Priority: existing consultation > prefillClient > empty
 	function initContactBusiness(c: Consultation | null): ContactBusiness {
+		// If we have an existing consultation, use that
+		if (c) {
+			return {
+				business_name: c.businessName ?? '',
+				contact_person: c.contactPerson ?? '',
+				email: c.email ?? '',
+				phone: c.phone ?? '',
+				website: c.website ?? '',
+				social_media: {
+					linkedin: c.socialLinkedin ?? '',
+					facebook: c.socialFacebook ?? '',
+					instagram: c.socialInstagram ?? ''
+				},
+				industry: c.industry ?? '',
+				business_type: c.businessType ?? ''
+			};
+		}
+
+		// If we have prefillClient (from ?clientId= URL param), use that
+		if (prefillClient) {
+			return {
+				business_name: prefillClient.businessName,
+				contact_person: prefillClient.contactName ?? '',
+				email: prefillClient.email,
+				phone: prefillClient.phone ?? '',
+				website: '',
+				social_media: {
+					linkedin: '',
+					facebook: '',
+					instagram: ''
+				},
+				industry: '',
+				business_type: ''
+			};
+		}
+
+		// Default empty state
 		return {
-			business_name: c?.businessName ?? '',
-			contact_person: c?.contactPerson ?? '',
-			email: c?.email ?? '',
-			phone: c?.phone ?? '',
-			website: c?.website ?? '',
+			business_name: '',
+			contact_person: '',
+			email: '',
+			phone: '',
+			website: '',
 			social_media: {
-				linkedin: c?.socialLinkedin ?? '',
-				facebook: c?.socialFacebook ?? '',
-				instagram: c?.socialInstagram ?? ''
+				linkedin: '',
+				facebook: '',
+				instagram: ''
 			},
-			industry: c?.industry ?? '',
-			business_type: c?.businessType ?? ''
+			industry: '',
+			business_type: ''
 		};
 	}
 

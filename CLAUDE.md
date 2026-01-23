@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Plan Mode
 
 - Make the plan extremely concise. Sacrifice grammar for the sake of concision.
+- Create new planning documents for each new feature. Don't append them to pervious plan files 
 - At the end of each plan, give me a list of unresolved questions to answer, if any.
 
 ## Project Overview

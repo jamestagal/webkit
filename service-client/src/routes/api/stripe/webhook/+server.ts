@@ -15,10 +15,16 @@
 
 import type { RequestHandler } from "./$types";
 import { db } from "$lib/server/db";
-import { invoices, agencyProfiles } from "$lib/server/schema";
+import { invoices, agencies, agencyProfiles, emailLogs } from "$lib/server/schema";
 import { eq } from "drizzle-orm";
 import Stripe from "stripe";
 import { env } from "$env/dynamic/private";
+import { env as publicEnv } from "$env/dynamic/public";
+import { sendEmail } from "$lib/server/services/email.service";
+import {
+	generateInvoicePaidClientEmail,
+	generateInvoicePaidAgencyEmail,
+} from "$lib/templates/email-templates";
 
 // Lazy-initialize Stripe to avoid build-time errors
 let _stripe: Stripe | null = null;
@@ -134,6 +140,11 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
 		.where(eq(invoices.id, invoiceId));
 
 	console.log(`Invoice ${invoiceId} marked as paid via Stripe checkout`);
+
+	// Send payment notification emails (fire-and-forget)
+	sendInvoicePaidNotifications(invoice, "Card (Stripe)").catch((err) => {
+		console.error("Failed to send invoice paid notification emails:", err);
+	});
 }
 
 /**
@@ -232,4 +243,96 @@ async function handleAccountDeauthorized(stripeAccountId: string) {
 		.where(eq(invoices.agencyId, profile.agencyId));
 
 	console.log(`Agency ${profile.agencyId} disconnected from Stripe`);
+}
+
+/**
+ * Send payment notification emails to both client and agency
+ */
+async function sendInvoicePaidNotifications(
+	invoice: { id: string; agencyId: string; invoiceNumber: string; slug: string; total: string; clientEmail: string; clientContactName: string; clientBusinessName: string },
+	paymentMethod: string
+) {
+	const baseUrl = publicEnv.PUBLIC_CLIENT_URL || "https://webkit.au";
+	const publicUrl = `${baseUrl}/i/${invoice.slug}`;
+	const paidAt = new Date().toLocaleDateString("en-AU", {
+		day: "numeric",
+		month: "short",
+		year: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+
+	const [agency] = await db
+		.select()
+		.from(agencies)
+		.where(eq(agencies.id, invoice.agencyId))
+		.limit(1);
+
+	if (!agency) return;
+
+	const notificationData = {
+		agency: {
+			name: agency.name,
+			email: agency.email || undefined,
+			primaryColor: agency.primaryColor || undefined,
+			logoUrl: agency.logoUrl || undefined,
+		},
+		invoice: {
+			number: invoice.invoiceNumber,
+			total: invoice.total,
+			publicUrl,
+		},
+		client: {
+			name: invoice.clientContactName || invoice.clientBusinessName || "Client",
+			businessName: invoice.clientBusinessName || undefined,
+			email: invoice.clientEmail,
+		},
+		paidAt,
+		paymentMethod,
+	};
+
+	// Send receipt to client
+	if (invoice.clientEmail) {
+		const clientEmail = generateInvoicePaidClientEmail(notificationData);
+		const clientResult = await sendEmail({
+			to: invoice.clientEmail,
+			subject: clientEmail.subject,
+			html: clientEmail.bodyHtml,
+			...(agency.email ? { replyTo: agency.email } : {}),
+		});
+
+		await db.insert(emailLogs).values({
+			agencyId: invoice.agencyId,
+			invoiceId: invoice.id,
+			emailType: "invoice_paid_client",
+			recipientEmail: invoice.clientEmail,
+			recipientName: invoice.clientContactName || invoice.clientBusinessName || null,
+			subject: clientEmail.subject,
+			bodyHtml: clientEmail.bodyHtml,
+			status: clientResult.success ? "sent" : "failed",
+			resendMessageId: clientResult.messageId || null,
+		});
+	}
+
+	// Send notification to agency
+	if (agency.email) {
+		const agencyNotification = generateInvoicePaidAgencyEmail(notificationData);
+		const agencyResult = await sendEmail({
+			to: agency.email,
+			subject: agencyNotification.subject,
+			html: agencyNotification.bodyHtml,
+		});
+
+		await db.insert(emailLogs).values({
+			agencyId: invoice.agencyId,
+			invoiceId: invoice.id,
+			emailType: "invoice_paid_agency",
+			recipientEmail: agency.email,
+			recipientName: agency.name,
+			subject: agencyNotification.subject,
+			bodyHtml: agencyNotification.bodyHtml,
+			status: agencyResult.success ? "sent" : "failed",
+			resendMessageId: agencyResult.messageId || null,
+		});
+	}
 }

@@ -18,12 +18,14 @@ import {
 	contracts,
 	agencies,
 	agencyProfiles,
+	formSubmissions,
+	agencyForms,
 } from "$lib/server/schema";
 import { getAgencyContext } from "$lib/server/agency";
 import { logActivity } from "$lib/server/db-helpers";
 import { hasPermission } from "$lib/server/permissions";
 import { getEffectiveBranding } from "$lib/server/document-branding";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, or, desc, inArray } from "drizzle-orm";
 import { sendEmail } from "$lib/server/services/email.service";
 import {
 	fetchProposalPdf,
@@ -35,6 +37,7 @@ import {
 	generateInvoiceEmail,
 	generateInvoiceReminderEmail,
 	generateContractEmail,
+	generateFormEmail,
 	buildProposalEmailData,
 	buildInvoiceEmailData,
 	buildContractEmailData,
@@ -131,13 +134,14 @@ export const getEmailLogs = query(GetEmailLogsFilterSchema, async (filters) => {
 });
 
 /**
- * Get email logs for a specific entity (proposal, invoice, or contract)
+ * Get email logs for a specific entity (proposal, invoice, contract, or form submission)
  */
 export const getEntityEmailLogs = query(
 	v.object({
 		proposalId: v.optional(v.pipe(v.string(), v.uuid())),
 		invoiceId: v.optional(v.pipe(v.string(), v.uuid())),
 		contractId: v.optional(v.pipe(v.string(), v.uuid())),
+		formSubmissionId: v.optional(v.pipe(v.string(), v.uuid())),
 	}),
 	async (params) => {
 		const context = await getAgencyContext();
@@ -151,6 +155,8 @@ export const getEntityEmailLogs = query(
 			conditions.push(eq(emailLogs.invoiceId, params.invoiceId));
 		} else if (params.contractId) {
 			conditions.push(eq(emailLogs.contractId, params.contractId));
+		} else if (params.formSubmissionId) {
+			conditions.push(eq(emailLogs.formSubmissionId, params.formSubmissionId));
 		} else {
 			return [];
 		}
@@ -159,6 +165,69 @@ export const getEntityEmailLogs = query(
 			where: and(...conditions),
 			orderBy: [desc(emailLogs.createdAt)],
 			limit: 20,
+		});
+
+		return logs;
+	},
+);
+
+/**
+ * Get email logs for all documents belonging to a client.
+ * Used in the Client Hub to show a unified email history.
+ */
+export const getClientEmailLogs = query(
+	v.pipe(v.string(), v.uuid()),
+	async (clientId) => {
+		const context = await getAgencyContext();
+
+		// Get IDs of all documents belonging to this client
+		const [clientProposals, clientInvoices, clientContracts, clientFormSubs] = await Promise.all([
+			db.select({ id: proposals.id }).from(proposals).where(
+				and(eq(proposals.clientId, clientId), eq(proposals.agencyId, context.agencyId))
+			),
+			db.select({ id: invoices.id }).from(invoices).where(
+				and(eq(invoices.clientId, clientId), eq(invoices.agencyId, context.agencyId))
+			),
+			db.select({ id: contracts.id }).from(contracts).where(
+				and(eq(contracts.clientId, clientId), eq(contracts.agencyId, context.agencyId))
+			),
+			db.select({ id: formSubmissions.id }).from(formSubmissions).where(
+				and(eq(formSubmissions.clientId, clientId), eq(formSubmissions.agencyId, context.agencyId))
+			),
+		]);
+
+		const proposalIds = clientProposals.map((p) => p.id);
+		const invoiceIds = clientInvoices.map((i) => i.id);
+		const contractIds = clientContracts.map((c) => c.id);
+		const formSubIds = clientFormSubs.map((f) => f.id);
+
+		// If client has no documents, return empty
+		if (proposalIds.length === 0 && invoiceIds.length === 0 && contractIds.length === 0 && formSubIds.length === 0) {
+			return [];
+		}
+
+		// Build OR conditions for each entity type
+		const entityConditions = [];
+		if (proposalIds.length > 0) {
+			entityConditions.push(inArray(emailLogs.proposalId, proposalIds));
+		}
+		if (invoiceIds.length > 0) {
+			entityConditions.push(inArray(emailLogs.invoiceId, invoiceIds));
+		}
+		if (contractIds.length > 0) {
+			entityConditions.push(inArray(emailLogs.contractId, contractIds));
+		}
+		if (formSubIds.length > 0) {
+			entityConditions.push(inArray(emailLogs.formSubmissionId, formSubIds));
+		}
+
+		const logs = await db.query.emailLogs.findMany({
+			where: and(
+				eq(emailLogs.agencyId, context.agencyId),
+				or(...entityConditions),
+			),
+			orderBy: [desc(emailLogs.createdAt)],
+			limit: 50,
 		});
 
 		return logs;
@@ -788,6 +857,152 @@ export const resendEmail = command(ResendEmailSchema, async (data) => {
 			})
 			.where(eq(emailLogs.id, newLog.id));
 	}
+
+	return {
+		success: result.success,
+		messageId: result.messageId,
+		error: result.error,
+	};
+});
+
+// =============================================================================
+// Form Email
+// =============================================================================
+
+const SendFormEmailSchema = v.object({
+	submissionId: v.pipe(v.string(), v.uuid()),
+	customMessage: v.optional(v.string()),
+});
+
+/**
+ * Send form email to client
+ */
+export const sendFormEmail = command(SendFormEmailSchema, async (data) => {
+	const context = await getAgencyContext();
+
+	if (!hasPermission(context.role, "email:send")) {
+		throw new Error("Permission denied");
+	}
+
+	// Fetch submission with form and agency details
+	const submission = await db.query.formSubmissions.findFirst({
+		where: and(
+			eq(formSubmissions.id, data.submissionId),
+			eq(formSubmissions.agencyId, context.agencyId),
+		),
+	});
+
+	if (!submission) {
+		throw new Error("Form submission not found");
+	}
+
+	if (!submission.clientEmail) {
+		throw new Error("No client email address for this submission");
+	}
+
+	if (!submission.slug) {
+		throw new Error("No public link for this submission");
+	}
+
+	// Get the form template if linked
+	let formName = "Form";
+	if (submission.formId) {
+		const form = await db.query.agencyForms.findFirst({
+			where: eq(agencyForms.id, submission.formId),
+		});
+		if (form) {
+			formName = form.name;
+		}
+	}
+
+	const agency = await db.query.agencies.findFirst({
+		where: eq(agencies.id, context.agencyId),
+	});
+
+	if (!agency) {
+		throw new Error("Agency not found");
+	}
+
+	const profile = await db.query.agencyProfiles.findFirst({
+		where: eq(agencyProfiles.agencyId, context.agencyId),
+	});
+
+	// Get email-specific branding (with overrides if configured)
+	const emailBranding = await getEffectiveBranding(context.agencyId, "email");
+
+	// Generate public URL (absolute URL for email clients)
+	const publicUrl = `${getPublicBaseUrl()}/f/${submission.slug}`;
+
+	// Build email template data
+	const templateData = {
+		agency: {
+			name: profile?.tradingName || agency.name,
+			email: agency.email || undefined,
+			phone: agency.phone || undefined,
+			logoUrl: emailBranding.logoUrl || agency.logoUrl || undefined,
+			primaryColor: emailBranding.primaryColor || agency.primaryColor || undefined,
+		},
+		recipient: {
+			name: submission.clientBusinessName || "there",
+			businessName: submission.clientBusinessName || undefined,
+			email: submission.clientEmail,
+		},
+		form: {
+			name: formName,
+			publicUrl,
+		},
+		customMessage: data.customMessage,
+	};
+
+	// Generate email content
+	const emailContent = generateFormEmail(templateData);
+
+	// Create email log entry
+	const [emailLog] = await db
+		.insert(emailLogs)
+		.values({
+			agencyId: context.agencyId,
+			formSubmissionId: submission.id,
+			emailType: "form_sent",
+			recipientEmail: submission.clientEmail,
+			recipientName: submission.clientBusinessName || undefined,
+			subject: emailContent.subject,
+			bodyHtml: emailContent.bodyHtml,
+			hasAttachment: false,
+			status: "pending",
+			sentBy: context.userId,
+		})
+		.returning();
+
+	// Build email options
+	const emailOptions: Parameters<typeof sendEmail>[0] = {
+		to: submission.clientEmail,
+		subject: emailContent.subject,
+		html: emailContent.bodyHtml,
+	};
+	if (agency.email) {
+		emailOptions.replyTo = agency.email;
+	}
+
+	const result = await sendEmail(emailOptions);
+
+	// Update email log with result
+	if (emailLog) {
+		await db
+			.update(emailLogs)
+			.set({
+				status: result.success ? "sent" : "failed",
+				resendMessageId: result.messageId,
+				sentAt: result.success ? new Date() : null,
+				errorMessage: result.error,
+			})
+			.where(eq(emailLogs.id, emailLog.id));
+	}
+
+	// Log activity
+	await logActivity(result.success ? "email_sent" : "email_failed", "form_submission", submission.id, {
+		metadata: { recipientEmail: submission.clientEmail, error: result.error },
+	});
 
 	return {
 		success: result.success,

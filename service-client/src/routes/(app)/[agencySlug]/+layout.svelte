@@ -35,12 +35,14 @@
 	// Navigation items scoped to agency - using shared feature config for consistency
 	let nav = $derived([
 		{ label: 'Dashboard', url: `/${agencySlug}`, icon: NAV_FEATURES.dashboard.icon, color: NAV_FEATURES.dashboard.color },
+		{ label: 'Clients', url: `/${agencySlug}/clients`, icon: FEATURES.clients.icon, color: FEATURES.clients.color },
 		{ label: 'New Consultation', url: `/${agencySlug}/consultation`, icon: FEATURES.consultations.icon, color: FEATURES.consultations.color },
 		{ label: 'My Consultations', url: `/${agencySlug}/consultation/history`, icon: NAV_FEATURES.consultationHistory.icon, color: FEATURES.consultations.color },
 		{ label: 'Proposals', url: `/${agencySlug}/proposals`, icon: FEATURES.proposals.icon, color: FEATURES.proposals.color },
 		{ label: 'Contracts', url: `/${agencySlug}/contracts`, icon: FEATURES.contracts.icon, color: FEATURES.contracts.color },
 		{ label: 'Invoices', url: `/${agencySlug}/invoices`, icon: FEATURES.invoices.icon, color: FEATURES.invoices.color },
-		{ label: 'Questionnaires', url: `/${agencySlug}/questionnaires`, icon: FEATURES.questionnaires.icon, color: FEATURES.questionnaires.color }
+		{ label: 'Questionnaires', url: `/${agencySlug}/questionnaires`, icon: FEATURES.questionnaires.icon, color: FEATURES.questionnaires.color },
+		{ label: 'Forms', url: `/${agencySlug}/forms`, icon: FEATURES.forms.icon, color: FEATURES.forms.color }
 	]);
 
 	// Admin navigation (only shown to owner/admin)
@@ -48,6 +50,12 @@
 		{ label: 'Settings', url: `/${agencySlug}/settings`, icon: NAV_FEATURES.settings.icon, color: NAV_FEATURES.settings.color },
 		{ label: 'Members', url: `/${agencySlug}/settings/members`, icon: NAV_FEATURES.members.icon, color: NAV_FEATURES.members.color }
 	]);
+
+	// Check if we're on a form builder page (needs full width layout)
+	let isFormBuilderPage = $derived(
+		current.includes('/settings/forms/new') ||
+			(current.includes('/settings/forms/') && current.match(/\/settings\/forms\/[^/]+$/))
+	);
 
 	// Helper to check if nav item is active
 	function isActive(itemUrl: string): boolean {
@@ -305,7 +313,17 @@
 				isSuperAdmin={data.isSuperAdmin}
 			/>
 		</div>
-		<div class="px-4 py-10 sm:px-6 lg:px-8 xl:px-12 lg:py-6 max-w-[1600px]">
+		<div
+			class="lg:py-6"
+			class:px-4={!isFormBuilderPage}
+			class:sm:px-6={!isFormBuilderPage}
+			class:lg:px-8={!isFormBuilderPage}
+			class:xl:px-12={!isFormBuilderPage}
+			class:py-10={!isFormBuilderPage}
+			class:px-2={isFormBuilderPage}
+			class:py-4={isFormBuilderPage}
+			class:max-w-[1600px]={!isFormBuilderPage}
+		>
 			{@render children()}
 		</div>
 	</main>

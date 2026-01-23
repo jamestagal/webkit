@@ -16,6 +16,7 @@
 	import { updateContract, sendContract, deleteContract, regenerateContractTerms, linkTemplateToContract } from '$lib/api/contracts.remote';
 	import { sendContractEmail } from '$lib/api/email.remote';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
+	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';
 	import {
 		Save,
 		Send,
@@ -57,6 +58,11 @@
 	let showRegenerateConfirm = $state(false);
 	let selectedTemplateId = $state<string | null>(null);
 	let activeSection = $state('overview');
+
+	// Send email modal state
+	let sendModalOpen = $state(false);
+	let sendingEmail = $state(false);
+	let isResend = $state(false);
 
 	// Form state - editable fields
 	let clientBusinessName = $state('');
@@ -246,17 +252,17 @@
 		}
 	}
 
-	async function handleSend() {
+	function openSendModal(resend = false) {
 		if (!clientEmail) {
 			toast.error('Client email is required to send the contract');
 			return;
 		}
+		isResend = resend;
+		sendModalOpen = true;
+	}
 
-		if (!confirm(`Send this contract to ${clientEmail}?`)) {
-			return;
-		}
-
-		isSending = true;
+	async function confirmSendEmail() {
+		sendingEmail = true;
 
 		try {
 			// Save first
@@ -265,15 +271,16 @@
 			// Then send email
 			const result = await sendContractEmail({ contractId: contract.id });
 			await invalidateAll();
+			sendModalOpen = false;
 			if (result.success) {
-				toast.success('Contract sent', `Email delivered to ${clientEmail}`);
+				toast.success(isResend ? 'Contract resent' : 'Contract sent', `Email delivered to ${clientEmail}`);
 			} else {
 				toast.error('Failed to send contract', result.error || 'Unknown error');
 			}
 		} catch (err) {
 			toast.error('Failed to send', err instanceof Error ? err.message : '');
 		} finally {
-			isSending = false;
+			sendingEmail = false;
 		}
 	}
 
@@ -472,10 +479,10 @@
 								<button
 									type="button"
 									class="btn btn-primary btn-sm"
-									onclick={handleSend}
-									disabled={isSending || !clientEmail}
+									onclick={() => openSendModal(false)}
+									disabled={sendingEmail || !clientEmail}
 								>
-									{#if isSending}
+									{#if sendingEmail}
 										<span class="loading loading-spinner loading-sm"></span>
 									{:else}
 										<Send class="h-4 w-4" />
@@ -486,10 +493,10 @@
 								<button
 									type="button"
 									class="btn btn-primary btn-sm"
-									onclick={handleSend}
-									disabled={isSending || !clientEmail}
+									onclick={() => openSendModal(true)}
+									disabled={sendingEmail || !clientEmail}
 								>
-									{#if isSending}
+									{#if sendingEmail}
 										<span class="loading loading-spinner loading-sm"></span>
 									{:else}
 										<Send class="h-4 w-4" />
@@ -1257,3 +1264,15 @@
 		</form>
 	</dialog>
 {/if}
+
+<!-- Send Email Modal -->
+<SendEmailModal
+	open={sendModalOpen}
+	title={isResend ? 'Resend Contract' : 'Send Contract'}
+	documentType="contract"
+	recipientEmail={clientEmail}
+	recipientName={clientContactName || clientBusinessName}
+	loading={sendingEmail}
+	onConfirm={confirmSendEmail}
+	onCancel={() => sendModalOpen = false}
+/>

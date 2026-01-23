@@ -15,15 +15,23 @@
 		Receipt,
 		ClipboardCheck,
 		ArrowRight,
-		Plus
+		Plus,
+		X,
+		Loader2,
+		AlertTriangle,
+		ScrollText,
+		UserPlus
 	} from 'lucide-svelte';
 	import { loadDemoData, clearDemoData } from '$lib/api/demo.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
+	import { FEATURES } from '$lib/config/features';
 
 	let { data } = $props();
 
 	const toast = getToast();
 	let isLoadingDemo = $state(false);
+	let showLoadModal = $state(false);
+	let showClearModal = $state(false);
 
 	// Core features for the dashboard
 	const coreFeatures = [
@@ -68,14 +76,24 @@
 			createLabel: 'New Invoice'
 		},
 		{
-			title: 'Questionnaires',
-			description: 'Collect project requirements from clients. Gather content, branding, and technical details.',
+			title: 'Forms',
+			description: 'Send customizable forms to clients. Collect project requirements and business details.',
 			icon: ClipboardCheck,
 			color: '#f59e0b', // Amber
-			viewHref: `/${data.agency.slug}/questionnaires`,
-			createHref: `/${data.agency.slug}/questionnaires/new`,
+			viewHref: `/${data.agency.slug}/forms`,
+			createHref: `/${data.agency.slug}/forms/new`,
 			viewLabel: 'View All',
 			createLabel: 'New Form'
+		},
+		{
+			title: 'Clients',
+			description: 'Central hub for managing client relationships. View all linked documents in one place.',
+			icon: Users,
+			color: FEATURES.clients.color,
+			viewHref: `/${data.agency.slug}/clients`,
+			createHref: `/${data.agency.slug}/clients?new=true`,
+			viewLabel: 'View All',
+			createLabel: 'New Client'
 		}
 	];
 
@@ -102,6 +120,7 @@
 	]);
 
 	async function handleLoadDemo() {
+		showLoadModal = false;
 		isLoadingDemo = true;
 		try {
 			const result = await loadDemoData();
@@ -120,6 +139,7 @@
 	}
 
 	async function handleClearDemo() {
+		showClearModal = false;
 		isLoadingDemo = true;
 		try {
 			await clearDemoData();
@@ -140,15 +160,26 @@
 
 <div class="space-y-8">
 	<!-- Welcome Header -->
-	<div>
-		<h1 class="text-2xl font-bold">Welcome to WebKit</h1>
-		<p class="text-base-content/70 mt-1">
-			{#if data.membership.displayName}
-				Logged in as {data.membership.displayName} ({data.membership.role})
-			{:else}
-				You're logged in as {data.membership.role}
-			{/if}
-		</p>
+	<div class="flex items-start justify-between gap-4">
+		<div>
+			<h1 class="text-2xl font-bold">Welcome to WebKit</h1>
+			<p class="text-base-content/70 mt-1">
+				{#if data.membership.displayName}
+					Logged in as {data.membership.displayName} ({data.membership.role})
+				{:else}
+					You're logged in as {data.membership.role}
+				{/if}
+			</p>
+		</div>
+		<a
+			href="/{data.agency.slug}/clients?new=true"
+			class="btn btn-sm gap-1.5 shrink-0"
+			style="background-color: {FEATURES.clients.color}; border-color: {FEATURES.clients.color}; color: white"
+		>
+			<UserPlus class="h-4 w-4" />
+			<span class="hidden sm:inline">Create New Client</span>
+			<span class="sm:hidden">New Client</span>
+		</a>
 	</div>
 
 	<!-- Onboarding Section (shown until profile is complete AND demo data is loaded) -->
@@ -210,7 +241,7 @@
 						{#if !data.hasDemoData}
 							<button
 								class="btn btn-sm btn-outline gap-1"
-								onclick={handleLoadDemo}
+								onclick={() => showLoadModal = true}
 								disabled={isLoadingDemo || !data.isProfileComplete}
 							>
 								{#if isLoadingDemo}
@@ -223,7 +254,7 @@
 						{:else}
 							<button
 								class="btn btn-sm btn-ghost text-error gap-1"
-								onclick={handleClearDemo}
+								onclick={() => showClearModal = true}
 								disabled={isLoadingDemo}
 							>
 								{#if isLoadingDemo}
@@ -348,6 +379,126 @@
 		</div>
 	</div>
 </div>
+
+<!-- Load Demo Data Modal -->
+{#if showLoadModal}
+<dialog class="modal modal-open">
+	<div class="modal-box">
+		<button type="button" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick={() => showLoadModal = false}>
+			<X class="h-4 w-4" />
+		</button>
+
+		<div class="flex items-center gap-3 mb-4">
+			<div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+				<Sparkles class="h-5 w-5 text-primary" />
+			</div>
+			<h3 class="font-bold text-lg">Load Demo Data</h3>
+		</div>
+
+		<p class="text-base-content/70 mb-4">
+			This will create a complete Murray's Plumbing demo scenario including:
+		</p>
+
+		<div class="grid grid-cols-2 gap-2 mb-4">
+			<div class="flex items-center gap-2 text-sm p-2 bg-base-200 rounded">
+				<Users class="h-4 w-4 text-primary" />
+				<span>Client</span>
+			</div>
+			<div class="flex items-center gap-2 text-sm p-2 bg-base-200 rounded">
+				<MessageCircle class="h-4 w-4 text-primary" />
+				<span>Consultation</span>
+			</div>
+			<div class="flex items-center gap-2 text-sm p-2 bg-base-200 rounded">
+				<FileText class="h-4 w-4 text-primary" />
+				<span>Proposal</span>
+			</div>
+			<div class="flex items-center gap-2 text-sm p-2 bg-base-200 rounded">
+				<ScrollText class="h-4 w-4 text-primary" />
+				<span>Contract</span>
+			</div>
+			<div class="flex items-center gap-2 text-sm p-2 bg-base-200 rounded">
+				<Receipt class="h-4 w-4 text-primary" />
+				<span>Invoice</span>
+			</div>
+		</div>
+
+		<p class="text-sm text-base-content/60">
+			All entities are linked via a unified client record for easy tracking.
+		</p>
+
+		<div class="modal-action">
+			<button type="button" class="btn btn-ghost" onclick={() => showLoadModal = false}>
+				Cancel
+			</button>
+			<button type="button" class="btn btn-primary" onclick={handleLoadDemo} disabled={isLoadingDemo}>
+				{#if isLoadingDemo}
+					<Loader2 class="h-4 w-4 animate-spin" />
+					Loading...
+				{:else}
+					<Sparkles class="h-4 w-4" />
+					Load Demo Data
+				{/if}
+			</button>
+		</div>
+	</div>
+	<form method="dialog" class="modal-backdrop">
+		<button type="button" onclick={() => showLoadModal = false}>close</button>
+	</form>
+</dialog>
+{/if}
+
+<!-- Clear Demo Data Modal -->
+{#if showClearModal}
+<dialog class="modal modal-open">
+	<div class="modal-box">
+		<button type="button" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick={() => showClearModal = false}>
+			<X class="h-4 w-4" />
+		</button>
+
+		<div class="flex items-center gap-3 mb-4">
+			<div class="flex h-10 w-10 items-center justify-center rounded-full bg-error/10">
+				<Trash2 class="h-5 w-5 text-error" />
+			</div>
+			<h3 class="font-bold text-lg">Clear Demo Data</h3>
+		</div>
+
+		<p class="text-base-content/70 mb-4">
+			Are you sure you want to delete all demo data? This will remove:
+		</p>
+
+		<ul class="list-disc list-inside text-sm text-base-content/70 space-y-1 mb-4">
+			<li>Demo client (Murray's Plumbing)</li>
+			<li>All linked consultations</li>
+			<li>All linked proposals</li>
+			<li>All linked contracts</li>
+			<li>All linked invoices</li>
+		</ul>
+
+		<div class="alert alert-warning py-2">
+			<AlertTriangle class="h-4 w-4" />
+			<span class="text-sm">This action cannot be undone.</span>
+		</div>
+
+		<div class="modal-action">
+			<button type="button" class="btn btn-ghost" onclick={() => showClearModal = false}>
+				Cancel
+			</button>
+			<button type="button" class="btn btn-error" onclick={handleClearDemo} disabled={isLoadingDemo}>
+				{#if isLoadingDemo}
+					<Loader2 class="h-4 w-4 animate-spin" />
+					Clearing...
+				{:else}
+					<Trash2 class="h-4 w-4" />
+					Clear Demo Data
+				{/if}
+			</button>
+		</div>
+	</div>
+	<form method="dialog" class="modal-backdrop">
+		<button type="button" onclick={() => showClearModal = false}>close</button>
+	</form>
+</dialog>
+{/if}
 
 <style>
 	@keyframes fadeInUp {

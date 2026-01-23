@@ -4,6 +4,7 @@
 	import { deleteContract, updateContractStatus } from '$lib/api/contracts.remote';
 	import { sendContractEmail } from '$lib/api/email.remote';
 	import { FEATURES } from '$lib/config/features';
+	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';
 	import {
 		Plus,
 		MoreVertical,
@@ -23,6 +24,12 @@
 	const feature = FEATURES.contracts;
 	const toast = getToast();
 	let { data }: PageProps = $props();
+
+	// Send email modal state
+	let sendModalOpen = $state(false);
+	let sendingEmail = $state(false);
+	let selectedContract = $state<{ id: string; clientEmail: string; clientBusinessName: string | null } | null>(null);
+	let isResend = $state(false);
 
 	let agencySlug = $derived(data.agency.slug);
 
@@ -46,35 +53,28 @@
 			.length
 	});
 
-	async function handleSend(contractId: string, clientEmail: string) {
-		if (!confirm(`Send this contract to ${clientEmail}?`)) return;
-
-		try {
-			const result = await sendContractEmail({ contractId });
-			await invalidateAll();
-			if (result.success) {
-				toast.success('Contract sent', `Email delivered to ${clientEmail}`);
-			} else {
-				toast.error('Failed to send contract', result.error || 'Unknown error');
-			}
-		} catch (err) {
-			toast.error('Failed to send contract', err instanceof Error ? err.message : '');
-		}
+	function openSendModal(contract: { id: string; clientEmail: string; clientBusinessName: string | null }, resend: boolean = false) {
+		selectedContract = contract;
+		isResend = resend;
+		sendModalOpen = true;
 	}
 
-	async function handleResend(contractId: string, clientEmail: string) {
-		if (!confirm(`Resend this contract to ${clientEmail}?`)) return;
-
+	async function confirmSendEmail() {
+		if (!selectedContract) return;
+		sendingEmail = true;
 		try {
-			const result = await sendContractEmail({ contractId });
+			const result = await sendContractEmail({ contractId: selectedContract.id });
 			await invalidateAll();
 			if (result.success) {
-				toast.success('Contract resent', `Email delivered to ${clientEmail}`);
+				toast.success(isResend ? 'Contract resent' : 'Contract sent', `Email delivered to ${selectedContract.clientEmail}`);
+				sendModalOpen = false;
 			} else {
-				toast.error('Failed to resend contract', result.error || 'Unknown error');
+				toast.error(`Failed to ${isResend ? 'resend' : 'send'} contract`, result.error || 'Unknown error');
 			}
 		} catch (err) {
-			toast.error('Failed to resend contract', err instanceof Error ? err.message : '');
+			toast.error(`Failed to ${isResend ? 'resend' : 'send'} contract`, err instanceof Error ? err.message : '');
+		} finally {
+			sendingEmail = false;
 		}
 	}
 
@@ -251,7 +251,18 @@
 									</div>
 								</div>
 								<p class="text-sm text-base-content/70 mt-1 truncate">
-									{contract.clientBusinessName || 'No client'}
+									{#if contract.clientId}
+										<a
+											href="/{agencySlug}/clients/{contract.clientId}"
+											class="link link-hover"
+											title="View client hub"
+											onclick={(e) => e.stopPropagation()}
+										>
+											{contract.clientBusinessName || 'No client'}
+										</a>
+									{:else}
+										{contract.clientBusinessName || 'No client'}
+									{/if}
 								</p>
 							</a>
 							<div class="flex items-start gap-2">
@@ -272,7 +283,7 @@
 										</li>
 										{#if canEdit && contract.status === 'draft'}
 											<li>
-												<button type="button" onclick={() => handleSend(contract.id, contract.clientEmail)}>
+												<button type="button" onclick={() => openSendModal(contract, false)}>
 													<Send class="h-4 w-4" />
 													Send to Client
 												</button>
@@ -280,7 +291,7 @@
 										{/if}
 										{#if canEdit && ['sent', 'viewed'].includes(contract.status)}
 											<li>
-												<button type="button" onclick={() => handleResend(contract.id, contract.clientEmail)}>
+												<button type="button" onclick={() => openSendModal(contract, true)}>
 													<RefreshCw class="h-4 w-4" />
 													Resend Email
 												</button>
@@ -359,7 +370,17 @@
 							</td>
 							<td>
 								<div class="flex flex-col">
-									<span>{contract.clientBusinessName || 'No client'}</span>
+									{#if contract.clientId}
+										<a
+											href="/{agencySlug}/clients/{contract.clientId}"
+											class="link link-hover"
+											title="View client hub"
+										>
+											{contract.clientBusinessName || 'No client'}
+										</a>
+									{:else}
+										<span>{contract.clientBusinessName || 'No client'}</span>
+									{/if}
 									<span class="text-sm text-base-content/60">
 										{contract.clientContactName || '-'}
 									</span>
@@ -414,7 +435,7 @@
 											<li>
 												<button
 													type="button"
-													onclick={() => handleSend(contract.id, contract.clientEmail)}
+													onclick={() => openSendModal(contract, false)}
 												>
 													<Send class="h-4 w-4" />
 													Send to Client
@@ -425,7 +446,7 @@
 											<li>
 												<button
 													type="button"
-													onclick={() => handleResend(contract.id, contract.clientEmail)}
+													onclick={() => openSendModal(contract, true)}
 												>
 													<RefreshCw class="h-4 w-4" />
 													Resend Email
@@ -471,3 +492,15 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Send Email Modal -->
+<SendEmailModal
+	open={sendModalOpen}
+	title={isResend ? "Resend Contract" : "Send Contract"}
+	documentType="contract"
+	recipientEmail={selectedContract?.clientEmail || ""}
+	recipientName={selectedContract?.clientBusinessName || undefined}
+	loading={sendingEmail}
+	onConfirm={confirmSendEmail}
+	onCancel={() => sendModalOpen = false}
+/>

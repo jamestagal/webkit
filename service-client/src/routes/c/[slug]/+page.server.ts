@@ -7,9 +7,15 @@
 
 import type { PageServerLoad, Actions } from "./$types";
 import { db } from "$lib/server/db";
-import { contracts, agencies, agencyProfiles, contractSchedules } from "$lib/server/schema";
+import { contracts, agencies, agencyProfiles, contractSchedules, emailLogs } from "$lib/server/schema";
 import { eq, sql, inArray } from "drizzle-orm";
 import { error, fail } from "@sveltejs/kit";
+import { sendEmail } from "$lib/server/services/email.service";
+import {
+	generateContractSignedClientEmail,
+	generateContractSignedAgencyEmail,
+} from "$lib/templates/email-templates";
+import { env } from "$env/dynamic/public";
 
 export const load: PageServerLoad = async ({ params, url }) => {
 	const { slug } = params;
@@ -44,7 +50,9 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			.set(updates)
 			.where(eq(contracts.id, contract.id))
 			.then(() => {})
-			.catch(() => {});
+			.catch((err) => {
+				console.error(`Failed to record contract view for ${contract.id}:`, err);
+			});
 	}
 
 	// Fetch agency
@@ -151,8 +159,96 @@ export const actions: Actions = {
 			})
 			.where(eq(contracts.id, contract.id));
 
-		// TODO: Send confirmation email to client
-		// TODO: Send notification to agency
+		// Send notification emails (fire-and-forget, don't block the response)
+		const baseUrl = env.PUBLIC_CLIENT_URL || "https://webkit.au";
+		const publicUrl = `${baseUrl}/c/${slug}`;
+		const signedAt = new Date().toLocaleDateString("en-AU", {
+			day: "numeric",
+			month: "short",
+			year: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+		});
+
+		// Fetch agency for email templates
+		db.select()
+			.from(agencies)
+			.where(eq(agencies.id, contract.agencyId))
+			.limit(1)
+			.then(async ([agency]) => {
+				if (!agency) return;
+
+				const notificationData = {
+					agency: {
+						name: agency.name,
+						email: agency.email || undefined,
+						primaryColor: agency.primaryColor || undefined,
+						logoUrl: agency.logoUrl || undefined,
+					},
+					contract: {
+						number: contract.contractNumber,
+						publicUrl,
+					},
+					client: {
+						name: contract.clientContactName || contract.clientBusinessName || "Client",
+						businessName: contract.clientBusinessName || undefined,
+						email: contract.clientEmail,
+					},
+					signedAt,
+					signatoryName,
+				};
+
+				// Send confirmation to client
+				if (contract.clientEmail) {
+					const clientEmail = generateContractSignedClientEmail(notificationData);
+					const clientResult = await sendEmail({
+						to: contract.clientEmail,
+						subject: clientEmail.subject,
+						html: clientEmail.bodyHtml,
+						...(agency.email ? { replyTo: agency.email } : {}),
+					});
+
+					// Log client email
+					await db.insert(emailLogs).values({
+						agencyId: contract.agencyId,
+						contractId: contract.id,
+						emailType: "contract_signed_client",
+						recipientEmail: contract.clientEmail,
+						recipientName: contract.clientContactName || contract.clientBusinessName || null,
+						subject: clientEmail.subject,
+						bodyHtml: clientEmail.bodyHtml,
+						status: clientResult.success ? "sent" : "failed",
+						resendMessageId: clientResult.messageId || null,
+					});
+				}
+
+				// Send notification to agency
+				const agencyEmail = agency.email;
+				if (agencyEmail) {
+					const agencyNotification = generateContractSignedAgencyEmail(notificationData);
+					const agencyResult = await sendEmail({
+						to: agencyEmail,
+						subject: agencyNotification.subject,
+						html: agencyNotification.bodyHtml,
+					});
+
+					// Log agency email
+					await db.insert(emailLogs).values({
+						agencyId: contract.agencyId,
+						contractId: contract.id,
+						emailType: "contract_signed_agency",
+						recipientEmail: agencyEmail,
+						recipientName: agency.name,
+						subject: agencyNotification.subject,
+						bodyHtml: agencyNotification.bodyHtml,
+						status: agencyResult.success ? "sent" : "failed",
+						resendMessageId: agencyResult.messageId || null,
+					});
+				}
+			})
+			.catch((err) => {
+				console.error("Failed to send contract signing notification emails:", err);
+			});
 
 		return { success: true };
 	},

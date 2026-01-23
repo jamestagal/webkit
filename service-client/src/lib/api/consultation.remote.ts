@@ -9,6 +9,7 @@ import { query, command } from "$app/server";
 import * as v from "valibot";
 import { db } from "$lib/server/db";
 import { consultations, users, agencyMemberships } from "$lib/server/schema";
+import { getOrCreateClient } from "$lib/api/clients.remote";
 import type { PerformanceData } from "$lib/server/schema";
 import { getAgencyId, getUserId } from "$lib/server/auth";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -73,6 +74,7 @@ export const getAgencyConsultations = query(async () => {
 		.select({
 			id: consultations.id,
 			agencyId: consultations.agencyId,
+			clientId: consultations.clientId,
 			businessName: consultations.businessName,
 			contactPerson: consultations.contactPerson,
 			email: consultations.email,
@@ -145,10 +147,18 @@ export const createConsultation = command(CreateConsultationSchema, async (data)
 		throw new Error("Agency ID mismatch");
 	}
 
+	// Get or create unified client record
+	const result = await getOrCreateClient({
+		businessName: data.business_name || data.contact_person || "Unknown",
+		email: data.email,
+		contactName: data.contact_person || null,
+	});
+
 	const [created] = await db
 		.insert(consultations)
 		.values({
 			agencyId,
+			clientId: result.client?.id || null, // Link to unified client
 			createdBy: userId,
 			businessName: data.business_name || null,
 			contactPerson: data.contact_person || null,

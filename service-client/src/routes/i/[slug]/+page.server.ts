@@ -36,7 +36,9 @@ export const load: PageServerLoad = async ({ params }) => {
 		.set(updates)
 		.where(eq(invoices.id, invoice.id))
 		.then(() => {})
-		.catch(() => {});
+		.catch((err) => {
+			console.error(`Failed to record invoice view for ${invoice.id}:`, err);
+		});
 
 	// Fetch agency
 	const [agency] = await db

@@ -164,7 +164,17 @@
 						<!-- Header with title and badge -->
 						<div class="flex flex-wrap items-center gap-2">
 							<h3 class="text-lg font-semibold">
-								{consultation.businessName || 'Untitled Consultation'}
+								{#if consultation.clientId}
+									<a
+										href="/{agencySlug}/clients/{consultation.clientId}"
+										class="link link-hover"
+										title="View client hub"
+									>
+										{consultation.businessName || 'Untitled Consultation'}
+									</a>
+								{:else}
+									{consultation.businessName || 'Untitled Consultation'}
+								{/if}
 							</h3>
 							<span class="badge {getStatusBadgeClass(consultation.status)} whitespace-nowrap">
 								{consultation.status === 'completed'

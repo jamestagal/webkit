@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
-	import { Building2, Package, PlusSquare, Users, Palette, FileText, CreditCard, Sparkles } from 'lucide-svelte';
+	import { Building2, Package, PlusSquare, Users, Palette, FileText, CreditCard, Sparkles, FileStack } from 'lucide-svelte';
 	import SetupChecklist from '$lib/components/settings/SetupChecklist.svelte';
 	import { getSetupChecklist } from '$lib/api/agency-profile.remote';
 
@@ -17,6 +17,12 @@
 
 	let current = $derived(page.url.pathname);
 	let agencySlug = $derived(data.agency.slug);
+
+	// Check if we're on a form builder page (needs full width, no sidebar)
+	let isFormBuilderPage = $derived(
+		current.includes('/settings/forms/new') ||
+			(current.includes('/settings/forms/') && current.match(/\/settings\/forms\/[^/]+$/))
+	);
 
 	// Settings navigation items
 	let settingsNav = $derived([
@@ -49,6 +55,12 @@
 			url: `/${agencySlug}/settings/contracts`,
 			icon: FileText,
 			description: 'Contract templates & terms'
+		},
+		{
+			label: 'Forms',
+			url: `/${agencySlug}/settings/forms`,
+			icon: FileStack,
+			description: 'Client-facing forms & questionnaires'
 		},
 		{
 			label: 'Members',
@@ -135,6 +147,9 @@
 			{/each}
 		</div>
 	</div>
+{:else if isFormBuilderPage}
+	<!-- Form builder pages: full width, no sidebar -->
+	{@render children()}
 {:else}
 	<!-- Sub-page with sidebar navigation -->
 	<div class="flex flex-col lg:flex-row gap-6">

@@ -22,6 +22,7 @@ import {
 	agencyMemberships,
 } from "$lib/server/schema";
 import { getAgencyContext } from "$lib/server/agency";
+import { getOrCreateClient } from "$lib/api/clients.remote";
 import { logActivity } from "$lib/server/db-helpers";
 import { canAccessResource, canModifyResource, canDeleteResource } from "$lib/server/permissions";
 import { dataPipelineService } from "$lib/server/services/data-pipeline.service";
@@ -258,6 +259,7 @@ export const getProposals = query(
 				id: proposals.id,
 				agencyId: proposals.agencyId,
 				consultationId: proposals.consultationId,
+				clientId: proposals.clientId,
 				selectedPackageId: proposals.selectedPackageId,
 				selectedAddons: proposals.selectedAddons,
 				proposalNumber: proposals.proposalNumber,
@@ -272,6 +274,7 @@ export const getProposals = query(
 				validUntil: proposals.validUntil,
 				status: proposals.status,
 				sentAt: proposals.sentAt,
+				acceptedAt: proposals.acceptedAt,
 				viewCount: proposals.viewCount,
 				createdBy: proposals.createdBy,
 				createdAt: proposals.createdAt,
@@ -428,6 +431,8 @@ export const createProposal = command(CreateProposalSchema, async (data) => {
 
 	// Pre-fill client data and cache consultation insights if provided
 	let clientData: Partial<typeof proposals.$inferInsert> = {};
+	let clientId: string | null = null;
+
 	if (data.consultationId) {
 		const [consultation] = await db
 			.select()
@@ -465,6 +470,20 @@ export const createProposal = command(CreateProposalSchema, async (data) => {
 			if (consultation.performanceData && typeof consultation.performanceData === "object") {
 				clientData.performanceData = consultation.performanceData;
 			}
+
+			// Use clientId from consultation if available, otherwise create client
+			if (consultation.clientId) {
+				clientId = consultation.clientId;
+			} else if (consultation.email) {
+				const result = await getOrCreateClient({
+					businessName: consultation.businessName || consultation.contactPerson || "Unknown",
+					email: consultation.email,
+					contactName: consultation.contactPerson || null,
+				});
+				if (result.client) {
+					clientId = result.client.id;
+				}
+			}
 		}
 	}
 
@@ -474,6 +493,7 @@ export const createProposal = command(CreateProposalSchema, async (data) => {
 		.values({
 			agencyId: context.agencyId,
 			consultationId: data.consultationId,
+			clientId, // Link to unified client
 			proposalNumber,
 			slug,
 			title: data.title || "Website Proposal",

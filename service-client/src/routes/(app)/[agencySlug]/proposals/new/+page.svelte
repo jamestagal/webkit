@@ -5,6 +5,8 @@
 	 * Allows user to create a proposal from:
 	 * 1. An existing consultation (pre-fills client data)
 	 * 2. Standalone (manual entry)
+	 *
+	 * Supports ?clientId= URL param to filter/highlight consultations for that client.
 	 */
 
 	import { goto } from '$app/navigation';
@@ -13,10 +15,17 @@
 	import { getActivePackages } from '$lib/api/agency-packages.remote';
 	import { createProposal } from '$lib/api/proposals.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
-	import { FileText, Users, ArrowRight, Package } from 'lucide-svelte';
+	import { FileText, Users, ArrowRight, Package, UserCircle } from 'lucide-svelte';
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
 
 	const toast = getToast();
 	const agencySlug = page.params.agencySlug;
+
+	// Pre-fill from clientId URL param (Quick Create from Client Hub)
+	const prefillClientId = data.prefillClientId;
+	const prefillClientName = data.prefillClientName;
 
 	// State
 	let selectedConsultationId = $state<string | null>(null);
@@ -26,8 +35,17 @@
 	let step = $state<'consultation' | 'package' | 'confirm'>('consultation');
 
 	// Load data - getCompletedConsultations returns only completed consultations
-	const completedConsultations = await getCompletedConsultations();
+	const allConsultations = await getCompletedConsultations();
 	const packages = await getActivePackages();
+
+	// Sort consultations: those matching prefillClientId first
+	const completedConsultations = prefillClientId
+		? [...allConsultations].sort((a, b) => {
+				const aMatch = a.clientId === prefillClientId ? 0 : 1;
+				const bMatch = b.clientId === prefillClientId ? 0 : 1;
+				return aMatch - bMatch;
+			})
+		: allConsultations;
 
 	// Selected data
 	let selectedConsultation = $derived(
@@ -102,6 +120,14 @@
 			{/if}
 		</p>
 	</div>
+
+	<!-- Client Context Banner (from Quick Create) -->
+	{#if prefillClientName}
+		<div class="alert bg-primary/10 border-primary/20">
+			<UserCircle class="h-5 w-5 text-primary" />
+			<span>Creating proposal for <strong>{prefillClientName}</strong></span>
+		</div>
+	{/if}
 
 	<!-- Steps Indicator -->
 	<ul class="steps w-full">

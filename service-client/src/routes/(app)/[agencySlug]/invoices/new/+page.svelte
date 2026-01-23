@@ -7,6 +7,7 @@
 		createInvoiceFromContract
 	} from '$lib/api/invoices.remote';
 	import DraggableList from '$lib/components/DraggableList.svelte';
+	import ClientPicker from '$lib/components/shared/ClientPicker.svelte';
 	import {
 		ArrowLeft,
 		Plus,
@@ -27,11 +28,31 @@
 	let selectedProposalId = $state<string | null>(null);
 	let selectedContractId = $state<string | null>(null);
 
-	// Form state
-	let clientBusinessName = $state('');
-	let clientContactName = $state('');
-	let clientEmail = $state('');
-	let clientPhone = $state('');
+	// Client picker state
+	type Client = {
+		id: string;
+		businessName: string;
+		email: string;
+		contactName: string | null;
+		phone: string | null;
+	};
+	let selectedClient = $state<Client | null>(
+		data.prefillClient
+			? {
+					id: data.prefillClient.id ?? '',
+					businessName: data.prefillClient.businessName ?? '',
+					email: data.prefillClient.email ?? '',
+					contactName: data.prefillClient.contactName ?? null,
+					phone: data.prefillClient.phone ?? null
+				}
+			: null
+	);
+
+	// Form state - pre-fill from clientId URL param if provided (Quick Create from Client Hub)
+	let clientBusinessName = $state(data.prefillClient?.businessName ?? '');
+	let clientContactName = $state(data.prefillClient?.contactName ?? '');
+	let clientEmail = $state(data.prefillClient?.email ?? '');
+	let clientPhone = $state(data.prefillClient?.phone ?? '');
 	let clientAddress = $state('');
 	let clientAbn = $state('');
 	let issueDate = $state(new Date().toISOString().split('T')[0]);
@@ -371,76 +392,129 @@
 			<div class="card bg-base-100 border border-base-300">
 				<div class="card-body">
 					<h2 class="card-title text-lg">Client Details</h2>
-					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-						<div class="form-control">
-							<label class="label" for="clientBusinessName">
-								<span class="label-text">Business Name *</span>
-							</label>
-							<input
-								type="text"
-								id="clientBusinessName"
-								class="input input-bordered"
-								bind:value={clientBusinessName}
-								required
-							/>
+
+					{#if createMode === 'standalone'}
+						<!-- Client Picker with search -->
+						<ClientPicker
+							selected={selectedClient}
+							onSelect={(client) => {
+								selectedClient = client;
+								if (client) {
+									clientBusinessName = client.businessName;
+									clientEmail = client.email;
+									clientContactName = client.contactName || '';
+									clientPhone = client.phone || '';
+								}
+							}}
+							showManualEntry={true}
+							manualBusinessName={clientBusinessName}
+							manualEmail={clientEmail}
+							manualContactName={clientContactName}
+							manualPhone={clientPhone}
+							onManualBusinessNameChange={(v) => (clientBusinessName = v)}
+							onManualEmailChange={(v) => (clientEmail = v)}
+							onManualContactNameChange={(v) => (clientContactName = v)}
+							onManualPhoneChange={(v) => (clientPhone = v)}
+						/>
+
+						<!-- Additional fields not in ClientPicker -->
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+							<div class="form-control md:col-span-2">
+								<label class="label" for="clientAddress">
+									<span class="label-text">Address</span>
+								</label>
+								<textarea
+									id="clientAddress"
+									class="textarea textarea-bordered w-full"
+									rows="2"
+									bind:value={clientAddress}
+								></textarea>
+							</div>
+							<div class="form-control">
+								<label class="label" for="clientAbn">
+									<span class="label-text">ABN</span>
+								</label>
+								<input
+									type="text"
+									id="clientAbn"
+									class="input input-bordered"
+									bind:value={clientAbn}
+								/>
+							</div>
 						</div>
-						<div class="form-control">
-							<label class="label" for="clientContactName">
-								<span class="label-text">Contact Name</span>
-							</label>
-							<input
-								type="text"
-								id="clientContactName"
-								class="input input-bordered"
-								bind:value={clientContactName}
-							/>
+					{:else}
+						<!-- Read-only client info from proposal/contract -->
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div class="form-control">
+								<label class="label" for="clientBusinessName">
+									<span class="label-text">Business Name *</span>
+								</label>
+								<input
+									type="text"
+									id="clientBusinessName"
+									class="input input-bordered"
+									bind:value={clientBusinessName}
+									required
+								/>
+							</div>
+							<div class="form-control">
+								<label class="label" for="clientContactName">
+									<span class="label-text">Contact Name</span>
+								</label>
+								<input
+									type="text"
+									id="clientContactName"
+									class="input input-bordered"
+									bind:value={clientContactName}
+								/>
+							</div>
+							<div class="form-control">
+								<label class="label" for="clientEmail">
+									<span class="label-text">Email *</span>
+								</label>
+								<input
+									type="email"
+									id="clientEmail"
+									class="input input-bordered"
+									bind:value={clientEmail}
+									required
+								/>
+							</div>
+							<div class="form-control">
+								<label class="label" for="clientPhone">
+									<span class="label-text">Phone</span>
+								</label>
+								<input
+									type="tel"
+									id="clientPhone"
+									class="input input-bordered"
+									bind:value={clientPhone}
+								/>
+							</div>
+							<div class="form-control md:col-span-2">
+								<label class="label" for="clientAddress">
+									<span class="label-text">Address</span>
+								</label>
+								<textarea
+									id="clientAddress"
+									class="textarea textarea-bordered w-full"
+									rows="2"
+									bind:value={clientAddress}
+								></textarea>
+							</div>
+							<div class="form-control">
+								<label class="label" for="clientAbn">
+									<span class="label-text">ABN</span>
+								</label>
+								<input
+									type="text"
+									id="clientAbn"
+									class="input input-bordered"
+									bind:value={clientAbn}
+								/>
+							</div>
 						</div>
-						<div class="form-control">
-							<label class="label" for="clientEmail">
-								<span class="label-text">Email *</span>
-							</label>
-							<input
-								type="email"
-								id="clientEmail"
-								class="input input-bordered"
-								bind:value={clientEmail}
-								required
-							/>
-						</div>
-						<div class="form-control">
-							<label class="label" for="clientPhone">
-								<span class="label-text">Phone</span>
-							</label>
-							<input
-								type="tel"
-								id="clientPhone"
-								class="input input-bordered"
-								bind:value={clientPhone}
-							/>
-						</div>
-						<div class="form-control md:col-span-2">
-							<label class="label" for="clientAddress">
-								<span class="label-text">Address</span>
-							</label>
-							<textarea
-								id="clientAddress"
-								class="textarea textarea-bordered w-full"
-								rows="2"
-								bind:value={clientAddress}
-							></textarea>
-						</div>
-						<div class="form-control">
-							<label class="label" for="clientAbn">
-								<span class="label-text">ABN</span>
-							</label>
-							<input
-								type="text"
-								id="clientAbn"
-								class="input input-bordered"
-								bind:value={clientAbn}
-							/>
-						</div>
-					</div>
+					{/if}
 				</div>
 			</div>
 

@@ -14,6 +14,7 @@ import {
 	agencyProfiles,
 	agencyPackages,
 	agencyAddons,
+	emailLogs,
 } from "$lib/server/schema";
 import { eq, sql, inArray } from "drizzle-orm";
 import { error, fail } from "@sveltejs/kit";
@@ -22,6 +23,13 @@ import {
 	declineProposal,
 	requestProposalRevision,
 } from "$lib/api/proposals.remote";
+import { sendEmail } from "$lib/server/services/email.service";
+import {
+	generateProposalAcceptedAgencyEmail,
+	generateProposalDeclinedAgencyEmail,
+	generateProposalRevisionRequestedAgencyEmail,
+} from "$lib/templates/email-templates";
+import { env } from "$env/dynamic/public";
 
 export const load: PageServerLoad = async ({ params, url }) => {
 	const { slug } = params;
@@ -53,7 +61,9 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			.set(updates)
 			.where(eq(proposals.id, proposal.id))
 			.then(() => {})
-			.catch(() => {});
+			.catch((err) => {
+				console.error(`Failed to record proposal view for ${proposal.id}:`, err);
+			});
 	}
 
 	// Fetch agency
@@ -112,6 +122,76 @@ export const actions: Actions = {
 				slug: params.slug,
 				comments: comments || undefined,
 			});
+
+			// Send notification to agency (fire-and-forget)
+			const baseUrl = env.PUBLIC_CLIENT_URL || "https://webkit.au";
+			const respondedAt = new Date().toLocaleDateString("en-AU", {
+				day: "numeric",
+				month: "short",
+				year: "numeric",
+				hour: "2-digit",
+				minute: "2-digit",
+			});
+
+			db.select()
+				.from(proposals)
+				.where(eq(proposals.slug, params.slug))
+				.limit(1)
+				.then(async ([proposal]) => {
+					if (!proposal) return;
+
+					const [agency] = await db
+						.select()
+						.from(agencies)
+						.where(eq(agencies.id, proposal.agencyId))
+						.limit(1);
+
+					if (!agency?.email) return;
+
+					const notificationData = {
+						agency: {
+							name: agency.name,
+							...(agency.email ? { email: agency.email } : {}),
+							...(agency.primaryColor ? { primaryColor: agency.primaryColor } : {}),
+							...(agency.logoUrl ? { logoUrl: agency.logoUrl } : {}),
+						},
+						proposal: {
+							number: proposal.proposalNumber,
+							publicUrl: `${baseUrl}/p/${params.slug}`,
+						},
+						client: {
+							name: proposal.clientContactName || proposal.clientBusinessName || "Client",
+							...(proposal.clientBusinessName ? { businessName: proposal.clientBusinessName } : {}),
+							email: proposal.clientEmail,
+						},
+						respondedAt,
+						...(comments ? { comments } : {}),
+						...(result.contractSlug ? { contractSlug: result.contractSlug } : {}),
+					};
+
+					const emailTemplate = generateProposalAcceptedAgencyEmail(notificationData);
+					const emailResult = await sendEmail({
+						to: agency.email,
+						subject: emailTemplate.subject,
+						html: emailTemplate.bodyHtml,
+					});
+
+					await db.insert(emailLogs).values({
+						agencyId: proposal.agencyId,
+						proposalId: proposal.id,
+						emailType: "proposal_accepted_agency",
+						recipientEmail: agency.email,
+						recipientName: agency.name,
+						subject: emailTemplate.subject,
+						bodyHtml: emailTemplate.bodyHtml,
+						status: emailResult.success ? "sent" : "failed",
+						resendMessageId: emailResult.messageId || null,
+					});
+				})
+				.catch((err) => {
+					console.error("Failed to send proposal accepted notification:", err);
+				});
+
 			return { success: true, action: "accepted", contractSlug: result.contractSlug };
 		} catch (err) {
 			return fail(400, {
@@ -129,6 +209,75 @@ export const actions: Actions = {
 				slug: params.slug,
 				reason: reason || undefined,
 			});
+
+			// Send notification to agency (fire-and-forget)
+			const baseUrl = env.PUBLIC_CLIENT_URL || "https://webkit.au";
+			const respondedAt = new Date().toLocaleDateString("en-AU", {
+				day: "numeric",
+				month: "short",
+				year: "numeric",
+				hour: "2-digit",
+				minute: "2-digit",
+			});
+
+			db.select()
+				.from(proposals)
+				.where(eq(proposals.slug, params.slug))
+				.limit(1)
+				.then(async ([proposal]) => {
+					if (!proposal) return;
+
+					const [agency] = await db
+						.select()
+						.from(agencies)
+						.where(eq(agencies.id, proposal.agencyId))
+						.limit(1);
+
+					if (!agency?.email) return;
+
+					const notificationData = {
+						agency: {
+							name: agency.name,
+							...(agency.email ? { email: agency.email } : {}),
+							...(agency.primaryColor ? { primaryColor: agency.primaryColor } : {}),
+							...(agency.logoUrl ? { logoUrl: agency.logoUrl } : {}),
+						},
+						proposal: {
+							number: proposal.proposalNumber,
+							publicUrl: `${baseUrl}/p/${params.slug}`,
+						},
+						client: {
+							name: proposal.clientContactName || proposal.clientBusinessName || "Client",
+							...(proposal.clientBusinessName ? { businessName: proposal.clientBusinessName } : {}),
+							email: proposal.clientEmail,
+						},
+						respondedAt,
+						...(reason ? { reason } : {}),
+					};
+
+					const emailTemplate = generateProposalDeclinedAgencyEmail(notificationData);
+					const emailResult = await sendEmail({
+						to: agency.email,
+						subject: emailTemplate.subject,
+						html: emailTemplate.bodyHtml,
+					});
+
+					await db.insert(emailLogs).values({
+						agencyId: proposal.agencyId,
+						proposalId: proposal.id,
+						emailType: "proposal_declined_agency",
+						recipientEmail: agency.email,
+						recipientName: agency.name,
+						subject: emailTemplate.subject,
+						bodyHtml: emailTemplate.bodyHtml,
+						status: emailResult.success ? "sent" : "failed",
+						resendMessageId: emailResult.messageId || null,
+					});
+				})
+				.catch((err) => {
+					console.error("Failed to send proposal declined notification:", err);
+				});
+
 			return { success: true, action: "declined" };
 		} catch (err) {
 			return fail(400, {
@@ -146,6 +295,75 @@ export const actions: Actions = {
 				slug: params.slug,
 				notes,
 			});
+
+			// Send notification to agency (fire-and-forget)
+			const baseUrl = env.PUBLIC_CLIENT_URL || "https://webkit.au";
+			const respondedAt = new Date().toLocaleDateString("en-AU", {
+				day: "numeric",
+				month: "short",
+				year: "numeric",
+				hour: "2-digit",
+				minute: "2-digit",
+			});
+
+			db.select()
+				.from(proposals)
+				.where(eq(proposals.slug, params.slug))
+				.limit(1)
+				.then(async ([proposal]) => {
+					if (!proposal) return;
+
+					const [agency] = await db
+						.select()
+						.from(agencies)
+						.where(eq(agencies.id, proposal.agencyId))
+						.limit(1);
+
+					if (!agency?.email) return;
+
+					const notificationData = {
+						agency: {
+							name: agency.name,
+							...(agency.email ? { email: agency.email } : {}),
+							...(agency.primaryColor ? { primaryColor: agency.primaryColor } : {}),
+							...(agency.logoUrl ? { logoUrl: agency.logoUrl } : {}),
+						},
+						proposal: {
+							number: proposal.proposalNumber,
+							publicUrl: `${baseUrl}/p/${params.slug}`,
+						},
+						client: {
+							name: proposal.clientContactName || proposal.clientBusinessName || "Client",
+							...(proposal.clientBusinessName ? { businessName: proposal.clientBusinessName } : {}),
+							email: proposal.clientEmail,
+						},
+						respondedAt,
+						...(notes ? { notes } : {}),
+					};
+
+					const emailTemplate = generateProposalRevisionRequestedAgencyEmail(notificationData);
+					const emailResult = await sendEmail({
+						to: agency.email,
+						subject: emailTemplate.subject,
+						html: emailTemplate.bodyHtml,
+					});
+
+					await db.insert(emailLogs).values({
+						agencyId: proposal.agencyId,
+						proposalId: proposal.id,
+						emailType: "proposal_revision_requested_agency",
+						recipientEmail: agency.email,
+						recipientName: agency.name,
+						subject: emailTemplate.subject,
+						bodyHtml: emailTemplate.bodyHtml,
+						status: emailResult.success ? "sent" : "failed",
+						resendMessageId: emailResult.messageId || null,
+					});
+				})
+				.catch((err) => {
+					console.error("Failed to send proposal revision requested notification:", err);
+				});
+
 			return { success: true, action: "revision_requested" };
 		} catch (err) {
 			return fail(400, {

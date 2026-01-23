@@ -19,6 +19,7 @@ import {
 	invoiceLineItems,
 	agencyPackages,
 	agencyAddons,
+	clients,
 } from "$lib/server/schema";
 import { getAgencyContext } from "$lib/server/agency";
 import { eq, and, inArray, like, desc } from "drizzle-orm";
@@ -76,6 +77,7 @@ export const loadDemoData = command(async () => {
 	}
 
 	// Generate unique IDs for all entities
+	const clientId = crypto.randomUUID();
 	const consultationId = crypto.randomUUID();
 	const proposalId = crypto.randomUUID();
 	const contractId = crypto.randomUUID();
@@ -87,6 +89,17 @@ export const loadDemoData = command(async () => {
 	const contractSlug = `demo-contract-${nanoid(8)}`;
 	const questionnaireSlug = `demo-questionnaire-${nanoid(8)}`;
 	const invoiceSlug = `demo-invoice-${nanoid(8)}`;
+
+	// 0. Create unified client first (Unified Client Approach)
+	await db.insert(clients).values({
+		id: clientId,
+		agencyId,
+		businessName: DEMO_CONSULTATION.businessName,
+		email: DEMO_CONSULTATION.email,
+		phone: DEMO_CONSULTATION.phone,
+		contactName: DEMO_CONSULTATION.contactPerson,
+		notes: "Demo client for Murray's Plumbing scenario",
+	});
 
 	// Query for agency's packages (prefer featured, then by display order)
 	const availablePackages = await db
@@ -112,6 +125,7 @@ export const loadDemoData = command(async () => {
 	await db.insert(consultations).values({
 		id: consultationId,
 		agencyId,
+		clientId, // Unified Client link
 		createdBy: userId,
 		// Step 1: Contact & Business
 		businessName: DEMO_CONSULTATION.businessName,
@@ -157,6 +171,7 @@ export const loadDemoData = command(async () => {
 	await db.insert(proposals).values({
 		id: proposalId,
 		agencyId,
+		clientId, // Unified Client link
 		consultationId,
 		proposalNumber: `DEMO-${Date.now().toString(36).toUpperCase()}`,
 		slug: proposalSlug,
@@ -196,6 +211,7 @@ export const loadDemoData = command(async () => {
 	await db.insert(contracts).values({
 		id: contractId,
 		agencyId,
+		clientId, // Unified Client link
 		proposalId,
 		contractNumber: `DEMO-CON-${Date.now().toString(36).toUpperCase()}`,
 		slug: contractSlug,
@@ -246,6 +262,7 @@ export const loadDemoData = command(async () => {
 	await db.insert(invoices).values({
 		id: invoiceId,
 		agencyId,
+		clientId, // Unified Client link
 		proposalId,
 		contractId,
 		invoiceNumber: `DEMO-INV-${Date.now().toString(36).toUpperCase()}`,
@@ -291,6 +308,7 @@ export const loadDemoData = command(async () => {
 	return {
 		success: true,
 		created: {
+			clientId,
 			consultationId,
 			proposalId,
 			contractId,
@@ -394,9 +412,16 @@ export const clearDemoData = command(async () => {
 	// 6. Delete consultations
 	await db.delete(consultations).where(inArray(consultations.id, consultationIds));
 
+	// 7. Delete demo clients (identified by "Demo:" prefix in business name)
+	const deletedClients = await db
+		.delete(clients)
+		.where(and(eq(clients.agencyId, agencyId), like(clients.businessName, "Demo:%")))
+		.returning({ id: clients.id });
+
 	return {
 		success: true,
 		deleted: {
+			clients: deletedClients.length,
 			consultations: consultationIds.length,
 			proposals: proposalIds.length,
 			contracts: contractIds.length,

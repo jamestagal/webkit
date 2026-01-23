@@ -22,9 +22,17 @@ import {
 	agencyAddons,
 	users,
 	agencyMemberships,
+	emailLogs,
 	type Invoice,
 } from "$lib/server/schema";
+import { env } from "$env/dynamic/public";
+import { sendEmail } from "$lib/server/services/email.service";
+import {
+	generateInvoicePaidClientEmail,
+	generateInvoicePaidAgencyEmail,
+} from "$lib/templates/email-templates";
 import { getAgencyContext } from "$lib/server/agency";
+import { getOrCreateClient } from "$lib/api/clients.remote";
 import { logActivity } from "$lib/server/db-helpers";
 import {
 	hasPermission,
@@ -293,6 +301,7 @@ export const getInvoices = query(InvoiceFiltersSchema, async (filters) => {
 			agencyId: invoices.agencyId,
 			proposalId: invoices.proposalId,
 			contractId: invoices.contractId,
+			clientId: invoices.clientId,
 			invoiceNumber: invoices.invoiceNumber,
 			slug: invoices.slug,
 			status: invoices.status,
@@ -531,6 +540,13 @@ export const createInvoice = command(CreateInvoiceSchema, async (data) => {
 	// Generate slug
 	const slug = await generateUniqueSlug();
 
+	// Get or create unified client
+	const clientResult = await getOrCreateClient({
+		businessName: data.clientBusinessName,
+		email: data.clientEmail,
+		contactName: data.clientContactName || null,
+	});
+
 	// Calculate dates
 	const issueDate = data.issueDate ? new Date(data.issueDate) : new Date();
 	const paymentTerms = data.paymentTerms || profile?.defaultPaymentTerms || "NET_14";
@@ -560,6 +576,7 @@ export const createInvoice = command(CreateInvoiceSchema, async (data) => {
 			agencyId: context.agencyId,
 			proposalId: data.proposalId || null,
 			contractId: data.contractId || null,
+			clientId: clientResult.client?.id || null, // Link to unified client
 			invoiceNumber,
 			slug,
 			status: "draft",
@@ -779,12 +796,26 @@ export const createInvoiceFromProposal = command(
 			parseFloat(profile?.gstRate || "10.00"),
 		);
 
+		// Get or create unified client - inherit from proposal or create new
+		let clientId: string | null = proposal.clientId;
+		if (!clientId && proposal.clientEmail) {
+			const result = await getOrCreateClient({
+				businessName: proposal.clientBusinessName || proposal.clientContactName || "Unknown",
+				email: proposal.clientEmail,
+				contactName: proposal.clientContactName || null,
+			});
+			if (result.client) {
+				clientId = result.client.id;
+			}
+		}
+
 		// Create invoice
 		const [invoice] = await db
 			.insert(invoices)
 			.values({
 				agencyId: context.agencyId,
 				proposalId,
+				clientId, // Link to unified client
 				invoiceNumber,
 				slug,
 				status: "draft",
@@ -901,6 +932,19 @@ export const createInvoiceFromContract = command(
 			parseFloat(profile?.gstRate || "10.00"),
 		);
 
+		// Get or create unified client - inherit from contract or create new
+		let clientId: string | null = contract.clientId;
+		if (!clientId && contract.clientEmail) {
+			const result = await getOrCreateClient({
+				businessName: contract.clientBusinessName || contract.clientContactName || "Unknown",
+				email: contract.clientEmail,
+				contactName: contract.clientContactName || null,
+			});
+			if (result.client) {
+				clientId = result.client.id;
+			}
+		}
+
 		// Create invoice
 		const [invoice] = await db
 			.insert(invoices)
@@ -908,6 +952,7 @@ export const createInvoiceFromContract = command(
 				agencyId: context.agencyId,
 				contractId,
 				proposalId: contract.proposalId,
+				clientId, // Link to unified client
 				invoiceNumber,
 				slug,
 				status: "draft",
@@ -1335,6 +1380,103 @@ export const recordPayment = command(RecordPaymentSchema, async (data) => {
 			paidAt,
 		},
 	});
+
+	// Send payment notification emails (fire-and-forget)
+	const baseUrl = env.PUBLIC_CLIENT_URL || "https://webkit.au";
+	const publicUrl = `${baseUrl}/i/${invoice.slug}`;
+	const paidAtFormatted = paidAt.toLocaleDateString("en-AU", {
+		day: "numeric",
+		month: "short",
+		year: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+
+	const paymentMethodLabel =
+		data.paymentMethod === "bank_transfer"
+			? "Bank Transfer"
+			: data.paymentMethod === "card"
+				? "Card"
+				: data.paymentMethod === "cash"
+					? "Cash"
+					: "Other";
+
+	db.select()
+		.from(agencies)
+		.where(eq(agencies.id, invoice.agencyId))
+		.limit(1)
+		.then(async ([agency]) => {
+			if (!agency) return;
+
+			const notificationData = {
+				agency: {
+					name: agency.name,
+					email: agency.email || undefined,
+					primaryColor: agency.primaryColor || undefined,
+					logoUrl: agency.logoUrl || undefined,
+				},
+				invoice: {
+					number: invoice.invoiceNumber,
+					total: invoice.total,
+					publicUrl,
+				},
+				client: {
+					name: invoice.clientContactName || invoice.clientBusinessName || "Client",
+					businessName: invoice.clientBusinessName || undefined,
+					email: invoice.clientEmail,
+				},
+				paidAt: paidAtFormatted,
+				paymentMethod: paymentMethodLabel,
+			};
+
+			// Send receipt to client
+			if (invoice.clientEmail) {
+				const clientEmail = generateInvoicePaidClientEmail(notificationData);
+				const clientResult = await sendEmail({
+					to: invoice.clientEmail,
+					subject: clientEmail.subject,
+					html: clientEmail.bodyHtml,
+					...(agency.email ? { replyTo: agency.email } : {}),
+				});
+
+				await db.insert(emailLogs).values({
+					agencyId: invoice.agencyId,
+					invoiceId: invoice.id,
+					emailType: "invoice_paid_client",
+					recipientEmail: invoice.clientEmail,
+					recipientName: invoice.clientContactName || invoice.clientBusinessName || null,
+					subject: clientEmail.subject,
+					bodyHtml: clientEmail.bodyHtml,
+					status: clientResult.success ? "sent" : "failed",
+					resendMessageId: clientResult.messageId || null,
+				});
+			}
+
+			// Send notification to agency
+			if (agency.email) {
+				const agencyNotification = generateInvoicePaidAgencyEmail(notificationData);
+				const agencyResult = await sendEmail({
+					to: agency.email,
+					subject: agencyNotification.subject,
+					html: agencyNotification.bodyHtml,
+				});
+
+				await db.insert(emailLogs).values({
+					agencyId: invoice.agencyId,
+					invoiceId: invoice.id,
+					emailType: "invoice_paid_agency",
+					recipientEmail: agency.email,
+					recipientName: agency.name,
+					subject: agencyNotification.subject,
+					bodyHtml: agencyNotification.bodyHtml,
+					status: agencyResult.success ? "sent" : "failed",
+					resendMessageId: agencyResult.messageId || null,
+				});
+			}
+		})
+		.catch((err) => {
+			console.error("Failed to send invoice paid notification emails:", err);
+		});
 
 	return updated;
 });

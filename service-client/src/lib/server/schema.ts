@@ -438,6 +438,197 @@ export const agencyDocumentBranding = pgTable(
 export type DocumentType = "contract" | "invoice" | "questionnaire" | "proposal" | "email";
 
 // =============================================================================
+// FORM BUILDER TABLES
+// =============================================================================
+
+// Agency Forms table - Custom form definitions per agency
+export const agencyForms = pgTable(
+	"agency_forms",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		agencyId: uuid("agency_id")
+			.notNull()
+			.references(() => agencies.id, { onDelete: "cascade" }),
+
+		// Form Identification
+		name: varchar("name", { length: 255 }).notNull(),
+		slug: varchar("slug", { length: 255 }).notNull(),
+		description: text("description"),
+		formType: varchar("form_type", { length: 50 }).notNull(), // questionnaire, consultation, feedback, intake, custom
+
+		// Form Schema (Zod-compatible JSON)
+		schema: jsonb("schema").notNull(),
+
+		// UI Configuration
+		uiConfig: jsonb("ui_config").notNull().default({
+			layout: "single-column",
+			showProgressBar: true,
+			showStepNumbers: true,
+			submitButtonText: "Submit",
+			successMessage: "Thank you for your submission!",
+		}),
+
+		// Branding Overrides (inherits from agency if null)
+		branding: jsonb("branding"),
+
+		// Form Settings
+		isActive: boolean("is_active").notNull().default(true),
+		isDefault: boolean("is_default").notNull().default(false),
+		requiresAuth: boolean("requires_auth").notNull().default(false),
+
+		// Metadata
+		version: integer("version").notNull().default(1),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+		createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+	},
+	(table) => ({
+		uniqueAgencySlug: unique().on(table.agencyId, table.slug),
+		agencyTypeIdx: index("agency_forms_agency_type_idx").on(table.agencyId, table.formType),
+		activeIdx: index("agency_forms_active_idx").on(table.agencyId, table.isActive),
+	}),
+);
+
+// Clients table - Client information per agency
+export const clients = pgTable(
+	"clients",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		agencyId: uuid("agency_id")
+			.notNull()
+			.references(() => agencies.id, { onDelete: "cascade" }),
+
+		// Client Information
+		businessName: text("business_name").notNull(),
+		email: varchar("email", { length: 255 }).notNull(),
+		phone: varchar("phone", { length: 50 }),
+		contactName: text("contact_name"),
+		notes: text("notes"),
+
+		// Status: 'active' | 'archived'
+		status: varchar("status", { length: 20 }).notNull().default("active"),
+
+		// Metadata
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(table) => ({
+		uniqueAgencyEmail: unique().on(table.agencyId, table.email),
+		agencyIdx: index("clients_agency_idx").on(table.agencyId),
+		emailIdx: index("clients_email_idx").on(table.email),
+		statusIdx: index("clients_status_idx").on(table.agencyId, table.status),
+	}),
+);
+
+// Form Submissions table - Submitted form data
+export const formSubmissions = pgTable(
+	"form_submissions",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		formId: uuid("form_id").references(() => agencyForms.id, { onDelete: "cascade" }), // Nullable for system template submissions
+		agencyId: uuid("agency_id")
+			.notNull()
+			.references(() => agencies.id, { onDelete: "cascade" }),
+
+		// Public URL slug for sharing
+		slug: varchar("slug", { length: 100 }).unique(),
+
+		// Client linking
+		clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),
+		clientBusinessName: text("client_business_name").notNull().default(""),
+		clientEmail: varchar("client_email", { length: 255 }).notNull().default(""),
+
+		// Submission Data (flexible JSONB - matches form schema)
+		data: jsonb("data").notNull(),
+
+		// Progress tracking
+		currentStep: integer("current_step").notNull().default(0),
+		completionPercentage: integer("completion_percentage").notNull().default(0),
+		startedAt: timestamp("started_at", { withTimezone: true }),
+		lastActivityAt: timestamp("last_activity_at", { withTimezone: true }),
+
+		// Linked Entities
+		consultationId: uuid("consultation_id").references(() => consultations.id, {
+			onDelete: "set null",
+		}),
+		proposalId: uuid("proposal_id"),
+		contractId: uuid("contract_id"),
+
+		// Submission Metadata
+		metadata: jsonb("metadata").notNull().default({}),
+
+		// Status: draft, completed, processing, processed, archived
+		status: varchar("status", { length: 50 }).notNull().default("draft"),
+
+		// Timestamps
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		submittedAt: timestamp("submitted_at", { withTimezone: true }),
+		processedAt: timestamp("processed_at", { withTimezone: true }),
+
+		// Form version at time of submission (for schema evolution)
+		formVersion: integer("form_version").notNull().default(1),
+	},
+	(table) => ({
+		formIdx: index("form_submissions_form_idx").on(table.formId),
+		agencyIdx: index("form_submissions_agency_idx").on(table.agencyId),
+		statusIdx: index("form_submissions_status_idx").on(table.status),
+		submittedIdx: index("form_submissions_submitted_idx").on(table.submittedAt),
+		clientIdx: index("form_submissions_client_idx").on(table.clientId),
+		slugIdx: index("form_submissions_slug_idx").on(table.slug),
+	}),
+);
+
+// Form Templates table - System-wide starting point templates
+export const formTemplates = pgTable("form_templates", {
+	id: uuid("id").primaryKey().defaultRandom(),
+
+	// Template Info
+	name: varchar("name", { length: 255 }).notNull(),
+	slug: varchar("slug", { length: 255 }).notNull().unique(),
+	description: text("description"),
+	category: varchar("category", { length: 100 }).notNull(),
+
+	// Template Schema
+	schema: jsonb("schema").notNull(),
+	uiConfig: jsonb("ui_config").notNull(),
+
+	// Display
+	previewImageUrl: text("preview_image_url"),
+	isFeatured: boolean("is_featured").notNull().default(false),
+	displayOrder: integer("display_order").notNull().default(0),
+
+	// Metadata
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Field Option Sets table - Reusable dropdown options
+export const fieldOptionSets = pgTable(
+	"field_option_sets",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		agencyId: uuid("agency_id").references(() => agencies.id, { onDelete: "cascade" }), // NULL = system-wide
+
+		// Option Set Info
+		name: varchar("name", { length: 255 }).notNull(),
+		slug: varchar("slug", { length: 255 }).notNull(),
+		description: text("description"),
+
+		// Options as JSON array: [{"value": "tech", "label": "Technology"}, ...]
+		options: jsonb("options").notNull(),
+
+		// Metadata
+		isSystem: boolean("is_system").notNull().default(false),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(table) => ({
+		uniqueAgencySlug: unique().on(table.agencyId, table.slug),
+		agencyIdx: index("field_option_sets_agency_idx").on(table.agencyId),
+	}),
+);
+
+// =============================================================================
 // PROPOSALS (V2 Document Generation)
 // =============================================================================
 
@@ -457,6 +648,9 @@ export const proposals = pgTable(
 		consultationId: uuid("consultation_id").references(() => consultations.id, {
 			onDelete: "set null",
 		}),
+
+		// Link to unified client (populated via getOrCreateClient)
+		clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),
 
 		// Document identification
 		proposalNumber: varchar("proposal_number", { length: 50 }).notNull(), // PROP-2025-0001
@@ -553,6 +747,7 @@ export const proposals = pgTable(
 	(table) => ({
 		agencyIdx: index("proposals_agency_idx").on(table.agencyId),
 		consultationIdx: index("proposals_consultation_idx").on(table.consultationId),
+		clientIdx: index("proposals_client_idx").on(table.clientId),
 		statusIdx: index("proposals_status_idx").on(table.status),
 	}),
 );
@@ -659,6 +854,9 @@ export const contracts = pgTable(
 			onDelete: "set null",
 		}),
 
+		// Link to unified client (inherited from proposal or populated via getOrCreateClient)
+		clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),
+
 		// Document identification
 		contractNumber: varchar("contract_number", { length: 50 }).notNull(), // CON-2025-0001
 		slug: varchar("slug", { length: 100 }).notNull().unique(), // Public URL slug
@@ -735,6 +933,7 @@ export const contracts = pgTable(
 	(table) => ({
 		agencyIdx: index("contracts_agency_idx").on(table.agencyId),
 		proposalIdx: index("contracts_proposal_idx").on(table.proposalId),
+		clientIdx: index("contracts_client_idx").on(table.clientId),
 		statusIdx: index("contracts_status_idx").on(table.status),
 		slugIdx: index("contracts_slug_idx").on(table.slug),
 		createdAtIdx: index("contracts_created_at_idx").on(table.createdAt),
@@ -759,6 +958,9 @@ export const invoices = pgTable(
 		// Link to source documents (optional)
 		proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "set null" }),
 		contractId: uuid("contract_id").references(() => contracts.id, { onDelete: "set null" }),
+
+		// Link to unified client (populated via getOrCreateClient)
+		clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),
 
 		// Document identification
 		invoiceNumber: varchar("invoice_number", { length: 50 }).notNull(),
@@ -827,6 +1029,7 @@ export const invoices = pgTable(
 	},
 	(table) => ({
 		agencyIdx: index("invoices_agency_idx").on(table.agencyId),
+		clientIdx: index("invoices_client_idx").on(table.clientId),
 		statusIdx: index("invoices_status_idx").on(table.status),
 		dueDateIdx: index("invoices_due_date_idx").on(table.dueDate),
 		slugIdx: index("invoices_slug_idx").on(table.slug),
@@ -889,6 +1092,9 @@ export const emailLogs = pgTable(
 		proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "set null" }),
 		invoiceId: uuid("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
 		contractId: uuid("contract_id").references(() => contracts.id, { onDelete: "set null" }),
+		formSubmissionId: uuid("form_submission_id").references(() => formSubmissions.id, {
+			onDelete: "set null",
+		}),
 
 		// Email type
 		emailType: varchar("email_type", { length: 50 }).notNull(),
@@ -927,6 +1133,7 @@ export const emailLogs = pgTable(
 		proposalIdx: index("email_logs_proposal_idx").on(table.proposalId),
 		invoiceIdx: index("email_logs_invoice_idx").on(table.invoiceId),
 		contractIdx: index("email_logs_contract_idx").on(table.contractId),
+		formSubmissionIdx: index("email_logs_form_submission_idx").on(table.formSubmissionId),
 	}),
 );
 
@@ -1000,6 +1207,9 @@ export const consultations = pgTable("consultations", {
 	agencyId: uuid("agency_id")
 		.notNull()
 		.references(() => agencies.id, { onDelete: "cascade" }),
+
+	// Link to unified client (optional - populated via getOrCreateClient)
+	clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),
 
 	// Step 1: Contact & Business
 	businessName: text("business_name"),
@@ -1171,6 +1381,25 @@ export type ConsultationVersionInsert = typeof consultationVersions.$inferInsert
 export type AgencyRole = "owner" | "admin" | "member";
 export type AgencyStatus = "active" | "suspended" | "cancelled";
 export type MembershipStatus = "active" | "invited" | "suspended";
+
+// Form Builder types
+export type AgencyForm = typeof agencyForms.$inferSelect;
+export type AgencyFormInsert = typeof agencyForms.$inferInsert;
+export type FormSubmission = typeof formSubmissions.$inferSelect;
+export type FormSubmissionInsert = typeof formSubmissions.$inferInsert;
+export type FormTemplate = typeof formTemplates.$inferSelect;
+export type FormTemplateInsert = typeof formTemplates.$inferInsert;
+export type FieldOptionSet = typeof fieldOptionSets.$inferSelect;
+export type FieldOptionSetInsert = typeof fieldOptionSets.$inferInsert;
+
+// Client types
+export type Client = typeof clients.$inferSelect;
+export type ClientInsert = typeof clients.$inferInsert;
+export type ClientStatus = "active" | "archived";
+
+// Form types
+export type FormType = "questionnaire" | "consultation" | "feedback" | "intake" | "custom";
+export type FormSubmissionStatus = "draft" | "completed" | "processing" | "processed" | "archived";
 
 // Package & Pricing types (V2)
 export type PricingModel = "subscription" | "lump_sum" | "hybrid";

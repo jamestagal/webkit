@@ -11,6 +11,7 @@
 	import { sendInvoiceEmail } from '$lib/api/email.remote';
 	import { createPaymentLink } from '$lib/api/stripe.remote';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
+	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';
 	import {
 		ArrowLeft,
 		Edit,
@@ -47,6 +48,10 @@
 	let sending = $state(false);
 	let showPaymentModal = $state(false);
 	let generatingPaymentLink = $state(false);
+
+	// Send email modal state
+	let sendModalOpen = $state(false);
+	let sendingEmail = $state(false);
 
 	// Stripe status
 	let stripeConnected = $derived(
@@ -219,13 +224,16 @@
 		}
 	}
 
-	async function handleSend() {
-		if (!confirm(`Send this invoice to ${invoice.clientEmail}?`)) return;
+	function openSendModal() {
+		sendModalOpen = true;
+	}
 
-		sending = true;
+	async function confirmSendEmail() {
+		sendingEmail = true;
 		try {
 			const result = await sendInvoiceEmail({ invoiceId: invoice.id });
 			await invalidateAll();
+			sendModalOpen = false;
 			if (result.success) {
 				toast.success('Invoice sent', `Email delivered to ${invoice.clientEmail}`);
 			} else {
@@ -234,7 +242,7 @@
 		} catch (err) {
 			toast.error('Failed to send invoice', err instanceof Error ? err.message : '');
 		} finally {
-			sending = false;
+			sendingEmail = false;
 		}
 	}
 
@@ -468,8 +476,8 @@
 				{/if}
 
 				{#if invoice.status === 'draft'}
-					<button type="button" class="btn btn-primary btn-sm" onclick={handleSend} disabled={sending}>
-						{#if sending}
+					<button type="button" class="btn btn-primary btn-sm" onclick={openSendModal} disabled={sendingEmail}>
+						{#if sendingEmail}
 							<Loader2 class="h-4 w-4 animate-spin" />
 						{:else}
 							<Send class="h-4 w-4" />
@@ -1157,3 +1165,15 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Send Email Modal -->
+<SendEmailModal
+	open={sendModalOpen}
+	title="Send Invoice"
+	documentType="invoice"
+	recipientEmail={invoice.clientEmail}
+	recipientName={invoice.clientContactName || invoice.clientBusinessName}
+	loading={sendingEmail}
+	onConfirm={confirmSendEmail}
+	onCancel={() => sendModalOpen = false}
+/>
