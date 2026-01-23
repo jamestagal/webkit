@@ -17,7 +17,7 @@ import {
 import { error } from "@sveltejs/kit";
 import { getUserId } from "$lib/server/auth";
 import { getAgencyContext, requireAgencyRole } from "$lib/server/agency";
-import { eq, and, desc, asc, isNull, or } from "drizzle-orm";
+import { eq, and, desc, asc, isNull, or, sql } from "drizzle-orm";
 import type { FormSchema } from "$lib/types/form-builder";
 
 // =============================================================================
@@ -414,6 +414,10 @@ export const updateForm = command(UpdateFormSchema, async (data) => {
 	if (data["schema"] !== undefined) {
 		updates["schema"] = data["schema"];
 		updates["version"] = existing.version + 1;
+		// Schema change marks the form as customized (no longer receives push updates)
+		if (existing.sourceTemplateId) {
+			updates["isCustomized"] = true;
+		}
 	}
 	if (data["uiConfig"] !== undefined) updates["uiConfig"] = data["uiConfig"];
 	if (data["branding"] !== undefined) updates["branding"] = data["branding"];
@@ -439,7 +443,11 @@ export const deleteForm = command(v.pipe(v.string(), v.uuid()), async (formId) =
 
 	// Verify form belongs to agency
 	const [existing] = await db
-		.select({ id: agencyForms.id })
+		.select({
+			id: agencyForms.id,
+			sourceTemplateId: agencyForms.sourceTemplateId,
+			isCustomized: agencyForms.isCustomized,
+		})
 		.from(agencyForms)
 		.where(and(eq(agencyForms.id, formId), eq(agencyForms.agencyId, context.agencyId)));
 
@@ -448,6 +456,14 @@ export const deleteForm = command(v.pipe(v.string(), v.uuid()), async (formId) =
 	}
 
 	await db.delete(agencyForms).where(eq(agencyForms.id, formId));
+
+	// Decrement usage count on source template (only for non-customized forms)
+	if (existing.sourceTemplateId && !existing.isCustomized) {
+		await db
+			.update(formTemplates)
+			.set({ usageCount: sql`GREATEST(usage_count - 1, 0)` })
+			.where(eq(formTemplates.id, existing.sourceTemplateId));
+	}
 
 	return { success: true };
 });
@@ -622,8 +638,16 @@ export const createFormFromTemplate = command(
 				requiresAuth: false,
 				version: 1,
 				createdBy: userId,
+				sourceTemplateId: templateId,
+				isCustomized: false,
 			})
 			.returning();
+
+		// Increment usage count on template
+		await db
+			.update(formTemplates)
+			.set({ usageCount: sql`usage_count + 1` })
+			.where(eq(formTemplates.id, templateId));
 
 		return form;
 	}

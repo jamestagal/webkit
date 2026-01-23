@@ -34,7 +34,7 @@
 	let showClearModal = $state(false);
 
 	// Core features for the dashboard
-	const coreFeatures = [
+	let coreFeatures = $derived([
 		{
 			title: 'Consultations',
 			description: 'Discover client needs through guided discovery sessions. Capture pain points, goals, and requirements.',
@@ -95,10 +95,10 @@
 			viewLabel: 'View All',
 			createLabel: 'New Client'
 		}
-	];
+	]);
 
 	// Quick stats (placeholder - would be loaded from server)
-	let stats = $state([
+	let stats = $derived([
 		{
 			label: 'Active Consultations',
 			value: data.consultationCount.toString(),

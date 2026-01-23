@@ -21,6 +21,8 @@
 		Download,
 		Sparkles,
 		ListOrdered,
+		Lock,
+		RefreshCw,
 	} from "lucide-svelte";
 	import type { PageProps } from "./$types";
 
@@ -177,6 +179,9 @@
 								<div class="flex-1 min-w-0">
 									<div class="flex items-center gap-2">
 										<h3 class="font-semibold truncate">{template.name}</h3>
+										{#if template.newUntil && new Date(template.newUntil) > new Date()}
+											<span class="badge badge-accent badge-sm">New</span>
+										{/if}
 										<span class="badge badge-ghost badge-sm text-base-content/50">System</span>
 									</div>
 									<p class="text-sm text-base-content/60 line-clamp-2 mt-1">
@@ -344,6 +349,24 @@
 									{/if}
 								</div>
 
+								{#if form.sourceTemplateId}
+									<div class="flex items-center gap-1.5 mt-2 text-xs">
+										{#if form.isCustomized}
+											<span class="badge badge-ghost badge-sm gap-1">
+												<Lock class="h-3 w-3" />
+												Customized
+											</span>
+											<span class="text-base-content/50">Updates disabled</span>
+										{:else}
+											<span class="badge badge-info badge-sm gap-1">
+												<RefreshCw class="h-3 w-3" />
+												Synced
+											</span>
+											<span class="text-base-content/50">Receives system updates</span>
+										{/if}
+									</div>
+								{/if}
+
 								<div class="flex items-center gap-4 mt-3 pt-3 border-t border-base-200">
 									<span class="text-xs text-base-content/60"> v{form.version} </span>
 									<span class="text-xs text-base-content/60">
@@ -418,6 +441,24 @@
 									</span>
 									<span class="badge badge-ghost badge-sm">Inactive</span>
 								</div>
+
+								{#if form.sourceTemplateId}
+									<div class="flex items-center gap-1.5 mt-2 text-xs">
+										{#if form.isCustomized}
+											<span class="badge badge-ghost badge-sm gap-1">
+												<Lock class="h-3 w-3" />
+												Customized
+											</span>
+											<span class="text-base-content/50">Updates disabled</span>
+										{:else}
+											<span class="badge badge-info badge-sm gap-1">
+												<RefreshCw class="h-3 w-3" />
+												Synced
+											</span>
+											<span class="text-base-content/50">Receives system updates</span>
+										{/if}
+									</div>
+								{/if}
 							</div>
 						</div>
 					{/each}

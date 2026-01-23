@@ -476,6 +476,11 @@ export const agencyForms = pgTable(
 		isDefault: boolean("is_default").notNull().default(false),
 		requiresAuth: boolean("requires_auth").notNull().default(false),
 
+		// Template Tracking
+		sourceTemplateId: uuid("source_template_id").references(() => formTemplates.id, { onDelete: "set null" }),
+		isCustomized: boolean("is_customized").notNull().default(false),
+		previousSchema: jsonb("previous_schema"),
+
 		// Metadata
 		version: integer("version").notNull().default(1),
 		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -596,6 +601,10 @@ export const formTemplates = pgTable("form_templates", {
 	previewImageUrl: text("preview_image_url"),
 	isFeatured: boolean("is_featured").notNull().default(false),
 	displayOrder: integer("display_order").notNull().default(0),
+
+	// Admin Controls
+	newUntil: timestamp("new_until", { withTimezone: true }),
+	usageCount: integer("usage_count").notNull().default(0),
 
 	// Metadata
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
