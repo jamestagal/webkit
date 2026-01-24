@@ -187,7 +187,187 @@ export const createConsultation = command(CreateConsultationSchema, async (data)
 	return { consultationId: created.id };
 });
 
+// =============================================================================
+// Dynamic Form Functions (Phase 8)
+// =============================================================================
+
 /**
+ * Schema for creating a consultation from dynamic form data.
+ * Accepts any mapped fields + formId + customData.
+ */
+const DynamicCreateSchema = v.object({
+	formId: v.optional(v.pipe(v.string(), v.uuid())),
+	customData: v.optional(v.any()),
+	status: v.optional(v.picklist(["draft", "completed"])),
+	// Mapped fields (all optional since form may not include all)
+	businessName: v.optional(v.nullable(v.string())),
+	contactPerson: v.optional(v.nullable(v.string())),
+	email: v.optional(v.string()),
+	phone: v.optional(v.nullable(v.string())),
+	website: v.optional(v.nullable(v.string())),
+	socialLinkedin: v.optional(v.nullable(v.string())),
+	socialFacebook: v.optional(v.nullable(v.string())),
+	socialInstagram: v.optional(v.nullable(v.string())),
+	industry: v.optional(v.nullable(v.string())),
+	businessType: v.optional(v.nullable(v.string())),
+	websiteStatus: v.optional(v.nullable(v.string())),
+	primaryChallenges: v.optional(v.array(v.string())),
+	urgencyLevel: v.optional(v.nullable(v.string())),
+	primaryGoals: v.optional(v.array(v.string())),
+	conversionGoal: v.optional(v.nullable(v.string())),
+	budgetRange: v.optional(v.nullable(v.string())),
+	timeline: v.optional(v.nullable(v.string())),
+	designStyles: v.optional(v.nullable(v.array(v.string()))),
+	admiredWebsites: v.optional(v.nullable(v.string())),
+	consultationNotes: v.optional(v.nullable(v.string())),
+});
+
+/**
+ * Create a consultation from dynamic form data.
+ * Used by DynamicForm on first step save (lazy creation).
+ */
+export const createDynamicConsultation = command(DynamicCreateSchema, async (data) => {
+	const agencyId = await getAgencyId();
+	const userId = getUserId();
+
+	// Get or create unified client if email provided
+	let clientId: string | null = null;
+	if (data.email) {
+		const result = await getOrCreateClient({
+			businessName: data.businessName || data.contactPerson || "Unknown",
+			email: data.email,
+			contactName: data.contactPerson || null,
+		});
+		clientId = result.client?.id || null;
+	}
+
+	const [created] = await db
+		.insert(consultations)
+		.values({
+			agencyId,
+			clientId,
+			createdBy: userId,
+			formId: data.formId ?? undefined,
+			customData: data.customData || {},
+			businessName: data.businessName || null,
+			contactPerson: data.contactPerson || null,
+			email: data.email || "",
+			phone: data.phone || null,
+			website: data.website || null,
+			socialLinkedin: data.socialLinkedin || null,
+			socialFacebook: data.socialFacebook || null,
+			socialInstagram: data.socialInstagram || null,
+			industry: data.industry || "other",
+			businessType: data.businessType || "other",
+			websiteStatus: data.websiteStatus || "none",
+			primaryChallenges: data.primaryChallenges || [],
+			urgencyLevel: data.urgencyLevel || "low",
+			primaryGoals: data.primaryGoals || [],
+			conversionGoal: data.conversionGoal || null,
+			budgetRange: data.budgetRange || "tbd",
+			timeline: data.timeline || null,
+			designStyles: data.designStyles || null,
+			admiredWebsites: data.admiredWebsites || null,
+			consultationNotes: data.consultationNotes || null,
+			status: data.status || "draft",
+		})
+		.returning();
+
+	if (!created) {
+		throw new Error("Failed to create consultation");
+	}
+
+	return { consultationId: created.id };
+});
+
+/**
+ * Schema for updating a consultation with dynamic form data.
+ */
+const DynamicUpdateSchema = v.object({
+	consultationId: v.pipe(v.string(), v.uuid()),
+	customData: v.optional(v.any()),
+	status: v.optional(v.picklist(["draft", "completed"])),
+	// All mapped fields optional
+	businessName: v.optional(v.nullable(v.string())),
+	contactPerson: v.optional(v.nullable(v.string())),
+	email: v.optional(v.string()),
+	phone: v.optional(v.nullable(v.string())),
+	website: v.optional(v.nullable(v.string())),
+	socialLinkedin: v.optional(v.nullable(v.string())),
+	socialFacebook: v.optional(v.nullable(v.string())),
+	socialInstagram: v.optional(v.nullable(v.string())),
+	industry: v.optional(v.nullable(v.string())),
+	businessType: v.optional(v.nullable(v.string())),
+	websiteStatus: v.optional(v.nullable(v.string())),
+	primaryChallenges: v.optional(v.array(v.string())),
+	urgencyLevel: v.optional(v.nullable(v.string())),
+	primaryGoals: v.optional(v.array(v.string())),
+	conversionGoal: v.optional(v.nullable(v.string())),
+	budgetRange: v.optional(v.nullable(v.string())),
+	timeline: v.optional(v.nullable(v.string())),
+	designStyles: v.optional(v.nullable(v.array(v.string()))),
+	admiredWebsites: v.optional(v.nullable(v.string())),
+	consultationNotes: v.optional(v.nullable(v.string())),
+});
+
+/**
+ * Update a consultation with dynamic form data.
+ * Merges customData with existing, updates only provided mapped fields.
+ */
+export const updateDynamicConsultation = command(DynamicUpdateSchema, async (data) => {
+	const agencyId = await getAgencyId();
+
+	const [existing] = await db
+		.select()
+		.from(consultations)
+		.where(and(eq(consultations.id, data.consultationId), eq(consultations.agencyId, agencyId)))
+		.limit(1);
+
+	if (!existing) {
+		throw new Error("Consultation not found");
+	}
+
+	const consultationId = data.consultationId;
+	const customData = data.customData as Record<string, unknown> | undefined;
+
+	// Build update object from provided fields only
+	const updates: Record<string, unknown> = { updatedAt: new Date() };
+	const skipKeys = new Set(["consultationId", "customData"]);
+	for (const [key, value] of Object.entries(data)) {
+		if (skipKeys.has(key)) continue;
+		if (value !== undefined) {
+			updates[key] = value;
+		}
+	}
+
+	// Merge customData if provided
+	if (customData && Object.keys(customData).length > 0) {
+		updates["customData"] = {
+			...((existing.customData as Record<string, unknown>) || {}),
+			...customData,
+		};
+	}
+
+	await db.update(consultations).set(updates).where(eq(consultations.id, consultationId));
+
+	// Update client record if email changed
+	if (data.email && data.email !== existing.email) {
+		await getOrCreateClient({
+			businessName: (data.businessName ?? existing.businessName) || "Unknown",
+			email: data.email,
+			contactName: (data.contactPerson ?? existing.contactPerson) || null,
+		});
+	}
+
+	getConsultation(consultationId).refresh();
+});
+
+// =============================================================================
+// Legacy Step Functions (deprecated - use createDynamicConsultation/updateDynamicConsultation)
+// =============================================================================
+
+/**
+ * @deprecated Use updateDynamicConsultation with dynamic fields instead
  * Update Step 1: Contact & Business
  */
 export const updateContactBusiness = command(UpdateContactBusinessSchema, async (data) => {
@@ -226,6 +406,7 @@ export const updateContactBusiness = command(UpdateContactBusinessSchema, async 
 });
 
 /**
+ * @deprecated Use updateDynamicConsultation with dynamic fields instead
  * Update Step 2: Situation & Challenges
  */
 export const updateSituation = command(UpdateSituationSchema, async (data) => {
@@ -256,6 +437,7 @@ export const updateSituation = command(UpdateSituationSchema, async (data) => {
 });
 
 /**
+ * @deprecated Use updateDynamicConsultation with dynamic fields instead
  * Update Step 3: Goals & Budget
  */
 export const updateGoalsBudget = command(UpdateGoalsBudgetSchema, async (data) => {
@@ -287,6 +469,7 @@ export const updateGoalsBudget = command(UpdateGoalsBudgetSchema, async (data) =
 });
 
 /**
+ * @deprecated Use updateDynamicConsultation with dynamic fields instead
  * Update Step 4: Preferences & Notes
  */
 export const updatePreferencesNotes = command(UpdatePreferencesNotesSchema, async (data) => {

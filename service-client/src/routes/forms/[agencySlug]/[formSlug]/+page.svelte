@@ -11,25 +11,33 @@
 	import type { ResolvedBranding } from "$lib/types/branding";
 	import type { FormSchema, FormUIConfig } from "$lib/types/form-builder";
 	import { defaultAgencyBranding } from "$lib/types/branding";
+	import { hexToHsl } from "$lib/components/form-renderer/utils/theme-generator";
 
 	const toast = getToast();
 	let { data }: PageProps = $props();
 
 	// Build resolved branding from agency data columns
+	// Colors from DB are hex - convert to HSL for theme generator
+	function toHsl(hex: string | null | undefined): string | undefined {
+		if (!hex) return undefined;
+		return hex.startsWith("#") ? hexToHsl(hex) : hex;
+	}
+
 	let branding = $derived.by((): ResolvedBranding => {
-		// Build branding from individual agency columns, spreading defaults first
-		const colors = {
+		const colors: ResolvedBranding["colors"] = {
 			...defaultAgencyBranding.colors,
-			primary: data.agency.primaryColor || defaultAgencyBranding.colors.primary,
-			secondary: data.agency.secondaryColor || defaultAgencyBranding.colors.secondary,
-			accent: data.agency.accentColor || defaultAgencyBranding.colors.accent,
+			primary: toHsl(data.agency.primaryColor) || defaultAgencyBranding.colors.primary,
 		};
+		const sec = toHsl(data.agency.secondaryColor);
+		if (sec) colors.secondary = sec;
+		const acc = toHsl(data.agency.accentColor);
+		if (acc) colors.accent = acc;
 
 		return {
 			...defaultAgencyBranding,
 			colors,
 			logo: data.agency.logoUrl ? { url: data.agency.logoUrl, position: "center" as const } : undefined,
-		};
+		} as ResolvedBranding;
 	});
 
 	// Handle form submission

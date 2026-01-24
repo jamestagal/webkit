@@ -26,23 +26,48 @@
 		schema: FormSchema;
 		branding?: ResolvedBranding | undefined;
 		options?: Record<string, FieldOption[]> | undefined; // Option sets keyed by slug
-		onSubmit: (data: Record<string, unknown>) => Promise<void>;
+		optionSets?: { slug: string; options: unknown }[] | undefined; // Raw DB option sets
+		onSubmit?: (data: Record<string, unknown>) => Promise<void>;
 		onSuccess?: (() => void) | undefined;
 		submitButtonText?: string | undefined;
 		successMessage?: string | undefined;
 		previewMode?: boolean | undefined; // Skip validation, allow free navigation
+		onStepChange?: ((direction: "next" | "prev", stepIndex: number, data: Record<string, unknown>) => Promise<void>) | undefined;
+		readOnly?: boolean | undefined;
+		showSaveButton?: boolean | undefined;
+		onSave?: ((data: Record<string, unknown>) => Promise<void>) | undefined;
+		initialData?: Record<string, unknown> | undefined;
 	}
 
 	let {
 		schema,
 		branding,
 		options = {},
+		optionSets,
 		onSubmit,
 		onSuccess,
 		submitButtonText,
 		successMessage,
 		previewMode = false,
+		onStepChange,
+		readOnly = false,
+		showSaveButton = false,
+		onSave,
+		initialData,
 	}: Props = $props();
+
+	// Merge optionSets (raw DB format) into options record
+	let resolvedOptions = $derived.by(() => {
+		const base: Record<string, FieldOption[]> = { ...options };
+		if (optionSets) {
+			for (const set of optionSets) {
+				if (set.slug && Array.isArray(set.options)) {
+					base[set.slug] = set.options as FieldOption[];
+				}
+			}
+		}
+		return base;
+	});
 
 	// Form state - using $derived.by to properly capture schema reactively
 	let formData = $state<Record<string, unknown>>({});
@@ -50,9 +75,10 @@
 	let submitting = $state(false);
 	let submitted = $state(false);
 
-	// Initialize form data when schema changes
+	// Initialize form data when schema changes (merge initialData if provided)
 	$effect(() => {
-		formData = getInitialFormData(schema);
+		const defaults = getInitialFormData(schema);
+		formData = initialData ? { ...defaults, ...initialData } : defaults;
 	});
 
 	// Multi-step state
@@ -82,7 +108,7 @@
 	// Get options for a field (from optionSetSlug or field.options)
 	function getFieldOptions(field: FormField): FieldOption[] {
 		if (field.optionSetSlug) {
-			const optionSet = options[field.optionSetSlug];
+			const optionSet = resolvedOptions[field.optionSetSlug];
 			if (optionSet) return optionSet;
 		}
 		return field.options || [];
@@ -126,6 +152,11 @@
 
 	// Handle next/submit
 	async function handleNext() {
+		if (readOnly) {
+			// In readOnly mode, just navigate without saving
+			if (!isLastStep) currentStepIndex++;
+			return;
+		}
 		// Skip validation in preview mode
 		if (!previewMode && !validateStep()) return;
 
@@ -133,7 +164,10 @@
 			// Submit the form
 			submitting = true;
 			try {
-				await onSubmit(formData);
+				if (onStepChange) {
+					await onStepChange("next", currentStepIndex, formData);
+				}
+				await onSubmit?.(formData);
 				submitted = true;
 				onSuccess?.();
 			} catch (err) {
@@ -142,14 +176,30 @@
 				submitting = false;
 			}
 		} else {
-			// Go to next step
+			// Call onStepChange before advancing
+			if (onStepChange) {
+				try {
+					await onStepChange("next", currentStepIndex, formData);
+				} catch (err) {
+					console.error("Step change failed:", err);
+					return; // Abort navigation if step change throws
+				}
+			}
 			currentStepIndex++;
 		}
 	}
 
 	// Handle back
-	function goBack() {
+	async function goBack() {
 		if (!isFirstStep) {
+			if (onStepChange) {
+				try {
+					await onStepChange("prev", currentStepIndex, formData);
+				} catch (err) {
+					console.error("Step change failed:", err);
+					return;
+				}
+			}
 			currentStepIndex--;
 		}
 	}
@@ -160,6 +210,13 @@
 		// Clear error when field changes
 		if (errors[fieldName]) {
 			delete errors[fieldName];
+		}
+	}
+
+	// Handle explicit save
+	async function handleSave() {
+		if (onSave) {
+			await onSave(formData);
 		}
 	}
 
@@ -177,15 +234,15 @@
 	// Check if using wizard layout
 	let isWizardLayout = $derived(uiConfig.layout === "wizard");
 
-	// Merged form overrides - ensure wizard layout has adequate width
+	// Merged form overrides - combine schema overrides + branding overrides + layout width
 	let mergedFormOverrides = $derived.by(() => {
-		const base = schema.formOverrides || {};
-		if (isWizardLayout && !base.layout?.maxWidth) {
+		const base = { ...branding?.formOverrides, ...schema.formOverrides };
+		if ((isWizardLayout || readOnly) && !base.layout?.maxWidth) {
 			return {
 				...base,
 				layout: {
 					...base.layout,
-					maxWidth: "1024px", // Wizard needs wider container for sidebar
+					maxWidth: readOnly ? "900px" : "1024px",
 				},
 			};
 		}
@@ -193,7 +250,9 @@
 	});
 
 	// Step completion tracking - check if all required fields in step are filled
+	// In preview mode, never mark steps as complete (no real data being entered)
 	let stepCompletion = $derived.by(() => {
+		if (previewMode) return schema.steps.map(() => false);
 		return schema.steps.map((step) => {
 			const requiredFields = step.fields.filter(
 				(f) => f.required && !["heading", "paragraph", "divider"].includes(f.type)
@@ -208,21 +267,22 @@
 		});
 	});
 
-	// Overall completion percentage
+	// Overall completion percentage (only count visited steps as complete)
 	let completionPercentage = $derived.by(() => {
-		const completed = stepCompletion.filter(Boolean).length;
+		if (previewMode) return 0;
+		const completed = stepCompletion.filter((complete, index) => complete && index < currentStepIndex).length;
 		return Math.round((completed / schema.steps.length) * 100);
 	});
 
 	// Navigate to a specific step (for sidebar click)
 	function goToStep(stepIndex: number) {
-		// In preview mode, allow free navigation to any step
-		if (previewMode) {
+		// In preview mode or readOnly, allow free navigation to any step
+		if (previewMode || readOnly) {
 			currentStepIndex = stepIndex;
 			return;
 		}
-		// Only allow navigating to completed steps or current step
-		if (stepIndex <= currentStepIndex || stepCompletion[stepIndex - 1]) {
+		// Only allow navigating to previously visited steps or current step
+		if (stepIndex <= currentStepIndex) {
 			currentStepIndex = stepIndex;
 		}
 	}
@@ -251,7 +311,7 @@
 					{stepCompletion}
 					{completionPercentage}
 					onStepClick={goToStep}
-					{previewMode}
+					previewMode={previewMode || readOnly}
 				/>
 			</aside>
 
@@ -286,6 +346,7 @@
 									error={errors[field.name]}
 									options={getFieldOptions(field)}
 									onchange={(value) => handleFieldChange(field.name, value)}
+									{readOnly}
 								/>
 							{/each}
 						</div>
@@ -295,10 +356,13 @@
 					<FormNav
 						{currentStepIndex}
 						{totalSteps}
-						{submitting}
+						submitting={readOnly ? false : submitting}
 						submitButtonText={finalSubmitText}
 						onPrevious={goBack}
 						onNext={handleNext}
+						showSaveButton={readOnly ? false : showSaveButton}
+						onSave={readOnly ? undefined : handleSave}
+						{readOnly}
 					/>
 				</form>
 			</div>
@@ -332,9 +396,7 @@
 			<!-- Step Content -->
 			<FormStep step={currentStep}>
 				<div
-					class="grid gap-4 grid-cols-1"
-					class:sm:grid-cols-1={uiConfig.layout === "single-column" || uiConfig.layout === "card"}
-					class:sm:grid-cols-2={uiConfig.layout === "two-column"}
+					class="grid gap-4 grid-cols-1 {uiConfig.layout === 'two-column' || readOnly ? 'sm:grid-cols-2' : ''}"
 				>
 					{#each currentStep.fields as field (field.id)}
 						<FieldRenderer
@@ -343,35 +405,52 @@
 							error={errors[field.name]}
 							options={getFieldOptions(field)}
 							onchange={(value) => handleFieldChange(field.name, value)}
+							{readOnly}
 						/>
 					{/each}
 				</div>
 			</FormStep>
 
 			<!-- Navigation Buttons -->
-			<div class="flex justify-between mt-8 pt-6 border-t border-base-300">
-				{#if !isFirstStep}
-					<button type="button" class="btn btn-ghost" onclick={goBack}>
-						<ArrowLeft class="w-4 h-4 mr-2" />
-						Back
-					</button>
-				{:else}
-					<div></div>
-				{/if}
-
-				<button type="submit" class="btn btn-primary" disabled={submitting}>
-					{#if submitting}
-						<Loader2 class="w-4 h-4 mr-2 animate-spin" />
-						{isLastStep ? "Submitting..." : "Validating..."}
-					{:else if isLastStep}
-						<Check class="w-4 h-4 mr-2" />
-						{finalSubmitText}
+			{#if totalSteps > 1}
+				<div class="flex justify-between mt-8 pt-6 border-t border-base-300">
+					{#if !isFirstStep}
+						<button type="button" class="btn btn-ghost" onclick={goBack}>
+							<ArrowLeft class="w-4 h-4 mr-2" />
+							Back
+						</button>
 					{:else}
-						Continue
-						<ArrowRight class="w-4 h-4 ml-2" />
+						<div></div>
 					{/if}
-				</button>
-			</div>
+
+					<div class="flex gap-2">
+						{#if showSaveButton && !readOnly}
+							<button type="button" class="btn btn-outline" onclick={handleSave}>
+								Save
+							</button>
+						{/if}
+						{#if !readOnly}
+							<button type="submit" class="btn btn-primary" disabled={submitting}>
+								{#if submitting}
+									<Loader2 class="w-4 h-4 mr-2 animate-spin" />
+									{isLastStep ? "Submitting..." : "Validating..."}
+								{:else if isLastStep}
+									<Check class="w-4 h-4 mr-2" />
+									{finalSubmitText}
+								{:else}
+									Continue
+									<ArrowRight class="w-4 h-4 ml-2" />
+								{/if}
+							</button>
+						{:else if !isLastStep}
+							<button type="button" class="btn btn-primary" onclick={handleNext}>
+								Next
+								<ArrowRight class="w-4 h-4 ml-2" />
+							</button>
+						{/if}
+					</div>
+				</div>
+			{/if}
 		</form>
 	{/if}
 </FormBranding>

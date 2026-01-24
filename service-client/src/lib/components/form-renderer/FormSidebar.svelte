@@ -27,7 +27,10 @@
 		previewMode = false,
 	}: Props = $props();
 
-	let completedCount = $derived(stepCompletion.filter(Boolean).length);
+	// Only count steps as complete if the user has visited past them
+	let completedCount = $derived(
+		stepCompletion.filter((complete, index) => complete && index < currentStepIndex).length
+	);
 </script>
 
 <div class="sidebar-container sticky top-4">
@@ -53,21 +56,22 @@
 		<nav class="steps-nav">
 			{#each steps as step, index (step.id)}
 				{@const isActive = currentStepIndex === index}
-				{@const isComplete = stepCompletion[index]}
-				{@const canNavigate = previewMode || isComplete || index <= currentStepIndex}
+				{@const isVisited = index < currentStepIndex}
+				{@const isComplete = isVisited && stepCompletion[index]}
+				{@const canNavigate = previewMode || isVisited || isActive}
 
 				<button
 					type="button"
 					class="step-item"
 					class:active={isActive}
-					class:complete={isComplete}
+					class:complete={isComplete && !isActive}
 					class:disabled={!canNavigate}
 					onclick={() => canNavigate && onStepClick(index)}
 					disabled={!canNavigate}
 				>
 					<!-- Step indicator -->
 					<span class="step-indicator">
-						{#if isComplete}
+						{#if isComplete && !isActive}
 							<Check class="h-3.5 w-3.5" strokeWidth={2.5} />
 						{:else}
 							<span class="step-number">{index + 1}</span>
@@ -111,8 +115,6 @@
 		box-shadow:
 			0 1px 3px hsla(var(--bc), 0.04),
 			0 4px 12px hsla(var(--bc), 0.03);
-		/* Force light color scheme */
-		color-scheme: light;
 		color: hsl(var(--bc));
 	}
 
@@ -216,7 +218,7 @@
 
 	.step-item.active .step-indicator {
 		background: hsl(var(--p));
-		color: hsl(var(--pc));
+		color: hsl(var(--pc, var(--b1)));
 		box-shadow: 0 2px 8px hsla(var(--p), 0.3);
 	}
 

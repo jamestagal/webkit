@@ -48,6 +48,8 @@ export interface FormField {
 	optionSetSlug?: string; // Reference to field_option_sets
 	defaultValue?: unknown;
 	conditionalLogic?: ConditionalRule[];
+	renderAs?: "default" | "chips"; // Alternative rendering for multiselect
+	formatter?: "au-phone" | "currency" | "uppercase"; // Input formatting
 	layout?: {
 		width: "full" | "half" | "third";
 		order: number;

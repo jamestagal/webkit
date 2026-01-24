@@ -1251,6 +1251,10 @@ export const consultations = pgTable("consultations", {
 	// Performance Audit Data (agency-side PageSpeed analysis)
 	performanceData: jsonb("performance_data").default({}),
 
+	// Dynamic form support
+	customData: jsonb("custom_data").default({}),
+	formId: uuid("form_id").references(() => agencyForms.id, { onDelete: "set null" }),
+
 	// Metadata
 	status: varchar("status", { length: 50 }).notNull().default("draft"), // 'draft' | 'completed' | 'converted'
 	createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),

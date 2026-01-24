@@ -16,6 +16,8 @@ import {
 	agencies,
 	agencyMemberships,
 	agencyFormOptions,
+	agencyForms,
+	formTemplates,
 	users,
 	betaInvites,
 } from "$lib/server/schema";
@@ -31,7 +33,7 @@ import {
 } from "$lib/server/agency";
 import { logActivity } from "$lib/server/db-helpers";
 import { getEffectiveBranding } from "$lib/server/document-branding";
-import { eq, and, desc, asc, ne, count } from "drizzle-orm";
+import { eq, and, desc, asc, ne, count, sql, isNull } from "drizzle-orm";
 import { sendEmail } from "$lib/server/services/email.service";
 import {
 	generateTeamInvitationEmail,
@@ -337,6 +339,39 @@ export const createAgency = command(CreateAgencySchema, async (data) => {
 		status: "active",
 		acceptedAt: new Date(),
 	});
+
+	// Auto-seed Full Discovery consultation form from template
+	try {
+		const [template] = await db
+			.select()
+			.from(formTemplates)
+			.where(eq(formTemplates.slug, "full-discovery"))
+			.limit(1);
+
+		if (template) {
+			await db.insert(agencyForms).values({
+				agencyId: agency.id,
+				name: template.name,
+				slug: "full-discovery",
+				description: template.description,
+				formType: "consultation",
+				schema: template.schema,
+				uiConfig: template.uiConfig,
+				isActive: true,
+				isDefault: true,
+				sourceTemplateId: template.id,
+				createdBy: userId,
+			});
+
+			// Increment template usage count
+			await db
+				.update(formTemplates)
+				.set({ usageCount: sql`${formTemplates.usageCount} + 1` })
+				.where(eq(formTemplates.id, template.id));
+		}
+	} catch {
+		// Non-critical: agency still works without auto-seeded form
+	}
 
 	// Mark invite as used
 	if (validInvite) {

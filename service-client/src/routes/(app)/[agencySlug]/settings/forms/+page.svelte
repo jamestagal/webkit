@@ -2,7 +2,7 @@
 	import { invalidateAll } from "$app/navigation";
 	import { goto } from "$app/navigation";
 	import { getToast } from "$lib/ui/toast_store.svelte";
-	import { deleteForm, duplicateForm, createFormFromTemplate } from "$lib/api/forms.remote";
+	import { deleteForm, duplicateForm, createFormFromTemplate, updateForm } from "$lib/api/forms.remote";
 	import {
 		Plus,
 		FileStack,
@@ -23,6 +23,8 @@
 		ListOrdered,
 		Lock,
 		RefreshCw,
+		PanelLeft,
+		AlignJustify,
 	} from "lucide-svelte";
 	import type { PageProps } from "./$types";
 
@@ -34,6 +36,18 @@
 	// Separate active and inactive forms
 	let activeForms = $derived(data.forms.filter((f) => f.isActive));
 	let inactiveForms = $derived(data.forms.filter((f) => !f.isActive));
+
+	// Track which form is the active consultation form
+	let activeConsultationForm = $derived(
+		data.forms.find((f) => f.formType === "consultation" && f.isDefault && f.isActive),
+	);
+	// Which template is being used as fallback (if no custom consultation form)
+	let consultationTemplateId = $derived.by(() => {
+		if (activeConsultationForm) return null;
+		// If no custom consultation form, Full Discovery template is the fallback
+		const fd = data.templates.find((t) => t.slug === "full-discovery");
+		return fd?.id ?? null;
+	});
 
 	// Form type icons
 	const formTypeIcons: Record<string, typeof ClipboardList> = {
@@ -88,12 +102,60 @@
 	async function handleUseTemplate(templateId: string) {
 		try {
 			const form = await createFormFromTemplate({ templateId });
-			toast.success("Form created from template");
-			// Navigate to the new form to edit
+			if (!form) throw new Error("Form creation returned no result");
+			if (form.isActive && form.isDefault) {
+				toast.success("Form created and set as default");
+			} else {
+				toast.success("Form created from template");
+			}
 			goto(`/${agencySlug}/settings/forms/${form.id}`);
 		} catch (err) {
 			toast.error("Failed to create form", err instanceof Error ? err.message : "");
 		}
+	}
+
+	async function handleSetAsConsultationForm(formId: string) {
+		try {
+			await updateForm({ id: formId, formType: "consultation", isDefault: true, isActive: true });
+			toast.success("Consultation form updated");
+			invalidateAll();
+		} catch (err) {
+			toast.error("Failed to set consultation form", err instanceof Error ? err.message : "");
+		}
+	}
+
+	async function handleUseAsConsultation(templateId: string) {
+		try {
+			const form = await createFormFromTemplate({ templateId, formType: "consultation" });
+			if (!form) throw new Error("Form creation returned no result");
+			// Ensure it's active and default
+			if (!form.isActive || !form.isDefault) {
+				await updateForm({ id: form.id, isDefault: true, isActive: true });
+			}
+			toast.success("Consultation form set");
+			invalidateAll();
+		} catch (err) {
+			toast.error("Failed to set consultation form", err instanceof Error ? err.message : "");
+		}
+	}
+
+	async function handleLayoutChange(formId: string, currentUiConfig: unknown, layout: "single-column" | "wizard") {
+		try {
+			const existing = (currentUiConfig && typeof currentUiConfig === "object" ? currentUiConfig : {}) as Record<string, unknown>;
+			await updateForm({ id: formId, uiConfig: { ...existing, layout } });
+			toast.success(`Layout changed to ${layout === "wizard" ? "Wizard" : "Simple"}`);
+			invalidateAll();
+		} catch (err) {
+			toast.error("Failed to change layout", err instanceof Error ? err.message : "");
+		}
+	}
+
+	function getFormLayout(uiConfig: unknown): string {
+		if (uiConfig && typeof uiConfig === "object") {
+			const config = uiConfig as Record<string, unknown>;
+			return (config["layout"] as string) || "single-column";
+		}
+		return "single-column";
 	}
 
 	function formatDate(date: Date | string) {
@@ -164,16 +226,23 @@
 				</h2>
 			</div>
 			<p class="text-sm text-base-content/60 mb-4">
-				Pre-built templates you can use as starting points. Click "Use Template" to create a
+				Pre-built templates you can use as starting points. Click "Use" to create a
 				customizable copy.
 			</p>
 			<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 				{#each data.templates as template (template.id)}
 					{@const Icon = getCategoryIcon(template.category)}
 					{@const stepCount = getStepCount(template.schema)}
+					{@const isActiveConsultation = consultationTemplateId === template.id}
 					<div
-						class="card bg-gradient-to-br from-primary/5 to-base-100 border border-primary/20 hover:border-primary/40 transition-colors"
+						class="card bg-gradient-to-br from-primary/5 to-base-100 border transition-colors overflow-hidden {isActiveConsultation ? 'border-success/40' : 'border-primary/20 hover:border-primary/40'}"
 					>
+						{#if isActiveConsultation}
+							<div class="flex items-center gap-1.5 px-4 py-1.5 bg-success/10 border-b border-success/20">
+								<MessageSquare class="h-3 w-3 text-success" />
+								<span class="text-xs font-semibold text-success">Active Consultation Form</span>
+							</div>
+						{/if}
 						<div class="card-body p-4">
 							<div class="flex items-start justify-between gap-2">
 								<div class="flex-1 min-w-0">
@@ -188,6 +257,27 @@
 										{template.description || "No description"}
 									</p>
 								</div>
+								{#if !isActiveConsultation}
+									<div class="dropdown dropdown-end">
+										<button
+											type="button"
+											tabindex="0"
+											class="btn btn-ghost btn-sm btn-square"
+										>
+											<MoreVertical class="h-4 w-4" />
+										</button>
+										<ul
+											class="dropdown-content z-10 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300"
+										>
+											<li>
+												<button type="button" onclick={() => handleUseAsConsultation(template.id)}>
+													<MessageSquare class="h-4 w-4" />
+													Set as Consultation Form
+												</button>
+											</li>
+										</ul>
+									</div>
+								{/if}
 							</div>
 
 							<div class="flex items-center gap-2 mt-2 flex-wrap">
@@ -291,7 +381,12 @@
 										<div class="flex items-center gap-2">
 											<h3 class="font-semibold truncate">{form.name}</h3>
 											<span class="badge badge-ghost badge-sm">Custom</span>
-											{#if form.isDefault}
+											{#if form.isDefault && form.formType === "consultation"}
+												<span class="badge badge-primary badge-sm">
+													<MessageSquare class="h-3 w-3 mr-1" />
+													Consultation Form
+												</span>
+											{:else if form.isDefault}
 												<span class="badge badge-primary badge-sm">
 													<Star class="h-3 w-3 mr-1" />
 													Default
@@ -322,6 +417,14 @@
 													Duplicate
 												</button>
 											</li>
+											{#if !(form.formType === "consultation" && form.isDefault)}
+												<li>
+													<button type="button" onclick={() => handleSetAsConsultationForm(form.id)}>
+														<MessageSquare class="h-4 w-4" />
+														Set as Consultation Form
+													</button>
+												</li>
+											{/if}
 											<li class="border-t border-base-300 mt-1 pt-1">
 												<button
 													type="button"
@@ -367,7 +470,32 @@
 									</div>
 								{/if}
 
-								<div class="flex items-center gap-4 mt-3 pt-3 border-t border-base-200">
+								<!-- Layout Toggle -->
+								<div class="flex items-center gap-2 mt-3 pt-3 border-t border-base-200">
+									<span class="text-xs text-base-content/60 mr-auto">Layout:</span>
+									<div class="join">
+										<button
+											type="button"
+											class="join-item btn btn-xs {getFormLayout(form.uiConfig) !== 'wizard' ? 'btn-active' : 'btn-ghost'}"
+											title="Simple layout"
+											onclick={() => handleLayoutChange(form.id, form.uiConfig, "single-column")}
+										>
+											<AlignJustify class="h-3 w-3" />
+											Simple
+										</button>
+										<button
+											type="button"
+											class="join-item btn btn-xs {getFormLayout(form.uiConfig) === 'wizard' ? 'btn-active' : 'btn-ghost'}"
+											title="Wizard layout with sidebar"
+											onclick={() => handleLayoutChange(form.id, form.uiConfig, "wizard")}
+										>
+											<PanelLeft class="h-3 w-3" />
+											Wizard
+										</button>
+									</div>
+								</div>
+
+								<div class="flex items-center gap-4 mt-2 pt-2 border-t border-base-200">
 									<span class="text-xs text-base-content/60"> v{form.version} </span>
 									<span class="text-xs text-base-content/60">
 										Updated {formatDate(form.updatedAt)}

@@ -21,6 +21,9 @@
 		saving?: boolean;
 		hasUnsavedChanges?: boolean;
 		showSaveStatus?: boolean;
+		showSaveButton?: boolean;
+		onSave?: (() => Promise<void>) | undefined;
+		readOnly?: boolean;
 	}
 
 	let {
@@ -34,6 +37,9 @@
 		saving = false,
 		hasUnsavedChanges = false,
 		showSaveStatus = false,
+		showSaveButton = false,
+		onSave,
+		readOnly = false,
 	}: Props = $props();
 
 	let isFirstStep = $derived(currentStepIndex === 0);
@@ -73,9 +79,19 @@
 			</div>
 		{/if}
 
-		<!-- Next/Submit Button -->
+		<!-- Save + Next/Submit Buttons -->
 		<div class="nav-right">
-			{#if isLastStep}
+			{#if showSaveButton && onSave && !readOnly}
+				<button
+					type="button"
+					class="nav-btn nav-btn-secondary"
+					onclick={onSave}
+					disabled={disabled || saving || submitting}
+				>
+					<span>Save</span>
+				</button>
+			{/if}
+			{#if isLastStep && !readOnly}
 				<button
 					type="submit"
 					class="nav-btn nav-btn-primary"
@@ -89,14 +105,14 @@
 						<span>{submitButtonText}</span>
 					{/if}
 				</button>
-			{:else}
+			{:else if !isLastStep}
 				<button
 					type="button"
 					class="nav-btn nav-btn-primary"
 					onclick={onNext}
 					disabled={disabled || saving || submitting}
 				>
-					<span>Continue</span>
+					<span>{readOnly ? "Next" : "Continue"}</span>
 					<ChevronRight class="btn-icon" />
 				</button>
 			{/if}
@@ -136,6 +152,12 @@
 	.nav-left,
 	.nav-right {
 		flex-shrink: 0;
+	}
+
+	.nav-right {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 	}
 
 	/* Button Base */

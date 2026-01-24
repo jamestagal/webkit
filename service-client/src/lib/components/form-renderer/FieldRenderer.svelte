@@ -6,6 +6,7 @@
 	 * Premium styling with refined inputs and labels.
 	 */
 	import type { FormField, FieldOption } from "$lib/types/form-builder";
+	import { formatAustralianPhone } from "$lib/utils/phone";
 	import Star from "lucide-svelte/icons/star";
 	import Upload from "lucide-svelte/icons/upload";
 	import AlertCircle from "lucide-svelte/icons/alert-circle";
@@ -16,9 +17,32 @@
 		error?: string | undefined;
 		options?: FieldOption[] | undefined;
 		onchange: (value: unknown) => void;
+		readOnly?: boolean | undefined;
 	}
 
-	let { field, value, error, options = [], onchange }: Props = $props();
+	let { field, value, error, options = [], onchange, readOnly = false }: Props = $props();
+
+	// Helper to get display label for a value from options
+	function getOptionLabel(val: string): string {
+		const opt = options.find((o) => o.value === val);
+		return opt ? opt.label : val;
+	}
+
+	// Get display text for the current value
+	let displayValue = $derived.by(() => {
+		if (!readOnly) return "";
+		if (value === null || value === undefined || value === "") return "";
+		if (Array.isArray(value)) {
+			return value.map((v) => getOptionLabel(v)).join(", ");
+		}
+		if (field.type === "select" || field.type === "radio") {
+			return getOptionLabel(value as string);
+		}
+		if (field.type === "checkbox") {
+			return (value as boolean) ? "Yes" : "No";
+		}
+		return String(value);
+	});
 
 	// Layout classes based on field width (mobile-first: always full width on mobile)
 	const widthClasses: Record<string, string> = {
@@ -29,10 +53,29 @@
 
 	let widthClass = $derived(widthClasses[field.layout?.width || "full"]);
 
+	// Apply formatter to a value
+	function applyFormatter(val: string): string {
+		if (!field.formatter) return val;
+		switch (field.formatter) {
+			case "au-phone":
+				return formatAustralianPhone(val);
+			case "uppercase":
+				return val.toUpperCase();
+			case "currency":
+				return val.replace(/[^\d.]/g, "");
+			default:
+				return val;
+		}
+	}
+
 	// Handle input changes for different types
 	function handleTextInput(e: Event) {
 		const target = e.target as HTMLInputElement;
-		onchange(target.value);
+		const formatted = field.formatter ? applyFormatter(target.value) : target.value;
+		if (field.formatter) {
+			target.value = formatted;
+		}
+		onchange(formatted);
 	}
 
 	function handleNumberInput(e: Event) {
@@ -51,6 +94,7 @@
 	}
 
 	function handleMultiSelectChange(optionValue: string) {
+		if (readOnly) return;
 		const current = (value as string[]) || [];
 		if (current.includes(optionValue)) {
 			onchange(current.filter((v) => v !== optionValue));
@@ -87,21 +131,34 @@
 
 		<!-- Input Fields -->
 	{:else}
-		<div class="field-control">
+		<div class="field-control" class:readonly-field={readOnly}>
 			<label class="field-label" for={field.id}>
 				<span class="label-text">
 					{field.label}
-					{#if field.required}
+					{#if field.required && !readOnly}
 						<span class="required-indicator">*</span>
 					{/if}
 				</span>
 			</label>
 
-			{#if field.description}
+			{#if field.description && !readOnly}
 				<p class="field-description">{field.description}</p>
 			{/if}
 
-			{#if field.type === "text" || field.type === "email" || field.type === "tel" || field.type === "url" || field.type === "password"}
+			{#if readOnly}
+				<!-- Read-only text display -->
+				{#if Array.isArray(value) && value.length > 0}
+					<div class="readonly-chips">
+						{#each value as v}
+							<span class="readonly-chip">{getOptionLabel(v)}</span>
+						{/each}
+					</div>
+				{:else if displayValue}
+					<p class="readonly-value">{displayValue}</p>
+				{:else}
+					<p class="readonly-empty">—</p>
+				{/if}
+			{:else if field.type === "text" || field.type === "email" || field.type === "tel" || field.type === "url" || field.type === "password"}
 				<input
 					id={field.id}
 					type={field.type}
@@ -114,6 +171,7 @@
 					maxlength={field.validation?.maxLength}
 					pattern={field.validation?.pattern}
 					required={field.required}
+					disabled={readOnly}
 				/>
 			{:else if field.type === "number"}
 				<input
@@ -127,6 +185,7 @@
 					min={field.validation?.min}
 					max={field.validation?.max}
 					required={field.required}
+					disabled={readOnly}
 				/>
 			{:else if field.type === "textarea"}
 				<textarea
@@ -137,7 +196,8 @@
 					maxlength={field.validation?.maxLength}
 					rows={4}
 					oninput={handleTextInput}
-					required={field.required}>{(value as string) || ""}</textarea
+					required={field.required}
+					disabled={readOnly}>{(value as string) || ""}</textarea
 				>
 			{:else if field.type === "select"}
 				<select
@@ -146,6 +206,7 @@
 					class:has-error={!!error}
 					onchange={handleSelectChange}
 					required={field.required}
+					disabled={readOnly}
 				>
 					<option value="" disabled selected={!value}>
 						{field.placeholder || "Select an option..."}
@@ -157,20 +218,38 @@
 					{/each}
 				</select>
 			{:else if field.type === "multiselect"}
-				<div class="field-options-group" class:has-error={!!error}>
-					{#each options as option}
-						<label class="option-item">
-							<input
-								type="checkbox"
-								class="option-checkbox"
-								checked={((value as string[]) || []).includes(option.value)}
-								onchange={() => handleMultiSelectChange(option.value)}
-							/>
-							<span class="option-checkmark"></span>
-							<span class="option-label">{option.label}</span>
-						</label>
-					{/each}
-				</div>
+				{#if field.renderAs === "chips"}
+					<div class="field-chips-group" class:has-error={!!error}>
+						{#each options as option}
+							{@const selected = ((value as string[]) || []).includes(option.value)}
+							<button
+								type="button"
+								class="chip-btn"
+								class:chip-selected={selected}
+								disabled={readOnly}
+								onclick={() => handleMultiSelectChange(option.value)}
+							>
+								{option.label}
+							</button>
+						{/each}
+					</div>
+				{:else}
+					<div class="field-options-group" class:has-error={!!error}>
+						{#each options as option}
+							<label class="option-item">
+								<input
+									type="checkbox"
+									class="option-checkbox"
+									checked={((value as string[]) || []).includes(option.value)}
+									onchange={() => handleMultiSelectChange(option.value)}
+									disabled={readOnly}
+								/>
+								<span class="option-checkmark"></span>
+								<span class="option-label">{option.label}</span>
+							</label>
+						{/each}
+					</div>
+				{/if}
 			{:else if field.type === "radio"}
 				<div class="field-options-group radio-group">
 					{#each options as option}
@@ -181,6 +260,7 @@
 								class="option-radio"
 								checked={value === option.value}
 								onchange={() => handleRadioChange(option.value)}
+								disabled={readOnly}
 							/>
 							<span class="option-radiomark"></span>
 							<span class="option-label">{option.label}</span>
@@ -195,6 +275,7 @@
 						class="option-checkbox"
 						checked={(value as boolean) || false}
 						onchange={handleCheckboxChange}
+						disabled={readOnly}
 					/>
 					<span class="option-checkmark"></span>
 					<span class="option-label">{field.placeholder || field.label}</span>
@@ -208,6 +289,7 @@
 					value={(value as string) || ""}
 					oninput={handleTextInput}
 					required={field.required}
+					disabled={readOnly}
 				/>
 			{:else if field.type === "datetime"}
 				<input
@@ -218,6 +300,7 @@
 					value={(value as string) || ""}
 					oninput={handleTextInput}
 					required={field.required}
+					disabled={readOnly}
 				/>
 			{:else if field.type === "slider"}
 				{@const min = field.validation?.min ?? 0}
@@ -231,6 +314,7 @@
 						max={max}
 						value={(value as number) ?? min}
 						oninput={handleNumberInput}
+						disabled={readOnly}
 					/>
 					<span class="slider-value">{(value as number) ?? min}</span>
 				</div>
@@ -244,6 +328,7 @@
 							class="rating-star"
 							class:active={i < currentRating}
 							onclick={() => handleRatingClick(i + 1)}
+							disabled={readOnly}
 						>
 							<Star class="h-7 w-7" />
 						</button>
@@ -257,6 +342,7 @@
 						class="file-input-hidden"
 						onchange={handleFileChange}
 						accept={field.validation?.accept}
+						disabled={readOnly}
 					/>
 					<label for={field.id} class="file-upload-label">
 						<Upload class="file-icon" />
@@ -292,6 +378,8 @@
 <style>
 	.field-wrapper {
 		width: 100%;
+		min-width: 0;
+		overflow: hidden;
 	}
 
 	.field-control {
@@ -344,23 +432,31 @@
 		color-scheme: light;
 	}
 
+	.field-input:disabled,
+	.field-textarea:disabled,
+	.field-select:disabled {
+		opacity: 0.7;
+		cursor: not-allowed;
+		background-color: hsla(var(--bc), 0.03);
+	}
+
 	.field-input::placeholder,
 	.field-textarea::placeholder {
 		color: hsla(var(--bc), 0.4);
 	}
 
-	.field-input:hover,
-	.field-textarea:hover,
-	.field-select:hover {
+	.field-input:hover:not(:disabled),
+	.field-textarea:hover:not(:disabled),
+	.field-select:hover:not(:disabled) {
 		border-color: hsla(var(--bc), 0.3);
 		box-shadow:
 			0 2px 4px hsla(var(--bc), 0.08),
 			0 4px 8px hsla(var(--bc), 0.06);
 	}
 
-	.field-input:focus,
-	.field-textarea:focus,
-	.field-select:focus {
+	.field-input:focus:not(:disabled),
+	.field-textarea:focus:not(:disabled),
+	.field-select:focus:not(:disabled) {
 		border-color: hsl(var(--p));
 		box-shadow:
 			0 0 0 3px hsla(var(--p), 0.15),
@@ -474,6 +570,53 @@
 	.option-label {
 		font-size: 0.9375rem;
 		color: hsla(var(--bc), 0.8);
+	}
+
+	/* Chip Multiselect */
+	.field-chips-group {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		padding: 0.75rem 0;
+	}
+
+	.field-chips-group.has-error {
+		border: 1px solid hsl(var(--er));
+		border-radius: 0.5rem;
+		padding: 0.75rem;
+	}
+
+	.chip-btn {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.5rem 1rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		border-radius: 9999px;
+		border: 1.5px solid hsla(var(--bc), 0.15);
+		background-color: hsl(var(--b1));
+		color: hsla(var(--bc), 0.7);
+		cursor: pointer;
+		transition: all 0.15s ease;
+		white-space: nowrap;
+	}
+
+	.chip-btn:hover:not(:disabled) {
+		border-color: hsla(var(--p), 0.4);
+		color: hsl(var(--p));
+		background-color: hsla(var(--p), 0.05);
+	}
+
+	.chip-btn.chip-selected {
+		background-color: hsla(var(--p), 0.1);
+		border-color: hsl(var(--p));
+		color: hsl(var(--p));
+		font-weight: 600;
+	}
+
+	.chip-btn:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
 	}
 
 	/* Single Checkbox */
@@ -668,5 +811,56 @@
 		width: 0.875rem;
 		height: 0.875rem;
 		flex-shrink: 0;
+	}
+
+	/* Read-only display */
+	.readonly-field {
+		gap: 0.25rem;
+		background-color: color-mix(in oklch, var(--color-base-content) 4%, transparent);
+		border: 1px solid color-mix(in oklch, var(--color-base-content) 8%, transparent);
+		border-radius: 0.5rem;
+		padding: 0.75rem 1rem;
+	}
+
+	.readonly-field .field-label .label-text {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: color-mix(in oklch, var(--color-base-content) 55%, transparent);
+		text-transform: uppercase;
+		letter-spacing: 0.025em;
+	}
+
+	.readonly-value {
+		font-size: 0.9375rem;
+		color: var(--color-base-content);
+		white-space: pre-line;
+		line-height: 1.5;
+		margin: 0;
+		overflow-wrap: break-word;
+		word-break: break-word;
+	}
+
+	.readonly-empty {
+		font-size: 0.9375rem;
+		color: color-mix(in oklch, var(--color-base-content) 30%, transparent);
+		margin: 0;
+	}
+
+	.readonly-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.375rem;
+	}
+
+	.readonly-chip {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.25rem 0.75rem;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		border-radius: 9999px;
+		background-color: color-mix(in oklch, var(--color-primary) 12%, transparent);
+		color: var(--color-primary);
+		border: 1px solid color-mix(in oklch, var(--color-primary) 25%, transparent);
 	}
 </style>

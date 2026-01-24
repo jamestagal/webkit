@@ -572,8 +572,9 @@ export const createFormFromTemplate = command(
 		templateId: v.pipe(v.string(), v.uuid()),
 		name: v.optional(v.string()),
 		slug: v.optional(v.string()),
+		formType: v.optional(v.picklist(["questionnaire", "consultation", "feedback", "intake", "custom"])),
 	}),
-	async ({ templateId, name, slug }) => {
+	async ({ templateId, name, slug, formType: overrideFormType }) => {
 		const context = await requireAgencyRole(["owner", "admin"]);
 		const userId = getUserId();
 
@@ -606,7 +607,7 @@ export const createFormFromTemplate = command(
 			counter++;
 		}
 
-		// Determine form type from template category
+		// Determine form type from override or template category
 		const categoryToType: Record<string, string> = {
 			questionnaire: "questionnaire",
 			consultation: "consultation",
@@ -614,7 +615,22 @@ export const createFormFromTemplate = command(
 			intake: "intake",
 			general: "custom",
 		};
-		const formType = categoryToType[template.category] || "custom";
+		const formType = overrideFormType || categoryToType[template.category] || "custom";
+
+		// Check if this form type already has an active default
+		const [existingDefault] = await db
+			.select({ id: agencyForms.id })
+			.from(agencyForms)
+			.where(
+				and(
+					eq(agencyForms.agencyId, context.agencyId),
+					eq(agencyForms.formType, formType as "questionnaire" | "consultation" | "feedback" | "intake" | "custom"),
+					eq(agencyForms.isActive, true),
+				),
+			);
+
+		// Auto-activate and set as default if no existing form of this type
+		const shouldAutoActivate = !existingDefault;
 
 		// Create the form
 		const [form] = await db
@@ -633,8 +649,8 @@ export const createFormFromTemplate = command(
 					submitButtonText: "Submit",
 					successMessage: "Thank you for your submission!",
 				},
-				isActive: false, // Start as inactive so user can review
-				isDefault: false,
+				isActive: shouldAutoActivate,
+				isDefault: shouldAutoActivate,
 				requiresAuth: false,
 				version: 1,
 				createdBy: userId,
