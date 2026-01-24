@@ -139,11 +139,12 @@
 		}
 	}
 
-	async function handleLayoutChange(formId: string, currentUiConfig: unknown, layout: "single-column" | "wizard") {
+	async function handleLayoutChange(formId: string, currentUiConfig: unknown, layout: "single-column" | "wizard" | "stepper") {
 		try {
 			const existing = (currentUiConfig && typeof currentUiConfig === "object" ? currentUiConfig : {}) as Record<string, unknown>;
 			await updateForm({ id: formId, uiConfig: { ...existing, layout } });
-			toast.success(`Layout changed to ${layout === "wizard" ? "Wizard" : "Simple"}`);
+			const layoutLabels: Record<string, string> = { wizard: "Wizard", stepper: "Stepper", "single-column": "Simple" };
+		toast.success(`Layout changed to ${layoutLabels[layout] || "Simple"}`);
 			invalidateAll();
 		} catch (err) {
 			toast.error("Failed to change layout", err instanceof Error ? err.message : "");
@@ -476,12 +477,21 @@
 									<div class="join">
 										<button
 											type="button"
-											class="join-item btn btn-xs {getFormLayout(form.uiConfig) !== 'wizard' ? 'btn-active' : 'btn-ghost'}"
+											class="join-item btn btn-xs {getFormLayout(form.uiConfig) === 'single-column' || (getFormLayout(form.uiConfig) !== 'wizard' && getFormLayout(form.uiConfig) !== 'stepper') ? 'btn-active' : 'btn-ghost'}"
 											title="Simple layout"
 											onclick={() => handleLayoutChange(form.id, form.uiConfig, "single-column")}
 										>
 											<AlignJustify class="h-3 w-3" />
 											Simple
+										</button>
+										<button
+											type="button"
+											class="join-item btn btn-xs {getFormLayout(form.uiConfig) === 'stepper' ? 'btn-active' : 'btn-ghost'}"
+											title="Stepper layout with numbered circles"
+											onclick={() => handleLayoutChange(form.id, form.uiConfig, "stepper")}
+										>
+											<ListOrdered class="h-3 w-3" />
+											Stepper
 										</button>
 										<button
 											type="button"

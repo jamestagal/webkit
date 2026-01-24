@@ -18,7 +18,7 @@ import { error } from "@sveltejs/kit";
 import { getUserId } from "$lib/server/auth";
 import { getAgencyContext, requireAgencyRole } from "$lib/server/agency";
 import { eq, and, desc, asc, isNull, or, sql } from "drizzle-orm";
-import type { FormSchema } from "$lib/types/form-builder";
+import type { RawFormSchema } from "$lib/types/form-builder";
 
 // =============================================================================
 // Validation Schemas
@@ -344,7 +344,7 @@ export const createForm = command(CreateFormSchema, async (data) => {
 			slug: data.slug,
 			description: data.description || null,
 			formType: data.formType,
-			schema: data.schema as FormSchema,
+			schema: data.schema as RawFormSchema,
 			uiConfig: data.uiConfig || {
 				layout: "single-column",
 				showProgressBar: true,
@@ -641,7 +641,7 @@ export const createFormFromTemplate = command(
 				slug: finalSlug,
 				description: template.description,
 				formType: formType as "questionnaire" | "consultation" | "feedback" | "intake" | "custom",
-				schema: template.schema as FormSchema,
+				schema: template.schema as RawFormSchema,
 				uiConfig: template.uiConfig || {
 					layout: "single-column",
 					showProgressBar: true,
@@ -970,7 +970,7 @@ export const createSubmissionFromTemplate = command(
 					slug: template.slug,
 					description: template.description,
 					formType: formType as "questionnaire" | "consultation" | "feedback" | "intake" | "custom",
-					schema: template.schema as FormSchema,
+					schema: template.schema as RawFormSchema,
 					uiConfig: template.uiConfig || {
 						layout: "single-column",
 						showProgressBar: true,

@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { ArrowLeft, Info, PanelLeft, AlignJustify } from "lucide-svelte";
+	import { ArrowLeft, Info, PanelLeft, AlignJustify, ListOrdered } from "lucide-svelte";
 	import DynamicForm from "$lib/components/form-renderer/DynamicForm.svelte";
+	import { buildFormSchema } from "$lib/components/form-builder/utils/schema-generator";
 	import type { PageProps } from "./$types";
 	import type { FormSchema } from "$lib/types/form-builder";
 	import type { ResolvedBranding } from "$lib/types/branding";
@@ -8,30 +9,13 @@
 	let { data }: PageProps = $props();
 
 	// Layout toggle state - default to template's configured layout
-	let layoutOverride = $state<"wizard" | "single-column" | null>(null);
+	let layoutOverride = $state<"wizard" | "single-column" | "stepper" | null>(null);
 
-	// Parse the template schema and merge with uiConfig
-	// Database stores schema and uiConfig as separate columns
+	// Build schema by merging the separate uiConfig column
 	let schema = $derived.by((): FormSchema | null => {
 		if (!data.template.schema) return null;
 		try {
-			const parsed =
-				typeof data.template.schema === "string"
-					? JSON.parse(data.template.schema)
-					: data.template.schema;
-			if (parsed && parsed.version && Array.isArray(parsed.steps)) {
-				// Merge uiConfig from separate database column
-				const uiConfig =
-					typeof data.template.uiConfig === "string"
-						? JSON.parse(data.template.uiConfig)
-						: data.template.uiConfig;
-
-				return {
-					...parsed,
-					uiConfig: uiConfig || parsed.uiConfig,
-				} as FormSchema;
-			}
-			return null;
+			return buildFormSchema(data.template.schema, data.template.uiConfig);
 		} catch {
 			return null;
 		}
@@ -73,7 +57,7 @@
 
 		// Build uiConfig with only defined properties (for exactOptionalPropertyTypes)
 		const newUiConfig: FormSchema["uiConfig"] = {
-			layout: finalLayout as "single-column" | "two-column" | "card" | "wizard",
+			layout: finalLayout as "single-column" | "two-column" | "card" | "wizard" | "stepper",
 		};
 		if (baseSchema.uiConfig?.showProgressBar !== undefined)
 			newUiConfig.showProgressBar = baseSchema.uiConfig.showProgressBar;
@@ -147,6 +131,16 @@
 					>
 						<PanelLeft class="h-4 w-4" />
 						<span class="hidden md:inline">Sidebar</span>
+					</button>
+					<button
+						type="button"
+						class="join-item btn btn-sm"
+						class:btn-active={effectiveLayout === "stepper"}
+						onclick={() => (layoutOverride = "stepper")}
+						title="Stepper navigation"
+					>
+						<ListOrdered class="h-4 w-4" />
+						<span class="hidden md:inline">Stepper</span>
 					</button>
 					<button
 						type="button"

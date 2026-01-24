@@ -7,6 +7,7 @@
 export { default as DynamicForm } from "./DynamicForm.svelte";
 export { default as FormBranding } from "./FormBranding.svelte";
 export { default as FormStep } from "./FormStep.svelte";
+export { default as FormStepper } from "./FormStepper.svelte";
 export { default as FieldRenderer } from "./FieldRenderer.svelte";
 
 // Re-export utilities

@@ -12,6 +12,14 @@ export type { FormBrandingOverrides };
 // FORM SCHEMA TYPES
 // ============================================================================
 
+/**
+ * Branded type for raw schema data from the database.
+ * Forces developers to use buildFormSchema() to get a usable FormSchema,
+ * ensuring uiConfig is always properly merged.
+ */
+declare const __rawFormSchema: unique symbol;
+export type RawFormSchema = FormSchema & { readonly [__rawFormSchema]: true };
+
 export interface FormSchema {
 	version: "1.0";
 	steps: FormStep[];
@@ -20,7 +28,7 @@ export interface FormSchema {
 }
 
 export interface UIConfig {
-	layout?: "single-column" | "two-column" | "card" | "wizard";
+	layout?: "single-column" | "two-column" | "card" | "wizard" | "stepper";
 	showProgressBar?: boolean;
 	showStepNumbers?: boolean;
 	submitButtonText?: string;
@@ -129,7 +137,7 @@ export interface AgencyForm {
 }
 
 export interface FormUIConfig {
-	layout?: "single-column" | "two-column" | "card" | "wizard";
+	layout?: "single-column" | "two-column" | "card" | "wizard" | "stepper";
 	showProgressBar?: boolean;
 	showStepNumbers?: boolean;
 	submitButtonText?: string;

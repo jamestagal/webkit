@@ -19,6 +19,7 @@ import {
 	decimal,
 	index,
 } from "drizzle-orm/pg-core";
+import type { RawFormSchema } from "$lib/types/form-builder";
 
 // =============================================================================
 // USER TABLE
@@ -457,7 +458,7 @@ export const agencyForms = pgTable(
 		formType: varchar("form_type", { length: 50 }).notNull(), // questionnaire, consultation, feedback, intake, custom
 
 		// Form Schema (Zod-compatible JSON)
-		schema: jsonb("schema").notNull(),
+		schema: jsonb("schema").$type<RawFormSchema>().notNull(),
 
 		// UI Configuration
 		uiConfig: jsonb("ui_config").notNull().default({
@@ -594,7 +595,7 @@ export const formTemplates = pgTable("form_templates", {
 	category: varchar("category", { length: 100 }).notNull(),
 
 	// Template Schema
-	schema: jsonb("schema").notNull(),
+	schema: jsonb("schema").$type<RawFormSchema>().notNull(),
 	uiConfig: jsonb("ui_config").notNull(),
 
 	// Display

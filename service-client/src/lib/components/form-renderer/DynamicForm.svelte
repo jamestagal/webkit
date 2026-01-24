@@ -16,6 +16,7 @@
 	import FormStep from "./FormStep.svelte";
 	import FieldRenderer from "./FieldRenderer.svelte";
 	import FormSidebar from "./FormSidebar.svelte";
+	import FormStepper from "./FormStepper.svelte";
 	import FormNav from "./FormNav.svelte";
 	import ArrowLeft from "lucide-svelte/icons/arrow-left";
 	import ArrowRight from "lucide-svelte/icons/arrow-right";
@@ -233,6 +234,7 @@
 
 	// Check if using wizard layout
 	let isWizardLayout = $derived(uiConfig.layout === "wizard");
+	let isStepperLayout = $derived(uiConfig.layout === "stepper");
 
 	// Merged form overrides - combine schema overrides + branding overrides + layout width
 	let mergedFormOverrides = $derived.by(() => {
@@ -243,6 +245,15 @@
 				layout: {
 					...base.layout,
 					maxWidth: readOnly ? "900px" : "1024px",
+				},
+			};
+		}
+		if (isStepperLayout && !base.layout?.maxWidth) {
+			return {
+				...base,
+				layout: {
+					...base.layout,
+					maxWidth: "800px",
 				},
 			};
 		}
@@ -367,6 +378,70 @@
 				</form>
 			</div>
 		</div>
+	{:else if isStepperLayout}
+		<!-- Stepper Layout (horizontal numbered circles) -->
+		<form
+			onsubmit={(e) => {
+				e.preventDefault();
+				handleNext();
+			}}
+		>
+			<!-- Progress Header + Bar -->
+			{#if totalSteps > 1 && uiConfig.showProgressBar}
+				<div class="mb-6">
+					<div class="flex justify-between text-sm text-base-content/70 mb-2">
+						<span>Step {currentStepIndex + 1} of {totalSteps}</span>
+						<span>{Math.round(progressPercent)}% Complete</span>
+					</div>
+					<div class="h-2 bg-base-200 rounded-full overflow-hidden">
+						<div
+							class="h-full bg-primary transition-all duration-300 ease-out"
+							style="width: {progressPercent}%"
+						></div>
+					</div>
+				</div>
+			{/if}
+
+			<!-- Stepper Navigation -->
+			{#if totalSteps > 1}
+				<FormStepper
+					steps={schema.steps}
+					{currentStepIndex}
+					{stepCompletion}
+					onStepClick={goToStep}
+					previewMode={previewMode || readOnly}
+				/>
+			{/if}
+
+			<!-- Step Content -->
+			<FormStep step={currentStep}>
+				<div class="grid gap-4 grid-cols-1">
+					{#each currentStep.fields as field (field.id)}
+						<FieldRenderer
+							{field}
+							value={formData[field.name]}
+							error={errors[field.name]}
+							options={getFieldOptions(field)}
+							onchange={(value) => handleFieldChange(field.name, value)}
+							{readOnly}
+						/>
+					{/each}
+				</div>
+			</FormStep>
+
+			<!-- Navigation -->
+			<FormNav
+				{currentStepIndex}
+				{totalSteps}
+				submitting={readOnly ? false : submitting}
+				submitButtonText={finalSubmitText}
+				onPrevious={goBack}
+				onNext={handleNext}
+				showSaveButton={readOnly ? false : showSaveButton}
+				onSave={readOnly ? undefined : handleSave}
+				{readOnly}
+			/>
+		</form>
 	{:else}
 		<!-- Simple Layout (single-column, two-column, card) -->
 		<form

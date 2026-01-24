@@ -5,7 +5,7 @@
  */
 
 import * as v from "valibot";
-import type { FormSchema, FormField } from "$lib/types/form-builder";
+import type { FormSchema, FormField, UIConfig, RawFormSchema } from "$lib/types/form-builder";
 
 // Type for the generated schema output
 export type GeneratedSchema = v.GenericSchema;
@@ -294,4 +294,38 @@ export function getInitialFormData(formSchema: FormSchema): Record<string, unkno
 	}
 
 	return data;
+}
+
+/**
+ * Build a complete FormSchema by merging the separate uiConfig column into the schema.
+ *
+ * The database stores `schema` and `ui_config` as separate columns.
+ * The `ui_config` column is the source of truth for UI settings (layout, buttons, etc).
+ * This function merges them into a single FormSchema for rendering components.
+ *
+ * Use this whenever loading a form from the database for rendering or editing.
+ */
+export function buildFormSchema(schema: RawFormSchema | unknown, uiConfig?: unknown): FormSchema {
+	const s = (typeof schema === "string" ? JSON.parse(schema) : schema) as FormSchema;
+	if (uiConfig && typeof uiConfig === "object") {
+		const parsed = (typeof uiConfig === "string" ? JSON.parse(uiConfig) : uiConfig) as UIConfig;
+		return { ...s, uiConfig: { ...s.uiConfig, ...parsed } };
+	}
+	return s;
+}
+
+/**
+ * Extract uiConfig from a FormSchema for saving to the separate DB column.
+ *
+ * Returns the schema without uiConfig (for the `schema` column) and
+ * the uiConfig separately (for the `ui_config` column).
+ *
+ * Use this when saving from the Builder, which stores uiConfig inside the schema.
+ */
+export function extractUiConfig(schema: FormSchema): {
+	schema: Omit<FormSchema, "uiConfig">;
+	uiConfig: UIConfig | undefined;
+} {
+	const { uiConfig, ...schemaWithoutUiConfig } = schema;
+	return { schema: schemaWithoutUiConfig, uiConfig: uiConfig || undefined };
 }
