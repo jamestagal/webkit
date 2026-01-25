@@ -362,7 +362,7 @@ export const getInvoices = query(InvoiceFiltersSchema, async (filters) => {
 	const updatedResults = await checkAndUpdateOverdueStatusBatch(results);
 
 	// If there's a search term, filter in JS (simpler than ILIKE)
-	if (filters.search) {
+	if (filters?.search) {
 		const searchLower = filters.search.toLowerCase();
 		return updatedResults.filter(
 			(inv) =>

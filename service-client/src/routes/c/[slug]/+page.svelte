@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { CheckCircle, AlertCircle, FileText, Building2, User, Mail, Phone } from 'lucide-svelte';
+	import { CheckCircle, AlertCircle, Building2, Mail, Phone } from 'lucide-svelte';
 	import type { PageProps, ActionData } from './$types';
 
 	let { data, form }: PageProps & { form: ActionData } = $props();

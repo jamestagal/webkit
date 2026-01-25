@@ -339,11 +339,11 @@ export const updateClient = command(UpdateClientSchema, async (data) => {
 		updatedAt: new Date(),
 	};
 
-	if (data.businessName !== undefined) updates.businessName = data.businessName;
-	if (data.email !== undefined) updates.email = data.email.toLowerCase();
-	if (data.phone !== undefined) updates.phone = data.phone;
-	if (data.contactName !== undefined) updates.contactName = data.contactName;
-	if (data.notes !== undefined) updates.notes = data.notes;
+	if (data.businessName !== undefined) updates["businessName"] = data.businessName;
+	if (data.email !== undefined) updates["email"] = data.email.toLowerCase();
+	if (data.phone !== undefined) updates["phone"] = data.phone;
+	if (data.contactName !== undefined) updates["contactName"] = data.contactName;
+	if (data.notes !== undefined) updates["notes"] = data.notes;
 
 	const [client] = await db
 		.update(clients)

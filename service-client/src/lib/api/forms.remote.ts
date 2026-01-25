@@ -696,11 +696,11 @@ export const updateSubmissionStatus = command(
 		const updates: Record<string, unknown> = { status };
 
 		if (status === "processed") {
-			updates.processedAt = new Date();
+			updates["processedAt"] = new Date();
 		}
 
 		if (consultationId) {
-			updates.consultationId = consultationId;
+			updates["consultationId"] = consultationId;
 		}
 
 		const [submission] = await db
@@ -1079,7 +1079,7 @@ export const saveSubmissionProgress = command(
 
 		// Set startedAt on first save
 		if (!existing.startedAt) {
-			updates.startedAt = new Date();
+			updates["startedAt"] = new Date();
 		}
 
 		const [submission] = await db

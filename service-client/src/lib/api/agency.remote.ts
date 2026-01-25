@@ -33,7 +33,7 @@ import {
 } from "$lib/server/agency";
 import { logActivity } from "$lib/server/db-helpers";
 import { getEffectiveBranding } from "$lib/server/document-branding";
-import { eq, and, desc, asc, ne, count, sql, isNull } from "drizzle-orm";
+import { eq, and, desc, asc, sql } from "drizzle-orm";
 import { sendEmail } from "$lib/server/services/email.service";
 import {
 	generateTeamInvitationEmail,
@@ -571,7 +571,7 @@ export const inviteMember = command(InviteMemberSchema, async (data) => {
 		to: data.email,
 		subject: emailTemplate.subject,
 		html: emailTemplate.bodyHtml,
-		replyTo: agency.email || undefined,
+		...(agency.email && { replyTo: agency.email }),
 	});
 
 	if (!emailResult.success) {
@@ -812,7 +812,7 @@ export const resendInvitation = command(ResendInvitationSchema, async (membershi
 		to: user.email,
 		subject: emailTemplate.subject,
 		html: emailTemplate.bodyHtml,
-		replyTo: agency.email || undefined,
+		...(agency.email && { replyTo: agency.email }),
 	});
 
 	if (!emailResult.success) {

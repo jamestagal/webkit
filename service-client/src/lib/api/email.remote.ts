@@ -358,12 +358,12 @@ export const sendProposalEmail = command(SendProposalEmailSchema, async (data) =
 
 		// Set sentAt if first send
 		if (!proposal.sentAt) {
-			updates.sentAt = new Date();
+			updates["sentAt"] = new Date();
 		}
 
 		// Change status to 'sent' if in draft or ready
 		if (proposal.status === "draft" || proposal.status === "ready") {
-			updates.status = "sent";
+			updates["status"] = "sent";
 		}
 
 		await db.update(proposals).set(updates).where(eq(proposals.id, proposal.id));

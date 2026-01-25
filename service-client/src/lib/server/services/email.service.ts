@@ -87,16 +87,26 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 	const fromName = env["EMAIL_FROM_NAME"] || "Webkit";
 	const from = `${fromName} <${fromAddress}>`;
 
+	// Build options object, only including optional fields if defined
+	const emailOpts = {
+		to,
+		subject,
+		html,
+		from,
+		...(replyTo && { replyTo }),
+		...(attachments && { attachments }),
+	};
+
 	// Try Resend first (production)
 	const resend = getResendClient();
 	if (resend) {
-		return sendViaResend(resend, { to, subject, html, replyTo, attachments, from });
+		return sendViaResend(resend, emailOpts);
 	}
 
 	// Fall back to SMTP (local development with Mailpit)
 	const smtp = getSmtpTransporter();
 	if (smtp) {
-		return sendViaSmtp(smtp, { to, subject, html, replyTo, attachments, from });
+		return sendViaSmtp(smtp, emailOpts);
 	}
 
 	console.error("No email service configured (RESEND_API_KEY or SMTP_HOST required)");
