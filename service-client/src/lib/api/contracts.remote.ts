@@ -1016,7 +1016,11 @@ export const regenerateContractTerms = command(
 							: null,
 						selectedAddons.map((a) => ({ name: a.name, price: a.price })),
 					)
-				: dataPipelineService.buildProposalMergeFields({}, null, []),
+				: dataPipelineService.buildProposalMergeFields(
+						{ proposalNumber: "", title: "", createdAt: new Date() },
+						null,
+						[],
+					),
 			contract: {
 				number: existing.contractNumber || "",
 				date: existing.createdAt
@@ -1040,6 +1044,22 @@ export const regenerateContractTerms = command(
 						}).format(parseFloat(existing.totalPrice))
 					: "",
 				payment_terms: existing.paymentTerms || "",
+				minimum_term: "",
+				cancellation_terms: "",
+				start_date: existing.commencementDate
+					? new Date(existing.commencementDate).toLocaleDateString("en-AU", {
+							day: "numeric",
+							month: "long",
+							year: "numeric",
+						})
+					: "",
+				end_date: existing.completionDate
+					? new Date(existing.completionDate).toLocaleDateString("en-AU", {
+							day: "numeric",
+							month: "long",
+							year: "numeric",
+						})
+					: "",
 				commencement_date: existing.commencementDate
 					? new Date(existing.commencementDate).toLocaleDateString("en-AU", {
 							day: "numeric",
@@ -1056,6 +1076,8 @@ export const regenerateContractTerms = command(
 					: "",
 				services_description: existing.servicesDescription || "",
 				special_conditions: existing.specialConditions || "",
+				agency_signatory_name: "",
+				agency_signatory_title: "",
 			},
 			computed: dataPipelineService.buildComputedMergeFields(),
 		};
@@ -1214,33 +1236,35 @@ export const linkTemplateToContract = command(
 
 			// Build merge field data using helper functions
 			const mergeData: MergeFieldData = {
-				proposal: proposal
-					? dataPipelineService.buildProposalMergeFields(
-							{
-								proposalNumber: proposal.proposalNumber,
-								title: proposal.title,
-								createdAt: proposal.createdAt,
-								validUntil: proposal.validUntil,
-								customPricing: proposal.customPricing as {
-									setupFee?: string;
-									monthlyPrice?: string;
-									total?: string;
-								},
+				...(proposal && {
+					proposal: dataPipelineService.buildProposalMergeFields(
+						{
+							proposalNumber: proposal.proposalNumber,
+							title: proposal.title,
+							createdAt: proposal.createdAt,
+							validUntil: proposal.validUntil,
+							customPricing: proposal.customPricing as {
+								setupFee?: string;
+								monthlyPrice?: string;
+								total?: string;
 							},
-							selectedPackage,
-							selectedAddons,
-						)
-					: undefined,
-				agency: agency ? dataPipelineService.buildAgencyMergeFields(agency, profile) : undefined,
-				client: proposal
-					? dataPipelineService.buildClientMergeFields({
-							businessName: proposal.clientBusinessName || consultation?.businessName,
-							contactPerson: proposal.clientContactName || consultation?.contactPerson,
-							email: proposal.clientEmail || consultation?.email,
-							phone: proposal.clientPhone || consultation?.phone,
-							industry: consultation?.industry,
-						})
-					: undefined,
+						},
+						selectedPackage,
+						selectedAddons,
+					),
+				}),
+				...(agency && {
+					agency: dataPipelineService.buildAgencyMergeFields(agency, profile || null),
+				}),
+				...(proposal && {
+					client: dataPipelineService.buildClientMergeFields({
+						businessName: proposal.clientBusinessName || consultation?.businessName || null,
+						contactPerson: proposal.clientContactName || consultation?.contactPerson || null,
+						email: proposal.clientEmail || consultation?.email || "",
+						phone: proposal.clientPhone || consultation?.phone || "",
+						industry: consultation?.industry || null,
+					} as Parameters<typeof dataPipelineService.buildClientMergeFields>[0]),
+				}),
 				contract: dataPipelineService.buildContractMergeFields({
 					contractNumber: existing.contractNumber,
 					createdAt: existing.createdAt,

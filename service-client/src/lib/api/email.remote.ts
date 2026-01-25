@@ -585,7 +585,7 @@ export const sendInvoiceReminder = command(SendInvoiceReminderSchema, async (dat
 	const reminderData: ReminderEmailData = {
 		...baseData,
 		isOverdue,
-		daysPastDue: daysPastDue > 0 ? daysPastDue : undefined,
+		...(daysPastDue > 0 && { daysPastDue }),
 	};
 
 	if (data.customMessage) {
