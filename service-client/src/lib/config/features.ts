@@ -10,7 +10,6 @@ import {
 	FileText,
 	FileSignature,
 	Receipt,
-	ClipboardCheck,
 	House,
 	Settings,
 	Users,
@@ -35,7 +34,6 @@ export type FeatureKey =
 	| "proposals"
 	| "contracts"
 	| "invoices"
-	| "questionnaires"
 	| "forms"
 	| "clients";
 
@@ -78,15 +76,6 @@ export const FEATURES: Record<FeatureKey, FeatureConfig> = {
 		icon: Receipt,
 		color: "#10b981", // Emerald
 		colorLight: "#10b98115",
-	},
-	questionnaires: {
-		key: "questionnaires",
-		title: "Questionnaires",
-		description:
-			"Collect project requirements from clients. Gather content, branding, and technical details.",
-		icon: ClipboardCheck,
-		color: "#f59e0b", // Amber
-		colorLight: "#f59e0b15",
 	},
 	forms: {
 		key: "forms",

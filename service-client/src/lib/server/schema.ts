@@ -1148,66 +1148,6 @@ export const emailLogs = pgTable(
 );
 
 // =============================================================================
-// QUESTIONNAIRE RESPONSES TABLE
-// =============================================================================
-
-// Questionnaire responses - stores Initial Website Questionnaire responses
-// Now standalone entities that can be linked to contracts, proposals, or consultations
-export const questionnaireResponses = pgTable(
-	"questionnaire_responses",
-	{
-		id: uuid("id").primaryKey().defaultRandom(),
-		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-
-		// Agency scope
-		agencyId: uuid("agency_id")
-			.notNull()
-			.references(() => agencies.id, { onDelete: "cascade" }),
-
-		// Public URL slug (questionnaire's own slug for access)
-		slug: varchar("slug", { length: 100 }).notNull().unique(),
-
-		// Optional links to other entities (all nullable for standalone questionnaires)
-		contractId: uuid("contract_id").references(() => contracts.id, { onDelete: "set null" }),
-		proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "set null" }),
-		consultationId: uuid("consultation_id").references(() => consultations.id, {
-			onDelete: "set null",
-		}),
-
-		// Client identification (for standalone questionnaires without linked entities)
-		clientBusinessName: text("client_business_name").notNull().default(""),
-		clientEmail: varchar("client_email", { length: 255 }).notNull().default(""),
-
-		// All responses stored as JSONB (39 fields across 8 sections)
-		responses: jsonb("responses").notNull().default({}),
-
-		// Progress tracking
-		currentSection: integer("current_section").notNull().default(0),
-		completionPercentage: integer("completion_percentage").notNull().default(0),
-
-		// Status: not_started, in_progress, completed
-		status: varchar("status", { length: 50 }).notNull().default("not_started"),
-
-		// Timestamps
-		startedAt: timestamp("started_at", { withTimezone: true }),
-		completedAt: timestamp("completed_at", { withTimezone: true }),
-		lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).defaultNow(),
-	},
-	(table) => ({
-		agencyIdx: index("questionnaire_responses_agency_idx").on(table.agencyId),
-		slugIdx: index("questionnaire_responses_slug_idx").on(table.slug),
-		contractIdx: index("questionnaire_responses_contract_idx").on(table.contractId),
-		proposalIdx: index("questionnaire_responses_proposal_idx").on(table.proposalId),
-		statusIdx: index("questionnaire_responses_status_idx").on(table.agencyId, table.status),
-	}),
-);
-
-export type QuestionnaireResponse = typeof questionnaireResponses.$inferSelect;
-export type QuestionnaireResponseInsert = typeof questionnaireResponses.$inferInsert;
-export type QuestionnaireStatus = "not_started" | "in_progress" | "completed";
-
-// =============================================================================
 // CONSULTATION TABLES (v2 - Flat Columns)
 // =============================================================================
 

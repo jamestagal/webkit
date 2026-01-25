@@ -14,7 +14,6 @@ import {
 	consultations,
 	proposals,
 	contracts,
-	questionnaireResponses,
 	invoices,
 	invoiceLineItems,
 	agencyPackages,
@@ -28,7 +27,6 @@ import {
 	DEMO_CONSULTATION,
 	DEMO_PROPOSAL,
 	DEMO_CONTRACT,
-	DEMO_QUESTIONNAIRE,
 	DEMO_INVOICE,
 } from "./demo-data";
 
@@ -81,13 +79,11 @@ export const loadDemoData = command(async () => {
 	const consultationId = crypto.randomUUID();
 	const proposalId = crypto.randomUUID();
 	const contractId = crypto.randomUUID();
-	const questionnaireId = crypto.randomUUID();
 	const invoiceId = crypto.randomUUID();
 
 	// Generate unique slugs
 	const proposalSlug = `demo-murrays-${nanoid(8)}`;
 	const contractSlug = `demo-contract-${nanoid(8)}`;
-	const questionnaireSlug = `demo-questionnaire-${nanoid(8)}`;
 	const invoiceSlug = `demo-invoice-${nanoid(8)}`;
 
 	// 0. Create unified client first (Unified Client Approach)
@@ -239,26 +235,7 @@ export const loadDemoData = command(async () => {
 		createdBy: userId,
 	});
 
-	// 4. Create questionnaire linked to contract
-	await db.insert(questionnaireResponses).values({
-		id: questionnaireId,
-		agencyId,
-		contractId,
-		proposalId,
-		consultationId,
-		slug: questionnaireSlug,
-		clientBusinessName: DEMO_QUESTIONNAIRE.clientBusinessName,
-		clientEmail: DEMO_QUESTIONNAIRE.clientEmail,
-		responses: DEMO_QUESTIONNAIRE.responses,
-		currentSection: DEMO_QUESTIONNAIRE.currentSection,
-		completionPercentage: DEMO_QUESTIONNAIRE.completionPercentage,
-		status: DEMO_QUESTIONNAIRE.status,
-		startedAt: DEMO_QUESTIONNAIRE.startedAt,
-		completedAt: DEMO_QUESTIONNAIRE.completedAt,
-		lastActivityAt: DEMO_QUESTIONNAIRE.lastActivityAt,
-	});
-
-	// 5. Create invoice linked to contract
+	// 4. Create invoice linked to contract
 	await db.insert(invoices).values({
 		id: invoiceId,
 		agencyId,
@@ -292,7 +269,7 @@ export const loadDemoData = command(async () => {
 		createdBy: userId,
 	});
 
-	// 6. Create invoice line item
+	// 5. Create invoice line item
 	await db.insert(invoiceLineItems).values({
 		id: crypto.randomUUID(),
 		invoiceId,
@@ -312,7 +289,6 @@ export const loadDemoData = command(async () => {
 			consultationId,
 			proposalId,
 			contractId,
-			questionnaireId,
 			invoiceId,
 		},
 		// Include info about linked packages/addons (helps user understand if they need to create these first)
@@ -387,32 +363,20 @@ export const clearDemoData = command(async () => {
 		await db.delete(invoices).where(inArray(invoices.id, invoiceIds));
 	}
 
-	// 3. Delete questionnaire responses
-	if (consultationIds.length > 0) {
-		await db
-			.delete(questionnaireResponses)
-			.where(
-				and(
-					eq(questionnaireResponses.agencyId, agencyId),
-					inArray(questionnaireResponses.consultationId, consultationIds),
-				),
-			);
-	}
-
-	// 4. Delete contracts
+	// 3. Delete contracts
 	if (contractIds.length > 0) {
 		await db.delete(contracts).where(inArray(contracts.id, contractIds));
 	}
 
-	// 5. Delete proposals
+	// 4. Delete proposals
 	if (proposalIds.length > 0) {
 		await db.delete(proposals).where(inArray(proposals.id, proposalIds));
 	}
 
-	// 6. Delete consultations
+	// 5. Delete consultations
 	await db.delete(consultations).where(inArray(consultations.id, consultationIds));
 
-	// 7. Delete demo clients (identified by "Demo:" prefix in business name)
+	// 6. Delete demo clients (identified by "Demo:" prefix in business name)
 	const deletedClients = await db
 		.delete(clients)
 		.where(and(eq(clients.agencyId, agencyId), like(clients.businessName, "Demo:%")))

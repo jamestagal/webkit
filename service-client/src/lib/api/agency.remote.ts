@@ -313,17 +313,16 @@ export const createAgency = command(CreateAgencySchema, async (data) => {
 	}
 
 	// Create agency - include freemium status if valid invite
-	const agencyValues: Record<string, unknown> = {
+	const agencyValues = {
 		name: data.name,
 		slug,
+		...(validInvite && {
+			isFreemium: true,
+			freemiumReason: "beta_tester" as const,
+			freemiumGrantedAt: new Date(),
+			freemiumGrantedBy: "system:beta_invite",
+		}),
 	};
-
-	if (validInvite) {
-		agencyValues["isFreemium"] = true;
-		agencyValues["freemiumReason"] = "beta_tester";
-		agencyValues["freemiumGrantedAt"] = new Date();
-		agencyValues["freemiumGrantedBy"] = "system:beta_invite";
-	}
 
 	const [agency] = await db.insert(agencies).values(agencyValues).returning();
 
@@ -340,26 +339,27 @@ export const createAgency = command(CreateAgencySchema, async (data) => {
 		acceptedAt: new Date(),
 	});
 
-	// Auto-seed Full Discovery consultation form from template
+	// Auto-seed default forms from templates
 	try {
-		const [template] = await db
+		// Seed Full Discovery consultation form
+		const [discoveryTemplate] = await db
 			.select()
 			.from(formTemplates)
 			.where(eq(formTemplates.slug, "full-discovery"))
 			.limit(1);
 
-		if (template) {
+		if (discoveryTemplate) {
 			await db.insert(agencyForms).values({
 				agencyId: agency.id,
-				name: template.name,
+				name: discoveryTemplate.name,
 				slug: "full-discovery",
-				description: template.description,
+				description: discoveryTemplate.description,
 				formType: "consultation",
-				schema: template.schema,
-				uiConfig: template.uiConfig,
+				schema: discoveryTemplate.schema,
+				uiConfig: discoveryTemplate.uiConfig,
 				isActive: true,
 				isDefault: true,
-				sourceTemplateId: template.id,
+				sourceTemplateId: discoveryTemplate.id,
 				createdBy: userId,
 			});
 
@@ -367,10 +367,39 @@ export const createAgency = command(CreateAgencySchema, async (data) => {
 			await db
 				.update(formTemplates)
 				.set({ usageCount: sql`${formTemplates.usageCount} + 1` })
-				.where(eq(formTemplates.id, template.id));
+				.where(eq(formTemplates.id, discoveryTemplate.id));
+		}
+
+		// Seed Website Questionnaire form
+		const [questionnaireTemplate] = await db
+			.select()
+			.from(formTemplates)
+			.where(eq(formTemplates.slug, "website-questionnaire"))
+			.limit(1);
+
+		if (questionnaireTemplate) {
+			await db.insert(agencyForms).values({
+				agencyId: agency.id,
+				name: questionnaireTemplate.name,
+				slug: "website-questionnaire",
+				description: questionnaireTemplate.description,
+				formType: "questionnaire",
+				schema: questionnaireTemplate.schema,
+				uiConfig: questionnaireTemplate.uiConfig,
+				isActive: true,
+				isDefault: true,
+				sourceTemplateId: questionnaireTemplate.id,
+				createdBy: userId,
+			});
+
+			// Increment template usage count
+			await db
+				.update(formTemplates)
+				.set({ usageCount: sql`${formTemplates.usageCount} + 1` })
+				.where(eq(formTemplates.id, questionnaireTemplate.id));
 		}
 	} catch {
-		// Non-critical: agency still works without auto-seeded form
+		// Non-critical: agency still works without auto-seeded forms
 	}
 
 	// Mark invite as used
@@ -498,6 +527,9 @@ export const inviteMember = command(InviteMemberSchema, async (data) => {
 			})
 			.returning({ id: users.id });
 
+		if (!newUser) {
+			throw new Error("Failed to create user");
+		}
 		targetUserId = newUser.id;
 	} else {
 		targetUserId = existingUser.id;
@@ -529,10 +561,10 @@ export const inviteMember = command(InviteMemberSchema, async (data) => {
 			agencyId: context.agencyId,
 			role: data.role,
 			status: "active",
-			displayName: data.displayName || null,
+			displayName: data.displayName || "",
 			invitedAt: new Date(),
 			invitedBy: currentUserId,
-			acceptedAt: isNewUser ? null : new Date(),
+			...(isNewUser ? {} : { acceptedAt: new Date() }),
 		})
 		.returning({ id: agencyMemberships.id });
 

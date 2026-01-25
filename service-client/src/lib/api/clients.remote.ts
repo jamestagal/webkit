@@ -10,7 +10,6 @@ import * as v from "valibot";
 import { db } from "$lib/server/db";
 import {
 	clients,
-	questionnaireResponses,
 	consultations,
 	proposals,
 	contracts,
@@ -18,7 +17,7 @@ import {
 } from "$lib/server/schema";
 import { error } from "@sveltejs/kit";
 import { getAgencyContext, requireAgencyRole } from "$lib/server/agency";
-import { eq, and, asc, desc, ilike, or, sql, ne } from "drizzle-orm";
+import { eq, and, asc, desc, ilike, or, sql } from "drizzle-orm";
 
 // =============================================================================
 // Validation Schemas
@@ -129,7 +128,6 @@ export const getClientByEmail = query(v.pipe(v.string(), v.email()), async (emai
 /**
  * Search clients by query string.
  * Returns top 10 matches for autocomplete.
- * Also searches in questionnaire_responses for legacy clients not yet migrated.
  */
 export const searchClients = query(
 	v.object({
@@ -157,48 +155,7 @@ export const searchClients = query(
 			.orderBy(asc(clients.businessName))
 			.limit(limit);
 
-		// Also search in questionnaire_responses for legacy clients
-		// (clients created through old questionnaire system that weren't migrated)
-		const questionnaireClients = await db
-			.select({
-				clientBusinessName: questionnaireResponses.clientBusinessName,
-				clientEmail: questionnaireResponses.clientEmail,
-			})
-			.from(questionnaireResponses)
-			.where(
-				and(
-					eq(questionnaireResponses.agencyId, context.agencyId),
-					ne(questionnaireResponses.clientBusinessName, ""),
-					ne(questionnaireResponses.clientEmail, ""),
-					or(
-						ilike(questionnaireResponses.clientBusinessName, searchTerm),
-						ilike(questionnaireResponses.clientEmail, searchTerm)
-					)
-				)
-			)
-			.limit(limit);
-
-		// Merge results, deduplicating by email
-		const seenEmails = new Set(clientResults.map((c) => c.email.toLowerCase()));
-		const legacyClients = questionnaireClients
-			.filter((qc) => !seenEmails.has(qc.clientEmail.toLowerCase()))
-			.map((qc) => ({
-				// Create a pseudo-client object that matches the clients table structure
-				id: `legacy-${qc.clientEmail}`, // Pseudo ID for legacy clients
-				agencyId: context.agencyId,
-				businessName: qc.clientBusinessName,
-				email: qc.clientEmail,
-				phone: null,
-				contactName: null,
-				notes: null,
-				createdAt: new Date(),
-				updatedAt: new Date(),
-			}));
-
-		// Combine and limit results
-		const allResults = [...clientResults, ...legacyClients].slice(0, limit);
-
-		return allResults;
+		return clientResults;
 	}
 );
 
