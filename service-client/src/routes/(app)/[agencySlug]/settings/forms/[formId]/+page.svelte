@@ -3,6 +3,7 @@
 	import { getToast } from "$lib/ui/toast_store.svelte";
 	import { Builder } from "$lib/components/form-builder";
 	import { updateForm } from "$lib/api/forms.remote";
+	import { buildFormSchema, extractUiConfig } from "$lib/components/form-builder/utils/schema-generator";
 	import type { FormSchema } from "$lib/types/form-builder";
 	import type { PageProps } from "./$types";
 	import ChevronLeft from "lucide-svelte/icons/chevron-left";
@@ -35,12 +36,14 @@
 
 	async function handleSave(schema: FormSchema) {
 		try {
+			const { schema: schemaOnly, uiConfig } = extractUiConfig(schema);
 			await updateForm({
 				id: data.form.id,
 				name: formName,
 				slug: formSlug,
 				description: formDescription || null,
-				schema,
+				schema: schemaOnly,
+				uiConfig,
 				isActive,
 				isDefault,
 				requiresAuth,
@@ -73,6 +76,9 @@
 		}
 	}
 
+	// Merge the separate uiConfig column into the schema for the Builder
+	let mergedSchema = $derived(buildFormSchema(data.form.schema, data.form.uiConfig));
+
 	function getFormTypeLabel(type: string) {
 		const labels: Record<string, string> = {
 			questionnaire: "Questionnaire",
@@ -104,7 +110,7 @@
 <!-- Builder - Full Height -->
 <div class="flex-1 overflow-hidden border border-base-300 rounded-lg" style="height: calc(100vh - 10rem);">
 	<Builder
-		initialSchema={data.form.schema}
+		initialSchema={mergedSchema}
 		onSave={handleSave}
 		agencyBranding={data.agency.branding}
 		agencyLogoUrl={data.agency.logoUrl}

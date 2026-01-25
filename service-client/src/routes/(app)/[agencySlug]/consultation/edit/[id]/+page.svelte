@@ -15,7 +15,8 @@
 		consultationToFormData,
 		mapFormDataToConsultation,
 	} from "$lib/utils/consultation-field-map";
-	import type { FormSchema, UIConfig } from "$lib/types/form-builder";
+	import { buildFormSchema } from "$lib/components/form-builder/utils/schema-generator";
+	import type { FormSchema } from "$lib/types/form-builder";
 	import type { ResolvedBranding } from "$lib/types/branding";
 	import { defaultAgencyBranding } from "$lib/types/branding";
 	import { hexToHsl } from "$lib/components/form-renderer/utils/theme-generator";
@@ -49,15 +50,6 @@
 		} as ResolvedBranding;
 	});
 
-	// Merge separate uiConfig column into schema object
-	function buildSchema(schema: unknown, uiConfig?: unknown): FormSchema {
-		const s = schema as FormSchema;
-		if (uiConfig && typeof uiConfig === "object") {
-			return { ...s, uiConfig: uiConfig as UIConfig };
-		}
-		return s;
-	}
-
 	// Load consultation
 	const consultation = await getConsultation(data.consultationId);
 
@@ -72,7 +64,7 @@
 	if (consultation.formId) {
 		try {
 			const form = await getFormById(consultation.formId);
-			formSchema = buildSchema(form.schema, form.uiConfig);
+			formSchema = buildFormSchema(form.schema, form.uiConfig);
 			formName = form.name;
 			formDescription = form.description;
 		} catch {
@@ -80,7 +72,7 @@
 		}
 	}
 	if (!formSchema && data.fallbackTemplate) {
-		formSchema = buildSchema(data.fallbackTemplate.schema, data.fallbackTemplate.uiConfig);
+		formSchema = buildFormSchema(data.fallbackTemplate.schema, data.fallbackTemplate.uiConfig);
 		formName = data.fallbackTemplate.name;
 		formDescription = data.fallbackTemplate.description;
 	}

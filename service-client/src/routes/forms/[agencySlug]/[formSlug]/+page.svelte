@@ -6,10 +6,11 @@
 	 */
 	import { DynamicForm } from "$lib/components/form-renderer";
 	import { submitForm } from "$lib/api/forms.remote";
+	import { buildFormSchema } from "$lib/components/form-builder/utils/schema-generator";
 	import { getToast } from "$lib/ui/toast_store.svelte";
 	import type { PageProps } from "./$types";
 	import type { ResolvedBranding } from "$lib/types/branding";
-	import type { FormSchema, FormUIConfig } from "$lib/types/form-builder";
+	import type { FormUIConfig } from "$lib/types/form-builder";
 	import { defaultAgencyBranding } from "$lib/types/branding";
 	import { hexToHsl } from "$lib/components/form-renderer/utils/theme-generator";
 
@@ -68,7 +69,7 @@
 
 <div class="min-h-screen bg-base-200">
 	<DynamicForm
-		schema={data.form.schema as FormSchema}
+		schema={buildFormSchema(data.form.schema, data.form.uiConfig)}
 		branding={branding}
 		onSubmit={handleSubmit}
 		onSuccess={handleSuccess}

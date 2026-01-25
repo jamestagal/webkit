@@ -178,6 +178,48 @@ When `readOnly={true}`:
 | `/(app)/[agencySlug]/consultation/view/[id]` | Read-only | Agency DB colors (hex→HSL) |
 | `/(app)/[agencySlug]/settings/forms/preview/[slug]` | Preview | Hardcoded HSL defaults |
 
+## Schema vs UIConfig: Two-Column Architecture
+
+The `agency_forms` table stores form data in **two separate columns**:
+
+| Column | Purpose | Version Bump? |
+|--------|---------|---------------|
+| `schema` (jsonb) | Structural: steps, fields, validation | Yes |
+| `ui_config` (jsonb) | Cosmetic: layout, buttons, progress bar | No |
+
+**Why separate?** Changing layout from wizard to simple shouldn't:
+- Bump the form version (version tracks structural changes)
+- Mark template-derived forms as "customized" (which blocks push updates)
+
+### Unified Access Pattern
+
+Use `buildFormSchema()` to merge on read, `extractUiConfig()` to split on write:
+
+```typescript
+import { buildFormSchema, extractUiConfig } from "$lib/components/form-builder/utils/schema-generator";
+
+// READING: Merge uiConfig into schema for rendering
+const schema = buildFormSchema(form.schema, form.uiConfig);
+// schema.uiConfig now contains the merged UI settings
+
+// WRITING: Extract uiConfig back to separate column
+const { schema: schemaOnly, uiConfig } = extractUiConfig(builderSchema);
+await updateForm({ id, schema: schemaOnly, uiConfig });
+```
+
+**The `ui_config` column wins** when both sources have a value — it's the source of truth for UI settings. The layout toggle on the settings/forms page writes directly to this column.
+
+### Where These Are Used
+
+| Context | Read | Write |
+|---------|------|-------|
+| Form Editor (Builder) | `buildFormSchema()` | `extractUiConfig()` |
+| Preview Page | `buildFormSchema()` | N/A |
+| Public Form Page | `buildFormSchema()` | N/A |
+| Consultation (new/edit/view) | `buildFormSchema()` | N/A |
+| Super-Admin Template Editor | `buildFormSchema()` | `extractUiConfig()` |
+| Settings Layout Toggle | N/A | Updates `uiConfig` only |
+
 ## Common Pitfalls
 
 1. **Passing hex colors directly** - Always use `hexToHsl()` when building branding from DB values
@@ -186,3 +228,4 @@ When `readOnly={true}`:
 4. **DaisyUI variable conflicts** - The custom theme uses legacy `--p` variable names; ensure no DaisyUI utility classes override them in the same element
 5. **exactOptionalPropertyTypes** - When setting optional color properties, use conditional assignment (`if (value) colors.prop = value`) not `prop: value || undefined`
 6. **FormOverrides merging** - DynamicForm merges both `branding.formOverrides` and `schema.formOverrides` into `mergedFormOverrides`, with schema taking priority
+7. **Schema/UIConfig split** - Never pass `form.schema` directly to DynamicForm or Builder. Always use `buildFormSchema(form.schema, form.uiConfig)` to merge the separate DB columns. Raw `form.schema` won't have layout settings from the `ui_config` column

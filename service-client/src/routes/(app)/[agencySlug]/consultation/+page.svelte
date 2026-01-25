@@ -15,7 +15,8 @@
 		updateDynamicConsultation,
 	} from "$lib/api/consultation.remote";
 	import { mapFormDataToConsultation } from "$lib/utils/consultation-field-map";
-	import type { FormSchema, UIConfig } from "$lib/types/form-builder";
+	import { buildFormSchema } from "$lib/components/form-builder/utils/schema-generator";
+	import type { FormSchema } from "$lib/types/form-builder";
 	import type { ResolvedBranding } from "$lib/types/branding";
 	import { defaultAgencyBranding } from "$lib/types/branding";
 	import { hexToHsl } from "$lib/components/form-renderer/utils/theme-generator";
@@ -74,25 +75,16 @@
 		autoSelectForm();
 	}
 
-	// Merge separate uiConfig column into schema object
-	function buildSchema(schema: unknown, uiConfig?: unknown): FormSchema {
-		const s = schema as FormSchema;
-		if (uiConfig && typeof uiConfig === "object") {
-			return { ...s, uiConfig: uiConfig as UIConfig };
-		}
-		return s;
-	}
-
 	function autoSelectForm() {
 		// Auto-select: default form > first form > fallback template
 		if (defaultForm) {
-			selectedForm = { schema: buildSchema(defaultForm.schema, defaultForm.uiConfig), id: defaultForm.id, name: defaultForm.name, description: defaultForm.description };
+			selectedForm = { schema: buildFormSchema(defaultForm.schema, defaultForm.uiConfig), id: defaultForm.id, name: defaultForm.name, description: defaultForm.description };
 			phase = "filling";
 		} else if (forms.length === 1 && forms[0]) {
-			selectedForm = { schema: buildSchema(forms[0].schema, forms[0].uiConfig), id: forms[0].id, name: forms[0].name, description: forms[0].description };
+			selectedForm = { schema: buildFormSchema(forms[0].schema, forms[0].uiConfig), id: forms[0].id, name: forms[0].name, description: forms[0].description };
 			phase = "filling";
 		} else if (forms.length === 0 && fallbackTemplate) {
-			selectedForm = { schema: buildSchema(fallbackTemplate.schema, fallbackTemplate.uiConfig), name: fallbackTemplate.name, description: fallbackTemplate.description };
+			selectedForm = { schema: buildFormSchema(fallbackTemplate.schema, fallbackTemplate.uiConfig), name: fallbackTemplate.name, description: fallbackTemplate.description };
 			phase = "filling";
 		} else if (forms.length > 1) {
 			phase = "pick-form";
@@ -125,7 +117,7 @@
 
 	// Form picker handler
 	function selectForm(form: (typeof forms)[0]) {
-		selectedForm = { schema: buildSchema(form.schema, form.uiConfig), id: form.id, name: form.name, description: form.description };
+		selectedForm = { schema: buildFormSchema(form.schema, form.uiConfig), id: form.id, name: form.name, description: form.description };
 		phase = "filling";
 	}
 

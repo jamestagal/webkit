@@ -5,6 +5,7 @@
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import Builder from '$lib/components/form-builder/Builder.svelte';
 	import { getFormTemplateAdmin, updateFormTemplate } from '$lib/api/super-admin-templates.remote';
+	import { buildFormSchema, extractUiConfig } from '$lib/components/form-builder/utils/schema-generator';
 	import type { FormSchema } from '$lib/types/form-builder';
 
 	const toast = getToast();
@@ -38,7 +39,7 @@
 			displayOrder = template.displayOrder;
 			isFeatured = template.isFeatured;
 			newUntil = template.newUntil ? (new Date(template.newUntil).toISOString().split('T')[0] ?? '') : '';
-			initialSchema = template.schema as FormSchema;
+			initialSchema = buildFormSchema(template.schema, template.uiConfig);
 		} catch {
 			notFound = true;
 		} finally {
@@ -58,14 +59,15 @@
 		}
 
 		try {
+			const { schema: schemaOnly, uiConfig } = extractUiConfig(schema);
 			await updateFormTemplate({
 				id: templateId,
 				name: name.trim(),
 				slug,
 				description: description.trim() || null,
 				category,
-				schema,
-				uiConfig: schema.uiConfig || {
+				schema: schemaOnly,
+				uiConfig: uiConfig || {
 					layout: 'single-column',
 					showProgressBar: true,
 					showStepNumbers: true,
