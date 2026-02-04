@@ -63,6 +63,7 @@ create table if not exists agencies (
     subscription_tier varchar(50) not null default 'free',  -- free, starter, pro, enterprise
     subscription_id text not null default '',  -- Stripe subscription ID
     subscription_end timestamptz,
+    stripe_customer_id text not null default '',  -- Stripe Customer ID for platform billing
 
     -- AI Generation Rate Limiting
     ai_generations_this_month integer not null default 0,
@@ -462,6 +463,151 @@ create table if not exists agency_document_branding (
 create index if not exists idx_agency_document_branding_agency_id on agency_document_branding(agency_id);
 create index if not exists idx_agency_document_branding_type on agency_document_branding(agency_id, document_type);
 
+-- =============================================================================
+-- FORMS SYSTEM (Consolidated Forms)
+-- =============================================================================
+
+-- create "form_templates" table - System-wide starting point templates
+create table if not exists form_templates (
+    id uuid primary key not null default gen_random_uuid(),
+
+    -- Template Info
+    name varchar(255) not null,
+    slug varchar(255) not null unique,
+    description text,
+    category varchar(100) not null,
+
+    -- Template Schema
+    schema jsonb not null,
+    ui_config jsonb not null,
+
+    -- Display
+    preview_image_url text,
+    is_featured boolean not null default false,
+    display_order integer not null default 0,
+
+    -- Admin Controls
+    new_until timestamptz,
+    usage_count integer not null default 0,
+
+    -- Metadata
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp
+);
+
+-- create "agency_forms" table - Agency-specific forms
+create table if not exists agency_forms (
+    id uuid primary key not null default gen_random_uuid(),
+    agency_id uuid not null references agencies(id) on delete cascade,
+
+    -- Form Identification
+    name varchar(255) not null,
+    slug varchar(255) not null,
+    description text,
+    form_type varchar(50) not null,  -- questionnaire, consultation, feedback, intake, custom
+
+    -- Form Schema (Zod-compatible JSON)
+    schema jsonb not null,
+
+    -- UI Configuration
+    ui_config jsonb not null default '{"layout": "single-column", "showProgressBar": true, "showStepNumbers": true, "submitButtonText": "Submit", "successMessage": "Thank you for your submission!"}',
+
+    -- Branding Overrides (inherits from agency if null)
+    branding jsonb,
+
+    -- Form Settings
+    is_active boolean not null default true,
+    is_default boolean not null default false,
+    requires_auth boolean not null default false,
+
+    -- Template Tracking
+    source_template_id uuid references form_templates(id) on delete set null,
+    is_customized boolean not null default false,
+    previous_schema jsonb,
+
+    -- Metadata
+    version integer not null default 1,
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+    created_by uuid references users(id) on delete set null,
+
+    unique(agency_id, slug)
+);
+
+create index if not exists idx_agency_forms_agency_type on agency_forms(agency_id, form_type);
+create index if not exists idx_agency_forms_active on agency_forms(agency_id, is_active);
+
+-- create "field_option_sets" table - Reusable dropdown options
+create table if not exists field_option_sets (
+    id uuid primary key not null default gen_random_uuid(),
+    agency_id uuid references agencies(id) on delete cascade,  -- NULL = system-wide
+
+    -- Option Set Info
+    name varchar(255) not null,
+    slug varchar(255) not null,
+    description text,
+
+    -- Options as JSON array: [{"value": "tech", "label": "Technology"}, ...]
+    options jsonb not null,
+
+    -- Metadata
+    is_system boolean not null default false,
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+
+    unique(agency_id, slug)
+);
+
+-- create "form_submissions" table - Submitted form data
+create table if not exists form_submissions (
+    id uuid primary key not null default gen_random_uuid(),
+    form_id uuid references agency_forms(id) on delete cascade,  -- Nullable for system template submissions
+    agency_id uuid not null references agencies(id) on delete cascade,
+
+    -- Public URL slug for sharing
+    slug varchar(100) unique,
+
+    -- Client linking
+    client_id uuid,  -- References clients(id), but added after clients table
+    client_business_name text not null default '',
+    client_email varchar(255) not null default '',
+
+    -- Submission Data (flexible JSONB - matches form schema)
+    data jsonb not null,
+
+    -- Progress tracking
+    current_step integer not null default 0,
+    completion_percentage integer not null default 0,
+    started_at timestamptz,
+    last_activity_at timestamptz,
+
+    -- Linked Entities
+    consultation_id uuid references consultations(id) on delete set null,
+    proposal_id uuid,
+    contract_id uuid,
+
+    -- Submission Metadata
+    metadata jsonb not null default '{}',
+
+    -- Status: draft, completed, processing, processed, archived
+    status varchar(50) not null default 'draft',
+
+    -- Timestamps
+    created_at timestamptz not null default current_timestamp,
+    submitted_at timestamptz,
+    processed_at timestamptz,
+
+    -- Form version at time of submission (for schema evolution)
+    form_version integer not null default 1
+);
+
+create index if not exists idx_form_submissions_form_id on form_submissions(form_id);
+create index if not exists idx_form_submissions_agency_id on form_submissions(agency_id);
+create index if not exists idx_form_submissions_status on form_submissions(status);
+create index if not exists idx_form_submissions_submitted_at on form_submissions(submitted_at);
+create index if not exists idx_form_submissions_client_id on form_submissions(client_id);
+create index if not exists idx_form_submissions_slug on form_submissions(slug);
+
 -- create "files" table
 create table if not exists files (
     id uuid primary key not null,
@@ -507,62 +653,57 @@ create table if not exists notes (
 );
 
 -- create "consultations" table with new structure
+-- Note: Includes both JSONB columns (for Go backend) and flat columns (for SvelteKit compatibility)
+-- TODO: Migrate SvelteKit to use JSONB columns and remove flat columns
 create table if not exists consultations (
     id uuid primary key not null default gen_random_uuid(),
     user_id uuid not null references users(id) on delete cascade,
     agency_id uuid references agencies(id) on delete cascade,  -- Added for multi-tenancy
 
-    -- Contact Information (JSONB structure)
+    -- Contact Information (JSONB structure for Go backend)
     contact_info jsonb not null default '{}',
-    -- {
-    --   "business_name": "string",
-    --   "contact_person": "string",
-    --   "email": "string",
-    --   "phone": "string",
-    --   "website": "string",
-    --   "social_media": {
-    --     "linkedin": "string",
-    --     "facebook": "string",
-    --     "instagram": "string"
-    --   }
-    -- }
-
-    -- Business Context (JSONB structure)
     business_context jsonb not null default '{}',
-    -- {
-    --   "industry": "string",
-    --   "business_type": "string",
-    --   "team_size": "number",
-    --   "current_platform": "string",
-    --   "digital_presence": ["string"],
-    --   "marketing_channels": ["string"]
-    -- }
-
-    -- Pain Points & Challenges (JSONB structure)
     pain_points jsonb not null default '{}',
-    -- {
-    --   "primary_challenges": ["string"],
-    --   "technical_issues": ["string"],
-    --   "urgency_level": "string", // "low", "medium", "high", "critical"
-    --   "impact_assessment": "string",
-    --   "current_solution_gaps": ["string"]
-    -- }
-
-    -- Goals & Objectives (JSONB structure)
     goals_objectives jsonb not null default '{}',
-    -- {
-    --   "primary_goals": ["string"],
-    --   "secondary_goals": ["string"],
-    --   "success_metrics": ["string"],
-    --   "kpis": ["string"],
-    --   "timeline": {
-    --     "desired_start": "string",
-    --     "target_completion": "string",
-    --     "milestones": ["string"]
-    --   },
-    --   "budget_range": "string",
-    --   "budget_constraints": ["string"]
-    -- }
+
+    -- ==========================================================================
+    -- FLAT COLUMNS (for SvelteKit compatibility - to be migrated to JSONB later)
+    -- ==========================================================================
+
+    -- Step 1: Contact & Business
+    business_name text,
+    contact_person text,
+    email text,
+    phone text,
+    website text,
+    social_linkedin text,
+    social_facebook text,
+    social_instagram text,
+    industry text,
+    business_type text,
+
+    -- Step 2: Situation & Challenges
+    website_status text,
+    primary_challenges jsonb default '[]',
+    urgency_level text,
+
+    -- Step 3: Goals & Budget
+    primary_goals jsonb default '[]',
+    conversion_goal text,
+    budget_range text,
+    timeline text,
+
+    -- Step 4: Preferences & Notes
+    design_styles jsonb default '[]',
+    admired_websites jsonb default '[]',
+    consultation_notes text,
+
+    -- Additional fields
+    created_by uuid references users(id) on delete set null,
+    performance_data jsonb,
+    client_id uuid,
+    custom_data jsonb,
+    form_id uuid,
 
     -- Metadata
     status varchar(50) not null default 'draft',
@@ -655,6 +796,34 @@ create index if not exists idx_consultation_versions_created_at on consultation_
 create index if not exists idx_consultation_versions_version_number on consultation_versions(consultation_id, version_number);
 
 -- =============================================================================
+-- CLIENTS (Unified Client Management)
+-- =============================================================================
+
+-- create "clients" table - Unified client records per agency (SvelteKit compatibility)
+create table if not exists clients (
+    id uuid primary key not null default gen_random_uuid(),
+    agency_id uuid not null references agencies(id) on delete cascade,
+
+    -- Client Information
+    business_name text not null,
+    email varchar(255) not null,
+    phone varchar(50),
+    contact_name text,
+    notes text,
+
+    -- Status: 'active' | 'archived'
+    status varchar(20) not null default 'active',
+
+    -- Metadata
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp
+);
+
+create index if not exists idx_clients_agency_id on clients(agency_id);
+create index if not exists idx_clients_email on clients(agency_id, email);
+create index if not exists idx_clients_business_name on clients(agency_id, business_name);
+
+-- =============================================================================
 -- PROPOSALS (V2 Document Generation)
 -- =============================================================================
 
@@ -668,6 +837,9 @@ create table if not exists proposals (
 
     -- Link to consultation (optional - can create standalone proposals)
     consultation_id uuid references consultations(id) on delete set null,
+
+    -- Unified Client link (SvelteKit compatibility)
+    client_id uuid,
 
     -- Document identification
     proposal_number varchar(50) not null,  -- PROP-2025-0001
@@ -830,6 +1002,9 @@ create table if not exists contracts (
     proposal_id uuid not null references proposals(id) on delete cascade,
     template_id uuid references contract_templates(id) on delete set null,
 
+    -- Unified Client link (SvelteKit compatibility)
+    client_id uuid,
+
     contract_number varchar(50) not null,
     slug varchar(100) not null unique,
     version integer not null default 1,
@@ -897,6 +1072,9 @@ create table if not exists invoices (
     agency_id uuid not null references agencies(id) on delete cascade,
     proposal_id uuid references proposals(id) on delete set null,
     contract_id uuid references contracts(id) on delete set null,
+
+    -- Unified Client link (SvelteKit compatibility)
+    client_id uuid,
 
     invoice_number varchar(50) not null,
     slug varchar(100) not null unique,

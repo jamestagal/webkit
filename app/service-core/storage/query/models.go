@@ -32,6 +32,7 @@ type Agency struct {
 	SubscriptionTier       string         `json:"subscription_tier"`
 	SubscriptionID         string         `json:"subscription_id"`
 	SubscriptionEnd        sql.NullTime   `json:"subscription_end"`
+	StripeCustomerID       string         `json:"stripe_customer_id"`
 	AiGenerationsThisMonth int32          `json:"ai_generations_this_month"`
 	AiGenerationsResetAt   sql.NullTime   `json:"ai_generations_reset_at"`
 	IsFreemium             bool           `json:"is_freemium"`
@@ -85,6 +86,28 @@ type AgencyDocumentBranding struct {
 	PrimaryColor      sql.NullString `json:"primary_color"`
 	AccentColor       sql.NullString `json:"accent_color"`
 	AccentGradient    sql.NullString `json:"accent_gradient"`
+}
+
+type AgencyForm struct {
+	ID               uuid.UUID             `json:"id"`
+	AgencyID         uuid.UUID             `json:"agency_id"`
+	Name             string                `json:"name"`
+	Slug             string                `json:"slug"`
+	Description      sql.NullString        `json:"description"`
+	FormType         string                `json:"form_type"`
+	Schema           json.RawMessage       `json:"schema"`
+	UiConfig         json.RawMessage       `json:"ui_config"`
+	Branding         pqtype.NullRawMessage `json:"branding"`
+	IsActive         bool                  `json:"is_active"`
+	IsDefault        bool                  `json:"is_default"`
+	RequiresAuth     bool                  `json:"requires_auth"`
+	SourceTemplateID uuid.NullUUID         `json:"source_template_id"`
+	IsCustomized     bool                  `json:"is_customized"`
+	PreviousSchema   pqtype.NullRawMessage `json:"previous_schema"`
+	Version          int32                 `json:"version"`
+	CreatedAt        time.Time             `json:"created_at"`
+	UpdatedAt        time.Time             `json:"updated_at"`
+	CreatedBy        uuid.NullUUID         `json:"created_by"`
 }
 
 type AgencyFormOption struct {
@@ -209,19 +232,57 @@ type BetaInvite struct {
 	Notes          sql.NullString `json:"notes"`
 }
 
+type Client struct {
+	ID           uuid.UUID      `json:"id"`
+	AgencyID     uuid.UUID      `json:"agency_id"`
+	BusinessName string         `json:"business_name"`
+	Email        string         `json:"email"`
+	Phone        sql.NullString `json:"phone"`
+	ContactName  sql.NullString `json:"contact_name"`
+	Notes        sql.NullString `json:"notes"`
+	Status       string         `json:"status"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+}
+
 type Consultation struct {
-	ID                   uuid.UUID       `json:"id"`
-	UserID               uuid.UUID       `json:"user_id"`
-	AgencyID             uuid.NullUUID   `json:"agency_id"`
-	ContactInfo          json.RawMessage `json:"contact_info"`
-	BusinessContext      json.RawMessage `json:"business_context"`
-	PainPoints           json.RawMessage `json:"pain_points"`
-	GoalsObjectives      json.RawMessage `json:"goals_objectives"`
-	Status               string          `json:"status"`
-	CompletionPercentage int32           `json:"completion_percentage"`
-	CreatedAt            time.Time       `json:"created_at"`
-	UpdatedAt            time.Time       `json:"updated_at"`
-	CompletedAt          sql.NullTime    `json:"completed_at"`
+	ID                   uuid.UUID             `json:"id"`
+	UserID               uuid.UUID             `json:"user_id"`
+	AgencyID             uuid.NullUUID         `json:"agency_id"`
+	ContactInfo          json.RawMessage       `json:"contact_info"`
+	BusinessContext      json.RawMessage       `json:"business_context"`
+	PainPoints           json.RawMessage       `json:"pain_points"`
+	GoalsObjectives      json.RawMessage       `json:"goals_objectives"`
+	BusinessName         sql.NullString        `json:"business_name"`
+	ContactPerson        sql.NullString        `json:"contact_person"`
+	Email                sql.NullString        `json:"email"`
+	Phone                sql.NullString        `json:"phone"`
+	Website              sql.NullString        `json:"website"`
+	SocialLinkedin       sql.NullString        `json:"social_linkedin"`
+	SocialFacebook       sql.NullString        `json:"social_facebook"`
+	SocialInstagram      sql.NullString        `json:"social_instagram"`
+	Industry             sql.NullString        `json:"industry"`
+	BusinessType         sql.NullString        `json:"business_type"`
+	WebsiteStatus        sql.NullString        `json:"website_status"`
+	PrimaryChallenges    pqtype.NullRawMessage `json:"primary_challenges"`
+	UrgencyLevel         sql.NullString        `json:"urgency_level"`
+	PrimaryGoals         pqtype.NullRawMessage `json:"primary_goals"`
+	ConversionGoal       sql.NullString        `json:"conversion_goal"`
+	BudgetRange          sql.NullString        `json:"budget_range"`
+	Timeline             sql.NullString        `json:"timeline"`
+	DesignStyles         pqtype.NullRawMessage `json:"design_styles"`
+	AdmiredWebsites      pqtype.NullRawMessage `json:"admired_websites"`
+	ConsultationNotes    sql.NullString        `json:"consultation_notes"`
+	CreatedBy            uuid.NullUUID         `json:"created_by"`
+	PerformanceData      pqtype.NullRawMessage `json:"performance_data"`
+	ClientID             uuid.NullUUID         `json:"client_id"`
+	CustomData           pqtype.NullRawMessage `json:"custom_data"`
+	FormID               uuid.NullUUID         `json:"form_id"`
+	Status               string                `json:"status"`
+	CompletionPercentage int32                 `json:"completion_percentage"`
+	CreatedAt            time.Time             `json:"created_at"`
+	UpdatedAt            time.Time             `json:"updated_at"`
+	CompletedAt          sql.NullTime          `json:"completed_at"`
 }
 
 type ConsultationDraft struct {
@@ -263,6 +324,7 @@ type Contract struct {
 	AgencyID                 uuid.UUID       `json:"agency_id"`
 	ProposalID               uuid.UUID       `json:"proposal_id"`
 	TemplateID               uuid.NullUUID   `json:"template_id"`
+	ClientID                 uuid.NullUUID   `json:"client_id"`
 	ContractNumber           string          `json:"contract_number"`
 	Slug                     string          `json:"slug"`
 	Version                  int32           `json:"version"`
@@ -372,6 +434,18 @@ type EmailLog struct {
 	SentBy             uuid.NullUUID  `json:"sent_by"`
 }
 
+type FieldOptionSet struct {
+	ID          uuid.UUID       `json:"id"`
+	AgencyID    uuid.NullUUID   `json:"agency_id"`
+	Name        string          `json:"name"`
+	Slug        string          `json:"slug"`
+	Description sql.NullString  `json:"description"`
+	Options     json.RawMessage `json:"options"`
+	IsSystem    bool            `json:"is_system"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+}
+
 type File struct {
 	ID          uuid.UUID `json:"id"`
 	Created     time.Time `json:"created"`
@@ -383,6 +457,47 @@ type File struct {
 	ContentType string    `json:"content_type"`
 }
 
+type FormSubmission struct {
+	ID                   uuid.UUID       `json:"id"`
+	FormID               uuid.NullUUID   `json:"form_id"`
+	AgencyID             uuid.UUID       `json:"agency_id"`
+	Slug                 sql.NullString  `json:"slug"`
+	ClientID             uuid.NullUUID   `json:"client_id"`
+	ClientBusinessName   string          `json:"client_business_name"`
+	ClientEmail          string          `json:"client_email"`
+	Data                 json.RawMessage `json:"data"`
+	CurrentStep          int32           `json:"current_step"`
+	CompletionPercentage int32           `json:"completion_percentage"`
+	StartedAt            sql.NullTime    `json:"started_at"`
+	LastActivityAt       sql.NullTime    `json:"last_activity_at"`
+	ConsultationID       uuid.NullUUID   `json:"consultation_id"`
+	ProposalID           uuid.NullUUID   `json:"proposal_id"`
+	ContractID           uuid.NullUUID   `json:"contract_id"`
+	Metadata             json.RawMessage `json:"metadata"`
+	Status               string          `json:"status"`
+	CreatedAt            time.Time       `json:"created_at"`
+	SubmittedAt          sql.NullTime    `json:"submitted_at"`
+	ProcessedAt          sql.NullTime    `json:"processed_at"`
+	FormVersion          int32           `json:"form_version"`
+}
+
+type FormTemplate struct {
+	ID              uuid.UUID       `json:"id"`
+	Name            string          `json:"name"`
+	Slug            string          `json:"slug"`
+	Description     sql.NullString  `json:"description"`
+	Category        string          `json:"category"`
+	Schema          json.RawMessage `json:"schema"`
+	UiConfig        json.RawMessage `json:"ui_config"`
+	PreviewImageUrl sql.NullString  `json:"preview_image_url"`
+	IsFeatured      bool            `json:"is_featured"`
+	DisplayOrder    int32           `json:"display_order"`
+	NewUntil        sql.NullTime    `json:"new_until"`
+	UsageCount      int32           `json:"usage_count"`
+	CreatedAt       time.Time       `json:"created_at"`
+	UpdatedAt       time.Time       `json:"updated_at"`
+}
+
 type Invoice struct {
 	ID                      uuid.UUID      `json:"id"`
 	CreatedAt               time.Time      `json:"created_at"`
@@ -390,6 +505,7 @@ type Invoice struct {
 	AgencyID                uuid.UUID      `json:"agency_id"`
 	ProposalID              uuid.NullUUID  `json:"proposal_id"`
 	ContractID              uuid.NullUUID  `json:"contract_id"`
+	ClientID                uuid.NullUUID  `json:"client_id"`
 	InvoiceNumber           string         `json:"invoice_number"`
 	Slug                    string         `json:"slug"`
 	Status                  string         `json:"status"`
@@ -461,6 +577,7 @@ type Proposal struct {
 	UpdatedAt              time.Time             `json:"updated_at"`
 	AgencyID               uuid.UUID             `json:"agency_id"`
 	ConsultationID         uuid.NullUUID         `json:"consultation_id"`
+	ClientID               uuid.NullUUID         `json:"client_id"`
 	ProposalNumber         string                `json:"proposal_number"`
 	Slug                   string                `json:"slug"`
 	Status                 string                `json:"status"`

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
-	import { Building2, Package, PlusSquare, Users, Palette, FileText, CreditCard, Sparkles, FileStack } from 'lucide-svelte';
+	import { Building2, Package, PlusSquare, Users, Palette, FileText, CreditCard, Sparkles, FileStack, Receipt } from 'lucide-svelte';
 	import SetupChecklist from '$lib/components/settings/SetupChecklist.svelte';
 	import { getSetupChecklist } from '$lib/api/agency-profile.remote';
 
@@ -73,6 +73,12 @@
 			url: `/${agencySlug}/settings/payments`,
 			icon: CreditCard,
 			description: 'Stripe Connect & online payments'
+		},
+		{
+			label: 'Billing',
+			url: `/${agencySlug}/settings/billing`,
+			icon: Receipt,
+			description: 'Subscription & usage'
 		},
 		{
 			label: 'Demo Data',

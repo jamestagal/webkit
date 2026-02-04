@@ -80,6 +80,7 @@ export const agencies = pgTable("agencies", {
 	subscriptionTier: varchar("subscription_tier", { length: 50 }).notNull().default("free"),
 	subscriptionId: text("subscription_id").notNull().default(""),
 	subscriptionEnd: timestamp("subscription_end", { withTimezone: true }),
+	stripeCustomerId: text("stripe_customer_id").notNull().default(""), // Stripe Customer ID for platform billing
 
 	// AI Generation Rate Limiting
 	aiGenerationsThisMonth: integer("ai_generations_this_month").notNull().default(0),
@@ -1158,35 +1159,40 @@ export const consultations = pgTable("consultations", {
 		.notNull()
 		.references(() => agencies.id, { onDelete: "cascade" }),
 
+	// User who owns this consultation (required for Go backend compatibility)
+	userId: uuid("user_id")
+		.notNull()
+		.references(() => users.id, { onDelete: "cascade" }),
+
 	// Link to unified client (optional - populated via getOrCreateClient)
 	clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),
 
 	// Step 1: Contact & Business
 	businessName: text("business_name"),
 	contactPerson: text("contact_person"),
-	email: text("email").notNull(),
+	email: text("email"),
 	phone: text("phone"),
 	website: text("website"),
 	socialLinkedin: text("social_linkedin"),
 	socialFacebook: text("social_facebook"),
 	socialInstagram: text("social_instagram"),
-	industry: text("industry").notNull(),
-	businessType: text("business_type").notNull(),
+	industry: text("industry"),
+	businessType: text("business_type"),
 
 	// Step 2: Situation & Challenges
-	websiteStatus: text("website_status").notNull().default("none"), // 'none' | 'refresh' | 'rebuild'
-	primaryChallenges: text("primary_challenges").array().notNull().default([]),
-	urgencyLevel: text("urgency_level").notNull().default("low"), // 'low' | 'medium' | 'high' | 'critical'
+	websiteStatus: text("website_status"),
+	primaryChallenges: jsonb("primary_challenges").$type<string[]>().default([]),
+	urgencyLevel: text("urgency_level"),
 
 	// Step 3: Goals & Budget
-	primaryGoals: text("primary_goals").array().notNull().default([]),
+	primaryGoals: jsonb("primary_goals").$type<string[]>().default([]),
 	conversionGoal: text("conversion_goal"),
-	budgetRange: text("budget_range").notNull().default("tbd"),
+	budgetRange: text("budget_range"),
 	timeline: text("timeline"), // 'asap' | '1-3-months' | '3-6-months' | 'flexible'
 
 	// Step 4: Preferences & Notes
-	designStyles: text("design_styles").array(),
-	admiredWebsites: text("admired_websites"),
+	designStyles: jsonb("design_styles").$type<string[]>().default([]),
+	admiredWebsites: jsonb("admired_websites").$type<string[]>().default([]),
 	consultationNotes: text("consultation_notes"),
 
 	// Performance Audit Data (agency-side PageSpeed analysis)

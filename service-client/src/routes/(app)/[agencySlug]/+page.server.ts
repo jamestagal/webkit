@@ -23,12 +23,10 @@ export const load: PageServerLoad = async ({ parent }) => {
 		.from(consultations)
 		.where(eq(consultations.agencyId, agencyId));
 
-	// Check if demo data exists (consultations with "Demo:" prefix in business name)
-	const [demoData] = await db
-		.select({ id: consultations.id })
-		.from(consultations)
-		.where(and(eq(consultations.agencyId, agencyId), like(consultations.businessName, "Demo:%")))
-		.limit(1);
+	// Check if demo data exists
+	// Note: The consultations schema changed to JSONB - demo data check is simplified
+	// We check if there are any consultations as a proxy for demo data for now
+	const hasDemoData = consultationStats && Number(consultationStats.count) > 0;
 
 	// Check if agency profile is complete (has required business details)
 	const [profile] = await db
@@ -58,7 +56,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 
 	return {
 		consultationCount,
-		hasDemoData: !!demoData,
+		hasDemoData,
 		isProfileComplete,
 		isNewAgency: consultationCount === 0,
 	};

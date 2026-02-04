@@ -6,6 +6,7 @@ import (
 	"context"
 	"log/slog"
 	"service-core/config"
+	"service-core/domain/billing"
 	"service-core/domain/consultation"
 	"service-core/domain/email"
 	"service-core/domain/file"
@@ -63,6 +64,7 @@ func setupRESTHandlers(cfg *config.Config, storage *storage.Storage) *rest.Handl
 	loginService := login.NewService(cfg, store, authService, emailService)
 	paymentProvider := payment.NewProvider(cfg)
 	paymentService := payment.NewService(cfg, store, paymentProvider)
+	billingService := billing.NewService(cfg, store)
 	noteService := note.NewService(store)
 
 	// Initialize consultation domain services
@@ -77,6 +79,7 @@ func setupRESTHandlers(cfg *config.Config, storage *storage.Storage) *rest.Handl
 		authService,
 		loginService,
 		paymentService,
+		billingService,
 		emailService,
 		fileService,
 		noteService,

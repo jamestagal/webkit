@@ -2,6 +2,8 @@ package rest
 
 import (
 	"app/pkg/auth"
+	"service-core/config"
+	"service-core/domain/billing"
 	"service-core/domain/consultation"
 	"service-core/domain/email"
 	"service-core/domain/file"
@@ -9,7 +11,6 @@ import (
 	"service-core/domain/note"
 	"service-core/domain/payment"
 	"service-core/storage"
-	"service-core/config"
 )
 
 type Handler struct {
@@ -18,6 +19,7 @@ type Handler struct {
 	authService         auth.AuthService
 	loginService        *login.Service
 	paymentService      *payment.Service
+	billingService      *billing.Service
 	emailService        *email.Service
 	fileService         *file.Service
 	noteService         *note.Service
@@ -30,6 +32,7 @@ func NewHandler(
 	authService auth.AuthService,
 	loginService *login.Service,
 	paymentService *payment.Service,
+	billingService *billing.Service,
 	emailService *email.Service,
 	fileService *file.Service,
 	noteService *note.Service,
@@ -41,6 +44,7 @@ func NewHandler(
 		authService:         authService,
 		loginService:        loginService,
 		paymentService:      paymentService,
+		billingService:      billingService,
 		emailService:        emailService,
 		fileService:         fileService,
 		noteService:         noteService,

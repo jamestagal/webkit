@@ -90,7 +90,7 @@ INSERT INTO consultations (
     id, user_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8
-) RETURNING id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at
+) RETURNING id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, business_name, contact_person, email, phone, website, social_linkedin, social_facebook, social_instagram, industry, business_type, website_status, primary_challenges, urgency_level, primary_goals, conversion_goal, budget_range, timeline, design_styles, admired_websites, consultation_notes, created_by, performance_data, client_id, custom_data, form_id, status, completion_percentage, created_at, updated_at, completed_at
 `
 
 type CreateConsultationParams struct {
@@ -126,6 +126,31 @@ func (q *Queries) CreateConsultation(ctx context.Context, arg CreateConsultation
 		&i.BusinessContext,
 		&i.PainPoints,
 		&i.GoalsObjectives,
+		&i.BusinessName,
+		&i.ContactPerson,
+		&i.Email,
+		&i.Phone,
+		&i.Website,
+		&i.SocialLinkedin,
+		&i.SocialFacebook,
+		&i.SocialInstagram,
+		&i.Industry,
+		&i.BusinessType,
+		&i.WebsiteStatus,
+		&i.PrimaryChallenges,
+		&i.UrgencyLevel,
+		&i.PrimaryGoals,
+		&i.ConversionGoal,
+		&i.BudgetRange,
+		&i.Timeline,
+		&i.DesignStyles,
+		&i.AdmiredWebsites,
+		&i.ConsultationNotes,
+		&i.CreatedBy,
+		&i.PerformanceData,
+		&i.ClientID,
+		&i.CustomData,
+		&i.FormID,
 		&i.Status,
 		&i.CompletionPercentage,
 		&i.CreatedAt,
@@ -325,8 +350,118 @@ func (q *Queries) DeleteTokens(ctx context.Context) error {
 	return err
 }
 
+const downgradeAgencyToFree = `-- name: DowngradeAgencyToFree :exec
+UPDATE agencies
+SET
+    subscription_tier = 'free',
+    subscription_id = '',
+    subscription_end = NULL,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+func (q *Queries) DowngradeAgencyToFree(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, downgradeAgencyToFree, id)
+	return err
+}
+
+const getAgencyBillingInfo = `-- name: GetAgencyBillingInfo :one
+
+SELECT
+    id,
+    name,
+    slug,
+    subscription_tier,
+    subscription_id,
+    subscription_end,
+    stripe_customer_id,
+    ai_generations_this_month,
+    ai_generations_reset_at,
+    is_freemium,
+    freemium_expires_at
+FROM agencies
+WHERE id = $1
+`
+
+type GetAgencyBillingInfoRow struct {
+	ID                     uuid.UUID    `json:"id"`
+	Name                   string       `json:"name"`
+	Slug                   string       `json:"slug"`
+	SubscriptionTier       string       `json:"subscription_tier"`
+	SubscriptionID         string       `json:"subscription_id"`
+	SubscriptionEnd        sql.NullTime `json:"subscription_end"`
+	StripeCustomerID       string       `json:"stripe_customer_id"`
+	AiGenerationsThisMonth int32        `json:"ai_generations_this_month"`
+	AiGenerationsResetAt   sql.NullTime `json:"ai_generations_reset_at"`
+	IsFreemium             bool         `json:"is_freemium"`
+	FreemiumExpiresAt      sql.NullTime `json:"freemium_expires_at"`
+}
+
+// =============================================================================
+// Agency Billing Queries (Platform Subscriptions)
+// =============================================================================
+func (q *Queries) GetAgencyBillingInfo(ctx context.Context, id uuid.UUID) (GetAgencyBillingInfoRow, error) {
+	row := q.db.QueryRowContext(ctx, getAgencyBillingInfo, id)
+	var i GetAgencyBillingInfoRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.SubscriptionTier,
+		&i.SubscriptionID,
+		&i.SubscriptionEnd,
+		&i.StripeCustomerID,
+		&i.AiGenerationsThisMonth,
+		&i.AiGenerationsResetAt,
+		&i.IsFreemium,
+		&i.FreemiumExpiresAt,
+	)
+	return i, err
+}
+
+const getAgencyByStripeCustomer = `-- name: GetAgencyByStripeCustomer :one
+SELECT id, created_at, updated_at, name, slug, logo_url, logo_avatar_url, primary_color, secondary_color, accent_color, accent_gradient, email, phone, website, status, subscription_tier, subscription_id, subscription_end, stripe_customer_id, ai_generations_this_month, ai_generations_reset_at, is_freemium, freemium_reason, freemium_expires_at, freemium_granted_at, freemium_granted_by, deleted_at, deletion_scheduled_for FROM agencies
+WHERE stripe_customer_id = $1
+`
+
+func (q *Queries) GetAgencyByStripeCustomer(ctx context.Context, stripeCustomerID string) (Agency, error) {
+	row := q.db.QueryRowContext(ctx, getAgencyByStripeCustomer, stripeCustomerID)
+	var i Agency
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Name,
+		&i.Slug,
+		&i.LogoUrl,
+		&i.LogoAvatarUrl,
+		&i.PrimaryColor,
+		&i.SecondaryColor,
+		&i.AccentColor,
+		&i.AccentGradient,
+		&i.Email,
+		&i.Phone,
+		&i.Website,
+		&i.Status,
+		&i.SubscriptionTier,
+		&i.SubscriptionID,
+		&i.SubscriptionEnd,
+		&i.StripeCustomerID,
+		&i.AiGenerationsThisMonth,
+		&i.AiGenerationsResetAt,
+		&i.IsFreemium,
+		&i.FreemiumReason,
+		&i.FreemiumExpiresAt,
+		&i.FreemiumGrantedAt,
+		&i.FreemiumGrantedBy,
+		&i.DeletedAt,
+		&i.DeletionScheduledFor,
+	)
+	return i, err
+}
+
 const getConsultation = `-- name: GetConsultation :one
-SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations WHERE id = $1
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, business_name, contact_person, email, phone, website, social_linkedin, social_facebook, social_instagram, industry, business_type, website_status, primary_challenges, urgency_level, primary_goals, conversion_goal, budget_range, timeline, design_styles, admired_websites, consultation_notes, created_by, performance_data, client_id, custom_data, form_id, status, completion_percentage, created_at, updated_at, completed_at FROM consultations WHERE id = $1
 `
 
 func (q *Queries) GetConsultation(ctx context.Context, id uuid.UUID) (Consultation, error) {
@@ -340,6 +475,31 @@ func (q *Queries) GetConsultation(ctx context.Context, id uuid.UUID) (Consultati
 		&i.BusinessContext,
 		&i.PainPoints,
 		&i.GoalsObjectives,
+		&i.BusinessName,
+		&i.ContactPerson,
+		&i.Email,
+		&i.Phone,
+		&i.Website,
+		&i.SocialLinkedin,
+		&i.SocialFacebook,
+		&i.SocialInstagram,
+		&i.Industry,
+		&i.BusinessType,
+		&i.WebsiteStatus,
+		&i.PrimaryChallenges,
+		&i.UrgencyLevel,
+		&i.PrimaryGoals,
+		&i.ConversionGoal,
+		&i.BudgetRange,
+		&i.Timeline,
+		&i.DesignStyles,
+		&i.AdmiredWebsites,
+		&i.ConsultationNotes,
+		&i.CreatedBy,
+		&i.PerformanceData,
+		&i.ClientID,
+		&i.CustomData,
+		&i.FormID,
 		&i.Status,
 		&i.CompletionPercentage,
 		&i.CreatedAt,
@@ -350,7 +510,7 @@ func (q *Queries) GetConsultation(ctx context.Context, id uuid.UUID) (Consultati
 }
 
 const getConsultationByUser = `-- name: GetConsultationByUser :one
-SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations WHERE id = $1 AND user_id = $2
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, business_name, contact_person, email, phone, website, social_linkedin, social_facebook, social_instagram, industry, business_type, website_status, primary_challenges, urgency_level, primary_goals, conversion_goal, budget_range, timeline, design_styles, admired_websites, consultation_notes, created_by, performance_data, client_id, custom_data, form_id, status, completion_percentage, created_at, updated_at, completed_at FROM consultations WHERE id = $1 AND user_id = $2
 `
 
 type GetConsultationByUserParams struct {
@@ -369,6 +529,31 @@ func (q *Queries) GetConsultationByUser(ctx context.Context, arg GetConsultation
 		&i.BusinessContext,
 		&i.PainPoints,
 		&i.GoalsObjectives,
+		&i.BusinessName,
+		&i.ContactPerson,
+		&i.Email,
+		&i.Phone,
+		&i.Website,
+		&i.SocialLinkedin,
+		&i.SocialFacebook,
+		&i.SocialInstagram,
+		&i.Industry,
+		&i.BusinessType,
+		&i.WebsiteStatus,
+		&i.PrimaryChallenges,
+		&i.UrgencyLevel,
+		&i.PrimaryGoals,
+		&i.ConversionGoal,
+		&i.BudgetRange,
+		&i.Timeline,
+		&i.DesignStyles,
+		&i.AdmiredWebsites,
+		&i.ConsultationNotes,
+		&i.CreatedBy,
+		&i.PerformanceData,
+		&i.ClientID,
+		&i.CustomData,
+		&i.FormID,
 		&i.Status,
 		&i.CompletionPercentage,
 		&i.CreatedAt,
@@ -465,7 +650,7 @@ func (q *Queries) GetConsultationVersion(ctx context.Context, arg GetConsultatio
 
 const getConsultationsByBusinessName = `-- name: GetConsultationsByBusinessName :many
 
-SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, business_name, contact_person, email, phone, website, social_linkedin, social_facebook, social_instagram, industry, business_type, website_status, primary_challenges, urgency_level, primary_goals, conversion_goal, budget_range, timeline, design_styles, admired_websites, consultation_notes, created_by, performance_data, client_id, custom_data, form_id, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1
 AND contact_info->>'business_name' ILIKE $2
 ORDER BY created_at DESC
@@ -502,6 +687,31 @@ func (q *Queries) GetConsultationsByBusinessName(ctx context.Context, arg GetCon
 			&i.BusinessContext,
 			&i.PainPoints,
 			&i.GoalsObjectives,
+			&i.BusinessName,
+			&i.ContactPerson,
+			&i.Email,
+			&i.Phone,
+			&i.Website,
+			&i.SocialLinkedin,
+			&i.SocialFacebook,
+			&i.SocialInstagram,
+			&i.Industry,
+			&i.BusinessType,
+			&i.WebsiteStatus,
+			&i.PrimaryChallenges,
+			&i.UrgencyLevel,
+			&i.PrimaryGoals,
+			&i.ConversionGoal,
+			&i.BudgetRange,
+			&i.Timeline,
+			&i.DesignStyles,
+			&i.AdmiredWebsites,
+			&i.ConsultationNotes,
+			&i.CreatedBy,
+			&i.PerformanceData,
+			&i.ClientID,
+			&i.CustomData,
+			&i.FormID,
 			&i.Status,
 			&i.CompletionPercentage,
 			&i.CreatedAt,
@@ -522,7 +732,7 @@ func (q *Queries) GetConsultationsByBusinessName(ctx context.Context, arg GetCon
 }
 
 const getConsultationsByIndustry = `-- name: GetConsultationsByIndustry :many
-SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, business_name, contact_person, email, phone, website, social_linkedin, social_facebook, social_instagram, industry, business_type, website_status, primary_challenges, urgency_level, primary_goals, conversion_goal, budget_range, timeline, design_styles, admired_websites, consultation_notes, created_by, performance_data, client_id, custom_data, form_id, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1
 AND business_context->>'industry' = $2
 ORDER BY created_at DESC
@@ -558,6 +768,31 @@ func (q *Queries) GetConsultationsByIndustry(ctx context.Context, arg GetConsult
 			&i.BusinessContext,
 			&i.PainPoints,
 			&i.GoalsObjectives,
+			&i.BusinessName,
+			&i.ContactPerson,
+			&i.Email,
+			&i.Phone,
+			&i.Website,
+			&i.SocialLinkedin,
+			&i.SocialFacebook,
+			&i.SocialInstagram,
+			&i.Industry,
+			&i.BusinessType,
+			&i.WebsiteStatus,
+			&i.PrimaryChallenges,
+			&i.UrgencyLevel,
+			&i.PrimaryGoals,
+			&i.ConversionGoal,
+			&i.BudgetRange,
+			&i.Timeline,
+			&i.DesignStyles,
+			&i.AdmiredWebsites,
+			&i.ConsultationNotes,
+			&i.CreatedBy,
+			&i.PerformanceData,
+			&i.ClientID,
+			&i.CustomData,
+			&i.FormID,
 			&i.Status,
 			&i.CompletionPercentage,
 			&i.CreatedAt,
@@ -578,7 +813,7 @@ func (q *Queries) GetConsultationsByIndustry(ctx context.Context, arg GetConsult
 }
 
 const getConsultationsByUrgency = `-- name: GetConsultationsByUrgency :many
-SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, business_name, contact_person, email, phone, website, social_linkedin, social_facebook, social_instagram, industry, business_type, website_status, primary_challenges, urgency_level, primary_goals, conversion_goal, budget_range, timeline, design_styles, admired_websites, consultation_notes, created_by, performance_data, client_id, custom_data, form_id, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1
 AND pain_points->>'urgency_level' = $2
 ORDER BY created_at DESC
@@ -614,6 +849,31 @@ func (q *Queries) GetConsultationsByUrgency(ctx context.Context, arg GetConsulta
 			&i.BusinessContext,
 			&i.PainPoints,
 			&i.GoalsObjectives,
+			&i.BusinessName,
+			&i.ContactPerson,
+			&i.Email,
+			&i.Phone,
+			&i.Website,
+			&i.SocialLinkedin,
+			&i.SocialFacebook,
+			&i.SocialInstagram,
+			&i.Industry,
+			&i.BusinessType,
+			&i.WebsiteStatus,
+			&i.PrimaryChallenges,
+			&i.UrgencyLevel,
+			&i.PrimaryGoals,
+			&i.ConversionGoal,
+			&i.BudgetRange,
+			&i.Timeline,
+			&i.DesignStyles,
+			&i.AdmiredWebsites,
+			&i.ConsultationNotes,
+			&i.CreatedBy,
+			&i.PerformanceData,
+			&i.ClientID,
+			&i.CustomData,
+			&i.FormID,
 			&i.Status,
 			&i.CompletionPercentage,
 			&i.CreatedAt,
@@ -933,7 +1193,7 @@ func (q *Queries) ListConsultationVersions(ctx context.Context, arg ListConsulta
 }
 
 const listConsultationsByCompletion = `-- name: ListConsultationsByCompletion :many
-SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, business_name, contact_person, email, phone, website, social_linkedin, social_facebook, social_instagram, industry, business_type, website_status, primary_challenges, urgency_level, primary_goals, conversion_goal, budget_range, timeline, design_styles, admired_websites, consultation_notes, created_by, performance_data, client_id, custom_data, form_id, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1
 AND completion_percentage BETWEEN $2 AND $3
 ORDER BY completion_percentage DESC, created_at DESC
@@ -971,6 +1231,31 @@ func (q *Queries) ListConsultationsByCompletion(ctx context.Context, arg ListCon
 			&i.BusinessContext,
 			&i.PainPoints,
 			&i.GoalsObjectives,
+			&i.BusinessName,
+			&i.ContactPerson,
+			&i.Email,
+			&i.Phone,
+			&i.Website,
+			&i.SocialLinkedin,
+			&i.SocialFacebook,
+			&i.SocialInstagram,
+			&i.Industry,
+			&i.BusinessType,
+			&i.WebsiteStatus,
+			&i.PrimaryChallenges,
+			&i.UrgencyLevel,
+			&i.PrimaryGoals,
+			&i.ConversionGoal,
+			&i.BudgetRange,
+			&i.Timeline,
+			&i.DesignStyles,
+			&i.AdmiredWebsites,
+			&i.ConsultationNotes,
+			&i.CreatedBy,
+			&i.PerformanceData,
+			&i.ClientID,
+			&i.CustomData,
+			&i.FormID,
 			&i.Status,
 			&i.CompletionPercentage,
 			&i.CreatedAt,
@@ -991,7 +1276,7 @@ func (q *Queries) ListConsultationsByCompletion(ctx context.Context, arg ListCon
 }
 
 const listConsultationsByDateRange = `-- name: ListConsultationsByDateRange :many
-SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, business_name, contact_person, email, phone, website, social_linkedin, social_facebook, social_instagram, industry, business_type, website_status, primary_challenges, urgency_level, primary_goals, conversion_goal, budget_range, timeline, design_styles, admired_websites, consultation_notes, created_by, performance_data, client_id, custom_data, form_id, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1
 AND created_at BETWEEN $2 AND $3
 ORDER BY created_at DESC
@@ -1029,6 +1314,31 @@ func (q *Queries) ListConsultationsByDateRange(ctx context.Context, arg ListCons
 			&i.BusinessContext,
 			&i.PainPoints,
 			&i.GoalsObjectives,
+			&i.BusinessName,
+			&i.ContactPerson,
+			&i.Email,
+			&i.Phone,
+			&i.Website,
+			&i.SocialLinkedin,
+			&i.SocialFacebook,
+			&i.SocialInstagram,
+			&i.Industry,
+			&i.BusinessType,
+			&i.WebsiteStatus,
+			&i.PrimaryChallenges,
+			&i.UrgencyLevel,
+			&i.PrimaryGoals,
+			&i.ConversionGoal,
+			&i.BudgetRange,
+			&i.Timeline,
+			&i.DesignStyles,
+			&i.AdmiredWebsites,
+			&i.ConsultationNotes,
+			&i.CreatedBy,
+			&i.PerformanceData,
+			&i.ClientID,
+			&i.CustomData,
+			&i.FormID,
 			&i.Status,
 			&i.CompletionPercentage,
 			&i.CreatedAt,
@@ -1049,7 +1359,7 @@ func (q *Queries) ListConsultationsByDateRange(ctx context.Context, arg ListCons
 }
 
 const listConsultationsByStatus = `-- name: ListConsultationsByStatus :many
-SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, business_name, contact_person, email, phone, website, social_linkedin, social_facebook, social_instagram, industry, business_type, website_status, primary_challenges, urgency_level, primary_goals, conversion_goal, budget_range, timeline, design_styles, admired_websites, consultation_notes, created_by, performance_data, client_id, custom_data, form_id, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1 AND status = $2
 ORDER BY created_at DESC
 LIMIT $3 OFFSET $4
@@ -1084,6 +1394,31 @@ func (q *Queries) ListConsultationsByStatus(ctx context.Context, arg ListConsult
 			&i.BusinessContext,
 			&i.PainPoints,
 			&i.GoalsObjectives,
+			&i.BusinessName,
+			&i.ContactPerson,
+			&i.Email,
+			&i.Phone,
+			&i.Website,
+			&i.SocialLinkedin,
+			&i.SocialFacebook,
+			&i.SocialInstagram,
+			&i.Industry,
+			&i.BusinessType,
+			&i.WebsiteStatus,
+			&i.PrimaryChallenges,
+			&i.UrgencyLevel,
+			&i.PrimaryGoals,
+			&i.ConversionGoal,
+			&i.BudgetRange,
+			&i.Timeline,
+			&i.DesignStyles,
+			&i.AdmiredWebsites,
+			&i.ConsultationNotes,
+			&i.CreatedBy,
+			&i.PerformanceData,
+			&i.ClientID,
+			&i.CustomData,
+			&i.FormID,
 			&i.Status,
 			&i.CompletionPercentage,
 			&i.CreatedAt,
@@ -1105,7 +1440,7 @@ func (q *Queries) ListConsultationsByStatus(ctx context.Context, arg ListConsult
 
 const listConsultationsByUser = `-- name: ListConsultationsByUser :many
 
-SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, business_name, contact_person, email, phone, website, social_linkedin, social_facebook, social_instagram, industry, business_type, website_status, primary_challenges, urgency_level, primary_goals, conversion_goal, budget_range, timeline, design_styles, admired_websites, consultation_notes, created_by, performance_data, client_id, custom_data, form_id, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -1135,6 +1470,31 @@ func (q *Queries) ListConsultationsByUser(ctx context.Context, arg ListConsultat
 			&i.BusinessContext,
 			&i.PainPoints,
 			&i.GoalsObjectives,
+			&i.BusinessName,
+			&i.ContactPerson,
+			&i.Email,
+			&i.Phone,
+			&i.Website,
+			&i.SocialLinkedin,
+			&i.SocialFacebook,
+			&i.SocialInstagram,
+			&i.Industry,
+			&i.BusinessType,
+			&i.WebsiteStatus,
+			&i.PrimaryChallenges,
+			&i.UrgencyLevel,
+			&i.PrimaryGoals,
+			&i.ConversionGoal,
+			&i.BudgetRange,
+			&i.Timeline,
+			&i.DesignStyles,
+			&i.AdmiredWebsites,
+			&i.ConsultationNotes,
+			&i.CreatedBy,
+			&i.PerformanceData,
+			&i.ClientID,
+			&i.CustomData,
+			&i.FormID,
 			&i.Status,
 			&i.CompletionPercentage,
 			&i.CreatedAt,
@@ -1155,7 +1515,7 @@ func (q *Queries) ListConsultationsByUser(ctx context.Context, arg ListConsultat
 }
 
 const searchConsultations = `-- name: SearchConsultations :many
-SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
+SELECT id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, business_name, contact_person, email, phone, website, social_linkedin, social_facebook, social_instagram, industry, business_type, website_status, primary_challenges, urgency_level, primary_goals, conversion_goal, budget_range, timeline, design_styles, admired_websites, consultation_notes, created_by, performance_data, client_id, custom_data, form_id, status, completion_percentage, created_at, updated_at, completed_at FROM consultations
 WHERE user_id = $1
 AND (
     contact_info->>'business_name' ILIKE $2 OR
@@ -1195,6 +1555,31 @@ func (q *Queries) SearchConsultations(ctx context.Context, arg SearchConsultatio
 			&i.BusinessContext,
 			&i.PainPoints,
 			&i.GoalsObjectives,
+			&i.BusinessName,
+			&i.ContactPerson,
+			&i.Email,
+			&i.Phone,
+			&i.Website,
+			&i.SocialLinkedin,
+			&i.SocialFacebook,
+			&i.SocialInstagram,
+			&i.Industry,
+			&i.BusinessType,
+			&i.WebsiteStatus,
+			&i.PrimaryChallenges,
+			&i.UrgencyLevel,
+			&i.PrimaryGoals,
+			&i.ConversionGoal,
+			&i.BudgetRange,
+			&i.Timeline,
+			&i.DesignStyles,
+			&i.AdmiredWebsites,
+			&i.ConsultationNotes,
+			&i.CreatedBy,
+			&i.PerformanceData,
+			&i.ClientID,
+			&i.CustomData,
+			&i.FormID,
 			&i.Status,
 			&i.CompletionPercentage,
 			&i.CreatedAt,
@@ -1663,6 +2048,49 @@ func (q *Queries) SelectUsers(ctx context.Context) ([]User, error) {
 	return items, nil
 }
 
+const updateAgencyStripeCustomer = `-- name: UpdateAgencyStripeCustomer :exec
+UPDATE agencies
+SET stripe_customer_id = $2, updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+type UpdateAgencyStripeCustomerParams struct {
+	ID               uuid.UUID `json:"id"`
+	StripeCustomerID string    `json:"stripe_customer_id"`
+}
+
+func (q *Queries) UpdateAgencyStripeCustomer(ctx context.Context, arg UpdateAgencyStripeCustomerParams) error {
+	_, err := q.db.ExecContext(ctx, updateAgencyStripeCustomer, arg.ID, arg.StripeCustomerID)
+	return err
+}
+
+const updateAgencySubscription = `-- name: UpdateAgencySubscription :exec
+UPDATE agencies
+SET
+    subscription_tier = $2,
+    subscription_id = $3,
+    subscription_end = $4,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+type UpdateAgencySubscriptionParams struct {
+	ID               uuid.UUID    `json:"id"`
+	SubscriptionTier string       `json:"subscription_tier"`
+	SubscriptionID   string       `json:"subscription_id"`
+	SubscriptionEnd  sql.NullTime `json:"subscription_end"`
+}
+
+func (q *Queries) UpdateAgencySubscription(ctx context.Context, arg UpdateAgencySubscriptionParams) error {
+	_, err := q.db.ExecContext(ctx, updateAgencySubscription,
+		arg.ID,
+		arg.SubscriptionTier,
+		arg.SubscriptionID,
+		arg.SubscriptionEnd,
+	)
+	return err
+}
+
 const updateConsultation = `-- name: UpdateConsultation :one
 UPDATE consultations SET
     contact_info = $2,
@@ -1673,7 +2101,7 @@ UPDATE consultations SET
     completion_percentage = $7,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at
+RETURNING id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, business_name, contact_person, email, phone, website, social_linkedin, social_facebook, social_instagram, industry, business_type, website_status, primary_challenges, urgency_level, primary_goals, conversion_goal, budget_range, timeline, design_styles, admired_websites, consultation_notes, created_by, performance_data, client_id, custom_data, form_id, status, completion_percentage, created_at, updated_at, completed_at
 `
 
 type UpdateConsultationParams struct {
@@ -1705,6 +2133,31 @@ func (q *Queries) UpdateConsultation(ctx context.Context, arg UpdateConsultation
 		&i.BusinessContext,
 		&i.PainPoints,
 		&i.GoalsObjectives,
+		&i.BusinessName,
+		&i.ContactPerson,
+		&i.Email,
+		&i.Phone,
+		&i.Website,
+		&i.SocialLinkedin,
+		&i.SocialFacebook,
+		&i.SocialInstagram,
+		&i.Industry,
+		&i.BusinessType,
+		&i.WebsiteStatus,
+		&i.PrimaryChallenges,
+		&i.UrgencyLevel,
+		&i.PrimaryGoals,
+		&i.ConversionGoal,
+		&i.BudgetRange,
+		&i.Timeline,
+		&i.DesignStyles,
+		&i.AdmiredWebsites,
+		&i.ConsultationNotes,
+		&i.CreatedBy,
+		&i.PerformanceData,
+		&i.ClientID,
+		&i.CustomData,
+		&i.FormID,
 		&i.Status,
 		&i.CompletionPercentage,
 		&i.CreatedAt,
@@ -1771,7 +2224,7 @@ UPDATE consultations SET
     completed_at = CASE WHEN $2 = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, status, completion_percentage, created_at, updated_at, completed_at
+RETURNING id, user_id, agency_id, contact_info, business_context, pain_points, goals_objectives, business_name, contact_person, email, phone, website, social_linkedin, social_facebook, social_instagram, industry, business_type, website_status, primary_challenges, urgency_level, primary_goals, conversion_goal, budget_range, timeline, design_styles, admired_websites, consultation_notes, created_by, performance_data, client_id, custom_data, form_id, status, completion_percentage, created_at, updated_at, completed_at
 `
 
 type UpdateConsultationStatusParams struct {
@@ -1790,6 +2243,31 @@ func (q *Queries) UpdateConsultationStatus(ctx context.Context, arg UpdateConsul
 		&i.BusinessContext,
 		&i.PainPoints,
 		&i.GoalsObjectives,
+		&i.BusinessName,
+		&i.ContactPerson,
+		&i.Email,
+		&i.Phone,
+		&i.Website,
+		&i.SocialLinkedin,
+		&i.SocialFacebook,
+		&i.SocialInstagram,
+		&i.Industry,
+		&i.BusinessType,
+		&i.WebsiteStatus,
+		&i.PrimaryChallenges,
+		&i.UrgencyLevel,
+		&i.PrimaryGoals,
+		&i.ConversionGoal,
+		&i.BudgetRange,
+		&i.Timeline,
+		&i.DesignStyles,
+		&i.AdmiredWebsites,
+		&i.ConsultationNotes,
+		&i.CreatedBy,
+		&i.PerformanceData,
+		&i.ClientID,
+		&i.CustomData,
+		&i.FormID,
 		&i.Status,
 		&i.CompletionPercentage,
 		&i.CreatedAt,

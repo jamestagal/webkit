@@ -153,7 +153,9 @@ func (p *stripeProvider) HandleWebhook(
 	signature string,
 ) (customerID string, subscriptionID string, subEndDate *time.Time, priceID string, err error) {
 	endpointSecret := p.cfg.StripeWebhookSecret
-	event, err := webhook.ConstructEvent(payload, signature, endpointSecret)
+	event, err := webhook.ConstructEventWithOptions(payload, signature, endpointSecret, webhook.ConstructEventOptions{
+		IgnoreAPIVersionMismatch: true,
+	})
 	if err != nil {
 		return "", "", nil, "", fmt.Errorf("error verifying webhook signature: %w", err)
 	}

@@ -338,3 +338,50 @@ RETURNING *;
 
 -- name: DeleteSubscription :exec
 DELETE FROM subscriptions WHERE stripe_subscription_id = $1;
+
+-- =============================================================================
+-- Agency Billing Queries (Platform Subscriptions)
+-- =============================================================================
+
+-- name: GetAgencyBillingInfo :one
+SELECT
+    id,
+    name,
+    slug,
+    subscription_tier,
+    subscription_id,
+    subscription_end,
+    stripe_customer_id,
+    ai_generations_this_month,
+    ai_generations_reset_at,
+    is_freemium,
+    freemium_expires_at
+FROM agencies
+WHERE id = $1;
+
+-- name: UpdateAgencyStripeCustomer :exec
+UPDATE agencies
+SET stripe_customer_id = $2, updated_at = CURRENT_TIMESTAMP
+WHERE id = $1;
+
+-- name: UpdateAgencySubscription :exec
+UPDATE agencies
+SET
+    subscription_tier = $2,
+    subscription_id = $3,
+    subscription_end = $4,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1;
+
+-- name: GetAgencyByStripeCustomer :one
+SELECT * FROM agencies
+WHERE stripe_customer_id = $1;
+
+-- name: DowngradeAgencyToFree :exec
+UPDATE agencies
+SET
+    subscription_tier = 'free',
+    subscription_id = '',
+    subscription_end = NULL,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1;

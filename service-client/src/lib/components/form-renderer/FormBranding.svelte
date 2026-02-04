@@ -154,7 +154,7 @@
 					<p class="mt-3 text-xs text-base-content/40 flex items-center justify-center gap-1.5">
 						<span>Powered by</span>
 						<a href="https://webkit.au" class="font-medium text-base-content/50 hover:text-primary transition-colors">
-							WebKit
+							Webkit
 						</a>
 					</p>
 				{/if}

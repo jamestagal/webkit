@@ -44,7 +44,7 @@ export const DEMO_CONSULTATION = {
 
 	// Step 4: Preferences & Notes
 	designStyles: ["modern-clean", "corporate-professional"],
-	admiredWebsites: "https://brisbane-plumbing.com.au\nhttps://jetplumbing.com.au",
+	admiredWebsites: ["https://brisbane-plumbing.com.au", "https://jetplumbing.com.au"],
 	consultationNotes: `15 years in business, 8 employees. Family-owned with 4.8 star Google rating (127 reviews).
 
 Services: Emergency plumbing, hot water systems, blocked drains, gas fitting, bathroom renovations, commercial maintenance.

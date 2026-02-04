@@ -77,6 +77,15 @@ type Config struct {
 	StripePriceIDPremium       string
 	StripeWebhookSecret        string
 
+	// Agency Billing (Platform Subscriptions)
+	StripePriceStarterMonthly    string
+	StripePriceStarterYearly     string
+	StripePriceGrowthMonthly     string
+	StripePriceGrowthYearly      string
+	StripePriceEnterpriseMonthly string
+	StripePriceEnterpriseYearly  string
+	StripeBillingWebhookSecret   string
+
 	// Email
 	EmailProvider string
 	EmailFrom     string
@@ -158,9 +167,17 @@ func LoadConfig() *Config {
 		TwilioServiceSID:             os.Getenv("TWILIO_SERVICE_SID"),
 		PaymentProvider:              MustSetEnv(true, "PAYMENT_PROVIDER"),
 		StripeAPIKey:                 MustSetEnv(os.Getenv("PAYMENT_PROVIDER") == "stripe", "STRIPE_API_KEY"),
-		StripePriceIDBasic:           MustSetEnv(os.Getenv("PAYMENT_PROVIDER") == "stripe", "STRIPE_PRICE_ID_BASIC"),
-		StripePriceIDPremium:         MustSetEnv(os.Getenv("PAYMENT_PROVIDER") == "stripe", "STRIPE_PRICE_ID_PREMIUM"),
+		StripePriceIDBasic:           os.Getenv("STRIPE_PRICE_ID_BASIC"),   // Legacy - optional
+		StripePriceIDPremium:         os.Getenv("STRIPE_PRICE_ID_PREMIUM"), // Legacy - optional
 		StripeWebhookSecret:          MustSetEnv(os.Getenv("PAYMENT_PROVIDER") == "stripe", "STRIPE_WEBHOOK_SECRET"),
+		// Agency billing price IDs (optional - loaded if set)
+		StripePriceStarterMonthly:    os.Getenv("STRIPE_PRICE_STARTER_MONTHLY"),
+		StripePriceStarterYearly:     os.Getenv("STRIPE_PRICE_STARTER_YEARLY"),
+		StripePriceGrowthMonthly:     os.Getenv("STRIPE_PRICE_GROWTH_MONTHLY"),
+		StripePriceGrowthYearly:      os.Getenv("STRIPE_PRICE_GROWTH_YEARLY"),
+		StripePriceEnterpriseMonthly: os.Getenv("STRIPE_PRICE_ENTERPRISE_MONTHLY"),
+		StripePriceEnterpriseYearly:  os.Getenv("STRIPE_PRICE_ENTERPRISE_YEARLY"),
+		StripeBillingWebhookSecret:   os.Getenv("STRIPE_BILLING_WEBHOOK_SECRET"),
 		EmailProvider:                MustSetEnv(true, "EMAIL_PROVIDER"),
 		EmailFrom:                    MustSetEnv(true, "EMAIL_FROM"),
 		SendgridAPIKey:               MustSetEnv(os.Getenv("EMAIL_PROVIDER") == "sendgrid", "SENDGRID_API_KEY"),
@@ -234,6 +251,13 @@ func LoadTestConfig() *Config {
 		StripePriceIDBasic:           "stripe_price_id_basic",
 		StripePriceIDPremium:         "stripe_price_id_premium",
 		StripeWebhookSecret:          "stripe_webhook_secret",
+		StripePriceStarterMonthly:    "price_starter_monthly_test",
+		StripePriceStarterYearly:     "price_starter_yearly_test",
+		StripePriceGrowthMonthly:     "price_growth_monthly_test",
+		StripePriceGrowthYearly:      "price_growth_yearly_test",
+		StripePriceEnterpriseMonthly: "price_enterprise_monthly_test",
+		StripePriceEnterpriseYearly:  "price_enterprise_yearly_test",
+		StripeBillingWebhookSecret:   "billing_webhook_secret_test",
 		EmailProvider:                "sendgrid",
 		EmailFrom:                    "email_from",
 		SendgridAPIKey:               "sendgrid_api_key",

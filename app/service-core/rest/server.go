@@ -29,7 +29,7 @@ func Run(apiHandler *Handler) {
 	mux.HandleFunc("/api/v1/login-phone", apiHandler.handleLoginPhone)
 	mux.HandleFunc("/api/v1/login-verify", apiHandler.handleLoginVerify)
 
-	// Payments
+	// Payments (user subscriptions)
 	mux.HandleFunc("/payments-portal", apiHandler.handlePaymentsPortal)
 	mux.HandleFunc("/payments-checkout", apiHandler.handlePaymentsCheckout)
 	mux.HandleFunc("/payments-update", apiHandler.handlePaymentsUpdate)
@@ -38,6 +38,15 @@ func Run(apiHandler *Handler) {
 	mux.HandleFunc("/api/v1/payments-checkout", apiHandler.handlePaymentsCheckout)
 	mux.HandleFunc("/api/v1/payments-update", apiHandler.handlePaymentsUpdate)
 	mux.HandleFunc("/api/v1/payments-webhook", apiHandler.handlePaymentsWebhook)
+
+	// Billing (agency subscriptions)
+	mux.HandleFunc("/api/v1/billing/info", apiHandler.handleBillingInfo)
+	mux.HandleFunc("/api/v1/billing/checkout", apiHandler.handleBillingCheckout)
+	mux.HandleFunc("/api/v1/billing/portal", apiHandler.handleBillingPortal)
+	mux.HandleFunc("/api/v1/billing/upgrade", apiHandler.handleBillingUpgrade)
+	mux.HandleFunc("/api/v1/billing/session-status", apiHandler.handleBillingSessionStatus)
+	mux.HandleFunc("/api/v1/billing/sync-session", apiHandler.handleBillingSyncSession)
+	mux.HandleFunc("/api/v1/billing/webhook", apiHandler.handleBillingWebhook)
 
 	// Emails
 	mux.HandleFunc("/emails", apiHandler.handleEmails)

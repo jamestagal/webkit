@@ -121,6 +121,7 @@ export const loadDemoData = command(async () => {
 	await db.insert(consultations).values({
 		id: consultationId,
 		agencyId,
+		userId, // Required for Go backend compatibility
 		clientId, // Unified Client link
 		createdBy: userId,
 		// Step 1: Contact & Business

@@ -33,6 +33,12 @@ type Querier interface {
 	DeleteNote(ctx context.Context, id uuid.UUID) error
 	DeleteSubscription(ctx context.Context, stripeSubscriptionID string) error
 	DeleteTokens(ctx context.Context) error
+	DowngradeAgencyToFree(ctx context.Context, id uuid.UUID) error
+	// =============================================================================
+	// Agency Billing Queries (Platform Subscriptions)
+	// =============================================================================
+	GetAgencyBillingInfo(ctx context.Context, id uuid.UUID) (GetAgencyBillingInfoRow, error)
+	GetAgencyByStripeCustomer(ctx context.Context, stripeCustomerID string) (Agency, error)
 	GetConsultation(ctx context.Context, id uuid.UUID) (Consultation, error)
 	GetConsultationByUser(ctx context.Context, arg GetConsultationByUserParams) (Consultation, error)
 	GetConsultationDraft(ctx context.Context, consultationID uuid.UUID) (ConsultationDraft, error)
@@ -73,6 +79,8 @@ type Querier interface {
 	SelectUserByEmail(ctx context.Context, email string) (User, error)
 	SelectUserByEmailAndSub(ctx context.Context, arg SelectUserByEmailAndSubParams) (User, error)
 	SelectUsers(ctx context.Context) ([]User, error)
+	UpdateAgencyStripeCustomer(ctx context.Context, arg UpdateAgencyStripeCustomerParams) error
+	UpdateAgencySubscription(ctx context.Context, arg UpdateAgencySubscriptionParams) error
 	UpdateConsultation(ctx context.Context, arg UpdateConsultationParams) (Consultation, error)
 	UpdateConsultationDraft(ctx context.Context, arg UpdateConsultationDraftParams) (ConsultationDraft, error)
 	UpdateConsultationStatus(ctx context.Context, arg UpdateConsultationStatusParams) (Consultation, error)

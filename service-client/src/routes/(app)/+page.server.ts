@@ -27,10 +27,13 @@ export const load: import("./$types").PageServerLoad = async ({ locals }) => {
 			agencySlug = agency?.slug ?? null;
 		}
 
-		// If no default agency, get first active membership
+		// If no default agency, get agency where user has highest role (owner > admin > member)
 		if (!agencySlug) {
-			const [membership] = await db
-				.select({ slug: agencies.slug })
+			const memberships = await db
+				.select({
+					slug: agencies.slug,
+					role: agencyMemberships.role,
+				})
 				.from(agencyMemberships)
 				.innerJoin(agencies, eq(agencyMemberships.agencyId, agencies.id))
 				.where(
@@ -39,10 +42,15 @@ export const load: import("./$types").PageServerLoad = async ({ locals }) => {
 						eq(agencyMemberships.status, "active"),
 						eq(agencies.status, "active"),
 					),
-				)
-				.limit(1);
+				);
 
-			agencySlug = membership?.slug ?? null;
+			// Prioritize by role: owner first, then admin, then member
+			const roleOrder: Record<string, number> = { owner: 0, admin: 1, member: 2 };
+			const sorted = memberships.sort(
+				(a, b) => (roleOrder[a.role] ?? 3) - (roleOrder[b.role] ?? 3),
+			);
+
+			agencySlug = sorted[0]?.slug ?? null;
 		}
 
 		// Redirect to agency dashboard if user has one

@@ -105,19 +105,24 @@ export async function getAgencyContext(): Promise<AgencyContext> {
 		}
 	}
 
-	// If still no agency, get first agency user belongs to
+	// If still no agency, get agency where user has highest role (owner > admin > member)
 	if (!agencyId) {
-		const [firstMembership] = await db
+		const memberships = await db
 			.select({
 				agencyId: agencyMemberships.agencyId,
 				role: agencyMemberships.role,
 			})
 			.from(agencyMemberships)
-			.where(and(eq(agencyMemberships.userId, userId), eq(agencyMemberships.status, "active")))
-			.limit(1);
+			.where(and(eq(agencyMemberships.userId, userId), eq(agencyMemberships.status, "active")));
 
-		if (firstMembership) {
-			agencyId = firstMembership.agencyId;
+		// Prioritize by role: owner first, then admin, then member
+		const roleOrder: Record<string, number> = { owner: 0, admin: 1, member: 2 };
+		const sorted = memberships.sort(
+			(a, b) => (roleOrder[a.role] ?? 3) - (roleOrder[b.role] ?? 3),
+		);
+
+		if (sorted.length > 0) {
+			agencyId = sorted[0].agencyId;
 		}
 	}
 

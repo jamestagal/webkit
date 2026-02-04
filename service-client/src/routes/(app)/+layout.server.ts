@@ -32,15 +32,25 @@ export const load: import("./$types").LayoutServerLoad = async ({ locals }) => {
 
 			let agencyId = user?.defaultAgencyId;
 
-			// If no default agency, get first active membership
+			// If no default agency, get agency where user has highest role (owner > admin > member)
 			if (!agencyId) {
-				const [membership] = await db
-					.select({ agencyId: agencyMemberships.agencyId })
+				const memberships = await db
+					.select({
+						agencyId: agencyMemberships.agencyId,
+						role: agencyMemberships.role,
+					})
 					.from(agencyMemberships)
-					.where(and(eq(agencyMemberships.userId, userId), eq(agencyMemberships.status, "active")))
-					.limit(1);
+					.where(and(eq(agencyMemberships.userId, userId), eq(agencyMemberships.status, "active")));
 
-				agencyId = membership?.agencyId;
+				// Prioritize by role: owner first, then admin, then member
+				const roleOrder: Record<string, number> = { owner: 0, admin: 1, member: 2 };
+				const sorted = memberships.sort(
+					(a, b) => (roleOrder[a.role] ?? 3) - (roleOrder[b.role] ?? 3),
+				);
+
+				if (sorted.length > 0) {
+					agencyId = sorted[0].agencyId;
+				}
 			}
 
 			// If user has an agency, load the context

@@ -122,8 +122,11 @@ sh scripts/run_grpc.sh
 # Start all services with Docker Compose
 docker compose up --build
 
-# Run database migrations
-sh scripts/atlas.sh [postgres|sqlite|turso]
+# Run database migrations (local)
+sh scripts/run_migrations.sh
+
+# Run database migrations (production)
+VPS_HOST=x.x.x.x VPS_USER=root sh scripts/run_migrations.sh production
 ```
 
 ### Development Tools
@@ -397,16 +400,90 @@ export const myQuery = query(async () => {
 |------|-----------|
 | `questionnaire.types.ts` | Questionnaire responses, access results |
 
-## Database Development Workflow
+## Database Migrations
+
+### Migration System Overview
+
+This project uses **raw SQL migrations** with numbered, idempotent files:
+
+```
+/migrations/
+├── 001_add_agencies_freemium_columns.sql
+├── 002_create_beta_invites_table.sql
+├── 003_add_users_suspension_columns.sql
+├── 004_form_builder_system.sql
+├── 005_clients_system.sql
+├── 006_form_templates_admin.sql
+├── 007_consultation_option_sets.sql
+├── 008_seed_full_discovery_template.sql
+├── 009_add_stripe_customer_to_agencies.sql
+└── ...
+```
+
+### Writing Migrations
+
+All migrations **MUST be idempotent** (safe to run multiple times):
+
+```sql
+-- Good: Uses IF NOT EXISTS / IF EXISTS
+CREATE TABLE IF NOT EXISTS my_table (...);
+ALTER TABLE my_table ADD COLUMN IF NOT EXISTS new_col TEXT;
+CREATE INDEX IF NOT EXISTS idx_name ON my_table(col);
+
+-- Bad: Will fail on re-run
+CREATE TABLE my_table (...);
+ALTER TABLE my_table ADD COLUMN new_col TEXT;
+```
+
+### Running Migrations
+
+```bash
+# Local development
+sh scripts/run_migrations.sh
+
+# Production (requires VPS_HOST, VPS_USER env vars)
+VPS_HOST=your-vps-ip VPS_USER=root sh scripts/run_migrations.sh production
+```
+
+### Database Development Workflow
 
 When making database changes:
 
 1. **Start services**: `docker compose up`
-2. **Edit schema**: Modify `app/service-core/storage/schema_postgres.sql`
-3. **Apply migrations**: `sh scripts/atlas.sh postgres`
-4. **Edit Drizzle schema**: Modify `service-client/src/lib/server/schema.ts`
-5. **Edit queries**: Modify files in `app/service-core/storage/sql/*.sql`
-6. **Generate Go code**: `sh scripts/run_queries.sh postgres`
+2. **Create migration file**: Add `migrations/0XX_description.sql` with idempotent SQL
+3. **Run migration**: `sh scripts/run_migrations.sh`
+4. **Update Drizzle schema**: Add new tables/columns to `service-client/src/lib/server/schema.ts`
+5. **Update Go schema** (if Go needs the tables): Modify `app/service-core/storage/schema_postgres.sql`
+6. **Regenerate sqlc**: `sh scripts/run_queries.sh postgres`
+7. **Type check**: `cd service-client && npm run check`
+
+### Schema Files
+
+| File | Purpose | When to Update |
+|------|---------|----------------|
+| `migrations/*.sql` | Source of truth for DB structure | Always (create new migration) |
+| `service-client/src/lib/server/schema.ts` | Drizzle ORM schema for SvelteKit | After running migration |
+| `app/service-core/storage/schema_postgres.sql` | Go sqlc reference schema | Only if Go queries the new tables |
+
+### Important Notes
+
+- **Never use `atlas schema apply` for migrations** — it's declarative and can be destructive
+- **Go schema is reference only** — used by sqlc for type generation, not for migrations
+- **All schema changes** go through numbered migration files first
+- **Migrations run in order** — the script processes `*.sql` files alphabetically
+
+### What `schema_postgres.sql` Should Be Used For
+
+The Go schema file (`app/service-core/storage/schema_postgres.sql`) should **only** be used for:
+
+1. **sqlc code generation** — generating Go types for queries via `sh scripts/run_queries.sh postgres`
+2. **Reference documentation** — showing what the full schema looks like in one place
+
+It should **NOT** be used for:
+
+- ❌ Schema migrations (use `/migrations/*.sql` instead)
+- ❌ Atlas sync operations (`atlas schema apply`)
+- ❌ As the source of truth for DB structure (migrations are the source of truth)
 
 ## Query Development Checklist
 
@@ -662,3 +739,49 @@ postgres:
 - Run `sh scripts/run_queries.sh postgres` to regenerate sqlc code
 - Restart `webkit-core`: `docker restart webkit-core`
 - Commit generated files (`models.go`, `query_postgres.sql.go`) before deploying
+
+## Self-Evolving Notes
+
+This project uses a **self-evolving knowledge base** to capture learnings and prevent repeated mistakes.
+
+### Directory Structure
+
+```
+.claude/
+├── notes/
+│   ├── billing/
+│   │   ├── learnings.md    # Patterns that worked
+│   │   └── gotchas.md      # Pitfalls to avoid
+│   ├── auth/
+│   │   ├── learnings.md
+│   │   └── gotchas.md
+│   └── {feature}/
+│       ├── learnings.md
+│       └── gotchas.md
+```
+
+### When Working on a Feature
+
+1. **Before starting**: Check `.claude/notes/{feature}/` for existing learnings and gotchas
+2. **After completing work**: Update the notes with anything new learned
+3. **After fixing a bug**: Add the root cause and solution to gotchas.md
+
+### The Magic Phrase
+
+When Claude makes a mistake or misses something important, use:
+
+> "Update the notes in `.claude/notes/{feature}/` so you don't make that mistake again."
+
+This builds institutional knowledge over time and reduces repeated errors.
+
+### Current Notes
+
+| Feature | Status | Last Updated |
+|---------|--------|--------------|
+| billing | Active | 2026-02-01 |
+
+### Pattern: Idempotent Billing Status
+
+For payment flows with async webhooks, use the idempotent status pattern documented in:
+- `.claude/notes/billing/learnings.md`
+- `docs/spec/subscription-billing-implementation-v2.md` (Pattern section)
