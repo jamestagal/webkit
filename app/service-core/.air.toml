@@ -13,7 +13,7 @@ cmd = "go build -o ./tmp/main ."
 # Array of commands to run after ^C
 post_cmd = []
 # Binary file yields from `cmd`.
-bin = "/app/service-core/tmp/main"
+entrypoint = "/app/service-core/tmp/main"
 # Customize binary, can setup environment variables when run your app.
 full_bin = ""
 # Add additional arguments when running binary (bin/full_bin). Will run './tmp/main hello world'.

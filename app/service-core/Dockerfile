@@ -3,7 +3,7 @@ FROM golang:1.25-bookworm AS dev
 WORKDIR /app
 
 # Install Go dependencies
-RUN go install github.com/air-verse/air@latest
+RUN go install github.com/air-verse/air@v1.61.7
 
 # Copy all module and workspace files to leverage Docker cache
 COPY go.work go.work.sum ./

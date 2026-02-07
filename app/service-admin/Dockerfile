@@ -13,7 +13,7 @@ COPY ./service-admin/package-lock.json ./service-admin/
 RUN cd service-admin && npm install
 
 # Install Go dependencies
-RUN go install github.com/air-verse/air@latest
+RUN go install github.com/air-verse/air@v1.61.7
 RUN go install github.com/a-h/templ/cmd/templ@latest
 
 # Copy all module and workspace files to leverage Docker cache

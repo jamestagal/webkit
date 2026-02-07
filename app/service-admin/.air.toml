@@ -13,7 +13,7 @@ cmd = "templ generate && npx tailwindcss -i ./web/static/css/app.css -o ./web/st
 # Array of commands to run after ^C
 post_cmd = []
 # Binary file yields from `cmd`.
-bin = "/app/service-admin/tmp/main"
+entrypoint = "/app/service-admin/tmp/main"
 # Customize binary, can setup environment variables when run your app.
 full_bin = ""
 # Add additional arguments when running binary (bin/full_bin). Will run './tmp/main hello world'.
