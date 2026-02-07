@@ -5,7 +5,6 @@
 	import {
 		ArrowLeft,
 		Users,
-		Building2,
 		Mail,
 		Phone,
 		User,

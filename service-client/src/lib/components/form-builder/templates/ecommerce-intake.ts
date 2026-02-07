@@ -266,7 +266,7 @@ export const ecommerceIntakeTemplate: FormSchema = {
 					conditionalLogic: [
 						{
 							field: "ships_physical",
-							operator: "not_equals",
+							operator: "notEquals",
 							value: "no",
 							action: "show",
 						},
@@ -291,7 +291,7 @@ export const ecommerceIntakeTemplate: FormSchema = {
 					conditionalLogic: [
 						{
 							field: "ships_physical",
-							operator: "not_equals",
+							operator: "notEquals",
 							value: "no",
 							action: "show",
 						},
@@ -313,7 +313,7 @@ export const ecommerceIntakeTemplate: FormSchema = {
 					conditionalLogic: [
 						{
 							field: "ships_physical",
-							operator: "not_equals",
+							operator: "notEquals",
 							value: "no",
 							action: "show",
 						},

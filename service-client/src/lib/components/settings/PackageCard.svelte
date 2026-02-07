@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Star, MoreVertical, Pencil, Copy, Trash2, GripVertical } from 'lucide-svelte';
-	import type { AgencyPackageList } from '$lib/api/agency-packages.remote';
+	import type { AgencyPackage } from '$lib/server/schema';
 
-	type Package = AgencyPackageList[number];
+	type Package = AgencyPackage;
 
 	interface Props {
 		pkg: Package;

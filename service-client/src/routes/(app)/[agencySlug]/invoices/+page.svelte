@@ -82,7 +82,7 @@
 					resend: ['Invoice resent', `Email delivered to ${selectedInvoice.clientEmail}`],
 					reminder: ['Reminder sent', `Payment reminder delivered to ${selectedInvoice.clientEmail}`]
 				};
-				toast.success(messages[emailAction][0], messages[emailAction][1]);
+				toast.success(messages[emailAction][0]!, messages[emailAction][1]!);
 			} else {
 				toast.error(`Failed to ${emailAction === 'reminder' ? 'send reminder' : 'send invoice'}`, result.error || 'Unknown error');
 			}
@@ -590,7 +590,7 @@
 	title={emailAction === 'send' ? 'Send Invoice' : emailAction === 'resend' ? 'Resend Invoice' : 'Send Payment Reminder'}
 	documentType={emailAction === 'reminder' ? 'payment reminder' : 'invoice'}
 	recipientEmail={selectedInvoice?.clientEmail || ''}
-	recipientName={selectedInvoice?.clientBusinessName}
+	recipientName={selectedInvoice?.clientBusinessName ?? undefined}
 	loading={sendingEmail}
 	onConfirm={confirmSendEmail}
 	onCancel={() => sendModalOpen = false}

@@ -25,9 +25,9 @@ export type Timeline = "asap" | "1-3-months" | "3-6-months" | "flexible";
 // =============================================================================
 
 export interface SocialMedia {
-	linkedin?: string;
-	facebook?: string;
-	instagram?: string;
+	linkedin?: string | undefined;
+	facebook?: string | undefined;
+	instagram?: string | undefined;
 }
 
 // =============================================================================
@@ -35,11 +35,11 @@ export interface SocialMedia {
 // =============================================================================
 
 export interface ContactBusiness {
-	business_name?: string;
-	contact_person?: string;
+	business_name?: string | undefined;
+	contact_person?: string | undefined;
 	email: string;
-	phone?: string;
-	website?: string;
+	phone?: string | undefined;
+	website?: string | undefined;
 	social_media: SocialMedia;
 	industry: string;
 	business_type: string;
@@ -61,9 +61,9 @@ export interface Situation {
 
 export interface GoalsBudget {
 	primary_goals: string[];
-	conversion_goal?: string;
+	conversion_goal?: string | undefined;
 	budget_range: string;
-	timeline?: Timeline;
+	timeline?: Timeline | undefined;
 }
 
 // =============================================================================
@@ -71,9 +71,9 @@ export interface GoalsBudget {
 // =============================================================================
 
 export interface PreferencesNotes {
-	design_styles?: string[];
-	admired_websites?: string;
-	consultation_notes?: string;
+	design_styles?: string[] | undefined;
+	admired_websites?: string | undefined;
+	consultation_notes?: string | undefined;
 }
 
 // =============================================================================
@@ -96,14 +96,14 @@ export interface Consultation {
 	agency_id: string;
 
 	// Step 1: Contact & Business (flattened)
-	business_name?: string;
-	contact_person?: string;
+	business_name?: string | undefined;
+	contact_person?: string | undefined;
 	email: string;
-	phone?: string;
-	website?: string;
-	social_linkedin?: string;
-	social_facebook?: string;
-	social_instagram?: string;
+	phone?: string | undefined;
+	website?: string | undefined;
+	social_linkedin?: string | undefined;
+	social_facebook?: string | undefined;
+	social_instagram?: string | undefined;
 	industry: string;
 	business_type: string;
 
@@ -114,14 +114,14 @@ export interface Consultation {
 
 	// Step 3: Goals & Budget
 	primary_goals: string[];
-	conversion_goal?: string;
+	conversion_goal?: string | undefined;
 	budget_range: string;
-	timeline?: Timeline;
+	timeline?: Timeline | undefined;
 
 	// Step 4: Preferences & Notes
-	design_styles?: string[];
-	admired_websites?: string;
-	consultation_notes?: string;
+	design_styles?: string[] | undefined;
+	admired_websites?: string | undefined;
+	consultation_notes?: string | undefined;
 
 	// Metadata
 	status: ConsultationStatus;
@@ -252,10 +252,10 @@ export interface ConsultationFormState {
 	currentStep: number;
 	completedSteps: number[];
 	data: ConsultationData;
-	consultationId?: string;
+	consultationId?: string | undefined;
 	isDirty: boolean;
 	isSaving: boolean;
-	lastSaved?: Date;
+	lastSaved?: Date | undefined;
 	errors: Record<string, string>;
 }
 
@@ -266,8 +266,8 @@ export interface ConsultationFormState {
 export interface ConsultationSummary {
 	id: string;
 	agency_id: string;
-	business_name?: string;
-	contact_person?: string;
+	business_name?: string | undefined;
+	contact_person?: string | undefined;
 	email: string;
 	industry: string;
 	urgency_level: UrgencyLevel;

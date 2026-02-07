@@ -169,7 +169,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 					websiteStatus: consultation.websiteStatus,
 					timeline: consultation.timeline,
 					designStyles: consultation.designStyles,
-					admiredWebsites: consultation.admiredWebsites,
+					admiredWebsites: consultation.admiredWebsites?.join(", ") ?? null,
 					consultationNotes: consultation.consultationNotes,
 				}
 			: null,

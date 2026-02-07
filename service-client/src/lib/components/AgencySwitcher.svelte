@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
-	import { Building2, ChevronDown, Check, Plus, Settings, Users, LogOut, Shield } from 'lucide-svelte';
-	import { switchAgency, setDefaultAgency } from '$lib/api/agency.remote';
+	import { Building2, ChevronDown, Check, Plus, Settings, Users, Shield } from 'lucide-svelte';
+	import { switchAgency } from '$lib/api/agency.remote';
 	import type { AgencyRole } from '$lib/server/schema';
 
 	interface Agency {
@@ -59,14 +59,7 @@
 		}
 	}
 
-	async function handleSetDefault(agencyId: string, e: MouseEvent) {
-		e.stopPropagation();
-		try {
-			await setDefaultAgency(agencyId);
-		} catch (error) {
-			console.error('Failed to set default agency:', error);
-		}
-	}
+
 
 	function getInitial(name: string): string {
 		return name ? name.charAt(0).toUpperCase() : '?';

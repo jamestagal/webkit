@@ -122,7 +122,7 @@ export async function getAgencyContext(): Promise<AgencyContext> {
 		);
 
 		if (sorted.length > 0) {
-			agencyId = sorted[0].agencyId;
+			agencyId = sorted[0]!.agencyId;
 		}
 	}
 

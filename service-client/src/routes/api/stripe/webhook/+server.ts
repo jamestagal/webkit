@@ -101,7 +101,7 @@ export const POST: RequestHandler = async ({ request }) => {
  * Handle successful checkout session - marks invoice as paid
  */
 async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
-	const invoiceId = session.metadata?.invoice_id;
+	const invoiceId = session.metadata?.['invoice_id'];
 
 	if (!invoiceId) {
 		console.log("Checkout completed but no invoice_id in metadata");
@@ -151,7 +151,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
  * Handle successful payment intent - updates payment details
  */
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
-	const invoiceId = paymentIntent.metadata?.invoice_id;
+	const invoiceId = paymentIntent.metadata?.['invoice_id'];
 
 	if (!invoiceId) {
 		// Not all payment intents are for our invoices

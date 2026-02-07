@@ -239,7 +239,7 @@
 						errorMessage = body;
 					} else if (body && typeof body === 'object') {
 						const b = body as Record<string, unknown>;
-						errorMessage = (b.message as string) || (b.error as string) || 'Please check all fields are filled correctly';
+						errorMessage = (b['message'] as string) || (b['error'] as string) || 'Please check all fields are filled correctly';
 					}
 				} else if (err instanceof Error) {
 					errorMessage = err.message;

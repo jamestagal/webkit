@@ -64,7 +64,7 @@
 			});
 
 			toast.success("Form created successfully");
-			goto(`/${agencySlug}/settings/forms/${form.id}`);
+			goto(`/${agencySlug}/settings/forms/${form!.id}`);
 		} catch (err) {
 			toast.error("Failed to create form", err instanceof Error ? err.message : "");
 		}
@@ -116,7 +116,6 @@
 	<div class="flex-1 overflow-hidden border border-base-300 rounded-lg">
 		<Builder
 			onSave={handleSave}
-			agencyBranding={data.agency.branding}
 			agencyLogoUrl={data.agency.logoUrl}
 		/>
 	</div>

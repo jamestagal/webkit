@@ -7,7 +7,7 @@
 	 */
 
 	import { searchClients } from "$lib/api/clients.remote";
-	import { Search, Check, X, Building2, Mail, User } from "lucide-svelte";
+	import { Search, X, Building2, Mail, User } from "lucide-svelte";
 
 	// Client type matching what searchClients returns
 	type Client = {

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
-	import { deleteContract, updateContractStatus } from '$lib/api/contracts.remote';
+	import { deleteContract } from '$lib/api/contracts.remote';
 	import { sendContractEmail } from '$lib/api/email.remote';
 	import { FEATURES } from '$lib/config/features';
 	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';

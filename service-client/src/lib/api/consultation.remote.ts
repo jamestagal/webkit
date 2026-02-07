@@ -158,6 +158,7 @@ export const createConsultation = command(CreateConsultationSchema, async (data)
 		.insert(consultations)
 		.values({
 			agencyId,
+			userId,
 			clientId: result.client?.id || null, // Link to unified client
 			createdBy: userId,
 			businessName: data.business_name || null,
@@ -245,6 +246,7 @@ export const createDynamicConsultation = command(DynamicCreateSchema, async (dat
 		.insert(consultations)
 		.values({
 			agencyId,
+			userId,
 			clientId,
 			createdBy: userId,
 			formId: data.formId ?? undefined,
@@ -267,7 +269,7 @@ export const createDynamicConsultation = command(DynamicCreateSchema, async (dat
 			budgetRange: data.budgetRange || "tbd",
 			timeline: data.timeline || null,
 			designStyles: data.designStyles || null,
-			admiredWebsites: data.admiredWebsites || null,
+			admiredWebsites: data.admiredWebsites ? [data.admiredWebsites] : [],
 			consultationNotes: data.consultationNotes || null,
 			status: data.status || "draft",
 		})
@@ -490,7 +492,7 @@ export const updatePreferencesNotes = command(UpdatePreferencesNotesSchema, asyn
 		.update(consultations)
 		.set({
 			designStyles: data.design_styles || null,
-			admiredWebsites: data.admired_websites || null,
+			admiredWebsites: data.admired_websites ? [data.admired_websites] : [],
 			consultationNotes: data.consultation_notes || null,
 			updatedAt: new Date(),
 		})

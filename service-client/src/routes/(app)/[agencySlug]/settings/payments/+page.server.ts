@@ -71,16 +71,14 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions: Actions = {
-	connect: async ({ locals, params }) => {
-		const { agencySlug } = params;
-
+	connect: async () => {
 		// Get agency ID from the current agency context
 		const { getAgencyContext } = await import("$lib/server/agency");
 		const { env } = await import("$env/dynamic/private");
 		const { env: publicEnv } = await import("$env/dynamic/public");
 		const { db } = await import("$lib/server/db");
-		const { agencies, agencyProfiles, agencyMemberships } = await import("$lib/server/schema");
-		const { eq, and } = await import("drizzle-orm");
+		const { agencies, agencyProfiles } = await import("$lib/server/schema");
+		const { eq } = await import("drizzle-orm");
 		const Stripe = (await import("stripe")).default;
 
 		try {
@@ -121,7 +119,7 @@ export const actions: Actions = {
 				const account = await stripe.accounts.create({
 					type: "express",
 					country: "AU",
-					email: agency.email || undefined,
+					...(agency.email ? { email: agency.email } : {}),
 					business_type: "company",
 					company: {
 						name: agency.name,

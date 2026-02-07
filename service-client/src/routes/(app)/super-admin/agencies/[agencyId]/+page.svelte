@@ -39,7 +39,7 @@
 		};
 	}
 
-	let agencyId = $derived(page.params.agencyId);
+	let agencyId = $derived(page.params.agencyId!);
 	let details = $state<AgencyDetails | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);

@@ -572,16 +572,18 @@ export const getFreemiumAgencies = query(FreemiumAgenciesFilterSchema, async (fi
 	}
 
 	if (search) {
-		conditions.push(
-			or(
-				like(agencies.name, `%${search}%`),
-				like(agencies.slug, `%${search}%`),
-				like(agencies.email, `%${search}%`),
-			),
+		const searchCondition = or(
+			like(agencies.name, `%${search}%`),
+			like(agencies.slug, `%${search}%`),
+			like(agencies.email, `%${search}%`),
 		);
+		if (searchCondition) {
+			conditions.push(searchCondition);
+		}
 	}
 
-	const whereClause = and(...conditions);
+	// conditions always has at least one element (isFreemium filter)
+	const whereClause = and(...conditions)!;
 
 	// Get freemium agencies with owner info
 	const agencyList = await db

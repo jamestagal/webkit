@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { Mail, Users } from 'lucide-svelte';
-	import { toast } from '$lib/components/shared/Toast.svelte';
+	import { getToast } from '$lib/ui/toast_store.svelte';
 	import Modal from '$lib/components/shared/Modal.svelte';
+
+	const toast = getToast();
 	import { inviteMember } from '$lib/api/agency.remote';
 
 	interface Props {

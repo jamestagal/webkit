@@ -13,7 +13,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	// Load available schedule sections for selection
 	let availableSchedules: Awaited<ReturnType<typeof getAllActiveSchedules>> = [];
 	try {
-		availableSchedules = await getAllActiveSchedules();
+		availableSchedules = await getAllActiveSchedules(undefined);
 	} catch {
 		// Templates may not exist
 	}
@@ -21,7 +21,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	// Load available templates for linking
 	let availableTemplates: Awaited<ReturnType<typeof getContractTemplates>> = [];
 	try {
-		availableTemplates = await getContractTemplates();
+		availableTemplates = await getContractTemplates({});
 	} catch {
 		// Templates may not exist
 	}

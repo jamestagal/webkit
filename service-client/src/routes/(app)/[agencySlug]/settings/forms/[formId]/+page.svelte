@@ -112,7 +112,6 @@
 	<Builder
 		initialSchema={mergedSchema}
 		onSave={handleSave}
-		agencyBranding={data.agency.branding}
 		agencyLogoUrl={data.agency.logoUrl}
 		onOpenSettings={() => settingsModal?.showModal()}
 	/>

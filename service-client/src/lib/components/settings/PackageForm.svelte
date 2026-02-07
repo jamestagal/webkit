@@ -4,14 +4,14 @@
 	import {
 		createAgencyPackage,
 		updateAgencyPackage,
-		type AgencyPackageData
 	} from '$lib/api/agency-packages.remote';
 	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
 	import FormField from '$lib/components/settings/FormField.svelte';
 	import { Package, DollarSign, Clock, FileText, Star, X, Plus } from 'lucide-svelte';
+	import type { AgencyPackage } from '$lib/server/schema';
 
 	interface Props {
-		package?: AgencyPackageData;
+		package?: AgencyPackage;
 		agencySlug: string;
 	}
 

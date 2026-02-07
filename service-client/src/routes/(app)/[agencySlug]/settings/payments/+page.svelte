@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { env } from '$env/dynamic/public';
 	import {
@@ -18,7 +17,6 @@
 
 	const toast = getToast();
 	let agencySlug = $derived(data.agency.slug);
-	let agencyId = $derived(data.agency.id);
 	let stripeStatus = $derived(data.stripeStatus);
 
 	// Detect test vs live mode from publishable key
@@ -144,11 +142,11 @@
 								isConnecting = true;
 								return async ({ result }) => {
 									isConnecting = false;
-									if (result.type === 'success' && result.data?.redirectUrl) {
+									if (result.type === 'success' && result.data?.['redirectUrl']) {
 										// Redirect to Stripe onboarding
-										window.location.href = result.data.redirectUrl as string;
+										window.location.href = result.data['redirectUrl'] as string;
 									} else if (result.type === 'failure') {
-										toast.error(result.data?.error as string || 'Failed to connect Stripe');
+										toast.error(result.data?.['error'] as string || 'Failed to connect Stripe');
 									}
 								};
 							}}
@@ -283,7 +281,7 @@
 									if (result.type === 'success') {
 										toast.success('Status refreshed');
 									} else if (result.type === 'failure') {
-										toast.error(result.data?.error as string || 'Failed to refresh');
+										toast.error(result.data?.['error'] as string || 'Failed to refresh');
 									}
 									await update();
 								};

@@ -10,7 +10,7 @@
 import type { PageServerLoad } from "./$types";
 import { db } from "$lib/server/db";
 import { consultations, agencyProfiles } from "$lib/server/schema";
-import { eq, and, like, count } from "drizzle-orm";
+import { eq, count } from "drizzle-orm";
 
 export const load: PageServerLoad = async ({ parent }) => {
 	// Get agency context from layout

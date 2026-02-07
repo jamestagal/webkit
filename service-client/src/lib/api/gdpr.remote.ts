@@ -401,7 +401,7 @@ export const cancelAgencyDeletion = command(async () => {
  * NOT exposed as a user-callable command.
  * @internal - Do not export from .remote.ts files
  */
-async function performSoftDelete(agencyId: string): Promise<void> {
+async function _performSoftDelete(agencyId: string): Promise<void> {
 	// Verify grace period has expired
 	const [agency] = await db
 		.select({
@@ -462,6 +462,7 @@ async function performSoftDelete(agencyId: string): Promise<void> {
 	// Clear user default agency references
 	await db.update(users).set({ defaultAgencyId: null }).where(eq(users.defaultAgencyId, agencyId));
 }
+void _performSoftDelete; // Referenced for future background job use
 
 /**
  * Request personal data export for GDPR.

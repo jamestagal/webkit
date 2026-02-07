@@ -7,7 +7,7 @@
 
 import { db } from "$lib/server/db";
 import { betaInvites } from "$lib/server/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 /**
  * Mark an invite as used (called during agency creation)

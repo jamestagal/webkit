@@ -3,7 +3,7 @@ import { agencies, agencyMemberships, agencyFormOptions, users } from "$lib/serv
 import { eq, and, asc } from "drizzle-orm";
 import { groupOptionsByCategory, mergeWithDefaults } from "$lib/stores/agency-config.svelte";
 import type { AgencyConfig } from "$lib/stores/agency-config.svelte";
-import { getImpersonatedAgencyId, isSuperAdmin, SUPER_ADMIN_FLAG } from "$lib/server/super-admin";
+import { getImpersonatedAgencyId, isSuperAdmin } from "$lib/server/super-admin";
 
 export const load: import("./$types").LayoutServerLoad = async ({ locals }) => {
 	const userId = locals.user?.id;
@@ -49,7 +49,7 @@ export const load: import("./$types").LayoutServerLoad = async ({ locals }) => {
 				);
 
 				if (sorted.length > 0) {
-					agencyId = sorted[0].agencyId;
+					agencyId = sorted[0]?.agencyId;
 				}
 			}
 

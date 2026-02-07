@@ -62,7 +62,7 @@
 
 	const toast = getToast();
 	const agencySlug = page.params.agencySlug;
-	const proposalId = page.params.proposalId;
+	const proposalId = page.params.proposalId!;
 
 	// Load data
 	const { proposal } = await getProposalWithRelations(proposalId);
@@ -107,12 +107,11 @@
 
 		// Validity
 		validUntil: proposal.validUntil
-			? new Date(proposal.validUntil).toISOString().split('T')[0]
+			? new Date(proposal.validUntil).toISOString().split('T')[0] ?? ''
 			: ''
 	});
 
 	let isSaving = $state(false);
-	let isSending = $state(false);
 	let activeSection = $state('client');
 
 	// Send email modal state
@@ -128,7 +127,6 @@
 	let generatedContent = $state<AIProposalOutput | null>(null);
 	let transformedContent = $state<Record<string, unknown> | null>(null); // DB-ready format
 	let generatedSections = $state<string[]>([]);
-	let failedSections = $state<string[]>([]);
 	let showPreviewModal = $state(false);
 	let syncedPerformanceData = $state<Record<string, unknown> | null>(null); // Fresh data from consultation
 
@@ -345,7 +343,7 @@
 		content: AIProposalOutput,
 		transformed: Record<string, unknown>,
 		generated: string[],
-		failed: string[],
+		_failed: string[],
 		performanceData: Record<string, unknown> | null
 	) {
 		showStreamingModal = false;
@@ -353,7 +351,6 @@
 		generatedContent = content;
 		transformedContent = transformed;
 		generatedSections = generated;
-		failedSections = failed;
 		syncedPerformanceData = performanceData; // Store fresh PageSpeed data
 
 		// Show preview modal for review (content stays in memory until Apply/Discard)
@@ -479,7 +476,7 @@
 						<button
 							type="button"
 							class="btn btn-outline btn-sm"
-							onclick={handleSave}
+							onclick={() => handleSave()}
 							disabled={isSaving}
 						>
 							{#if isSaving}

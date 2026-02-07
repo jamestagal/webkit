@@ -45,7 +45,6 @@
 
 	let isEditing = $state(false);
 	let saving = $state(false);
-	let sending = $state(false);
 	let showPaymentModal = $state(false);
 	let generatingPaymentLink = $state(false);
 
@@ -940,8 +939,8 @@
 										.join(' ')}
 								</p>
 							{/if}
-							{#if data.agency.email}
-								<p>{data.agency.email}</p>
+							{#if (data.agency as Record<string, string>)['email']}
+								<p>{(data.agency as Record<string, string>)['email']}</p>
 							{/if}
 							{#if data.profile?.abn}
 								<p>ABN: {data.profile.abn}</p>

@@ -3,7 +3,7 @@
 	 * Agency-Scoped Consultation History Page v2
 	 */
 
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getAgencyConsultations, deleteConsultation } from '$lib/api/consultation.remote';
 	import { FEATURES } from '$lib/config/features';
@@ -58,7 +58,8 @@
 		}
 	}
 
-	function getIndustryLabel(value: string): string {
+	function getIndustryLabel(value: string | null): string {
+		if (!value) return 'N/A';
 		return INDUSTRY_OPTIONS.find((o) => o.value === value)?.label ?? value;
 	}
 

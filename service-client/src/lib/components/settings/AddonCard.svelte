@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { MoreVertical, Pencil, Copy, Trash2, GripVertical } from 'lucide-svelte';
-	import type { AgencyAddonWithPackages } from '$lib/api/agency-addons.remote';
+	import type { getAddonsWithPackages } from '$lib/api/agency-addons.remote';
+
+	type AgencyAddonWithPackages = Awaited<ReturnType<typeof getAddonsWithPackages>>[number];
 
 	interface Props {
 		addon: AgencyAddonWithPackages;

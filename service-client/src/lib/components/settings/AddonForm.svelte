@@ -4,15 +4,15 @@
 	import {
 		createAgencyAddon,
 		updateAgencyAddon,
-		type AgencyAddonData
 	} from '$lib/api/agency-addons.remote';
 	import { getActivePackages } from '$lib/api/agency-packages.remote';
 	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
 	import FormField from '$lib/components/settings/FormField.svelte';
 	import { PlusSquare, DollarSign, Package } from 'lucide-svelte';
+	import type { AgencyAddon } from '$lib/server/schema';
 
 	interface Props {
-		addon?: AgencyAddonData;
+		addon?: AgencyAddon;
 		agencySlug: string;
 	}
 

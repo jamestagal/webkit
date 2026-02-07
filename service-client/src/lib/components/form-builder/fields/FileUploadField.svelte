@@ -117,10 +117,7 @@
 	{:else}
 		<!-- Drop zone -->
 		<div
-			class="border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer"
-			class:border-primary={isDragging}
-			class:bg-primary/5={isDragging}
-			class:border-base-300={!isDragging && !error}
+			class="border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer {isDragging ? 'border-primary bg-primary/5' : ''} {!isDragging && !error ? 'border-base-300' : ''}"
 			class:border-error={!!error}
 			class:opacity-50={disabled}
 			class:cursor-not-allowed={disabled}

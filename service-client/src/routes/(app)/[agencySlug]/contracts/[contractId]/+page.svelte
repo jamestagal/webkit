@@ -13,7 +13,7 @@
 
 	import { goto, invalidateAll } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
-	import { updateContract, sendContract, deleteContract, regenerateContractTerms, linkTemplateToContract } from '$lib/api/contracts.remote';
+	import { updateContract, deleteContract, regenerateContractTerms, linkTemplateToContract } from '$lib/api/contracts.remote';
 	import { sendContractEmail } from '$lib/api/email.remote';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
 	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';
@@ -50,7 +50,6 @@
 	let availableTemplates = $derived(data.availableTemplates);
 
 	let isSubmitting = $state(false);
-	let isSending = $state(false);
 	let isDownloadingPdf = $state(false);
 	let isRegeneratingTerms = $state(false);
 	let isLinkingTemplate = $state(false);
@@ -96,17 +95,17 @@
 		clientAddress = contract.clientAddress || '';
 		servicesDescription = contract.servicesDescription || '';
 		commencementDate = contract.commencementDate
-			? new Date(contract.commencementDate).toISOString().split('T')[0]
+			? new Date(contract.commencementDate).toISOString().split('T')[0] ?? ''
 			: '';
 		completionDate = contract.completionDate
-			? new Date(contract.completionDate).toISOString().split('T')[0]
+			? new Date(contract.completionDate).toISOString().split('T')[0] ?? ''
 			: '';
 		specialConditions = contract.specialConditions || '';
 		totalPrice = contract.totalPrice || '';
 		priceIncludesGst = contract.priceIncludesGst ?? true;
 		paymentTerms = contract.paymentTerms || '';
 		validUntil = contract.validUntil
-			? new Date(contract.validUntil).toISOString().split('T')[0]
+			? new Date(contract.validUntil).toISOString().split('T')[0] ?? ''
 			: '';
 		agencySignatoryName = contract.agencySignatoryName || '';
 		agencySignatoryTitle = contract.agencySignatoryTitle || '';
@@ -341,7 +340,7 @@
 				return;
 			}
 			// Pre-select first template
-			selectedTemplateId = availableTemplates[0].id;
+			selectedTemplateId = availableTemplates[0]!.id;
 			showTemplatePicker = true;
 			return;
 		}

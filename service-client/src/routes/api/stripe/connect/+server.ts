@@ -87,7 +87,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			const account = await getStripe().accounts.create({
 				type: "express",
 				country: "AU",
-				email: agency.email || undefined,
+				...(agency.email ? { email: agency.email } : {}),
 				business_type: "company",
 				company: {
 					name: agency.name,

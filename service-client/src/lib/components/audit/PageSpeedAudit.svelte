@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { PerformanceData, WebVitalMetric } from '$lib/server/schema';
+	import type { PerformanceData } from '$lib/server/schema';
 	import { runPageSpeedAudit } from '$lib/api/consultation.remote';
 
 	interface Props {

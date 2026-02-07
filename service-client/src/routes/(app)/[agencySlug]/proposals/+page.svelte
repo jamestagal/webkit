@@ -11,7 +11,7 @@
 	import { getProposals, deleteProposal, duplicateProposal } from '$lib/api/proposals.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { FEATURES } from '$lib/config/features';
-	import { Plus, Eye, Pencil, Copy, Trash2, Send, ExternalLink, User } from 'lucide-svelte';
+	import { Plus, Eye, Pencil, Copy, Trash2, ExternalLink, User } from 'lucide-svelte';
 	import type { ProposalStatus } from '$lib/server/schema';
 	import type { PageProps } from './$types';
 

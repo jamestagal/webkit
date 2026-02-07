@@ -38,7 +38,7 @@
 <dialog
 	bind:this={modalElement}
 	onclose={handleClose}
-	class={`${maxWidth} ${position} bg-base-100 text-base-content fixed z-50 max-h-svh w-11/12 overflow-x-hidden rounded-xl shadow-xl border border-base-300`}
+	class={`${maxWidth} ${height} ${position} bg-base-100 text-base-content fixed z-50 max-h-svh w-11/12 overflow-x-hidden rounded-xl shadow-xl border border-base-300`}
 >
 	{#if title || showCloseButton}
 		<div class="flex h-14 items-center px-4 {title ? 'justify-between' : 'justify-end'}">

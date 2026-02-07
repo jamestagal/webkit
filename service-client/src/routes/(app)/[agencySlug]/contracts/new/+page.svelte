@@ -68,14 +68,6 @@
 		}
 	}
 
-	function formatCurrency(value: string | number) {
-		const num = typeof value === 'string' ? parseFloat(value) : value;
-		return new Intl.NumberFormat('en-AU', {
-			style: 'currency',
-			currency: 'AUD'
-		}).format(num);
-	}
-
 	function formatDate(date: Date | string | null) {
 		if (!date) return '-';
 		return new Date(date).toLocaleDateString('en-AU', {

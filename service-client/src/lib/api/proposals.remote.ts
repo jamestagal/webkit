@@ -1241,7 +1241,7 @@ export const generateProposalWithAI = command(GenerateProposalAISchema, async (d
 					websiteStatus: consultation.websiteStatus,
 					timeline: consultation.timeline,
 					designStyles: consultation.designStyles,
-					admiredWebsites: consultation.admiredWebsites,
+					admiredWebsites: consultation.admiredWebsites?.join(", ") ?? null,
 					consultationNotes: consultation.consultationNotes,
 				}
 			: null,

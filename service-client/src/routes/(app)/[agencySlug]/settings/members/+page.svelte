@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { Users, UserPlus, MoreVertical, UserCog, Trash2, Pencil, Mail, X } from 'lucide-svelte';
-	import { toast } from '$lib/components/shared/Toast.svelte';
+	import { getToast } from '$lib/ui/toast_store.svelte';
 	import Modal from '$lib/components/shared/Modal.svelte';
+
+	const toast = getToast();
 	import InviteMember from '$lib/components/settings/InviteMember.svelte';
 	import {
 		updateMemberRole,

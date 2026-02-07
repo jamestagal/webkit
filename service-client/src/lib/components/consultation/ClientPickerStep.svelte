@@ -8,8 +8,6 @@
 	import ClientPicker from "$lib/components/shared/ClientPicker.svelte";
 	import MessageSquarePlus from "lucide-svelte/icons/message-square-plus";
 	import UserSearch from "lucide-svelte/icons/user-search";
-	import ClipboardList from "lucide-svelte/icons/clipboard-list";
-	import FileText from "lucide-svelte/icons/file-text";
 	import ArrowRight from "lucide-svelte/icons/arrow-right";
 	import PenLine from "lucide-svelte/icons/pen-line";
 

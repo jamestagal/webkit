@@ -263,7 +263,7 @@ export class DataPipelineService {
 			// Preferences & Notes (Step 4)
 			design_styles: this.formatAsCommaSeparated(consultation.designStyles || []),
 			design_styles_list: consultation.designStyles || [],
-			admired_websites: consultation.admiredWebsites || "",
+			admired_websites: (consultation.admiredWebsites || []).join(", "),
 			consultation_notes: consultation.consultationNotes || "",
 		};
 	}

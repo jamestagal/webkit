@@ -6,7 +6,7 @@
 		title: string;
 		documentType: string;
 		recipientEmail: string;
-		recipientName?: string;
+		recipientName?: string | undefined;
 		loading?: boolean;
 		onConfirm: () => void;
 		onCancel: () => void;

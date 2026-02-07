@@ -1,9 +1,5 @@
 <script>
-    import Crown from '@icons/crown.svelte';
-    import Star from '@icons/star.svelte';
-    import Zap from '@icons/zap.svelte';
-    import Rocket from '@icons/rocket.svelte';
-    import Building2 from '@icons/building-2.svelte';
+    import { Crown, Star, Zap, Rocket, Building2 } from 'lucide-svelte';
 
     let { subscription = null } = $props();
 
