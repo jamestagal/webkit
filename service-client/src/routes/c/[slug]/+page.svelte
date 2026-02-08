@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { CheckCircle, AlertCircle, Building2, Mail, Phone } from 'lucide-svelte';
+	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import type { PageProps, ActionData } from './$types';
 
 	let { data, form }: PageProps & { form: ActionData } = $props();
@@ -247,7 +248,7 @@
 						<div class="card-body">
 							<h2 class="card-title">Terms & Conditions</h2>
 							<div class="prose prose-sm max-w-none mt-4 schedule-content">
-								{@html contract.generatedTermsHtml}
+								{@html sanitizeHtml(contract.generatedTermsHtml)}
 							</div>
 						</div>
 					</div>
@@ -263,7 +264,7 @@
 									<div class="schedule-section border-b border-base-200 pb-6 last:border-0 last:pb-0">
 										<h3 class="text-sm font-medium mb-3 pb-2 border-b border-base-300">{schedule.name}</h3>
 										<div class="prose prose-sm max-w-none schedule-content">
-											{@html schedule.content}
+											{@html sanitizeHtml(schedule.content)}
 										</div>
 									</div>
 								{/each}
@@ -276,7 +277,7 @@
 						<div class="card-body">
 							<h2 class="card-title">Schedule A</h2>
 							<div class="prose prose-sm max-w-none mt-4 schedule-content">
-								{@html contract.generatedScheduleHtml}
+								{@html sanitizeHtml(contract.generatedScheduleHtml)}
 							</div>
 						</div>
 					</div>

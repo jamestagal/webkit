@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import Button from '$lib/components/Button.svelte';
 
 	let agencySlug = $derived(page.params.agencySlug);
 
@@ -61,8 +60,8 @@
 				</div>
 
 				<div class="card-actions mt-6 flex-col gap-2">
-					<Button variant="primary" onclick={goToDashboard} full>Go to Dashboard</Button>
-					<Button variant="outline" onclick={viewConsultations} full>View My Consultations</Button>
+					<button class="btn btn-primary w-full" onclick={goToDashboard}>Go to Dashboard</button>
+					<button class="btn btn-outline w-full" onclick={viewConsultations}>View My Consultations</button>
 				</div>
 			</div>
 		</div>

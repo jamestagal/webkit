@@ -9,6 +9,7 @@
 	} from '$lib/api/contract-templates.remote';
 	import DraggableList from '$lib/components/DraggableList.svelte';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
+	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import MergeFieldPicker from '$lib/components/contracts/MergeFieldPicker.svelte';
 	import {
 		Plus,
@@ -289,7 +290,7 @@
 								class="mt-4 pt-4 border-t border-base-200 prose prose-sm max-w-none"
 							>
 								{#if schedule.content}
-									{@html schedule.content}
+									{@html sanitizeHtml(schedule.content)}
 								{:else}
 									<p class="text-base-content/60 italic">No content defined</p>
 								{/if}

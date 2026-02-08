@@ -36,4 +36,4 @@ COPY --from=build /service/build /service/build
 COPY ./public.pem /public.pem
 
 SHELL ["/bin/bash", "-c"]
-CMD PORT=3000 BODY_SIZE_LIMIT=Infinity node build
+CMD PORT=3000 BODY_SIZE_LIMIT=10485760 node build

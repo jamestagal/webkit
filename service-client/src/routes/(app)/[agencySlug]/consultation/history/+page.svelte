@@ -9,7 +9,6 @@
 	import { FEATURES } from '$lib/config/features';
 	import { INDUSTRY_OPTIONS, URGENCY_COLORS } from '$lib/config/consultation-options';
 	import { Plus, Trash2, User } from 'lucide-svelte';
-	import Button from '$lib/components/Button.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -131,10 +130,10 @@
 				<p class="text-base-content/70 mt-1">View and manage your consultation submissions</p>
 			</div>
 		</div>
-		<Button variant="primary" onclick={startNewConsultation}>
+		<button class="btn btn-primary" onclick={startNewConsultation}>
 			<Plus class="mr-2 h-4 w-4" />
 			New Consultation
-		</Button>
+		</button>
 	</div>
 
 	<!-- Consultations List -->
@@ -151,8 +150,8 @@
 				<p class="text-base-content/60 max-w-sm">
 					Get started by creating your first consultation.
 				</p>
-				<Button class="mt-4" variant="primary" onclick={startNewConsultation}
-					>Start New Consultation</Button
+				<button class="btn btn-primary mt-4" onclick={startNewConsultation}
+					>Start New Consultation</button
 				>
 			</div>
 		</div>

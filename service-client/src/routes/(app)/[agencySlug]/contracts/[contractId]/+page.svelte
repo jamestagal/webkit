@@ -15,6 +15,7 @@
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { updateContract, deleteContract, regenerateContractTerms, linkTemplateToContract } from '$lib/api/contracts.remote';
 	import { sendContractEmail } from '$lib/api/email.remote';
+	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
 	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';
 	import {
@@ -1034,7 +1035,7 @@
 									{#each availableSchedules.filter((s) => includedScheduleIds.includes(s.id)) as schedule}
 										<div class="border-b border-base-200 pb-4 mb-4 last:border-0">
 											<h4 class="text-base font-semibold">{schedule.name}</h4>
-											{@html schedule.content}
+											{@html sanitizeHtml(schedule.content)}
 										</div>
 									{/each}
 								</div>

@@ -181,8 +181,20 @@ services:
     image: gotenberg/gotenberg:8
     container_name: webkit-gotenberg
     restart: unless-stopped
+    command:
+      - "gotenberg"
+      - "--api-timeout=60s"
+      - "--chromium-restart-after=50"
+      - "--chromium-max-queue-size=10"
+      - "--log-level=warn"
     networks:
       - webkit-internal
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
 
 # =============================================================================
 # Networks

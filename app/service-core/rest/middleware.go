@@ -9,7 +9,9 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/mail"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -64,12 +66,39 @@ func ValidationMiddleware() Middleware {
 func RateLimitMiddleware(requestsPerMinute int) Middleware {
 	// Simple in-memory rate limiter
 	// In production, this would use Redis or similar distributed cache
+	var mu sync.Mutex
 	clients := make(map[string][]time.Time)
+
+	// Periodic cleanup of stale IPs to prevent unbounded map growth
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			mu.Lock()
+			now := time.Now()
+			for ip, requests := range clients {
+				var valid []time.Time
+				for _, t := range requests {
+					if now.Sub(t) < time.Minute {
+						valid = append(valid, t)
+					}
+				}
+				if len(valid) == 0 {
+					delete(clients, ip)
+				} else {
+					clients[ip] = valid
+				}
+			}
+			mu.Unlock()
+		}
+	}()
 
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			clientIP := getClientIP(r)
 			now := time.Now()
+
+			mu.Lock()
 
 			// Clean old entries
 			if requests, exists := clients[clientIP]; exists {
@@ -84,6 +113,7 @@ func RateLimitMiddleware(requestsPerMinute int) Middleware {
 
 			// Check rate limit
 			if len(clients[clientIP]) >= requestsPerMinute {
+				mu.Unlock()
 				writeResponse(nil, w, r, nil, pkg.BadRequestError{
 					Message: "Rate limit exceeded",
 					Err:     fmt.Errorf("too many requests from %s", clientIP),
@@ -93,6 +123,8 @@ func RateLimitMiddleware(requestsPerMinute int) Middleware {
 
 			// Add current request
 			clients[clientIP] = append(clients[clientIP], now)
+
+			mu.Unlock()
 
 			next(w, r)
 		}
@@ -209,6 +241,9 @@ func Chain(middlewares ...Middleware) Middleware {
 
 // validateJSONInput validates that the request body contains valid JSON
 func validateJSONInput(r *http.Request) error {
+	// Limit body size to 10MB to prevent memory exhaustion
+	r.Body = http.MaxBytesReader(nil, r.Body, 10<<20)
+
 	// Read body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -354,7 +389,11 @@ func ValidateConsultationUpdate(data map[string]interface{}) []pkg.ValidationErr
 
 // Helper validation functions
 func isValidEmail(email string) bool {
-	return strings.Contains(email, "@") && strings.Contains(email, ".")
+	if len(email) > 254 {
+		return false
+	}
+	_, err := mail.ParseAddress(email)
+	return err == nil
 }
 
 func contains(slice []string, item string) bool {

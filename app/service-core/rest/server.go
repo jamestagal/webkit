@@ -246,7 +246,7 @@ func writeResponse(cfg *config.Config, w http.ResponseWriter, r *http.Request, d
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"success": false,
-				"message": err.Error(),
+				"message": "An internal error occurred",
 				"code":    500,
 			})
 			return

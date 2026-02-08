@@ -13,7 +13,6 @@ import * as v from "valibot";
 import { db } from "$lib/server/db";
 import {
 	proposals,
-	agencyProfiles,
 	agencyPackages,
 	agencyAddons,
 	consultations,
@@ -25,7 +24,7 @@ import { getAgencyContext } from "$lib/server/agency";
 import { getOrCreateClient } from "$lib/api/clients.remote";
 import { logActivity } from "$lib/server/db-helpers";
 import { canAccessResource, canModifyResource, canDeleteResource } from "$lib/server/permissions";
-import { dataPipelineService } from "$lib/server/services/data-pipeline.service";
+import { getNextDocumentNumber } from "$lib/server/document-numbers";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
@@ -194,34 +193,10 @@ async function generateUniqueSlug(): Promise<string> {
 }
 
 /**
- * Get the next proposal number and increment it.
+ * Get the next proposal number and increment it atomically.
  */
 async function getNextProposalNumber(agencyId: string): Promise<string> {
-	// Get or create profile
-	const [profile] = await db
-		.select()
-		.from(agencyProfiles)
-		.where(eq(agencyProfiles.agencyId, agencyId))
-		.limit(1);
-
-	const prefix = profile?.proposalPrefix || "PROP";
-	const nextNumber = profile?.nextProposalNumber || 1;
-
-	// Generate document number
-	const proposalNumber = dataPipelineService.generateDocumentNumber(prefix, nextNumber);
-
-	// Increment next number
-	if (profile) {
-		await db
-			.update(agencyProfiles)
-			.set({
-				nextProposalNumber: nextNumber + 1,
-				updatedAt: new Date(),
-			})
-			.where(eq(agencyProfiles.id, profile.id));
-	}
-
-	return proposalNumber;
+	return getNextDocumentNumber(agencyId, "proposal");
 }
 
 // =============================================================================
@@ -962,33 +937,10 @@ async function generateUniqueContractSlug(): Promise<string> {
 }
 
 /**
- * Get the next contract number for an agency.
+ * Get the next contract number for an agency atomically.
  */
 async function getNextContractNumber(agencyId: string): Promise<string> {
-	const [profile] = await db
-		.select()
-		.from(agencyProfiles)
-		.where(eq(agencyProfiles.agencyId, agencyId))
-		.limit(1);
-
-	const prefix = profile?.contractPrefix || "CON";
-	const nextNumber = profile?.nextContractNumber || 1;
-
-	// Generate document number
-	const contractNumber = dataPipelineService.generateDocumentNumber(prefix, nextNumber);
-
-	// Increment next number
-	if (profile) {
-		await db
-			.update(agencyProfiles)
-			.set({
-				nextContractNumber: nextNumber + 1,
-				updatedAt: new Date(),
-			})
-			.where(eq(agencyProfiles.id, profile.id));
-	}
-
-	return contractNumber;
+	return getNextDocumentNumber(agencyId, "contract");
 }
 
 /**
