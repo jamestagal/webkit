@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Search, Mail, RotateCcw, X, Plus, Send, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-svelte';
 	import { getBetaInvites, createBetaInvite, revokeBetaInvite, resendBetaInvite } from '$lib/api/beta-invites.remote';
+	import { formatDate, formatDateTime } from '$lib/utils/formatting';
 	import { onMount } from 'svelte';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 
@@ -129,23 +130,7 @@
 		}
 	}
 
-	function formatDate(date: Date | string): string {
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric'
-		});
-	}
-
-	function formatDateTime(date: Date | string): string {
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	}
+	// formatDate and formatDateTime imported from '$lib/utils/formatting'
 
 	function getStatusBadgeClass(status: string, isExpired: boolean): string {
 		if (status === 'pending' && isExpired) return 'badge-warning';

@@ -12,6 +12,7 @@
 		Printer,
 		CreditCard
 	} from 'lucide-svelte';
+	import { formatDate, formatCurrency } from '$lib/utils/formatting';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -50,23 +51,6 @@
 			default:
 				return { class: 'badge-ghost', icon: Clock, label: status };
 		}
-	}
-
-	function formatDate(date: Date | string | null) {
-		if (!date) return '-';
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'long',
-			year: 'numeric'
-		});
-	}
-
-	function formatCurrency(value: string | number | null) {
-		const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
-		return new Intl.NumberFormat('en-AU', {
-			style: 'currency',
-			currency: 'AUD'
-		}).format(num);
 	}
 
 	function downloadPdf() {
@@ -236,13 +220,13 @@
 						<h3 class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">
 							Issue Date
 						</h3>
-						<p class="font-medium">{formatDate(invoice.issueDate)}</p>
+						<p class="font-medium">{formatDate(invoice.issueDate, 'long')}</p>
 					</div>
 					<div>
 						<h3 class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">
 							Due Date
 						</h3>
-						<p class="font-medium">{formatDate(invoice.dueDate)}</p>
+						<p class="font-medium">{formatDate(invoice.dueDate, 'long')}</p>
 					</div>
 					<div>
 						<h3 class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">
@@ -319,7 +303,7 @@
 						</div>
 						{#if isPaid && invoice.paidAt}
 							<div class="bg-success/10 text-success text-center py-2 px-3 rounded-lg font-medium mt-4">
-								Paid on {formatDate(invoice.paidAt)}
+								Paid on {formatDate(invoice.paidAt, 'long')}
 							</div>
 						{/if}
 					</div>

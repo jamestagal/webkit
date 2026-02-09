@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Search, ChevronLeft, ChevronRight, ScrollText, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { getSystemAuditLogs, getAgencies } from '$lib/api/super-admin.remote';
+	import { formatDateTime } from '$lib/utils/formatting';
 	import { onMount } from 'svelte';
 
 	interface AuditLog {
@@ -88,22 +89,11 @@
 	}
 
 	function formatDate(date: Date | string): string {
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
+		return formatDateTime(date);
 	}
 
 	function formatShortDate(date: Date | string): string {
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
+		return formatDateTime(date);
 	}
 
 	function toggleExpanded(id: string) {

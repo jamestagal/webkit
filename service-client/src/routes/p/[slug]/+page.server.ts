@@ -30,6 +30,7 @@ import {
 	generateProposalRevisionRequestedAgencyEmail,
 } from "$lib/templates/email-templates";
 import { env } from "$env/dynamic/public";
+import { formatDateTime } from "$lib/utils/formatting";
 
 export const load: PageServerLoad = async ({ params, url }) => {
 	const { slug } = params;
@@ -125,13 +126,7 @@ export const actions: Actions = {
 
 			// Send notification to agency (fire-and-forget)
 			const baseUrl = env.PUBLIC_CLIENT_URL || "https://webkit.au";
-			const respondedAt = new Date().toLocaleDateString("en-AU", {
-				day: "numeric",
-				month: "short",
-				year: "numeric",
-				hour: "2-digit",
-				minute: "2-digit",
-			});
+			const respondedAt = formatDateTime(new Date());
 
 			db.select()
 				.from(proposals)
@@ -212,13 +207,7 @@ export const actions: Actions = {
 
 			// Send notification to agency (fire-and-forget)
 			const baseUrl = env.PUBLIC_CLIENT_URL || "https://webkit.au";
-			const respondedAt = new Date().toLocaleDateString("en-AU", {
-				day: "numeric",
-				month: "short",
-				year: "numeric",
-				hour: "2-digit",
-				minute: "2-digit",
-			});
+			const respondedAt = formatDateTime(new Date());
 
 			db.select()
 				.from(proposals)
@@ -298,13 +287,7 @@ export const actions: Actions = {
 
 			// Send notification to agency (fire-and-forget)
 			const baseUrl = env.PUBLIC_CLIENT_URL || "https://webkit.au";
-			const respondedAt = new Date().toLocaleDateString("en-AU", {
-				day: "numeric",
-				month: "short",
-				year: "numeric",
-				hour: "2-digit",
-				minute: "2-digit",
-			});
+			const respondedAt = formatDateTime(new Date());
 
 			db.select()
 				.from(proposals)

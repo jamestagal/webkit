@@ -2,6 +2,7 @@
 	import { invalidateAll, goto } from "$app/navigation";
 	import { getToast } from "$lib/ui/toast_store.svelte";
 	import { updateClient, archiveClient, restoreClient } from "$lib/api/clients.remote";
+	import { formatDate, formatDateTime } from '$lib/utils/formatting';
 	import {
 		ArrowLeft,
 		Users,
@@ -165,26 +166,6 @@
 			case "invoice":
 				return `/${agencySlug}/invoices/${doc.id}`;
 		}
-	}
-
-	function formatDate(date: Date | string | null) {
-		if (!date) return "—";
-		return new Date(date).toLocaleDateString("en-AU", {
-			day: "numeric",
-			month: "short",
-			year: "numeric",
-		});
-	}
-
-	function formatDateTime(date: Date | string | null) {
-		if (!date) return "—";
-		return new Date(date).toLocaleDateString("en-AU", {
-			day: "numeric",
-			month: "short",
-			year: "numeric",
-			hour: "2-digit",
-			minute: "2-digit",
-		});
 	}
 
 	// Email type labels for display

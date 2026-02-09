@@ -43,6 +43,7 @@ import {
 } from "$lib/server/permissions";
 import { eq, and, desc, asc, gte, lte, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { formatDateTime } from "$lib/utils/formatting";
 
 // =============================================================================
 // Validation Schemas
@@ -1326,13 +1327,7 @@ export const recordPayment = command(RecordPaymentSchema, async (data) => {
 	// Send payment notification emails (fire-and-forget)
 	const baseUrl = env.PUBLIC_CLIENT_URL || "https://webkit.au";
 	const publicUrl = `${baseUrl}/i/${invoice.slug}`;
-	const paidAtFormatted = paidAt.toLocaleDateString("en-AU", {
-		day: "numeric",
-		month: "short",
-		year: "numeric",
-		hour: "2-digit",
-		minute: "2-digit",
-	});
+	const paidAtFormatted = formatDateTime(paidAt);
 
 	const paymentMethodLabel =
 		data.paymentMethod === "bank_transfer"

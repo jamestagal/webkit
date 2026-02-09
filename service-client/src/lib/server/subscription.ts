@@ -13,6 +13,7 @@ import { agencies, agencyMemberships, consultations } from "$lib/server/schema";
 import { eq, and, gte, count, sql } from "drizzle-orm";
 import { error } from "@sveltejs/kit";
 import { getAgencyContext } from "$lib/server/agency";
+import { formatDate } from "$lib/utils/formatting";
 
 // =============================================================================
 // Tier Definitions
@@ -384,7 +385,7 @@ export async function enforceConsultationLimit(agencyId?: string): Promise<void>
 		throw error(
 			403,
 			`Monthly consultation limit reached (${result.current}/${result.limit}). ` +
-				`Limit resets on ${result.resetsAt.toLocaleDateString()}. ` +
+				`Limit resets on ${formatDate(result.resetsAt)}. ` +
 				`Upgrade your plan for more consultations.`,
 		);
 	}
@@ -400,7 +401,7 @@ export async function enforceAIGenerationLimit(agencyId?: string): Promise<void>
 		throw error(
 			403,
 			`Monthly AI generation limit reached (${result.current}/${result.limit}). ` +
-				`Limit resets on ${result.resetsAt.toLocaleDateString()}. ` +
+				`Limit resets on ${formatDate(result.resetsAt)}. ` +
 				`Upgrade your plan for more AI generations.`,
 		);
 	}

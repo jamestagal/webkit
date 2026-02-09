@@ -40,6 +40,7 @@
 		RefreshCw,
 		Link2
 	} from 'lucide-svelte';
+	import { formatCurrency, formatDate } from '$lib/utils/formatting';
 	import type { PageProps } from './$types';
 
 	const toast = getToast();
@@ -388,23 +389,6 @@
 
 	function goBack() {
 		goto(`/${agencySlug}/contracts`);
-	}
-
-	function formatDate(date: Date | string | null) {
-		if (!date) return '-';
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric'
-		});
-	}
-
-	function formatCurrency(value: string | number) {
-		const num = typeof value === 'string' ? parseFloat(value) : value;
-		return new Intl.NumberFormat('en-AU', {
-			style: 'currency',
-			currency: 'AUD'
-		}).format(num);
 	}
 
 	// Group schedules by category

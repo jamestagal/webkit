@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { CheckCircle, AlertCircle, Building2, Mail, Phone } from 'lucide-svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
+	import { formatDate, formatCurrency } from '$lib/utils/formatting';
 	import type { PageProps, ActionData } from './$types';
 
 	let { data, form }: PageProps & { form: ActionData } = $props();
@@ -40,23 +41,6 @@
 	let isSigned = $derived(contract.status === 'signed' || contract.status === 'completed');
 	let isExpired = $derived(contract.status === 'expired');
 	let canSign = $derived(!isSigned && !isExpired && ['sent', 'viewed'].includes(contract.status));
-
-	function formatDate(date: Date | string | null) {
-		if (!date) return '-';
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'long',
-			year: 'numeric'
-		});
-	}
-
-	function formatCurrency(value: string | number) {
-		const num = typeof value === 'string' ? parseFloat(value) : value;
-		return new Intl.NumberFormat('en-AU', {
-			style: 'currency',
-			currency: 'AUD'
-		}).format(num);
-	}
 
 	// Handle form success
 	$effect(() => {
@@ -140,7 +124,7 @@
 				<div>
 					<h3 class="font-bold">Contract Expired</h3>
 					<p class="text-sm">
-						This contract expired on {formatDate(contract.validUntil)}. Please contact the agency
+						This contract expired on {formatDate(contract.validUntil, 'long')}. Please contact the agency
 						for a new contract.
 					</p>
 				</div>
@@ -155,7 +139,7 @@
 					<h3 class="font-bold">Contract Signed</h3>
 					<p class="text-sm">
 						This contract was signed by {contract.clientSignatoryName} on {formatDate(
-							contract.clientSignedAt
+							contract.clientSignedAt, 'long'
 						)}.
 					</p>
 				</div>
@@ -213,22 +197,22 @@
 						<div class="grid gap-4 sm:grid-cols-2 mt-4">
 							<div>
 								<span class="text-sm text-base-content/60">Contract Date</span>
-								<p class="font-medium">{formatDate(contract.createdAt)}</p>
+								<p class="font-medium">{formatDate(contract.createdAt, 'long')}</p>
 							</div>
 							<div>
 								<span class="text-sm text-base-content/60">Valid Until</span>
-								<p class="font-medium">{formatDate(contract.validUntil)}</p>
+								<p class="font-medium">{formatDate(contract.validUntil, 'long')}</p>
 							</div>
 							{#if isFieldVisible('commencementDate') && contract.commencementDate}
 								<div>
 									<span class="text-sm text-base-content/60">Commencement</span>
-									<p class="font-medium">{formatDate(contract.commencementDate)}</p>
+									<p class="font-medium">{formatDate(contract.commencementDate, 'long')}</p>
 								</div>
 							{/if}
 							{#if isFieldVisible('completionDate') && contract.completionDate}
 								<div>
 									<span class="text-sm text-base-content/60">Completion</span>
-									<p class="font-medium">{formatDate(contract.completionDate)}</p>
+									<p class="font-medium">{formatDate(contract.completionDate, 'long')}</p>
 								</div>
 							{/if}
 						</div>
@@ -342,7 +326,7 @@
 											</p>
 										{/if}
 										<p class="text-xs text-base-content/50">
-											{formatDate(contract.agencySignedAt || contract.sentAt)}
+											{formatDate(contract.agencySignedAt || contract.sentAt, 'long')}
 										</p>
 									</div>
 								</div>
@@ -368,7 +352,7 @@
 											</p>
 										{/if}
 										<p class="text-xs text-base-content/50">
-											{formatDate(contract.clientSignedAt)}
+											{formatDate(contract.clientSignedAt, 'long')}
 										</p>
 									</div>
 								</div>

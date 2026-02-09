@@ -5,6 +5,7 @@
 	import { sendFormEmail, getEntityEmailLogs } from "$lib/api/email.remote";
 	import SendEmailModal from "$lib/components/shared/SendEmailModal.svelte";
 	import EmailHistory from "$lib/components/emails/EmailHistory.svelte";
+	import { formatDateTime } from '$lib/utils/formatting';
 	import type { EmailLog } from "$lib/server/schema";
 	import {
 		ArrowLeft,
@@ -135,17 +136,6 @@
 		} finally {
 			sendingEmail = false;
 		}
-	}
-
-	function formatDateTime(date: Date | string | null) {
-		if (!date) return "—";
-		return new Date(date).toLocaleDateString("en-AU", {
-			day: "numeric",
-			month: "short",
-			year: "numeric",
-			hour: "numeric",
-			minute: "2-digit",
-		});
 	}
 
 	async function handleStatusChange(newStatus: string) {

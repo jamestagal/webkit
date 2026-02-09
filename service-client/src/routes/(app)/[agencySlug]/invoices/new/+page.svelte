@@ -17,6 +17,7 @@
 		Loader2,
 		GripVertical
 	} from 'lucide-svelte';
+	import { formatCurrency } from '$lib/utils/formatting';
 	import type { PageProps } from './$types';
 
 	const toast = getToast();
@@ -250,13 +251,6 @@
 		} finally {
 			saving = false;
 		}
-	}
-
-	function formatCurrency(value: number) {
-		return new Intl.NumberFormat('en-AU', {
-			style: 'currency',
-			currency: 'AUD'
-		}).format(value);
 	}
 
 	// Load client details when selecting proposal/contract

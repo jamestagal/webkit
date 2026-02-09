@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Search, RotateCcw, Building2, Gift, ExternalLink, XCircle, Calendar } from 'lucide-svelte';
 	import { getFreemiumAgencies, revokeAgencyFreemium, updateFreemiumExpiry } from '$lib/api/super-admin.remote';
+	import { formatDate } from '$lib/utils/formatting';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
@@ -130,13 +131,9 @@
 		}
 	}
 
-	function formatDate(date: Date | string | null): string {
+	function formatDateOrExpiry(date: Date | string | null): string {
 		if (!date) return 'No expiry';
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric'
-		});
+		return formatDate(date);
 	}
 
 	function getReasonBadgeClass(reason: string | null): string {
@@ -271,7 +268,7 @@
 								{formatDate(agency.freemiumGrantedAt)}
 							</td>
 							<td class="text-sm text-base-content/70">
-								{formatDate(agency.freemiumExpiresAt)}
+								{formatDateOrExpiry(agency.freemiumExpiresAt)}
 							</td>
 							<td>
 								<div class="flex gap-2">

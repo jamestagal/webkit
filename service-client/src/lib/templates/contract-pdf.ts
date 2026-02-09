@@ -7,6 +7,7 @@
 
 import type { Contract, ContractSchedule, Agency, AgencyProfile } from "$lib/server/schema";
 import type { EffectiveBranding } from "$lib/server/document-branding";
+import { formatCurrency, formatDate } from "$lib/utils/formatting";
 
 export interface ContractPdfData {
 	contract: Contract;
@@ -17,30 +18,8 @@ export interface ContractPdfData {
 	brandingOverride?: EffectiveBranding;
 }
 
-/**
- * Format a decimal string or number as currency (AUD)
- */
-function formatCurrency(value: string | number | null): string {
-	const num = typeof value === "string" ? parseFloat(value) : (value ?? 0);
-	return new Intl.NumberFormat("en-AU", {
-		style: "currency",
-		currency: "AUD",
-		minimumFractionDigits: 2,
-	}).format(num);
-}
-
-/**
- * Format a date for display
- */
-function formatDate(date: Date | string | null): string {
-	if (!date) return "";
-	const d = typeof date === "string" ? new Date(date) : date;
-	return d.toLocaleDateString("en-AU", {
-		day: "numeric",
-		month: "long",
-		year: "numeric",
-	});
-}
+// formatCurrency and formatDate imported from '$lib/utils/formatting'
+// PDF templates use 'long' style dates (e.g., "1 February 2025")
 
 /**
  * Get status badge color
@@ -269,18 +248,18 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 		<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 24px 0; padding: 16px; background: #f9fafb; border-radius: 8px; border-left: 4px solid ${accentColor};">
 			<div>
 				<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Contract Date</div>
-				<div style="font-weight: 500;">${formatDate(contract.createdAt)}</div>
+				<div style="font-weight: 500;">${formatDate(contract.createdAt, "long")}</div>
 			</div>
 			<div>
 				<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Valid Until</div>
-				<div style="font-weight: 500;">${formatDate(contract.validUntil)}</div>
+				<div style="font-weight: 500;">${formatDate(contract.validUntil, "long")}</div>
 			</div>
 			${
 				isFieldVisible(visibleFields, "commencementDate") && contract.commencementDate
 					? `
 			<div>
 				<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Commencement</div>
-				<div style="font-weight: 500;">${formatDate(contract.commencementDate)}</div>
+				<div style="font-weight: 500;">${formatDate(contract.commencementDate, "long")}</div>
 			</div>
 			`
 					: "<div></div>"
@@ -290,7 +269,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 					? `
 			<div>
 				<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Completion</div>
-				<div style="font-weight: 500;">${formatDate(contract.completionDate)}</div>
+				<div style="font-weight: 500;">${formatDate(contract.completionDate, "long")}</div>
 			</div>
 			`
 					: "<div></div>"
@@ -399,7 +378,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 					<div style="margin-top: 16px;">
 						<div style="font-size: 16px; font-weight: 600; color: #111827;">${escapeHtml(contract.agencySignatoryName)}</div>
 						${contract.agencySignatoryTitle ? `<div style="font-size: 13px; color: #6b7280; margin-top: 2px;">${escapeHtml(contract.agencySignatoryTitle)}</div>` : ""}
-						<div style="font-size: 12px; color: #9ca3af; margin-top: 8px;">Signed: ${formatDate(contract.agencySignedAt || contract.sentAt)}</div>
+						<div style="font-size: 12px; color: #9ca3af; margin-top: 8px;">Signed: ${formatDate(contract.agencySignedAt || contract.sentAt, "long")}</div>
 					</div>
 					`
 							: `
@@ -423,7 +402,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 							<div style="font-size: 16px; font-weight: 600; color: #111827;">${escapeHtml(contract.clientSignatoryName)}</div>
 						</div>
 						${contract.clientSignatoryTitle ? `<div style="font-size: 13px; color: #6b7280; margin-top: 2px; margin-left: 28px;">${escapeHtml(contract.clientSignatoryTitle)}</div>` : ""}
-						<div style="font-size: 12px; color: #16a34a; margin-top: 8px; margin-left: 28px;">Signed: ${formatDate(contract.clientSignedAt)}</div>
+						<div style="font-size: 12px; color: #16a34a; margin-top: 8px; margin-left: 28px;">Signed: ${formatDate(contract.clientSignedAt, "long")}</div>
 					</div>
 					`
 							: `
@@ -437,7 +416,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 
 		<!-- Footer -->
 		<div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #9ca3af;">
-			<div>Generated on ${formatDate(new Date())} by ${escapeHtml(agency.name)}</div>
+			<div>Generated on ${formatDate(new Date(), "long")} by ${escapeHtml(agency.name)}</div>
 		</div>
 	</div>
 </body>

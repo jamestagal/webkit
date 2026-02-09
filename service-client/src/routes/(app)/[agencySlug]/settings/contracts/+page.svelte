@@ -6,6 +6,7 @@
 		duplicateContractTemplate,
 		setDefaultTemplate
 	} from '$lib/api/contract-templates.remote';
+	import { formatDate } from '$lib/utils/formatting';
 	import { Plus, FileText, Star, Copy, Trash2, MoreVertical } from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
@@ -53,13 +54,7 @@
 		}
 	}
 
-	function formatDate(date: Date | string) {
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric'
-		});
-	}
+
 </script>
 
 <div class="space-y-6">

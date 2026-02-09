@@ -16,6 +16,7 @@
 	import { createProposal } from '$lib/api/proposals.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { FileText, Users, ArrowRight, Package, UserCircle } from 'lucide-svelte';
+	import { formatDate } from '$lib/utils/formatting';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -52,16 +53,6 @@
 		completedConsultations.find((c) => c.id === selectedConsultationId)
 	);
 	let selectedPackage = $derived(packages.find((p) => p.id === selectedPackageId));
-
-	function formatDate(date: Date | string | null): string {
-		if (!date) return 'N/A';
-		const d = new Date(date);
-		return d.toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric'
-		});
-	}
 
 	function selectConsultation(id: string | null) {
 		selectedConsultationId = id;

@@ -7,6 +7,7 @@
 
 import type { Invoice, InvoiceLineItem, Agency, AgencyProfile } from "$lib/server/schema";
 import type { EffectiveBranding } from "$lib/server/document-branding";
+import { formatCurrency, formatDate } from "$lib/utils/formatting";
 
 export interface InvoicePdfData {
 	invoice: Invoice;
@@ -17,30 +18,8 @@ export interface InvoicePdfData {
 	brandingOverride?: EffectiveBranding;
 }
 
-/**
- * Format a decimal string or number as currency (AUD)
- */
-function formatCurrency(value: string | number | null): string {
-	const num = typeof value === "string" ? parseFloat(value) : (value ?? 0);
-	return new Intl.NumberFormat("en-AU", {
-		style: "currency",
-		currency: "AUD",
-		minimumFractionDigits: 2,
-	}).format(num);
-}
-
-/**
- * Format a date for display
- */
-function formatDate(date: Date | string | null): string {
-	if (!date) return "";
-	const d = typeof date === "string" ? new Date(date) : date;
-	return d.toLocaleDateString("en-AU", {
-		day: "numeric",
-		month: "long",
-		year: "numeric",
-	});
-}
+// formatCurrency and formatDate imported from '$lib/utils/formatting'
+// PDF templates use 'long' style dates (e.g., "1 February 2025")
 
 /**
  * Get status badge color
@@ -250,11 +229,11 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 		<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin: 24px 0; padding: 16px; background: #f9fafb; border-radius: 8px;">
 			<div>
 				<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Issue Date</div>
-				<div style="font-weight: 500;">${formatDate(invoice.issueDate)}</div>
+				<div style="font-weight: 500;">${formatDate(invoice.issueDate, "long")}</div>
 			</div>
 			<div>
 				<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Due Date</div>
-				<div style="font-weight: 500;">${formatDate(invoice.dueDate)}</div>
+				<div style="font-weight: 500;">${formatDate(invoice.dueDate, "long")}</div>
 			</div>
 			<div>
 				<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Payment Terms</div>
@@ -314,7 +293,7 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 					isPaid && invoice.paidAt
 						? `
 				<div style="margin-top: 8px; padding: 8px 12px; background: #dcfce7; border-radius: 6px; text-align: center;">
-					<span style="color: #166534; font-weight: 600;">Paid on ${formatDate(invoice.paidAt)}</span>
+					<span style="color: #166534; font-weight: 600;">Paid on ${formatDate(invoice.paidAt, "long")}</span>
 				</div>
 				`
 						: ""

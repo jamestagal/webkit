@@ -2,6 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { resendEmail } from '$lib/api/email.remote';
+	import { formatDateTime } from '$lib/utils/formatting';
 	import {
 		Mail,
 		CheckCircle,
@@ -92,17 +93,6 @@
 			default:
 				return { icon: Mail, label: emailType, color: 'text-base-content' };
 		}
-	}
-
-	function formatDate(date: Date | string | null) {
-		if (!date) return '-';
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
 	}
 
 	function getEntityLink(email: typeof data.emailLogs[0]) {
@@ -318,7 +308,7 @@
 								{/if}
 							</td>
 							<td class="text-sm text-base-content/70">
-								{formatDate(email.sentAt || email.createdAt)}
+								{formatDateTime(email.sentAt || email.createdAt)}
 							</td>
 							<td>
 								<div class="flex items-center gap-1">

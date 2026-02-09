@@ -39,6 +39,7 @@ import {
 	type MergeFieldData,
 } from "$lib/server/services/data-pipeline.service";
 import { sanitizeHtml } from "$lib/utils/sanitize";
+import { formatCurrency, formatDate } from "$lib/utils/formatting";
 import { getNextDocumentNumber } from "$lib/server/document-numbers";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
@@ -1006,57 +1007,16 @@ export const regenerateContractTerms = command(
 					),
 			contract: {
 				number: existing.contractNumber || "",
-				date: existing.createdAt
-					? new Date(existing.createdAt).toLocaleDateString("en-AU", {
-							day: "numeric",
-							month: "long",
-							year: "numeric",
-						})
-					: "",
-				valid_until: existing.validUntil
-					? new Date(existing.validUntil).toLocaleDateString("en-AU", {
-							day: "numeric",
-							month: "long",
-							year: "numeric",
-						})
-					: "",
-				total_price: existing.totalPrice
-					? new Intl.NumberFormat("en-AU", {
-							style: "currency",
-							currency: "AUD",
-						}).format(parseFloat(existing.totalPrice))
-					: "",
+				date: existing.createdAt ? formatDate(existing.createdAt, "long") : "",
+				valid_until: existing.validUntil ? formatDate(existing.validUntil, "long") : "",
+				total_price: existing.totalPrice ? formatCurrency(existing.totalPrice) : "",
 				payment_terms: existing.paymentTerms || "",
 				minimum_term: "",
 				cancellation_terms: "",
-				start_date: existing.commencementDate
-					? new Date(existing.commencementDate).toLocaleDateString("en-AU", {
-							day: "numeric",
-							month: "long",
-							year: "numeric",
-						})
-					: "",
-				end_date: existing.completionDate
-					? new Date(existing.completionDate).toLocaleDateString("en-AU", {
-							day: "numeric",
-							month: "long",
-							year: "numeric",
-						})
-					: "",
-				commencement_date: existing.commencementDate
-					? new Date(existing.commencementDate).toLocaleDateString("en-AU", {
-							day: "numeric",
-							month: "long",
-							year: "numeric",
-						})
-					: "",
-				completion_date: existing.completionDate
-					? new Date(existing.completionDate).toLocaleDateString("en-AU", {
-							day: "numeric",
-							month: "long",
-							year: "numeric",
-						})
-					: "",
+				start_date: existing.commencementDate ? formatDate(existing.commencementDate, "long") : "",
+				end_date: existing.completionDate ? formatDate(existing.completionDate, "long") : "",
+				commencement_date: existing.commencementDate ? formatDate(existing.commencementDate, "long") : "",
+				completion_date: existing.completionDate ? formatDate(existing.completionDate, "long") : "",
 				services_description: existing.servicesDescription || "",
 				special_conditions: existing.specialConditions || "",
 				agency_signatory_name: "",

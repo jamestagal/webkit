@@ -8,6 +8,7 @@
 
 import type { Agency, AgencyProfile } from "$lib/server/schema";
 import type { FormSchema, FormStep, FormField } from "$lib/types/form-builder";
+import { formatDate as _formatDate } from "$lib/utils/formatting";
 
 export interface FormSubmissionPdfData {
 	submission: {
@@ -28,16 +29,11 @@ export interface FormSubmissionPdfData {
 }
 
 /**
- * Format a date for display
+ * Format a date for display, returning "Not provided" for null values
  */
 function formatDate(date: Date | string | null): string {
 	if (!date) return "Not provided";
-	const d = typeof date === "string" ? new Date(date) : date;
-	return d.toLocaleDateString("en-AU", {
-		day: "numeric",
-		month: "long",
-		year: "numeric",
-	});
+	return _formatDate(date, "long");
 }
 
 /**

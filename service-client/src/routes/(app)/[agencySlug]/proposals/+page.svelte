@@ -12,6 +12,7 @@
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { FEATURES } from '$lib/config/features';
 	import { Plus, Eye, Pencil, Copy, Trash2, ExternalLink, User } from 'lucide-svelte';
+	import { formatDate } from '$lib/utils/formatting';
 	import type { ProposalStatus } from '$lib/server/schema';
 	import type { PageProps } from './$types';
 
@@ -49,16 +50,6 @@
 		accepted: proposals.filter((p) => p.status === 'accepted').length,
 		revision_requested: proposals.filter((p) => p.status === 'revision_requested').length
 	});
-
-	function formatDate(date: Date | string | null): string {
-		if (!date) return 'N/A';
-		const d = new Date(date);
-		return d.toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric'
-		});
-	}
 
 	function getStatusBadge(status: string): { class: string; label: string } {
 		switch (status) {

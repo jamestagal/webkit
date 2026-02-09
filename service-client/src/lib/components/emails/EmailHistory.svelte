@@ -2,6 +2,7 @@
 	import { Mail, CheckCircle, Clock, AlertCircle, RefreshCw, Send, XCircle, Bell, FileText } from 'lucide-svelte';
 	import { getEntityEmailLogs, resendEmail } from '$lib/api/email.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
+	import { formatDateTime } from '$lib/utils/formatting';
 	import type { EmailLog } from '$lib/server/schema';
 
 	interface Props {
@@ -85,13 +86,7 @@
 
 	function formatDate(date: Date | string | null) {
 		if (!date) return '-';
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
+		return formatDateTime(date);
 	}
 
 	// Load on mount

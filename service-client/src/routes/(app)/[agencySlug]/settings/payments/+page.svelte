@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import { env } from '$env/dynamic/public';
+	import { formatDate } from '$lib/utils/formatting';
 	import {
 		CreditCard,
 		CheckCircle,
@@ -202,11 +203,7 @@
 							<div class="flex items-center justify-between text-sm">
 								<span class="text-base-content/70">Connected</span>
 								<span>
-									{new Date(stripeStatus.connectedAt).toLocaleDateString('en-AU', {
-										day: 'numeric',
-										month: 'short',
-										year: 'numeric'
-									})}
+									{formatDate(stripeStatus.connectedAt)}
 								</span>
 							</div>
 						{/if}
