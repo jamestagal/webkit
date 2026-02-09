@@ -54,7 +54,7 @@ type AgencyActivityLog struct {
 	EntityID   uuid.NullUUID         `json:"entity_id"`
 	OldValues  pqtype.NullRawMessage `json:"old_values"`
 	NewValues  pqtype.NullRawMessage `json:"new_values"`
-	IpAddress  pqtype.Inet           `json:"ip_address"`
+	IpAddress  sql.NullString        `json:"ip_address"`
 	UserAgent  sql.NullString        `json:"user_agent"`
 	Metadata   json.RawMessage       `json:"metadata"`
 }
@@ -248,7 +248,7 @@ type Client struct {
 type Consultation struct {
 	ID                   uuid.UUID             `json:"id"`
 	UserID               uuid.UUID             `json:"user_id"`
-	AgencyID             uuid.NullUUID         `json:"agency_id"`
+	AgencyID             uuid.UUID             `json:"agency_id"`
 	ContactInfo          json.RawMessage       `json:"contact_info"`
 	BusinessContext      json.RawMessage       `json:"business_context"`
 	PainPoints           json.RawMessage       `json:"pain_points"`
@@ -417,6 +417,7 @@ type EmailLog struct {
 	ProposalID         uuid.NullUUID  `json:"proposal_id"`
 	InvoiceID          uuid.NullUUID  `json:"invoice_id"`
 	ContractID         uuid.NullUUID  `json:"contract_id"`
+	FormSubmissionID   uuid.NullUUID  `json:"form_submission_id"`
 	EmailType          string         `json:"email_type"`
 	RecipientEmail     string         `json:"recipient_email"`
 	RecipientName      sql.NullString `json:"recipient_name"`
@@ -637,20 +638,6 @@ type QuestionnaireResponse struct {
 	StartedAt            sql.NullTime    `json:"started_at"`
 	CompletedAt          sql.NullTime    `json:"completed_at"`
 	LastActivityAt       sql.NullTime    `json:"last_activity_at"`
-}
-
-type Subscription struct {
-	ID                   uuid.UUID    `json:"id"`
-	Created              time.Time    `json:"created"`
-	Updated              time.Time    `json:"updated"`
-	UserID               uuid.UUID    `json:"user_id"`
-	StripeCustomerID     string       `json:"stripe_customer_id"`
-	StripeSubscriptionID string       `json:"stripe_subscription_id"`
-	StripePriceID        string       `json:"stripe_price_id"`
-	Status               string       `json:"status"`
-	CurrentPeriodStart   time.Time    `json:"current_period_start"`
-	CurrentPeriodEnd     time.Time    `json:"current_period_end"`
-	CanceledAt           sql.NullTime `json:"canceled_at"`
 }
 
 type Token struct {

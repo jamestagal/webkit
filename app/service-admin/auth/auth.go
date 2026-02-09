@@ -11,6 +11,13 @@ import (
 	"github.com/google/uuid"
 )
 
+func getPublicKey() ([]byte, error) {
+	if key := os.Getenv("JWT_PUBLIC_KEY"); key != "" {
+		return []byte(key), nil
+	}
+	return os.ReadFile("/public.pem")
+}
+
 type Service struct {
 	cfg *config.Config
 }
@@ -25,9 +32,6 @@ const (
 	CreateNote int64 = 0x0000000000000002
 	EditNote   int64 = 0x0000000000000004
 	RemoveNote int64 = 0x0000000000000008
-
-	CreatePaymentCheckout int64 = 0x0000000000000010
-	CreatePaymentPortal   int64 = 0x0000000000000020
 
 	GetEmails int64 = 0x0000000000000040
 	SendEmail int64 = 0x0000000000000080
@@ -106,7 +110,7 @@ func extractTokenClaims(tokenString string) (jwt.MapClaims, error) {
 		tokenString = tokenString[7:]
 	}
 	// Load the public key
-	publicKey, err := os.ReadFile("/public.pem")
+	publicKey, err := getPublicKey()
 	if err != nil {
 		return nil, fmt.Errorf("error reading public key: %w", err)
 	}

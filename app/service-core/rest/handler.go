@@ -9,7 +9,6 @@ import (
 	"service-core/domain/file"
 	"service-core/domain/login"
 	"service-core/domain/note"
-	"service-core/domain/payment"
 	"service-core/storage"
 )
 
@@ -18,7 +17,6 @@ type Handler struct {
 	storage             *storage.Storage
 	authService         auth.AuthService
 	loginService        *login.Service
-	paymentService      *payment.Service
 	billingService      *billing.Service
 	emailService        *email.Service
 	fileService         *file.Service
@@ -31,7 +29,6 @@ func NewHandler(
 	storage *storage.Storage,
 	authService auth.AuthService,
 	loginService *login.Service,
-	paymentService *payment.Service,
 	billingService *billing.Service,
 	emailService *email.Service,
 	fileService *file.Service,
@@ -43,7 +40,6 @@ func NewHandler(
 		storage:             storage,
 		authService:         authService,
 		loginService:        loginService,
-		paymentService:      paymentService,
 		billingService:      billingService,
 		emailService:        emailService,
 		fileService:         fileService,

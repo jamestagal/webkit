@@ -29,16 +29,6 @@ func Run(apiHandler *Handler) {
 	mux.HandleFunc("/api/v1/login-phone", apiHandler.handleLoginPhone)
 	mux.HandleFunc("/api/v1/login-verify", apiHandler.handleLoginVerify)
 
-	// Payments (user subscriptions)
-	mux.HandleFunc("/payments-portal", apiHandler.handlePaymentsPortal)
-	mux.HandleFunc("/payments-checkout", apiHandler.handlePaymentsCheckout)
-	mux.HandleFunc("/payments-update", apiHandler.handlePaymentsUpdate)
-	mux.HandleFunc("/payments-webhook", apiHandler.handlePaymentsWebhook)
-	mux.HandleFunc("/api/v1/payments-portal", apiHandler.handlePaymentsPortal)
-	mux.HandleFunc("/api/v1/payments-checkout", apiHandler.handlePaymentsCheckout)
-	mux.HandleFunc("/api/v1/payments-update", apiHandler.handlePaymentsUpdate)
-	mux.HandleFunc("/api/v1/payments-webhook", apiHandler.handlePaymentsWebhook)
-
 	// Billing (agency subscriptions)
 	mux.HandleFunc("/api/v1/billing/info", apiHandler.handleBillingInfo)
 	mux.HandleFunc("/api/v1/billing/checkout", apiHandler.handleBillingCheckout)
@@ -64,6 +54,8 @@ func Run(apiHandler *Handler) {
 	mux.HandleFunc("/api/v1/notes", apiHandler.handleNotesCollection)
 	mux.HandleFunc("/api/v1/notes/{id}", apiHandler.handleNoteResource)
 
+	// DEPRECATED: Consultation routes are unused by the frontend (SvelteKit handles all CRUD).
+	// Scheduled for removal in Wave 3. See docs/plans/execution-roadmap.md Stream N.
 	// Consultations - Core CRUD operations (both legacy and API v1 paths)
 	mux.HandleFunc("/consultations", apiHandler.handleConsultationsCollection)
 	mux.HandleFunc("/consultations/{id}", apiHandler.handleConsultationResource)

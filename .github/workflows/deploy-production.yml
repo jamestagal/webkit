@@ -35,17 +35,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create key files (for Go services)
-        if: matrix.service != 'service-client'
-        run: |
-          echo "${{ secrets.PRIVATE_KEY_PEM }}" > app/${{ matrix.service }}/private.pem
-          echo "${{ secrets.PUBLIC_KEY_PEM }}" > app/${{ matrix.service }}/public.pem
-
-      - name: Create key files (for SvelteKit)
-        if: matrix.service == 'service-client'
-        run: |
-          echo "${{ secrets.PUBLIC_KEY_PEM }}" > service-client/public.pem
-
       - name: Login to Container Registry
         uses: docker/login-action@v3
         with:
@@ -64,17 +53,6 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}:latest
           no-cache: true
-
-      - name: Clean up key files (Go services)
-        if: always() && matrix.service != 'service-client'
-        run: |
-          rm -f app/${{ matrix.service }}/private.pem
-          rm -f app/${{ matrix.service }}/public.pem
-
-      - name: Clean up key files (SvelteKit)
-        if: always() && matrix.service == 'service-client'
-        run: |
-          rm -f service-client/public.pem
 
   # Deploy to Hostinger VPS
   deploy:

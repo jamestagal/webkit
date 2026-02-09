@@ -22,12 +22,48 @@ function isRemoteFunctionRequest(event: { request: Request; url: URL }): boolean
 	return false;
 }
 
+// --- Public route rate limiting ---
+const PUBLIC_ROUTE_PREFIXES = ["/p/", "/c/", "/i/", "/f/"];
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 60;
+const rateLimitMap = new Map<string, number[]>();
+
+// Clean up stale entries every 5 minutes
+setInterval(() => {
+	const now = Date.now();
+	for (const [ip, timestamps] of rateLimitMap) {
+		const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+		if (recent.length === 0) {
+			rateLimitMap.delete(ip);
+		} else {
+			rateLimitMap.set(ip, recent);
+		}
+	}
+}, 300_000);
+
+function isRateLimited(ip: string): boolean {
+	const now = Date.now();
+	const timestamps = rateLimitMap.get(ip) ?? [];
+	const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+	recent.push(now);
+	rateLimitMap.set(ip, recent);
+	return recent.length > RATE_LIMIT_MAX_REQUESTS;
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
 	const end = perf("handle");
 
 	logger.debug(event.url.pathname);
 	if (building) {
 		return await resolve(event);
+	}
+
+	// Rate limit public routes
+	if (PUBLIC_ROUTE_PREFIXES.some((prefix) => event.url.pathname.startsWith(prefix))) {
+		const ip = event.getClientAddress();
+		if (isRateLimited(ip)) {
+			return new Response("Too Many Requests", { status: 429 });
+		}
 	}
 
 	event.locals.user = {

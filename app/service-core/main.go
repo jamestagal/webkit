@@ -12,7 +12,6 @@ import (
 	"service-core/domain/file"
 	"service-core/domain/login"
 	"service-core/domain/note"
-	"service-core/domain/payment"
 	"service-core/domain/user"
 	"service-core/grpc"
 	"service-core/rest"
@@ -62,8 +61,6 @@ func setupRESTHandlers(cfg *config.Config, storage *storage.Storage) *rest.Handl
 	emailProvider := email.NewProvider(cfg)
 	emailService := email.NewService(cfg, store, emailProvider, fileService)
 	loginService := login.NewService(cfg, store, authService, emailService)
-	paymentProvider := payment.NewProvider(cfg)
-	paymentService := payment.NewService(cfg, store, paymentProvider)
 	billingService := billing.NewService(cfg, store)
 	noteService := note.NewService(store)
 
@@ -78,7 +75,6 @@ func setupRESTHandlers(cfg *config.Config, storage *storage.Storage) *rest.Handl
 		storage,
 		authService,
 		loginService,
-		paymentService,
 		billingService,
 		emailService,
 		fileService,

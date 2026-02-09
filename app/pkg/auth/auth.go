@@ -12,6 +12,20 @@ import (
 	"github.com/google/uuid"
 )
 
+func getPrivateKey() ([]byte, error) {
+	if key := os.Getenv("JWT_PRIVATE_KEY"); key != "" {
+		return []byte(key), nil
+	}
+	return os.ReadFile("/private.pem")
+}
+
+func getPublicKey() ([]byte, error) {
+	if key := os.Getenv("JWT_PUBLIC_KEY"); key != "" {
+		return []byte(key), nil
+	}
+	return os.ReadFile("/public.pem")
+}
+
 type Service struct {
 	cfg *pkg.Config
 }
@@ -27,9 +41,6 @@ const (
 	EditNote   int64 = 0x0000000000000004
 	RemoveNote int64 = 0x0000000000000008
 
-	GetPayments   int64 = 0x0000000000000010
-	CreatePayment int64 = 0x0000000000000020
-
 	GetEmails int64 = 0x0000000000000040
 	SendEmail int64 = 0x0000000000000080
 
@@ -42,10 +53,6 @@ const (
 	GetUsers int64 = 0x0000000000001000
 	EditUser int64 = 0x0000000000002000
 
-	// Plan access
-	BasicPlan   int64 = 0x0000000000004000
-	PremiumPlan int64 = 0x0000000000008000
-
 	// Consultation access
 	GetConsultations    int64 = 0x0000000001000000
 	CreateConsultation  int64 = 0x0000000002000000
@@ -57,8 +64,6 @@ const UserAccess int64 = GetNotes |
 	CreateNote |
 	EditNote |
 	RemoveNote |
-	GetPayments |
-	CreatePayment |
 	GetEmails |
 	SendEmail |
 	GetFiles |
@@ -136,7 +141,7 @@ func (s *Service) GenerateSessionToken(
 	phone string,
 ) (string, error) {
 	// Load the private key
-	privateKey, err := os.ReadFile("/private.pem")
+	privateKey, err := getPrivateKey()
 	if err != nil {
 		return "", fmt.Errorf("error reading private key: %w", err)
 	}
@@ -204,7 +209,7 @@ func (s *Service) GenerateTokens(
 	subscriptionActive bool,
 ) (string, string, error) {
 	// Load the private key
-	privateKey, err := os.ReadFile("/private.pem")
+	privateKey, err := getPrivateKey()
 	if err != nil {
 		return "", "", fmt.Errorf("error reading private key: %w", err)
 	}
@@ -287,7 +292,7 @@ func extractTokenClaims(tokenString string) (jwt.MapClaims, error) {
 		tokenString = tokenString[7:]
 	}
 	// Load the public key
-	publicKey, err := os.ReadFile("/public.pem")
+	publicKey, err := getPublicKey()
 	if err != nil {
 		return nil, fmt.Errorf("error reading public key: %w", err)
 	}
