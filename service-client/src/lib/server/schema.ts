@@ -325,6 +325,9 @@ export const agencyProfiles = pgTable("agency_profiles", {
 	stripeConnectedAt: timestamp("stripe_connected_at", { withTimezone: true }),
 	stripePayoutsEnabled: boolean("stripe_payouts_enabled").notNull().default(false),
 	stripeChargesEnabled: boolean("stripe_charges_enabled").notNull().default(false),
+
+	// Onboarding
+	onboardingCompletedAt: timestamp("onboarding_completed_at", { withTimezone: true }),
 });
 
 // Agency Packages table - Configurable pricing tiers per agency

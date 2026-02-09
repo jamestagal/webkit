@@ -7,14 +7,14 @@
 
 import { error, redirect } from "@sveltejs/kit";
 import { db } from "$lib/server/db";
-import { agencies, agencyMemberships, agencyFormOptions, users } from "$lib/server/schema";
+import { agencies, agencyMemberships, agencyFormOptions, agencyProfiles, users } from "$lib/server/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { groupOptionsByCategory, mergeWithDefaults } from "$lib/stores/agency-config.svelte";
 import type { AgencyConfig } from "$lib/stores/agency-config.svelte";
 import type { LayoutServerLoad } from "./$types";
 import { isSuperAdmin, getImpersonatedAgencyId } from "$lib/server/super-admin";
 
-export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
+export const load: LayoutServerLoad = async ({ locals, params, cookies, url }) => {
 	const userId = locals.user?.id;
 
 	if (!userId) {
@@ -89,6 +89,28 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies }) => {
 		status: "active" as const,
 		displayName: "Super Admin",
 	};
+
+	// Onboarding redirect for owners who haven't completed setup
+	if (effectiveMembership.role === "owner") {
+		const currentPath = url.pathname;
+		const isExemptRoute =
+			currentPath.includes("/onboarding") ||
+			currentPath.includes("/settings") ||
+			currentPath.startsWith("/api");
+
+		if (!isExemptRoute) {
+			const [onboardingProfile] = await db
+				.select({ onboardingCompletedAt: agencyProfiles.onboardingCompletedAt })
+				.from(agencyProfiles)
+				.where(eq(agencyProfiles.agencyId, agency.id))
+				.limit(1);
+
+			// Redirect to onboarding if not completed (null or no profile)
+			if (!onboardingProfile?.onboardingCompletedAt) {
+				throw redirect(302, `/${agency.slug}/onboarding`);
+			}
+		}
+	}
 
 	// Set the current agency cookie
 	cookies.set("current_agency_id", agency.id, {

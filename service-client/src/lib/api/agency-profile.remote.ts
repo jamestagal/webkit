@@ -470,3 +470,32 @@ export const getSetupChecklist = query(async () => {
 		isReady: completedRequired.length === requiredItems.length,
 	};
 });
+
+/**
+ * Mark onboarding as complete for the current agency.
+ */
+export const markOnboardingComplete = command(v.object({}), async () => {
+	const context = await requireAgencyRole(["owner"]);
+
+	// Ensure profile exists
+	const [existing] = await db
+		.select({ id: agencyProfiles.id })
+		.from(agencyProfiles)
+		.where(eq(agencyProfiles.agencyId, context.agencyId))
+		.limit(1);
+
+	if (!existing) {
+		await db
+			.insert(agencyProfiles)
+			.values({ agencyId: context.agencyId, onboardingCompletedAt: new Date() });
+	} else {
+		await db
+			.update(agencyProfiles)
+			.set({ onboardingCompletedAt: new Date(), updatedAt: new Date() })
+			.where(eq(agencyProfiles.agencyId, context.agencyId));
+	}
+
+	await logActivity("agency.onboarding_completed", "agency", context.agencyId, {});
+
+	return { success: true };
+});
