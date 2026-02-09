@@ -224,7 +224,14 @@ const UpdateAgencyStatusSchema = v.object({
 });
 
 export const updateAgencyStatus = command(UpdateAgencyStatusSchema, async (data) => {
-	await requireSuperAdmin();
+	const { userId } = await requireSuperAdmin();
+
+	// Fetch current agency state for audit logging
+	const [currentAgency] = await db
+		.select({ status: agencies.status, subscriptionTier: agencies.subscriptionTier })
+		.from(agencies)
+		.where(eq(agencies.id, data.agencyId))
+		.limit(1);
 
 	const updates: Partial<typeof agencies.$inferInsert> = {
 		updatedAt: new Date(),
@@ -239,6 +246,39 @@ export const updateAgencyStatus = command(UpdateAgencyStatusSchema, async (data)
 	}
 
 	await db.update(agencies).set(updates).where(eq(agencies.id, data.agencyId));
+
+	// Log subscription tier change
+	if (data.subscriptionTier && currentAgency && data.subscriptionTier !== currentAgency.subscriptionTier) {
+		const tierOrder = ["free", "starter", "growth", "enterprise"];
+		const oldIdx = tierOrder.indexOf(currentAgency.subscriptionTier);
+		const newIdx = tierOrder.indexOf(data.subscriptionTier);
+		const action = newIdx > oldIdx ? "subscription.upgraded" : "subscription.downgraded";
+
+		await db.insert(agencyActivityLog).values({
+			agencyId: data.agencyId,
+			userId,
+			action,
+			entityType: "agency",
+			entityId: data.agencyId,
+			oldValues: { subscriptionTier: currentAgency.subscriptionTier },
+			newValues: { subscriptionTier: data.subscriptionTier },
+			metadata: { source: "super_admin" },
+		});
+	}
+
+	// Log status change
+	if (data.status && currentAgency && data.status !== currentAgency.status) {
+		await db.insert(agencyActivityLog).values({
+			agencyId: data.agencyId,
+			userId,
+			action: "agency.status_changed",
+			entityType: "agency",
+			entityId: data.agencyId,
+			oldValues: { status: currentAgency.status },
+			newValues: { status: data.status },
+			metadata: { source: "super_admin" },
+		});
+	}
 
 	return { success: true };
 });

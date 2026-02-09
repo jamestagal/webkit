@@ -12,6 +12,7 @@ import { agencyProfiles, invoices } from "$lib/server/schema";
 import { eq } from "drizzle-orm";
 import { getAgencyContext } from "$lib/server/agency";
 import { hasPermission } from "$lib/server/permissions";
+import { logActivity } from "$lib/server/db-helpers";
 import Stripe from "stripe";
 import { env } from "$env/dynamic/public";
 import { env as privateEnv } from "$env/dynamic/private";
@@ -152,6 +153,10 @@ export const disconnectStripeAccount = command(async () => {
 			updatedAt: new Date(),
 		})
 		.where(eq(agencyProfiles.agencyId, context.agencyId));
+
+	await logActivity("stripe.disconnected", "agency_profile", profile.id, {
+		oldValues: { stripeAccountId: profile.stripeAccountId },
+	});
 
 	return { success: true };
 });
