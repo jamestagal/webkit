@@ -15,31 +15,47 @@ SvelteKit is the primary writer of audit logs. Drizzle already uses `text("ip_ad
 
 ### Q2: Consultations JSONB vs flat -- is Go still actively writing via JSONB?
 
-**Answer: Yes. Go is HEAVILY using JSONB columns (39+ SQL queries).**
+~~**Answer: Yes. Go is HEAVILY using JSONB columns (39+ SQL queries).**~~
 
-The Go backend actively reads, writes, searches, versions, and validates all 4 JSONB columns (`contact_info`, `business_context`, `pain_points`, `goals_objectives`). Key usage:
-- `consultation.sql`: 39 queries reference JSONB columns
-- `domain/consultation/service.go`: Parses, validates, compares JSONB on every operation
-- `domain/consultation/repository.go`: Draft auto-save, version rollback, change detection all use JSONB
-- Schema comment explicitly states: "Includes both JSONB columns (for Go backend) and flat columns (for SvelteKit compatibility)"
+~~The Go backend actively reads, writes, searches, versions, and validates all 4 JSONB columns (`contact_info`, `business_context`, `pain_points`, `goals_objectives`). Key usage:~~
+~~- `consultation.sql`: 39 queries reference JSONB columns~~
+~~- `domain/consultation/service.go`: Parses, validates, compares JSONB on every operation~~
+~~- `domain/consultation/repository.go`: Draft auto-save, version rollback, change detection all use JSONB~~
+~~- Schema comment explicitly states: "Includes both JSONB columns (for Go backend) and flat columns (for SvelteKit compatibility)"~~
 
-**Revised recommendation for item #9:** Neither Option A nor Option B is feasible short-term. Keep both column sets. Add a sync trigger or application-level sync so writes from either backend populate both formats. Long-term: migrate all consultation CRUD to SvelteKit, then drop JSONB. This is blocked by the dual-DB architecture decision (architecture-spec #4).
+~~**Revised recommendation for item #9:** Neither Option A nor Option B is feasible short-term. Keep both column sets. Add a sync trigger or application-level sync so writes from either backend populate both formats. Long-term: migrate all consultation CRUD to SvelteKit, then drop JSONB. This is blocked by the dual-DB architecture decision (architecture-spec #4).~~
+
+**CORRECTION (2026-02-09 audit):** The Go code referencing JSONB exists but is **dead code** — zero frontend calls reach the Go consultation endpoints. All consultation CRUD goes through SvelteKit remote functions using flat columns. The Go consultation routes, JSONB queries, draft system, and version history are orphaned code with no active callers.
+
+**Updated answer: Go has JSONB code but it's never called. No sync needed.**
+
+**Updated recommendation for item #9:** Do nothing now. Deprecate Go consultation routes in Wave 2 (add comment to `server.go`). Remove Go consultation code and drop orphaned JSONB columns in Wave 3 Stream N. No backfill, no sync trigger — there's nothing to sync because only SvelteKit writes consultations. See execution-roadmap.md Decision #3 and database-spec.md resolved question #2 for full rationale.
 
 ### Q3: `subscriptions` table -- any Go backend code referencing it?
 
-**Answer: Yes. Cannot drop.**
+~~**Answer: Yes. Cannot drop.**~~
 
-The Go backend has a complete user-level subscription system using this table:
-- `storage/query_postgres.sql`: 5 queries (Select, Upsert, Update, Delete)
-- `domain/payment/service.go`: Full Stripe webhook handling for user subscriptions
-- `storage/query/models.go`: `Subscription` struct with all columns
-- `rest/server.go`: Routes for `/payments-portal`, `/payments-checkout`, `/payments-update`, `/payments-webhook`
+~~The Go backend has a complete user-level subscription system using this table:~~
+~~- `storage/query_postgres.sql`: 5 queries (Select, Upsert, Update, Delete)~~
+~~- `domain/payment/service.go`: Full Stripe webhook handling for user subscriptions~~
+~~- `storage/query/models.go`: `Subscription` struct with all columns~~
+~~- `rest/server.go`: Routes for `/payments-portal`, `/payments-checkout`, `/payments-update`, `/payments-webhook`~~
 
-**Important distinction:** Two subscription systems exist:
-1. **User subscriptions** (`subscriptions` table) -- individual SaaS plans via `domain/payment/`
-2. **Agency subscriptions** (`agencies` table fields) -- platform billing via `domain/billing/`
+~~**Important distinction:** Two subscription systems exist:~~
+~~1. **User subscriptions** (`subscriptions` table) -- individual SaaS plans via `domain/payment/`~~
+~~2. **Agency subscriptions** (`agencies` table fields) -- platform billing via `domain/billing/`~~
 
-**Revised recommendation for item #7:** Do NOT drop `subscriptions` table. Instead, evaluate whether user-level subscriptions are still needed now that billing is agency-based. If user subscriptions are deprecated, remove the Go `payment/service.go` code and THEN drop the table. Requires product decision.
+~~**Revised recommendation for item #7:** Do NOT drop `subscriptions` table. Instead, evaluate whether user-level subscriptions are still needed now that billing is agency-based. If user subscriptions are deprecated, remove the Go `payment/service.go` code and THEN drop the table. Requires product decision.~~
+
+**CORRECTION (2026-02-09 audit):** The Go code referencing the `subscriptions` table exists but is **confirmed dead code** — zero frontend calls reach the `/payments-*` endpoints. The agency-level billing at `/api/v1/billing/` is the only active subscription flow.
+
+**Production verification (2026-02-09):**
+- `SELECT COUNT(*) FROM subscriptions;` → **0 rows**
+- `SELECT COUNT(*) FROM users WHERE subscription_id IS NOT NULL;` → **1 row** (owner's test account with empty strings and `2000-01-01` placeholder date)
+
+**Updated answer: Go references the table but nothing calls the code. Safe to remove.**
+
+**Updated recommendation for item #7:** Remove the entire user-level payment system in Wave 2 Stream I. Order: Go routes (`server.go:32-40`) → `domain/payment/` + handler → sqlc queries → regenerate sqlc → drop `subscriptions` table via migration → clean up user-level fields from `users` table last. Pre-removal verification: grep for `BasicPlan`/`PremiumPlan` in auth middleware to confirm no feature gates depend on them. See execution-roadmap.md Decision #2 and database-spec.md resolved question #3 for full rationale.
 
 ### Q4: RLS scope -- main connection or restricted role?
 
@@ -72,7 +88,7 @@ Frontend actively calls only these Go endpoints:
 
 All entity CRUD (consultations, proposals, contracts, invoices, clients, forms, emails) is handled by SvelteKit remote functions. The Go consultation endpoints exist but the frontend doesn't call them -- they're legacy.
 
-**Action:** Go consultation routes + `domain/consultation/` can be deprecated. But the `subscriptions` table and `payment/` service need evaluation first (see database Q3 above).
+**Action:** Go consultation routes + `domain/consultation/` can be deprecated (Wave 2-3, see execution-roadmap Decision #3). The `subscriptions` table and `payment/` service are confirmed dead code and scheduled for removal in Wave 2 Stream I (see database Q3 correction above).
 
 ### Q2: NATS future -- multi-instance planned within 6 months?
 

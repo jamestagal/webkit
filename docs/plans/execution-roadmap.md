@@ -186,8 +186,9 @@ SEQUENTIAL AFTER GROUP 1:
 | Populate dashboard stats | ui-spec #3 | 4-6 hrs | `+page.server.ts`, `+page.svelte` (dashboard) |
 | Activity feed (real data) | ui-spec #3 + business-spec #2 Phase B | 4-8 hrs | Same files + new `reporting.remote.ts` |
 | Reports page (Phase C) | business-spec #2 Phase C | 1-2 weeks | New route `reports/+page.svelte` |
+| Extract `$lib/utils/format.ts` currency/date utilities | ui-spec #12 Phase 1 + decision #4 | 3-5 hrs | New `format.ts`, 40+ files (find-and-replace inline `Intl.NumberFormat` / `toLocaleDateString`) |
 
-**Note:** Dashboard stats and activity feed are prerequisites for the full reports page. Run sequentially within this stream.
+**Note:** Dashboard stats and activity feed are prerequisites for the full reports page. Run sequentially within this stream. Currency utility extraction is independent and can run in parallel with any Phase.
 
 ### Stream H: Database Integrity (1 agent)
 
@@ -218,7 +219,9 @@ SEQUENTIAL AFTER GROUP 1:
 | Move JWT keys from Docker layers to env vars | arch-spec #6 | 2-4 hrs | Dockerfiles, `deploy-production.yml`, Go auth code |
 | Add migration tracking table | arch-spec #7 | 4-8 hrs | `run_migrations.sh`, new migration |
 | Traefik rate limiting | scalability-spec #3 Phase 1 | 1 hr | `docker-compose.production.yml` |
+| SvelteKit public endpoint rate limiting | scalability-spec #3 Phase 3 | 2-3 hrs | `hooks.server.ts` (IP-based throttle for `/p/`, `/c/`, `/i/`, `/f/` routes) |
 | **Remove legacy user-level payment system** | db-spec #7 (decision 2026-02-08) | 2-3 hrs | `domain/payment/`, `rest/payment_route.go`, `server.go:32-40`, `query_postgres.sql`, auth constants |
+| Add deprecation comment to Go consultation routes | decision #3 (2026-02-08) | 15 min | `server.go` consultation route registration |
 
 **Why one agent:** All CI/CD, infra, and legacy cleanup. No overlap with code streams.
 
@@ -251,9 +254,9 @@ FIRST (blocker — must complete before Stream H):
 └── Atlas workflow removal (part of Stream I)    ~1-2 hrs
 
 THEN PARALLEL GROUP 2 (all independent):
-├── Agent 1: Stream G (Dashboard/Reports)   ~2-3 weeks
+├── Agent 1: Stream G (Dashboard/Reports + currency utils)   ~2-3 weeks
 ├── Agent 2: Stream H (DB integrity)        ~6-9 hrs (revised up from 4-6)
-├── Agent 3: Stream I (Security/CI + legacy cleanup) ~12-18 hrs (revised up from 7-13)
+├── Agent 3: Stream I (Security/CI + legacy cleanup) ~15-21 hrs (revised: added SvelteKit rate limiting + Go deprecation comment)
 ├── Agent 4: Stream J (Deploy improvements) ~7-11 hrs
 └── Agent 5: Stream K (Onboarding)          ~1-2 weeks
 
@@ -262,7 +265,7 @@ Max parallel agents: 5
 
 **Stream G and K are the long poles** (weeks). H, I, J finish in 1-3 days each.
 
-**Stream I is larger than originally scoped** due to Atlas removal and legacy payment system cleanup. These additions are cleanup work that reduces future risk — not new features.
+**Stream I is larger than originally scoped** due to Atlas removal, legacy payment system cleanup, SvelteKit rate limiting, and Go consultation deprecation. These additions are cleanup and hardening work that reduces future risk — not new features.
 
 ---
 
@@ -325,7 +328,8 @@ All infra/Docker + Go pubsub code. No SvelteKit overlap.
 | Client portal | business-spec #3 | Yes, independent |
 | Recurring invoices | business-spec #4 | Yes, independent |
 | International support (currency/locale) | business-spec #5 + ui-spec #12 | Yes, independent |
-| Xero integration | business-spec #6 | Yes, independent |
+| Xero integration | business-spec #6 (Xero) | Yes, independent |
+| Slack notifications | business-spec #6 (Slack) | Yes, independent |
 | Template marketplace | business-spec #8 | Yes, independent |
 | Project management | business-spec #10 | Yes, independent |
 | Logo storage to R2 | ui-spec #9 | Yes, independent |
@@ -350,7 +354,7 @@ These files are touched by multiple items. **Never assign two agents to the same
 | `schema.ts` (Drizzle) | Stream H (constraints, drift fixes) | Single agent |
 | `schema_postgres.sql` (Go) | Stream H (drift fixes) | Single agent |
 | `subscription.ts` | Stream C (AI counter fix) | Single agent |
-| `deploy-production.yml` | Stream I (JWT), Stream J (zero-downtime) | Same wave but different sections; safer as one agent |
+| `deploy-production.yml` | Stream I (JWT — build-images job, lines 38-77), Stream J (zero-downtime — deploy job, lines 100-123) | Different jobs within the same file. Safe to parallelize if agents don't restructure the workflow YAML. |
 | `.github/workflows/*.yml` | Stream I (Atlas removal, JWT) | Single agent handles all workflow changes |
 | `schema_postgres.sql` (Go) | Stream H (drift fixes), Stream I (Atlas header comment) | Stream I adds header comment first, then Stream H modifies schema. Run I before H. |
 | `package.json` | Stream B (remove zod), Stream F (add dompurify) | Different waves, no conflict |

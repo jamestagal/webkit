@@ -251,7 +251,7 @@ if (PUBLIC_PATHS.some(p => event.url.pathname.startsWith(p))) {
 
 ## 4. Redis Caching Layer
 
-**Priority:** P1 (before launch)
+**Priority:** ~~P1 (before launch)~~ **P2 (post-launch, needed at ~200 agencies)** — capacity planning (item #10) confirms current PostgreSQL handles 50 agencies without caching. Redis becomes necessary when DB queries are the bottleneck at scale, not at launch.
 **Effort:** 1-2 days
 **Dependencies:** None
 
@@ -587,7 +587,7 @@ Estimated infrastructure: 2-3 VPS or managed K8s cluster
 | 7 | Zero-downtime deploys | P1 | 4-6 hrs | Health checks |
 | 8 | Graceful shutdown (Go) | P1 | 2-3 hrs | None |
 | 9 | Cloudflare CDN | P1 | 1-2 hrs | DNS on Cloudflare |
-| 4 | Redis caching | P1 | 1-2 days | None |
+| 4 | Redis caching | P2 (was P1 — deferred per capacity planning) | 1-2 days | None |
 | 5 | NATS persistence | P2 | 4-6 hrs | None |
 | 10 | Capacity planning | P2 | Ongoing | All above |
 
