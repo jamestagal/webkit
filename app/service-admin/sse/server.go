@@ -6,25 +6,25 @@ import (
 	"net/http"
 )
 
-func Run(h *Handler) {
+func Run(h *Handler) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/sse", h.handleSSE)
 
+	server := &http.Server{
+		Handler:           mux,
+		Addr:              ":" + h.cfg.SSEPort,
+		ReadHeaderTimeout: h.cfg.ReadTimeout,
+		IdleTimeout:       h.cfg.IdleTimeout,
+		WriteTimeout:      0,
+	}
 	go func() {
 		slog.Info("SSE server listening on", "port", h.cfg.SSEPort)
-		server := &http.Server{
-			Handler:           mux,
-			Addr:              ":" + h.cfg.SSEPort,
-			ReadHeaderTimeout: h.cfg.ReadTimeout,
-			IdleTimeout:       h.cfg.IdleTimeout,
-			WriteTimeout:      0,
-		}
-		err := server.ListenAndServe()
-		if err != nil {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("Error serving SSE", "error", err)
 			panic(err)
 		}
 	}()
+	return server
 }
 
 func (h *Handler) handleSSE(w http.ResponseWriter, r *http.Request) {

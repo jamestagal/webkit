@@ -91,8 +91,21 @@ jobs:
             # Pull latest images
             docker compose -f docker-compose.production.yml pull
 
-            # Restart services with new images
-            docker compose -f docker-compose.production.yml up -d --force-recreate
+            # Rolling restart: update each service one at a time
+            # Core API first (other services depend on it)
+            docker compose -f docker-compose.production.yml up -d --no-deps core
+            sleep 10
+            wget --no-verbose --tries=3 --spider http://localhost:4001/health || echo "Core health check pending"
+
+            # Admin service
+            docker compose -f docker-compose.production.yml up -d --no-deps admin
+            sleep 10
+            wget --no-verbose --tries=3 --spider http://localhost:3001/ready || echo "Admin health check pending"
+
+            # Client service
+            docker compose -f docker-compose.production.yml up -d --no-deps client
+            sleep 10
+            wget --no-verbose --tries=3 --spider http://localhost:3000 || echo "Client health check pending"
 
             # Clean up old images
             docker image prune -f
@@ -102,6 +115,7 @@ jobs:
 
       - name: Health check
         run: |
-          echo "Waiting for services to start..."
-          sleep 30
-          curl -f https://api.webkit.au/health || echo "Health check pending - services may still be starting"
+          echo "Waiting for services to stabilize..."
+          sleep 15
+          curl -f --retry 3 --retry-delay 5 https://api.webkit.au/health || echo "Health check pending - services may still be starting"
+          curl -f --retry 3 --retry-delay 5 https://app.webkit.au || echo "Client health check pending"

@@ -2,7 +2,13 @@ package main
 
 import (
 	"app/pkg"
+	"context"
 	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"service-admin/auth"
 	"service-admin/config"
 	"service-admin/grpc"
@@ -38,14 +44,30 @@ func main() {
 	// Set up REST handlers
 	restHandler := setupRESTHandlers(cfg, conn, broker)
 	// Run the REST server
-	rest.Run(restHandler)
+	restServer := rest.Run(restHandler)
 
 	// Set up SSE handler
 	sseHandler := setupSSEHandler(cfg, broker)
 	// Run the SSE server
-	sse.Run(sseHandler)
+	sseServer := sse.Run(sseHandler)
 
-	select {}
+	// Graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	slog.Info("Shutting down servers...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := restServer.Shutdown(ctx); err != nil {
+		slog.Error("REST server forced to shutdown", "error", err)
+	}
+	if err := sseServer.Shutdown(ctx); err != nil {
+		slog.Error("SSE server forced to shutdown", "error", err)
+	}
+
+	slog.Info("Servers stopped gracefully")
 }
 
 func setupRESTHandlers(cfg *config.Config, conn *grpc.Conn, broker *pubsub.EventBroker) *rest.Handler {

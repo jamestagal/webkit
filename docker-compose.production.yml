@@ -63,6 +63,13 @@ services:
       - "traefik.http.middlewares.api-ratelimit.ratelimit.average=100"
       - "traefik.http.middlewares.api-ratelimit.ratelimit.burst=200"
       - "traefik.http.middlewares.api-ratelimit.ratelimit.period=1s"
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       postgres:
         condition: service_healthy
@@ -101,6 +108,13 @@ services:
       - "traefik.http.middlewares.admin-ratelimit.ratelimit.average=50"
       - "traefik.http.middlewares.admin-ratelimit.ratelimit.burst=100"
       - "traefik.http.middlewares.admin-ratelimit.ratelimit.period=1s"
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       - core
       - nats
@@ -161,6 +175,13 @@ services:
       - "traefik.http.middlewares.client-ratelimit.ratelimit.average=200"
       - "traefik.http.middlewares.client-ratelimit.ratelimit.burst=400"
       - "traefik.http.middlewares.client-ratelimit.ratelimit.period=1s"
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       - core
 

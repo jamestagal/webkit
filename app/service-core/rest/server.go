@@ -9,7 +9,7 @@ import (
 	"service-core/config"
 )
 
-func Run(apiHandler *Handler) {
+func Run(apiHandler *Handler) *http.Server {
 	cfg := apiHandler.cfg
 	mux := http.NewServeMux()
 
@@ -120,15 +120,15 @@ func Run(apiHandler *Handler) {
 	corsHandler := corsMiddleware(cfg, mux)
 	handler := loggingMiddleware(corsHandler)
 
+	server := &http.Server{Addr: ":" + cfg.HTTPPort, Handler: handler, ReadHeaderTimeout: cfg.HTTPTimeout, WriteTimeout: cfg.HTTPTimeout}
 	go func() {
 		slog.Info("HTTP server listening on", "port", cfg.HTTPPort)
-		server := &http.Server{Addr: ":" + cfg.HTTPPort, Handler: handler, ReadHeaderTimeout: cfg.HTTPTimeout, WriteTimeout: cfg.HTTPTimeout}
-		err := server.ListenAndServe()
-		if err != nil {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("Error serving HTTP", "error", err)
 			panic(err)
 		}
 	}()
+	return server
 }
 
 // corsMiddleware handles CORS headers globally
