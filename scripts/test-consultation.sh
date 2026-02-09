@@ -182,11 +182,12 @@ setup_database() {
     fi
 
     # Run migrations
-    if [[ -f "$PROJECT_ROOT/scripts/atlas.sh" ]]; then
-        log INFO "Running database migrations..."
-        cd "$PROJECT_ROOT"
-        bash scripts/atlas.sh postgres
-    fi
+    log INFO "Running database migrations..."
+    cd "$PROJECT_ROOT"
+    for f in migrations/*.sql; do
+        log INFO "Applying $f..."
+        PGHOST="$DB_HOST" PGPORT="$DB_PORT" PGDATABASE="$DB_NAME" PGUSER="$DB_USER" PGPASSWORD="$DB_PASSWORD" psql < "$f"
+    done
 
     # Generate SQLC code
     if [[ -f "$SERVICE_ROOT/sqlc.yaml" ]]; then

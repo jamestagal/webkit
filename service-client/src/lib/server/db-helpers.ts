@@ -380,6 +380,14 @@ export const AUDIT_ACTIONS = {
 
 	// Data
 	DATA_EXPORTED: "data.exported",
+
+	// Subscriptions & Billing
+	SUBSCRIPTION_UPGRADED: "subscription.upgraded",
+	SUBSCRIPTION_DOWNGRADED: "subscription.downgraded",
+	SUBSCRIPTION_CHANGED: "subscription.changed",
+	PAYMENT_RECEIVED: "payment.received",
+	STRIPE_CONNECTED: "stripe.connected",
+	STRIPE_DISCONNECTED: "stripe.disconnected",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

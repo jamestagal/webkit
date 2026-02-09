@@ -84,10 +84,9 @@
 
 	// Add/remove click listener when dropdown opens/closes
 	$effect(() => {
-		if (showDropdown) {
-			document.addEventListener('click', handleClickOutside);
-			return () => document.removeEventListener('click', handleClickOutside);
-		}
+		if (!showDropdown) return;
+		document.addEventListener('click', handleClickOutside);
+		return () => document.removeEventListener('click', handleClickOutside);
 	});
 </script>
 

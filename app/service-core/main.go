@@ -5,6 +5,11 @@ import (
 	"app/pkg/auth"
 	"context"
 	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"service-core/config"
 	"service-core/domain/billing"
 	"service-core/domain/consultation"
@@ -12,7 +17,6 @@ import (
 	"service-core/domain/file"
 	"service-core/domain/login"
 	"service-core/domain/note"
-	"service-core/domain/payment"
 	"service-core/domain/user"
 	"service-core/grpc"
 	"service-core/rest"
@@ -44,14 +48,29 @@ func main() {
 	// Set up the REST handlers
 	restHandler := setupRESTHandlers(cfg, s)
 	// Run the REST server
-	rest.Run(restHandler)
+	restServer := rest.Run(restHandler)
 
 	// Set up the gRPC handlers
 	grpcHandler := setupGRPCHandlers(cfg, s)
 	// Run the gRPC server
-	grpc.Run(grpcHandler)
+	grpcServer := grpc.Run(grpcHandler)
 
-	select {}
+	// Graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	slog.Info("Shutting down servers...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := restServer.Shutdown(ctx); err != nil {
+		slog.Error("REST server forced to shutdown", "error", err)
+	}
+
+	grpcServer.GracefulStop()
+
+	slog.Info("Servers stopped gracefully")
 }
 
 func setupRESTHandlers(cfg *config.Config, storage *storage.Storage) *rest.Handler {
@@ -62,8 +81,6 @@ func setupRESTHandlers(cfg *config.Config, storage *storage.Storage) *rest.Handl
 	emailProvider := email.NewProvider(cfg)
 	emailService := email.NewService(cfg, store, emailProvider, fileService)
 	loginService := login.NewService(cfg, store, authService, emailService)
-	paymentProvider := payment.NewProvider(cfg)
-	paymentService := payment.NewService(cfg, store, paymentProvider)
 	billingService := billing.NewService(cfg, store)
 	noteService := note.NewService(store)
 
@@ -78,7 +95,6 @@ func setupRESTHandlers(cfg *config.Config, storage *storage.Storage) *rest.Handl
 		storage,
 		authService,
 		loginService,
-		paymentService,
 		billingService,
 		emailService,
 		fileService,

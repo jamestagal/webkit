@@ -24,8 +24,6 @@ var AllPermissions = []Permission{
 	{ID: "InsertNote", Value: 0x0000000000000002, Description: "Insert Note"},
 	{ID: "UpdateNote", Value: 0x0000000000000004, Description: "Update Note"},
 	{ID: "DeleteNote", Value: 0x0000000000000008, Description: "Delete Note"},
-	{ID: "ReadPayments", Value: 0x0000000000000010, Description: "Read Payments"},
-	{ID: "CreatePayment", Value: 0x0000000000000020, Description: "Create Payment"},
 	{ID: "ReadEmails", Value: 0x0000000000000040, Description: "Read Emails"},
 	{ID: "SendEmail", Value: 0x0000000000000080, Description: "Send Email"},
 	{ID: "ReadFiles", Value: 0x0000000000000100, Description: "Read Files"},
@@ -86,7 +84,7 @@ func UserAccessForm(cfg *config.Config) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(p.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/pages/users/user_access.templ`, Line: 64, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/pages/users/user_access.templ`, Line: 62, Col: 27}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -99,7 +97,7 @@ func UserAccessForm(cfg *config.Config) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(p.Description)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/pages/users/user_access.templ`, Line: 64, Col: 94}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/pages/users/user_access.templ`, Line: 62, Col: 94}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -112,7 +110,7 @@ func UserAccessForm(cfg *config.Config) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(p.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/pages/users/user_access.templ`, Line: 69, Col: 21}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/pages/users/user_access.templ`, Line: 67, Col: 21}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -125,7 +123,7 @@ func UserAccessForm(cfg *config.Config) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", p.Value))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/pages/users/user_access.templ`, Line: 71, Col: 46}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/pages/users/user_access.templ`, Line: 69, Col: 46}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {

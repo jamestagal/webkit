@@ -8,6 +8,7 @@
 
 	import { page } from "$app/state";
 	import { goto } from "$app/navigation";
+	import { formatDateTime } from '$lib/utils/formatting';
 	import DynamicForm from "$lib/components/form-renderer/DynamicForm.svelte";
 	import { getConsultation } from "$lib/api/consultation.remote";
 	import { getFormById } from "$lib/api/forms.remote";
@@ -86,18 +87,6 @@
 		(consultation.customData as Record<string, unknown>) ?? undefined,
 	);
 
-	function formatDate(date: Date | string | null): string {
-		if (!date) return "N/A";
-		const d = new Date(date);
-		return d.toLocaleDateString("en-AU", {
-			day: "numeric",
-			month: "long",
-			year: "numeric",
-			hour: "2-digit",
-			minute: "2-digit",
-		});
-	}
-
 	function getStatusBadgeClass(status: string): string {
 		switch (status) {
 			case "completed":
@@ -154,7 +143,7 @@
 							{consultation.status}
 						</span>
 						<span class="text-sm text-base-content/60">
-							Created {formatDate(consultation.createdAt)}
+							Created {formatDateTime(consultation.createdAt)}
 						</span>
 					</div>
 				</div>
@@ -203,11 +192,11 @@
 				</div>
 				<div>
 					<dt class="font-medium text-base-content/60">Created</dt>
-					<dd class="mt-1">{formatDate(consultation.createdAt)}</dd>
+					<dd class="mt-1">{formatDateTime(consultation.createdAt)}</dd>
 				</div>
 				<div>
 					<dt class="font-medium text-base-content/60">Last Updated</dt>
-					<dd class="mt-1">{formatDate(consultation.updatedAt)}</dd>
+					<dd class="mt-1">{formatDateTime(consultation.updatedAt)}</dd>
 				</div>
 			</div>
 		</div>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Search, Filter, ChevronLeft, ChevronRight, Building2 } from 'lucide-svelte';
 	import { getAgencies } from '$lib/api/super-admin.remote';
+	import { formatDate } from '$lib/utils/formatting';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
@@ -67,13 +68,7 @@
 		loadAgencies();
 	}
 
-	function formatDate(date: Date | string): string {
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric'
-		});
-	}
+	// formatDate imported from '$lib/utils/formatting'
 
 	function getStatusBadgeClass(status: string): string {
 		switch (status) {

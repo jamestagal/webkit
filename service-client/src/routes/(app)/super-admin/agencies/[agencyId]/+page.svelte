@@ -3,6 +3,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { ArrowLeft, ExternalLink, Users, FileText, Briefcase, Receipt, Shield } from 'lucide-svelte';
 	import { getAgencyDetails, updateAgencyStatus, impersonateAgency } from '$lib/api/super-admin.remote';
+	import { formatDateTime } from '$lib/utils/formatting';
 	import { onMount } from 'svelte';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 
@@ -105,13 +106,7 @@
 	}
 
 	function formatDate(date: Date | string): string {
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
+		return formatDateTime(date);
 	}
 
 	function getStatusBadgeClass(status: string): string {

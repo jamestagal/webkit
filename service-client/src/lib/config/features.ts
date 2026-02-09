@@ -15,6 +15,7 @@ import {
 	Users,
 	ClipboardList,
 	Send,
+	ChartColumnBig,
 } from "lucide-svelte";
 import type { ComponentType } from "svelte";
 
@@ -35,7 +36,8 @@ export type FeatureKey =
 	| "contracts"
 	| "invoices"
 	| "forms"
-	| "clients";
+	| "clients"
+	| "reports";
 
 /**
  * Core feature configurations with consistent icons and colors
@@ -92,6 +94,14 @@ export const FEATURES: Record<FeatureKey, FeatureConfig> = {
 		icon: Users,
 		color: "#14b8a6", // Teal
 		colorLight: "#14b8a615",
+	},
+	reports: {
+		key: "reports",
+		title: "Reports",
+		description: "Track revenue, pipeline health, conversion rates, and team performance at a glance.",
+		icon: ChartColumnBig,
+		color: "#f59e0b", // Amber
+		colorLight: "#f59e0b15",
 	},
 };
 

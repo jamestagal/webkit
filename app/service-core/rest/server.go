@@ -9,7 +9,7 @@ import (
 	"service-core/config"
 )
 
-func Run(apiHandler *Handler) {
+func Run(apiHandler *Handler) *http.Server {
 	cfg := apiHandler.cfg
 	mux := http.NewServeMux()
 
@@ -28,16 +28,6 @@ func Run(apiHandler *Handler) {
 	mux.HandleFunc("/api/v1/login-callback/{provider}", apiHandler.handleLoginCallback)
 	mux.HandleFunc("/api/v1/login-phone", apiHandler.handleLoginPhone)
 	mux.HandleFunc("/api/v1/login-verify", apiHandler.handleLoginVerify)
-
-	// Payments (user subscriptions)
-	mux.HandleFunc("/payments-portal", apiHandler.handlePaymentsPortal)
-	mux.HandleFunc("/payments-checkout", apiHandler.handlePaymentsCheckout)
-	mux.HandleFunc("/payments-update", apiHandler.handlePaymentsUpdate)
-	mux.HandleFunc("/payments-webhook", apiHandler.handlePaymentsWebhook)
-	mux.HandleFunc("/api/v1/payments-portal", apiHandler.handlePaymentsPortal)
-	mux.HandleFunc("/api/v1/payments-checkout", apiHandler.handlePaymentsCheckout)
-	mux.HandleFunc("/api/v1/payments-update", apiHandler.handlePaymentsUpdate)
-	mux.HandleFunc("/api/v1/payments-webhook", apiHandler.handlePaymentsWebhook)
 
 	// Billing (agency subscriptions)
 	mux.HandleFunc("/api/v1/billing/info", apiHandler.handleBillingInfo)
@@ -64,6 +54,8 @@ func Run(apiHandler *Handler) {
 	mux.HandleFunc("/api/v1/notes", apiHandler.handleNotesCollection)
 	mux.HandleFunc("/api/v1/notes/{id}", apiHandler.handleNoteResource)
 
+	// DEPRECATED: Consultation routes are unused by the frontend (SvelteKit handles all CRUD).
+	// Scheduled for removal in Wave 3. See docs/plans/execution-roadmap.md Stream N.
 	// Consultations - Core CRUD operations (both legacy and API v1 paths)
 	mux.HandleFunc("/consultations", apiHandler.handleConsultationsCollection)
 	mux.HandleFunc("/consultations/{id}", apiHandler.handleConsultationResource)
@@ -128,15 +120,15 @@ func Run(apiHandler *Handler) {
 	corsHandler := corsMiddleware(cfg, mux)
 	handler := loggingMiddleware(corsHandler)
 
+	server := &http.Server{Addr: ":" + cfg.HTTPPort, Handler: handler, ReadHeaderTimeout: cfg.HTTPTimeout, WriteTimeout: cfg.HTTPTimeout}
 	go func() {
 		slog.Info("HTTP server listening on", "port", cfg.HTTPPort)
-		server := &http.Server{Addr: ":" + cfg.HTTPPort, Handler: handler, ReadHeaderTimeout: cfg.HTTPTimeout, WriteTimeout: cfg.HTTPTimeout}
-		err := server.ListenAndServe()
-		if err != nil {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("Error serving HTTP", "error", err)
 			panic(err)
 		}
 	}()
+	return server
 }
 
 // corsMiddleware handles CORS headers globally
@@ -246,7 +238,7 @@ func writeResponse(cfg *config.Config, w http.ResponseWriter, r *http.Request, d
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"success": false,
-				"message": err.Error(),
+				"message": "An internal error occurred",
 				"code":    500,
 			})
 			return

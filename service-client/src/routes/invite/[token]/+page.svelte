@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { env } from '$env/dynamic/public';
 	import { page } from '$app/state';
+	import { formatDate } from '$lib/utils/formatting';
 
 	let { data } = $props();
 
@@ -8,17 +9,6 @@
 
 	// Check if we're returning from a magic link send (Core redirects back with ?send=true)
 	let magicLinkSent = $derived(page.url.searchParams.get('send') === 'true');
-
-	// Format date for display
-	function formatDate(date: string | Date | null): string {
-		if (!date) return '';
-		const d = typeof date === 'string' ? new Date(date) : date;
-		return d.toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'long',
-			year: 'numeric'
-		});
-	}
 </script>
 
 <svelte:head>
@@ -194,7 +184,7 @@
 
 				{#if data.expiresAt}
 					<p class="mt-6 text-center text-sm text-gray-500">
-						This invite expires on {formatDate(data.expiresAt)}
+						This invite expires on {formatDate(data.expiresAt, 'long')}
 					</p>
 				{/if}
 			</div>

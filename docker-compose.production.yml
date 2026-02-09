@@ -38,6 +38,9 @@ services:
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-resend}
       EMAIL_FROM: ${EMAIL_FROM:-noreply@webkit.au}
       RESEND_API_KEY: ${RESEND_API_KEY}
+      # JWT Keys (runtime injection)
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
       # File Storage (R2)
       FILE_PROVIDER: r2
       BUCKET_NAME: ${BUCKET_NAME:-webkit-files}
@@ -54,7 +57,19 @@ services:
       - "traefik.http.routers.webkit-api.entrypoints=websecure"
       - "traefik.http.routers.webkit-api.tls.certresolver=letsencrypt"
       - "traefik.http.routers.webkit-api.service=webkit-api"
+      - "traefik.http.routers.webkit-api.middlewares=api-ratelimit@docker"
       - "traefik.http.services.webkit-api.loadbalancer.server.port=4001"
+      # Rate limiting
+      - "traefik.http.middlewares.api-ratelimit.ratelimit.average=100"
+      - "traefik.http.middlewares.api-ratelimit.ratelimit.burst=200"
+      - "traefik.http.middlewares.api-ratelimit.ratelimit.period=1s"
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,6 +91,8 @@ services:
       NATS_URL: nats://nats:4222
       CORE_URL: https://api.webkit.au
       CORE_URI: core:4002
+      # JWT Keys (runtime injection)
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
     networks:
       - traefik-public
       - webkit-internal
@@ -85,7 +102,19 @@ services:
       - "traefik.http.routers.webkit-admin.entrypoints=websecure"
       - "traefik.http.routers.webkit-admin.tls.certresolver=letsencrypt"
       - "traefik.http.routers.webkit-admin.service=webkit-admin"
+      - "traefik.http.routers.webkit-admin.middlewares=admin-ratelimit@docker"
       - "traefik.http.services.webkit-admin.loadbalancer.server.port=3001"
+      # Rate limiting
+      - "traefik.http.middlewares.admin-ratelimit.ratelimit.average=50"
+      - "traefik.http.middlewares.admin-ratelimit.ratelimit.burst=100"
+      - "traefik.http.middlewares.admin-ratelimit.ratelimit.period=1s"
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       - core
       - nats
@@ -129,6 +158,8 @@ services:
       PUBLIC_STRIPE_PUBLISHABLE_KEY: ${PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
       # AI Services (Claude API for proposal generation)
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # JWT Keys (runtime injection)
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
     networks:
       - traefik-public
       - webkit-internal
@@ -138,7 +169,19 @@ services:
       - "traefik.http.routers.webkit-client.entrypoints=websecure"
       - "traefik.http.routers.webkit-client.tls.certresolver=letsencrypt"
       - "traefik.http.routers.webkit-client.service=webkit-client"
+      - "traefik.http.routers.webkit-client.middlewares=client-ratelimit@docker"
       - "traefik.http.services.webkit-client.loadbalancer.server.port=3000"
+      # Rate limiting
+      - "traefik.http.middlewares.client-ratelimit.ratelimit.average=200"
+      - "traefik.http.middlewares.client-ratelimit.ratelimit.burst=400"
+      - "traefik.http.middlewares.client-ratelimit.ratelimit.period=1s"
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       - core
 
@@ -181,8 +224,20 @@ services:
     image: gotenberg/gotenberg:8
     container_name: webkit-gotenberg
     restart: unless-stopped
+    command:
+      - "gotenberg"
+      - "--api-timeout=60s"
+      - "--chromium-restart-after=50"
+      - "--chromium-max-queue-size=10"
+      - "--log-level=warn"
     networks:
       - webkit-internal
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
 
 # =============================================================================
 # Networks

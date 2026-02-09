@@ -3,14 +3,19 @@ import { readFileSync, existsSync } from "fs";
 import { logger } from "./logger";
 import path from "path";
 
-// Determine public key path - Docker uses /public.pem, local dev uses relative path
-function getPublicKeyPath(): string {
-	// Check Docker path first
+// Load public key - check env var first, then fall back to file
+function getPublicKeyContent(): string {
+	// Check env var first (production)
+	const envKey = process.env["JWT_PUBLIC_KEY"];
+	if (envKey) {
+		return envKey;
+	}
+	// Check Docker path
 	if (existsSync("/public.pem")) {
-		return "/public.pem";
+		return readFileSync("/public.pem", "utf-8");
 	}
 	// Fall back to relative path for local development
-	return path.resolve(process.cwd(), "public.pem");
+	return readFileSync(path.resolve(process.cwd(), "public.pem"), "utf-8");
 }
 
 // Verify a JWT token using EdDSA
@@ -21,7 +26,7 @@ export async function verifyJWT<T>(token: string): Promise<T | undefined> {
 	}
 
 	try {
-		const publicKey = readFileSync(getPublicKeyPath(), "utf-8");
+		const publicKey = getPublicKeyContent();
 		const p = await jose.importSPKI(publicKey, "EdDSA");
 		const { payload } = await jose.jwtVerify<T>(token, p);
 		return payload;

@@ -33,6 +33,7 @@ import {
 } from "$lib/templates/email-templates";
 import { getAgencyContext } from "$lib/server/agency";
 import { getOrCreateClient } from "$lib/api/clients.remote";
+import { getNextDocumentNumber } from "$lib/server/document-numbers";
 import { logActivity } from "$lib/server/db-helpers";
 import {
 	hasPermission,
@@ -42,6 +43,7 @@ import {
 } from "$lib/server/permissions";
 import { eq, and, desc, asc, gte, lte, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { formatDateTime } from "$lib/utils/formatting";
 
 // =============================================================================
 // Validation Schemas
@@ -156,15 +158,6 @@ async function generateUniqueSlug(): Promise<string> {
 
 	// Fallback: use timestamp-based slug
 	return `inv-${Date.now()}-${nanoid(6)}`;
-}
-
-/**
- * Generate invoice number based on agency prefix and sequence.
- */
-function generateInvoiceNumber(prefix: string, nextNumber: number): string {
-	const year = new Date().getFullYear();
-	const paddedNumber = String(nextNumber).padStart(4, "0");
-	return `${prefix}-${year}-${paddedNumber}`;
 }
 
 /**
@@ -531,11 +524,8 @@ export const createInvoice = command(CreateInvoiceSchema, async (data) => {
 		.where(eq(agencyProfiles.agencyId, context.agencyId))
 		.limit(1);
 
-	// Generate invoice number
-	const invoiceNumber = generateInvoiceNumber(
-		profile?.invoicePrefix || "INV",
-		profile?.nextInvoiceNumber || 1,
-	);
+	// Generate invoice number atomically
+	const invoiceNumber = await getNextDocumentNumber(context.agencyId, "invoice");
 
 	// Generate slug
 	const slug = await generateUniqueSlug();
@@ -623,14 +613,6 @@ export const createInvoice = command(CreateInvoiceSchema, async (data) => {
 		});
 	}
 
-	// Increment invoice number
-	if (profile) {
-		await db
-			.update(agencyProfiles)
-			.set({ nextInvoiceNumber: (profile.nextInvoiceNumber || 1) + 1 })
-			.where(eq(agencyProfiles.id, profile.id));
-	}
-
 	// Log activity
 	await logActivity("invoice.created", "invoice", invoice.id, {
 		newValues: { invoiceNumber },
@@ -673,11 +655,8 @@ export const createInvoiceFromProposal = command(
 			.where(eq(agencyProfiles.agencyId, context.agencyId))
 			.limit(1);
 
-		// Generate invoice number
-		const invoiceNumber = generateInvoiceNumber(
-			profile?.invoicePrefix || "INV",
-			profile?.nextInvoiceNumber || 1,
-		);
+		// Generate invoice number atomically
+		const invoiceNumber = await getNextDocumentNumber(context.agencyId, "invoice");
 
 		const slug = await generateUniqueSlug();
 		const issueDate = new Date();
@@ -849,14 +828,6 @@ export const createInvoiceFromProposal = command(
 			});
 		}
 
-		// Increment invoice number
-		if (profile) {
-			await db
-				.update(agencyProfiles)
-				.set({ nextInvoiceNumber: (profile.nextInvoiceNumber || 1) + 1 })
-				.where(eq(agencyProfiles.id, profile.id));
-		}
-
 		await logActivity("invoice.created_from_proposal", "invoice", invoice.id, {
 			newValues: { invoiceNumber, proposalId },
 		});
@@ -899,11 +870,8 @@ export const createInvoiceFromContract = command(
 			.where(eq(agencyProfiles.agencyId, context.agencyId))
 			.limit(1);
 
-		// Generate invoice number
-		const invoiceNumber = generateInvoiceNumber(
-			profile?.invoicePrefix || "INV",
-			profile?.nextInvoiceNumber || 1,
-		);
+		// Generate invoice number atomically
+		const invoiceNumber = await getNextDocumentNumber(context.agencyId, "invoice");
 
 		const slug = await generateUniqueSlug();
 		const issueDate = new Date();
@@ -984,14 +952,6 @@ export const createInvoiceFromContract = command(
 				invoiceId: invoice.id,
 				...item,
 			});
-		}
-
-		// Increment invoice number
-		if (profile) {
-			await db
-				.update(agencyProfiles)
-				.set({ nextInvoiceNumber: (profile.nextInvoiceNumber || 1) + 1 })
-				.where(eq(agencyProfiles.id, profile.id));
 		}
 
 		await logActivity("invoice.created_from_contract", "invoice", invoice.id, {
@@ -1176,17 +1136,8 @@ export const duplicateInvoice = command(v.pipe(v.string(), v.uuid()), async (inv
 		throw new Error("Invoice not found");
 	}
 
-	// Get agency profile for new invoice number
-	const [profile] = await db
-		.select()
-		.from(agencyProfiles)
-		.where(eq(agencyProfiles.agencyId, context.agencyId))
-		.limit(1);
-
-	const invoiceNumber = generateInvoiceNumber(
-		profile?.invoicePrefix || "INV",
-		profile?.nextInvoiceNumber || 1,
-	);
+	// Generate invoice number atomically
+	const invoiceNumber = await getNextDocumentNumber(context.agencyId, "invoice");
 	const slug = await generateUniqueSlug();
 	const issueDate = new Date();
 	const dueDate = calculateDueDate(issueDate, original.paymentTerms);
@@ -1246,14 +1197,6 @@ export const duplicateInvoice = command(v.pipe(v.string(), v.uuid()), async (inv
 			packageId: item.packageId,
 			addonId: item.addonId,
 		});
-	}
-
-	// Increment invoice number
-	if (profile) {
-		await db
-			.update(agencyProfiles)
-			.set({ nextInvoiceNumber: (profile.nextInvoiceNumber || 1) + 1 })
-			.where(eq(agencyProfiles.id, profile.id));
 	}
 
 	await logActivity("invoice.duplicated", "invoice", newInvoice.id, {
@@ -1384,13 +1327,7 @@ export const recordPayment = command(RecordPaymentSchema, async (data) => {
 	// Send payment notification emails (fire-and-forget)
 	const baseUrl = env.PUBLIC_CLIENT_URL || "https://webkit.au";
 	const publicUrl = `${baseUrl}/i/${invoice.slug}`;
-	const paidAtFormatted = paidAt.toLocaleDateString("en-AU", {
-		day: "numeric",
-		month: "short",
-		year: "numeric",
-		hour: "2-digit",
-		minute: "2-digit",
-	});
+	const paidAtFormatted = formatDateTime(paidAt);
 
 	const paymentMethodLabel =
 		data.paymentMethod === "bank_transfer"

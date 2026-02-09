@@ -15,6 +15,7 @@
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { updateContract, deleteContract, regenerateContractTerms, linkTemplateToContract } from '$lib/api/contracts.remote';
 	import { sendContractEmail } from '$lib/api/email.remote';
+	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
 	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';
 	import {
@@ -39,6 +40,7 @@
 		RefreshCw,
 		Link2
 	} from 'lucide-svelte';
+	import { formatCurrency, formatDate } from '$lib/utils/formatting';
 	import type { PageProps } from './$types';
 
 	const toast = getToast();
@@ -387,23 +389,6 @@
 
 	function goBack() {
 		goto(`/${agencySlug}/contracts`);
-	}
-
-	function formatDate(date: Date | string | null) {
-		if (!date) return '-';
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric'
-		});
-	}
-
-	function formatCurrency(value: string | number) {
-		const num = typeof value === 'string' ? parseFloat(value) : value;
-		return new Intl.NumberFormat('en-AU', {
-			style: 'currency',
-			currency: 'AUD'
-		}).format(num);
 	}
 
 	// Group schedules by category
@@ -1034,7 +1019,7 @@
 									{#each availableSchedules.filter((s) => includedScheduleIds.includes(s.id)) as schedule}
 										<div class="border-b border-base-200 pb-4 mb-4 last:border-0">
 											<h4 class="text-base font-semibold">{schedule.name}</h4>
-											{@html schedule.content}
+											{@html sanitizeHtml(schedule.content)}
 										</div>
 									{/each}
 								</div>

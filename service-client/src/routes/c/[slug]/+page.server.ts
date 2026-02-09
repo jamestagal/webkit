@@ -16,6 +16,7 @@ import {
 	generateContractSignedAgencyEmail,
 } from "$lib/templates/email-templates";
 import { env } from "$env/dynamic/public";
+import { formatDateTime } from "$lib/utils/formatting";
 
 export const load: PageServerLoad = async ({ params, url }) => {
 	const { slug } = params;
@@ -162,13 +163,7 @@ export const actions: Actions = {
 		// Send notification emails (fire-and-forget, don't block the response)
 		const baseUrl = env.PUBLIC_CLIENT_URL || "https://webkit.au";
 		const publicUrl = `${baseUrl}/c/${slug}`;
-		const signedAt = new Date().toLocaleDateString("en-AU", {
-			day: "numeric",
-			month: "short",
-			year: "numeric",
-			hour: "2-digit",
-			minute: "2-digit",
-		});
+		const signedAt = formatDateTime(new Date());
 
 		// Fetch agency for email templates
 		db.select()

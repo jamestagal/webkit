@@ -10,9 +10,10 @@
 
 import { db } from "$lib/server/db";
 import { agencies, agencyMemberships, consultations } from "$lib/server/schema";
-import { eq, and, gte, count } from "drizzle-orm";
+import { eq, and, gte, count, sql } from "drizzle-orm";
 import { error } from "@sveltejs/kit";
 import { getAgencyContext } from "$lib/server/agency";
+import { formatDate } from "$lib/utils/formatting";
 
 // =============================================================================
 // Tier Definitions
@@ -45,9 +46,9 @@ export type TierFeature =
 export const TIER_DEFINITIONS: Record<SubscriptionTier, TierLimits> = {
 	free: {
 		maxMembers: 1,
-		maxConsultationsPerMonth: 5,
+		maxConsultationsPerMonth: 10,
 		maxAIGenerationsPerMonth: 5,
-		maxTemplates: 1,
+		maxTemplates: 3,
 		maxStorageMB: 100,
 		features: ["basic_proposals", "ai_proposal_generation"],
 	},
@@ -334,39 +335,26 @@ export async function canGenerateWithAI(agencyId?: string): Promise<{
 /**
  * Increment AI generation counter for an agency.
  * Call this after a successful AI generation.
+ * Uses atomic SQL to prevent race conditions with concurrent requests.
  */
 export async function incrementAIGenerationCount(agencyId: string): Promise<void> {
 	const now = new Date();
 	const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-	// Get current state
-	const [agency] = await db
-		.select({
-			aiGenerationsThisMonth: agencies.aiGenerationsThisMonth,
-			aiGenerationsResetAt: agencies.aiGenerationsResetAt,
-		})
-		.from(agencies)
-		.where(eq(agencies.id, agencyId))
-		.limit(1);
-
-	// If reset is needed (new month), set to 1; otherwise increment
-	if (!agency?.aiGenerationsResetAt || agency.aiGenerationsResetAt < startOfMonth) {
-		await db
-			.update(agencies)
-			.set({
-				aiGenerationsThisMonth: 1,
-				aiGenerationsResetAt: now,
-			})
-			.where(eq(agencies.id, agencyId));
-	} else {
-		const currentCount = agency.aiGenerationsThisMonth ?? 0;
-		await db
-			.update(agencies)
-			.set({
-				aiGenerationsThisMonth: currentCount + 1,
-			})
-			.where(eq(agencies.id, agencyId));
-	}
+	await db.execute(sql`
+		UPDATE agencies
+		SET ai_generations_this_month = CASE
+			WHEN ai_generations_reset_at IS NULL OR ai_generations_reset_at < ${startOfMonth}
+			THEN 1
+			ELSE ai_generations_this_month + 1
+		END,
+		ai_generations_reset_at = CASE
+			WHEN ai_generations_reset_at IS NULL OR ai_generations_reset_at < ${startOfMonth}
+			THEN ${now}
+			ELSE ai_generations_reset_at
+		END
+		WHERE id = ${agencyId}
+	`);
 }
 
 // =============================================================================
@@ -397,7 +385,7 @@ export async function enforceConsultationLimit(agencyId?: string): Promise<void>
 		throw error(
 			403,
 			`Monthly consultation limit reached (${result.current}/${result.limit}). ` +
-				`Limit resets on ${result.resetsAt.toLocaleDateString()}. ` +
+				`Limit resets on ${formatDate(result.resetsAt)}. ` +
 				`Upgrade your plan for more consultations.`,
 		);
 	}
@@ -413,7 +401,7 @@ export async function enforceAIGenerationLimit(agencyId?: string): Promise<void>
 		throw error(
 			403,
 			`Monthly AI generation limit reached (${result.current}/${result.limit}). ` +
-				`Limit resets on ${result.resetsAt.toLocaleDateString()}. ` +
+				`Limit resets on ${formatDate(result.resetsAt)}. ` +
 				`Upgrade your plan for more AI generations.`,
 		);
 	}

@@ -41,7 +41,8 @@
 		{ label: 'Proposals', url: `/${agencySlug}/proposals`, icon: FEATURES.proposals.icon, color: FEATURES.proposals.color },
 		{ label: 'Contracts', url: `/${agencySlug}/contracts`, icon: FEATURES.contracts.icon, color: FEATURES.contracts.color },
 		{ label: 'Invoices', url: `/${agencySlug}/invoices`, icon: FEATURES.invoices.icon, color: FEATURES.invoices.color },
-		{ label: 'Forms', url: `/${agencySlug}/forms`, icon: FEATURES.forms.icon, color: FEATURES.forms.color }
+		{ label: 'Forms', url: `/${agencySlug}/forms`, icon: FEATURES.forms.icon, color: FEATURES.forms.color },
+		{ label: 'Reports', url: `/${agencySlug}/reports`, icon: FEATURES.reports.icon, color: FEATURES.reports.color }
 	]);
 
 	// Admin navigation (only shown to owner/admin)

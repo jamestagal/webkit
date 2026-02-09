@@ -15,7 +15,7 @@
 
 import type { RequestHandler } from "./$types";
 import { db } from "$lib/server/db";
-import { invoices, agencies, agencyProfiles, emailLogs } from "$lib/server/schema";
+import { invoices, agencies, agencyProfiles, emailLogs, agencyActivityLog } from "$lib/server/schema";
 import { eq } from "drizzle-orm";
 import Stripe from "stripe";
 import { env } from "$env/dynamic/private";
@@ -25,6 +25,7 @@ import {
 	generateInvoicePaidClientEmail,
 	generateInvoicePaidAgencyEmail,
 } from "$lib/templates/email-templates";
+import { formatDateTime } from "$lib/utils/formatting";
 
 // Lazy-initialize Stripe to avoid build-time errors
 let _stripe: Stripe | null = null;
@@ -141,6 +142,24 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
 
 	console.log(`Invoice ${invoiceId} marked as paid via Stripe checkout`);
 
+	// Log payment to activity trail
+	await db.insert(agencyActivityLog).values({
+		agencyId: invoice.agencyId,
+		userId: null,
+		action: "payment.received",
+		entityType: "invoice",
+		entityId: invoice.id,
+		newValues: {
+			status: "paid",
+			paymentMethod: "card",
+			total: invoice.total,
+			invoiceNumber: invoice.invoiceNumber,
+		},
+		metadata: { source: "stripe_webhook", checkoutSessionId: session.id },
+	}).catch((err) => {
+		console.error("Failed to log payment activity:", err);
+	});
+
 	// Send payment notification emails (fire-and-forget)
 	sendInvoicePaidNotifications(invoice, "Card (Stripe)").catch((err) => {
 		console.error("Failed to send invoice paid notification emails:", err);
@@ -203,6 +222,19 @@ async function handleAccountUpdate(account: Stripe.Account) {
 		.where(eq(agencyProfiles.id, profile.id));
 
 	console.log(`Updated Stripe status for agency profile ${profile.id}: ${status}`);
+
+	// Log Stripe account status change
+	await db.insert(agencyActivityLog).values({
+		agencyId: profile.agencyId,
+		userId: null,
+		action: "stripe.account_updated",
+		entityType: "agency_profile",
+		entityId: profile.id,
+		newValues: { stripeAccountStatus: status },
+		metadata: { source: "stripe_webhook", stripeAccountId: account.id },
+	}).catch((err) => {
+		console.error("Failed to log Stripe account update activity:", err);
+	});
 }
 
 /**
@@ -243,6 +275,18 @@ async function handleAccountDeauthorized(stripeAccountId: string) {
 		.where(eq(invoices.agencyId, profile.agencyId));
 
 	console.log(`Agency ${profile.agencyId} disconnected from Stripe`);
+
+	// Log Stripe disconnection
+	await db.insert(agencyActivityLog).values({
+		agencyId: profile.agencyId,
+		userId: null,
+		action: "stripe.disconnected",
+		entityType: "agency_profile",
+		entityId: profile.id,
+		metadata: { source: "stripe_webhook", stripeAccountId: stripeAccountId },
+	}).catch((err) => {
+		console.error("Failed to log Stripe disconnection activity:", err);
+	});
 }
 
 /**
@@ -254,13 +298,7 @@ async function sendInvoicePaidNotifications(
 ) {
 	const baseUrl = publicEnv.PUBLIC_CLIENT_URL || "https://webkit.au";
 	const publicUrl = `${baseUrl}/i/${invoice.slug}`;
-	const paidAt = new Date().toLocaleDateString("en-AU", {
-		day: "numeric",
-		month: "short",
-		year: "numeric",
-		hour: "2-digit",
-		minute: "2-digit",
-	});
+	const paidAt = formatDateTime(new Date());
 
 	const [agency] = await db
 		.select()

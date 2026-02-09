@@ -325,6 +325,9 @@ export const agencyProfiles = pgTable("agency_profiles", {
 	stripeConnectedAt: timestamp("stripe_connected_at", { withTimezone: true }),
 	stripePayoutsEnabled: boolean("stripe_payouts_enabled").notNull().default(false),
 	stripeChargesEnabled: boolean("stripe_charges_enabled").notNull().default(false),
+
+	// Onboarding
+	onboardingCompletedAt: timestamp("onboarding_completed_at", { withTimezone: true }),
 });
 
 // Agency Packages table - Configurable pricing tiers per agency
@@ -558,8 +561,8 @@ export const formSubmissions = pgTable(
 		consultationId: uuid("consultation_id").references(() => consultations.id, {
 			onDelete: "set null",
 		}),
-		proposalId: uuid("proposal_id"),
-		contractId: uuid("contract_id"),
+		proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "set null" }),
+		contractId: uuid("contract_id").references(() => contracts.id, { onDelete: "set null" }),
 
 		// Submission Metadata
 		metadata: jsonb("metadata").notNull().default({}),
@@ -760,6 +763,7 @@ export const proposals = pgTable(
 		consultationIdx: index("proposals_consultation_idx").on(table.consultationId),
 		clientIdx: index("proposals_client_idx").on(table.clientId),
 		statusIdx: index("proposals_status_idx").on(table.status),
+		uniqueAgencyNumber: unique("proposals_agency_number_unique").on(table.agencyId, table.proposalNumber),
 	}),
 );
 
@@ -948,6 +952,7 @@ export const contracts = pgTable(
 		statusIdx: index("contracts_status_idx").on(table.status),
 		slugIdx: index("contracts_slug_idx").on(table.slug),
 		createdAtIdx: index("contracts_created_at_idx").on(table.createdAt),
+		uniqueAgencyNumber: unique("contracts_agency_number_unique").on(table.agencyId, table.contractNumber),
 	}),
 );
 
@@ -1044,7 +1049,7 @@ export const invoices = pgTable(
 		statusIdx: index("invoices_status_idx").on(table.status),
 		dueDateIdx: index("invoices_due_date_idx").on(table.dueDate),
 		slugIdx: index("invoices_slug_idx").on(table.slug),
-		invoiceNumberIdx: index("invoices_number_idx").on(table.agencyId, table.invoiceNumber),
+		uniqueAgencyNumber: unique("invoices_agency_number_unique").on(table.agencyId, table.invoiceNumber),
 	}),
 );
 
@@ -1203,7 +1208,7 @@ export const consultations = pgTable("consultations", {
 	formId: uuid("form_id").references(() => agencyForms.id, { onDelete: "set null" }),
 
 	// Metadata
-	status: varchar("status", { length: 50 }).notNull().default("draft"), // 'draft' | 'completed' | 'converted'
+	status: varchar("status", { length: 50 }).notNull().default("draft"), // 'draft' | 'completed' | 'archived' | 'converted'
 	createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
 
 	// Timestamps

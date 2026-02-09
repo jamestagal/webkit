@@ -3,6 +3,7 @@
 # Database Migration Runner
 # Runs all SQL migrations in order from the migrations/ folder
 # All migrations are idempotent (safe to run multiple times)
+# Tracks applied migrations in schema_migrations table
 
 set -e
 
@@ -29,10 +30,28 @@ if [ "$1" = "production" ] || [ "$1" = "prod" ]; then
 
     echo ""
     echo "Copying migrations to VPS..."
+    ssh "$VPS_USER@$VPS_HOST" 'mkdir -p /tmp/webkit_migrations'
     scp -r "$MIGRATIONS_DIR"/*.sql "$VPS_USER@$VPS_HOST:/tmp/webkit_migrations/"
 
     echo "Running migrations..."
-    ssh "$VPS_USER@$VPS_HOST" 'for f in /tmp/webkit_migrations/*.sql; do echo "Running: $f"; docker exec -i webkit-postgres psql -U webkit -d webkit < "$f"; done'
+    ssh "$VPS_USER@$VPS_HOST" 'for f in $(ls /tmp/webkit_migrations/*.sql | sort); do
+        filename=$(basename "$f")
+        version=$(echo "$filename" | grep -oE "^[0-9]+" | sed "s/^0*//")
+        if [ -z "$version" ]; then
+            echo "Skipping $filename (no version number)"
+            continue
+        fi
+        # Check if schema_migrations table exists and if version is already applied
+        already_applied=$(docker exec -i webkit-postgres psql -U webkit -d webkit -tAc "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = '\''schema_migrations'\'') AND EXISTS(SELECT 1 FROM schema_migrations WHERE version = $version);" 2>/dev/null || echo "f")
+        if [ "$already_applied" = "t" ]; then
+            echo "Skipping: $filename (already applied)"
+            continue
+        fi
+        echo "Running: $filename"
+        docker exec -i webkit-postgres psql -U webkit -d webkit < "$f"
+        # Record migration if tracking table exists
+        docker exec -i webkit-postgres psql -U webkit -d webkit -c "INSERT INTO schema_migrations (version, filename) VALUES ($version, '\''$filename'\'') ON CONFLICT (version) DO NOTHING;" 2>/dev/null || true
+    done'
 
     echo ""
     echo "Cleaning up..."
@@ -58,8 +77,22 @@ else
     for migration in "$MIGRATIONS_DIR"/*.sql; do
         if [ -f "$migration" ]; then
             filename=$(basename "$migration")
+            # Extract version number from filename prefix (e.g., 001 -> 1)
+            version=$(echo "$filename" | grep -oE "^[0-9]+" | sed 's/^0*//')
+            if [ -z "$version" ]; then
+                echo "Skipping $filename (no version number)"
+                continue
+            fi
+            # Check if schema_migrations table exists and version already applied
+            already_applied=$(docker exec -i "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'schema_migrations') AND EXISTS(SELECT 1 FROM schema_migrations WHERE version = $version);" 2>/dev/null || echo "f")
+            if [ "$already_applied" = "t" ]; then
+                echo "Skipping: $filename (already applied)"
+                continue
+            fi
             echo "Running: $filename"
             docker exec -i "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" < "$migration"
+            # Record migration if tracking table exists
+            docker exec -i "$CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -c "INSERT INTO schema_migrations (version, filename) VALUES ($version, '$filename') ON CONFLICT (version) DO NOTHING;" 2>/dev/null || true
             echo "  Done."
         fi
     done

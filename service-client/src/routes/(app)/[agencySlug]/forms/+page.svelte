@@ -3,6 +3,7 @@
 	import { invalidateAll, goto } from "$app/navigation";
 	import { getToast } from "$lib/ui/toast_store.svelte";
 	import { deleteSubmission } from "$lib/api/forms.remote";
+	import { formatDate, formatDateTime } from '$lib/utils/formatting';
 	import {
 		FileStack,
 		Trash2,
@@ -105,24 +106,7 @@
 		toast.success("Link copied to clipboard");
 	}
 
-	function formatDate(date: Date | string | null) {
-		if (!date) return "—";
-		return new Date(date).toLocaleDateString("en-AU", {
-			day: "numeric",
-			month: "short",
-			year: "numeric",
-		});
-	}
 
-	function formatDateTime(date: Date | string | null) {
-		if (!date) return "—";
-		return new Date(date).toLocaleDateString("en-AU", {
-			day: "numeric",
-			month: "short",
-			hour: "numeric",
-			minute: "2-digit",
-		});
-	}
 </script>
 
 <div class="space-y-6">

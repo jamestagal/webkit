@@ -3,6 +3,7 @@
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { createContractFromProposal } from '$lib/api/contracts.remote';
 	import { FileText, ArrowLeft, ArrowRight, CheckCircle, Star, UserCircle } from 'lucide-svelte';
+	import { formatDate } from '$lib/utils/formatting';
 	import type { PageProps } from './$types';
 
 	const toast = getToast();
@@ -68,14 +69,7 @@
 		}
 	}
 
-	function formatDate(date: Date | string | null) {
-		if (!date) return '-';
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric'
-		});
-	}
+
 </script>
 
 <div class="space-y-6">

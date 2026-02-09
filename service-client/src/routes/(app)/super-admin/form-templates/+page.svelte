@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { formatDate } from '$lib/utils/formatting';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { Star, ChevronUp, ChevronDown, MoreHorizontal, Pencil, Upload, Undo2, Trash2, FileText } from 'lucide-svelte';
 	import {
@@ -162,10 +163,7 @@
 		return new Date(newUntil) > new Date();
 	}
 
-	function formatDate(date: string | null): string {
-		if (!date) return '';
-		return new Date(date).toLocaleDateString();
-	}
+	// formatDate imported from '$lib/utils/formatting'
 </script>
 
 <div class="space-y-6">

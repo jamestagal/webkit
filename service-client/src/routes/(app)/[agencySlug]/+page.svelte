@@ -25,6 +25,8 @@
 	import { loadDemoData, clearDemoData } from '$lib/api/demo.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { FEATURES } from '$lib/config/features';
+	import { formatCurrency } from '$lib/utils/formatting';
+	import ActivityFeed from '$lib/components/ActivityFeed.svelte';
 
 	let { data } = $props();
 
@@ -97,25 +99,43 @@
 		}
 	]);
 
-	// Quick stats (placeholder - would be loaded from server)
+	// Quick stats loaded from server
 	let stats = $derived([
 		{
 			label: 'Active Consultations',
 			value: data.consultationCount.toString(),
 			icon: MessageCircle,
-			href: `/${data.agency.slug}/consultation/history?status=in_progress`
+			href: `/${data.agency.slug}/consultation/history`
 		},
 		{
 			label: 'Completed This Month',
-			value: '-',
+			value: data.completedThisMonth.toString(),
 			icon: ClipboardList,
 			href: `/${data.agency.slug}/consultation/history`
 		},
 		{
 			label: 'Team Members',
-			value: '-',
+			value: data.teamMemberCount.toString(),
 			icon: Users,
 			href: `/${data.agency.slug}/settings/members`
+		},
+		{
+			label: 'Open Proposals',
+			value: data.openProposalCount.toString(),
+			icon: FileText,
+			href: `/${data.agency.slug}/proposals?status=sent`
+		},
+		{
+			label: 'Pending Invoices',
+			value: data.pendingInvoiceCount.toString(),
+			icon: Receipt,
+			href: `/${data.agency.slug}/invoices?status=sent`
+		},
+		{
+			label: 'Revenue This Month',
+			value: formatCurrency(data.revenueThisMonth),
+			icon: TrendingUp,
+			href: `/${data.agency.slug}/invoices?status=paid`
 		}
 	]);
 
@@ -272,7 +292,7 @@
 	{/if}
 
 	<!-- Quick Stats -->
-	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
 		{#each stats as stat (stat.label)}
 			<a href={stat.href} class="card bg-base-100 hover:bg-base-200 transition-colors border border-base-300">
 				<div class="card-body">
@@ -368,13 +388,12 @@
 		</div>
 	</div>
 
-	<!-- Recent Activity Placeholder -->
+	<!-- Recent Activity -->
 	<div class="card bg-base-100 border border-base-300">
 		<div class="card-body">
 			<h2 class="card-title text-lg">Recent Activity</h2>
-			<div class="mt-4 text-center py-8 text-base-content/60">
-				<p>Activity feed coming soon...</p>
-				<p class="text-sm mt-1">Your recent consultations and updates will appear here.</p>
+			<div class="mt-2">
+				<ActivityFeed activities={data.recentActivity} />
 			</div>
 		</div>
 	</div>

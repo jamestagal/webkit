@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Building2, Users, Shield, Clock } from 'lucide-svelte';
 	import { getSuperAdminStats } from '$lib/api/super-admin.remote';
+	import { formatDate } from '$lib/utils/formatting';
 	import { onMount } from 'svelte';
 
 	interface Stats {
@@ -38,13 +39,7 @@
 		}
 	});
 
-	function formatDate(date: Date | string): string {
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric'
-		});
-	}
+	// formatDate imported from '$lib/utils/formatting'
 
 	function getTierBadgeClass(tier: string): string {
 		switch (tier) {

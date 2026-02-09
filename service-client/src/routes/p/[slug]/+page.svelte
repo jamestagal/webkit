@@ -39,6 +39,7 @@
 		TimelinePhase,
 		CustomPricing
 	} from '$lib/server/schema';
+	import { formatDate } from '$lib/utils/formatting';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -60,16 +61,6 @@
 	const proposedPages = (proposal.proposedPages as ProposedPage[]) || [];
 	const timeline = (proposal.timeline as TimelinePhase[]) || [];
 	const customPricing = (proposal.customPricing as CustomPricing) || null;
-
-	// Helpers
-	function formatDate(date: Date | string | null): string {
-		if (!date) return '';
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'long',
-			year: 'numeric'
-		});
-	}
 
 	/**
 	 * Parse simple markdown to HTML with styled elements
@@ -191,11 +182,11 @@
 					Prepared for {proposal.clientBusinessName || 'Valued Client'}
 				</p>
 
-				<p class="mt-2 text-base-content/60">{formatDate(proposal.createdAt)}</p>
+				<p class="mt-2 text-base-content/60">{formatDate(proposal.createdAt, 'long')}</p>
 
 				{#if proposal.validUntil}
 					<p class="mt-4 text-sm text-base-content/50">
-						Valid until {formatDate(proposal.validUntil)}
+						Valid until {formatDate(proposal.validUntil, 'long')}
 					</p>
 				{/if}
 			</div>
@@ -219,7 +210,7 @@
 				<div class="mx-auto flex max-w-4xl items-center justify-center gap-3">
 					<CheckCircle2 class="h-6 w-6" />
 					<span class="text-lg font-semibold">
-						This proposal has been accepted{proposal.acceptedAt ? ` on ${formatDate(proposal.acceptedAt)}` : ''}
+						This proposal has been accepted{proposal.acceptedAt ? ` on ${formatDate(proposal.acceptedAt, 'long')}` : ''}
 					</span>
 				</div>
 			</div>
@@ -228,7 +219,7 @@
 				<div class="mx-auto flex max-w-4xl items-center justify-center gap-3">
 					<XCircle class="h-6 w-6" />
 					<span class="text-lg font-semibold">
-						This proposal was declined{proposal.declinedAt ? ` on ${formatDate(proposal.declinedAt)}` : ''}
+						This proposal was declined{proposal.declinedAt ? ` on ${formatDate(proposal.declinedAt, 'long')}` : ''}
 					</span>
 				</div>
 			</div>
@@ -237,7 +228,7 @@
 				<div class="mx-auto flex max-w-4xl items-center justify-center gap-3">
 					<RefreshCw class="h-6 w-6" />
 					<span class="text-lg font-semibold">
-						Revision requested{proposal.revisionRequestedAt ? ` on ${formatDate(proposal.revisionRequestedAt)}` : ''}
+						Revision requested{proposal.revisionRequestedAt ? ` on ${formatDate(proposal.revisionRequestedAt, 'long')}` : ''}
 					</span>
 				</div>
 			</div>
@@ -869,7 +860,7 @@
 					<!-- Valid until notice -->
 					{#if proposal.validUntil}
 						<p class="text-center text-sm text-base-content/50 mt-6">
-							This pricing is valid until {formatDate(proposal.validUntil)}
+							This pricing is valid until {formatDate(proposal.validUntil, 'long')}
 						</p>
 					{/if}
 				</div>
@@ -1147,7 +1138,7 @@
 				{/if}
 
 				<p class="mt-8 text-sm text-base-content/50">
-					Proposal {proposal.proposalNumber} &bull; Generated {formatDate(proposal.createdAt)}
+					Proposal {proposal.proposalNumber} &bull; Generated {formatDate(proposal.createdAt, 'long')}
 				</p>
 			</div>
 		</footer>

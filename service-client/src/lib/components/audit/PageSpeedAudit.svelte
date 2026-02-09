@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PerformanceData } from '$lib/server/schema';
 	import { runPageSpeedAudit } from '$lib/api/consultation.remote';
+	import { formatDateTime } from '$lib/utils/formatting';
 
 	interface Props {
 		consultationId: string;
@@ -69,14 +70,7 @@
 	// Format the audit timestamp
 	function formatAuditTime(isoString: string | undefined): string {
 		if (!isoString) return '';
-		const date = new Date(isoString);
-		return date.toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
+		return formatDateTime(isoString);
 	}
 </script>
 

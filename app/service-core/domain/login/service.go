@@ -563,20 +563,9 @@ func (s *Service) LoginVerify(
 	return authResponse, nil
 }
 
-func (s *Service) checkUserAccess(ctx context.Context, user query.User) (bool, int64, error) {
+func (s *Service) checkUserAccess(_ context.Context, user query.User) (bool, int64, error) {
 	subEnd, _ := time.Parse(time.RFC3339, user.SubscriptionEnd.Format(time.RFC3339))
 	subscriptionActive := subEnd.After(time.Now())
-	if !subscriptionActive {
-		user.Access &^= auth.PremiumPlan
-		user.Access &^= auth.BasicPlan
-		_, err := s.store.UpdateUserAccess(ctx, query.UpdateUserAccessParams{
-			ID:     user.ID,
-			Access: user.Access,
-		})
-		if err != nil {
-			return false, user.Access, fmt.Errorf("error updating user access: %w", err)
-		}
-	}
 	return subscriptionActive, user.Access, nil
 }
 

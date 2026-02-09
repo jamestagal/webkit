@@ -1,3 +1,18 @@
+-- =============================================================================
+-- GO SCHEMA REFERENCE (sqlc only)
+-- =============================================================================
+-- This file is used ONLY by sqlc for Go type generation.
+-- It is NOT the source of truth for the database schema.
+-- The database is managed by sequential SQL migrations in /migrations/.
+-- Drizzle schema (service-client/src/lib/server/schema.ts) is the SvelteKit
+-- source of truth.
+--
+-- NEVER use `atlas schema apply` against this file (see CLAUDE.md).
+-- Tables listed here may be a subset of what exists in production.
+-- Column types/constraints may diverge from Drizzle — see
+-- docs/plans/database-spec.md #3.
+-- =============================================================================
+
 -- Enable required extensions
 create extension if not exists pg_trgm;
 
@@ -187,7 +202,7 @@ create table if not exists agency_activity_log (
     new_values jsonb,  -- New values (for creates/updates)
 
     -- Request context (for security)
-    ip_address inet,
+    ip_address text,
     user_agent text,
 
     -- Additional metadata
@@ -568,7 +583,7 @@ create table if not exists form_submissions (
     slug varchar(100) unique,
 
     -- Client linking
-    client_id uuid,  -- References clients(id), but added after clients table
+    client_id uuid,  -- FK added via ALTER TABLE after clients table
     client_business_name text not null default '',
     client_email varchar(255) not null default '',
 
@@ -583,8 +598,8 @@ create table if not exists form_submissions (
 
     -- Linked Entities
     consultation_id uuid references consultations(id) on delete set null,
-    proposal_id uuid,
-    contract_id uuid,
+    proposal_id uuid,  -- FK added via ALTER TABLE after proposals table
+    contract_id uuid,  -- FK added via ALTER TABLE after contracts table
 
     -- Submission Metadata
     metadata jsonb not null default '{}',
@@ -658,7 +673,7 @@ create table if not exists notes (
 create table if not exists consultations (
     id uuid primary key not null default gen_random_uuid(),
     user_id uuid not null references users(id) on delete cascade,
-    agency_id uuid references agencies(id) on delete cascade,  -- Added for multi-tenancy
+    agency_id uuid not null references agencies(id) on delete cascade,  -- Added for multi-tenancy
 
     -- Contact Information (JSONB structure for Go backend)
     contact_info jsonb not null default '{}',
@@ -715,7 +730,7 @@ create table if not exists consultations (
     completed_at timestamptz,
 
     -- Constraints
-    constraint valid_status check (status in ('draft', 'completed', 'archived'))
+    constraint valid_status check (status in ('draft', 'completed', 'archived', 'converted'))
 );
 
 -- create "consultation_drafts" table with new structure
@@ -816,7 +831,9 @@ create table if not exists clients (
 
     -- Metadata
     created_at timestamptz not null default current_timestamp,
-    updated_at timestamptz not null default current_timestamp
+    updated_at timestamptz not null default current_timestamp,
+
+    constraint clients_agency_email_unique unique (agency_id, email)
 );
 
 create index if not exists idx_clients_agency_id on clients(agency_id);
@@ -931,7 +948,8 @@ create table if not exists proposals (
     -- Creator
     created_by uuid references users(id) on delete set null,
 
-    constraint valid_proposal_status check (status in ('draft', 'ready', 'sent', 'viewed', 'accepted', 'declined', 'revision_requested', 'expired'))
+    constraint valid_proposal_status check (status in ('draft', 'ready', 'sent', 'viewed', 'accepted', 'declined', 'revision_requested', 'expired')),
+    constraint proposals_agency_number_unique unique (agency_id, proposal_number)
 );
 
 -- Indexes for proposals
@@ -1054,7 +1072,8 @@ create table if not exists contracts (
 
     created_by uuid references users(id) on delete set null,
 
-    constraint valid_contract_status check (status in ('draft', 'sent', 'viewed', 'signed', 'completed', 'expired', 'terminated'))
+    constraint valid_contract_status check (status in ('draft', 'sent', 'viewed', 'signed', 'completed', 'expired', 'terminated')),
+    constraint contracts_agency_number_unique unique (agency_id, contract_number)
 );
 
 create index if not exists idx_contracts_agency_id on contracts(agency_id);
@@ -1126,7 +1145,8 @@ create table if not exists invoices (
 
     created_by uuid references users(id) on delete set null,
 
-    constraint valid_invoice_status check (status in ('draft', 'sent', 'viewed', 'paid', 'overdue', 'cancelled', 'refunded'))
+    constraint valid_invoice_status check (status in ('draft', 'sent', 'viewed', 'paid', 'overdue', 'cancelled', 'refunded')),
+    constraint invoices_agency_number_unique unique (agency_id, invoice_number)
 );
 
 create index if not exists idx_invoices_agency_id on invoices(agency_id);
@@ -1170,6 +1190,7 @@ create table if not exists email_logs (
     proposal_id uuid references proposals(id) on delete set null,
     invoice_id uuid references invoices(id) on delete set null,
     contract_id uuid references contracts(id) on delete set null,
+    form_submission_id uuid references form_submissions(id) on delete set null,
 
     -- Email type
     email_type varchar(50) not null,
@@ -1209,6 +1230,14 @@ create index if not exists idx_email_logs_invoice_id on email_logs(invoice_id);
 create index if not exists idx_email_logs_contract_id on email_logs(contract_id);
 create index if not exists idx_email_logs_status on email_logs(status);
 create index if not exists idx_email_logs_created_at on email_logs(created_at);
+
+-- Deferred FKs for form_submissions (tables defined after form_submissions)
+alter table form_submissions add constraint form_submissions_client_id_fkey
+    foreign key (client_id) references clients(id) on delete set null;
+alter table form_submissions add constraint form_submissions_proposal_id_fkey
+    foreign key (proposal_id) references proposals(id) on delete set null;
+alter table form_submissions add constraint form_submissions_contract_id_fkey
+    foreign key (contract_id) references contracts(id) on delete set null;
 
 -- create "questionnaire_responses" table for Initial Website Questionnaire
 create table if not exists questionnaire_responses (
@@ -1254,23 +1283,3 @@ create index if not exists idx_questionnaire_responses_contract_id on questionna
 create index if not exists idx_questionnaire_responses_proposal_id on questionnaire_responses(proposal_id);
 create index if not exists idx_questionnaire_responses_status on questionnaire_responses(agency_id, status);
 
--- create "subscriptions" table for detailed subscription tracking
-create table if not exists subscriptions (
-    id uuid primary key not null default gen_random_uuid(),
-    created timestamptz not null default current_timestamp,
-    updated timestamptz not null default current_timestamp,
-    user_id uuid not null references users(id) on delete cascade,
-    stripe_customer_id text not null,
-    stripe_subscription_id text not null,
-    stripe_price_id text not null,
-    status text not null default 'active',
-    current_period_start timestamptz not null,
-    current_period_end timestamptz not null,
-    canceled_at timestamptz,
-    unique (stripe_subscription_id)
-);
-
--- Indexes for subscriptions
-create index if not exists idx_subscriptions_user_id on subscriptions(user_id);
-create index if not exists idx_subscriptions_stripe_customer_id on subscriptions(stripe_customer_id);
-create index if not exists idx_subscriptions_status on subscriptions(status);

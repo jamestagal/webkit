@@ -6,6 +6,7 @@
  */
 
 import type { Agency, AgencyProfile, Proposal, Invoice, Contract } from "$lib/server/schema";
+import { formatCurrency, formatDate } from "$lib/utils/formatting";
 
 // =============================================================================
 // Template Data Interfaces
@@ -45,30 +46,8 @@ export interface EmailTemplate {
 // Utility Functions
 // =============================================================================
 
-/**
- * Format a decimal string or number as currency (AUD)
- */
-function formatCurrency(value: string | number | null | undefined): string {
-	const num = typeof value === "string" ? parseFloat(value) : (value ?? 0);
-	return new Intl.NumberFormat("en-AU", {
-		style: "currency",
-		currency: "AUD",
-		minimumFractionDigits: 2,
-	}).format(num);
-}
-
-/**
- * Format a date for display
- */
-function formatDate(date: Date | string | null | undefined): string {
-	if (!date) return "";
-	const d = typeof date === "string" ? new Date(date) : date;
-	return d.toLocaleDateString("en-AU", {
-		day: "numeric",
-		month: "long",
-		year: "numeric",
-	});
-}
+// formatCurrency and formatDate imported from '$lib/utils/formatting'
+// Email templates use 'long' style dates (e.g., "1 February 2025")
 
 /**
  * Get default primary color
@@ -504,7 +483,7 @@ export function buildInvoiceEmailData(
 			number: invoice.invoiceNumber,
 			publicUrl,
 			total: invoice.total?.toString(),
-			dueDate: formatDate(invoice.dueDate),
+			dueDate: formatDate(invoice.dueDate, "long"),
 			paymentLinkUrl,
 		},
 	};
@@ -765,7 +744,7 @@ export function generateBetaInviteEmail(data: BetaInviteEmailData): EmailTemplat
 	const { inviteUrl, expiresAt } = data;
 	const primaryColor = "#4F46E5"; // WebKit brand color
 
-	const formattedExpiry = formatDate(expiresAt);
+	const formattedExpiry = formatDate(expiresAt, "long");
 
 	const content = `
         <h1 style="margin: 0 0 24px 0; font-size: 28px; font-weight: 700; color: #111827;">

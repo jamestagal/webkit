@@ -207,11 +207,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - name: Install Atlas CLI
-      run: |
-        curl -sSf https://atlasgo.sh | sh
-        sudo mv atlas /usr/local/bin/
-
     - name: Install SQLC
       run: |
         go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
@@ -229,14 +224,16 @@ jobs:
 
     - name: Run database migrations
       env:
-        DATABASE_PROVIDER: postgres
-        POSTGRES_HOST: localhost
-        POSTGRES_PORT: 5432
-        POSTGRES_DB: gofast_test
-        POSTGRES_USER: test
-        POSTGRES_PASSWORD: test
+        PGHOST: localhost
+        PGPORT: 5432
+        PGDATABASE: gofast_test
+        PGUSER: test
+        PGPASSWORD: test
       run: |
-        sh scripts/atlas.sh postgres
+        for f in migrations/*.sql; do
+          echo "Applying $f..."
+          psql < "$f"
+        done
 
     - name: Run integration tests
       env:
@@ -286,11 +283,6 @@ jobs:
       with:
         go-version: ${{ env.GO_VERSION }}
 
-    - name: Install Atlas CLI
-      run: |
-        curl -sSf https://atlasgo.sh | sh
-        sudo mv atlas /usr/local/bin/
-
     - name: Install SQLC
       run: |
         go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
@@ -302,14 +294,16 @@ jobs:
 
     - name: Setup database
       env:
-        DATABASE_PROVIDER: postgres
-        POSTGRES_HOST: localhost
-        POSTGRES_PORT: 5432
-        POSTGRES_DB: gofast_perf
-        POSTGRES_USER: test
-        POSTGRES_PASSWORD: test
+        PGHOST: localhost
+        PGPORT: 5432
+        PGDATABASE: gofast_perf
+        PGUSER: test
+        PGPASSWORD: test
       run: |
-        sh scripts/atlas.sh postgres
+        for f in migrations/*.sql; do
+          echo "Applying $f..."
+          psql < "$f"
+        done
 
     - name: Run performance benchmarks
       env:

@@ -16,6 +16,7 @@
 	import { sendProposalEmail } from '$lib/api/email.remote';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
 	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';
+	import { formatDateTime } from '$lib/utils/formatting';
 	import AIPreviewModal from './AIPreviewModal.svelte';
 	import AIStreamingModal from './AIStreamingModal.svelte';
 	import AIErrorDisplay from '$lib/components/AIErrorDisplay.svelte';
@@ -1248,13 +1249,7 @@
 									<p class="text-sm whitespace-pre-wrap">{revisionRequestNotes}</p>
 									{#if proposal.revisionRequestedAt}
 										<p class="text-xs text-base-content/60 mt-2">
-											Requested on {new Date(proposal.revisionRequestedAt).toLocaleDateString('en-AU', {
-												day: 'numeric',
-												month: 'long',
-												year: 'numeric',
-												hour: '2-digit',
-												minute: '2-digit'
-											})}
+											Requested on {formatDateTime(proposal.revisionRequestedAt)}
 										</p>
 									{/if}
 								</div>
@@ -1266,13 +1261,7 @@
 									<p class="text-sm whitespace-pre-wrap">{clientComments}</p>
 									{#if proposal.acceptedAt}
 										<p class="text-xs text-base-content/60 mt-2">
-											Accepted on {new Date(proposal.acceptedAt).toLocaleDateString('en-AU', {
-												day: 'numeric',
-												month: 'long',
-												year: 'numeric',
-												hour: '2-digit',
-												minute: '2-digit'
-											})}
+											Accepted on {formatDateTime(proposal.acceptedAt)}
 										</p>
 									{/if}
 								</div>
@@ -1284,13 +1273,7 @@
 									<p class="text-sm whitespace-pre-wrap">{declineReason}</p>
 									{#if proposal.declinedAt}
 										<p class="text-xs text-base-content/60 mt-2">
-											Declined on {new Date(proposal.declinedAt).toLocaleDateString('en-AU', {
-												day: 'numeric',
-												month: 'long',
-												year: 'numeric',
-												hour: '2-digit',
-												minute: '2-digit'
-											})}
+											Declined on {formatDateTime(proposal.declinedAt)}
 										</p>
 									{/if}
 								</div>

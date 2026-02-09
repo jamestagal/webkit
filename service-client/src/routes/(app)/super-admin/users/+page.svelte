@@ -21,6 +21,7 @@
 		deleteUser
 	} from '$lib/api/super-admin.remote';
 	import { onMount } from 'svelte';
+	import { formatDate } from '$lib/utils/formatting';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 
 	const toast = getToast();
@@ -240,13 +241,7 @@
 		}
 	}
 
-	function formatDate(date: Date | string): string {
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric'
-		});
-	}
+	// formatDate imported from '$lib/utils/formatting'
 
 	function getRoleBadgeClass(role: string): string {
 		switch (role) {

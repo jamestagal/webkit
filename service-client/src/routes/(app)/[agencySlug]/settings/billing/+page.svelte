@@ -17,6 +17,7 @@
 		createPortalSession,
 		upgradeSubscription
 	} from '$lib/api/billing.remote';
+	import { formatDate } from '$lib/utils/formatting';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -214,14 +215,7 @@
 				<p class="text-sm">
 					You have free access to all features during the beta period.
 					{#if billingInfo?.freemiumExpiresAt}
-						Beta access expires on {new Date(billingInfo.freemiumExpiresAt).toLocaleDateString(
-							'en-AU',
-							{
-								day: 'numeric',
-								month: 'long',
-								year: 'numeric'
-							}
-						)}.
+						Beta access expires on {formatDate(billingInfo.freemiumExpiresAt, 'long')}.
 					{/if}
 				</p>
 			</div>
@@ -245,7 +239,7 @@
 					</div>
 					{#if billingInfo?.subscriptionEnd && !isFreemium}
 						<p class="text-sm text-base-content/60 mt-2">
-							{currentTier === 'free' ? 'Free forever' : `Renews on ${new Date(billingInfo.subscriptionEnd).toLocaleDateString('en-AU')}`}
+							{currentTier === 'free' ? 'Free forever' : `Renews on ${formatDate(billingInfo.subscriptionEnd)}`}
 						</p>
 					{/if}
 				</div>

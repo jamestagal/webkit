@@ -19,6 +19,7 @@
 		RefreshCw,
 		User
 	} from 'lucide-svelte';
+	import { formatCurrency, formatDate } from '$lib/utils/formatting';
 	import type { PageProps } from './$types';
 
 	const feature = FEATURES.contracts;
@@ -111,23 +112,6 @@
 			default:
 				return { class: 'badge-ghost', icon: Clock, label: status };
 		}
-	}
-
-	function formatDate(date: Date | string | null) {
-		if (!date) return '-';
-		return new Date(date).toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric'
-		});
-	}
-
-	function formatCurrency(value: string | number) {
-		const num = typeof value === 'string' ? parseFloat(value) : value;
-		return new Intl.NumberFormat('en-AU', {
-			style: 'currency',
-			currency: 'AUD'
-		}).format(num);
 	}
 
 	function getPublicUrl(slug: string) {

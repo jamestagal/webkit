@@ -30,6 +30,7 @@ import { requirePermission } from "$lib/server/permissions";
 import { logActivity, AUDIT_ACTIONS, ENTITY_TYPES } from "$lib/server/db-helpers";
 import { eq, inArray } from "drizzle-orm";
 import { error } from "@sveltejs/kit";
+import { formatDate } from "$lib/utils/formatting";
 
 // =============================================================================
 // Constants
@@ -328,7 +329,7 @@ export const scheduleAgencyDeletion = command(
 		return {
 			scheduledFor: deletionDate,
 			gracePeriodDays: DELETION_GRACE_PERIOD_DAYS,
-			message: `Agency scheduled for deletion on ${deletionDate.toLocaleDateString()}. You can cancel this within ${DELETION_GRACE_PERIOD_DAYS} days.`,
+			message: `Agency scheduled for deletion on ${formatDate(deletionDate)}. You can cancel this within ${DELETION_GRACE_PERIOD_DAYS} days.`,
 		};
 	},
 );

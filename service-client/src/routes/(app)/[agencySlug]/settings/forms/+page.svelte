@@ -3,6 +3,7 @@
 	import { goto } from "$app/navigation";
 	import { getToast } from "$lib/ui/toast_store.svelte";
 	import { deleteForm, duplicateForm, createFormFromTemplate, updateForm } from "$lib/api/forms.remote";
+	import { formatDate } from '$lib/utils/formatting';
 	import {
 		Plus,
 		FileStack,
@@ -157,14 +158,6 @@
 			return (config["layout"] as string) || "single-column";
 		}
 		return "single-column";
-	}
-
-	function formatDate(date: Date | string) {
-		return new Date(date).toLocaleDateString("en-AU", {
-			day: "numeric",
-			month: "short",
-			year: "numeric",
-		});
 	}
 
 	function getFormTypeLabel(type: string) {

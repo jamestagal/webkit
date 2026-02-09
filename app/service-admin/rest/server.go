@@ -7,7 +7,7 @@ import (
 	"service-admin/web/pages"
 )
 
-func Run(h *Handler) {
+func Run(h *Handler) *http.Server {
 	mux := http.NewServeMux()
 
 	// Main
@@ -48,21 +48,21 @@ func Run(h *Handler) {
 
 	handler := loggingMiddleware(mux)
 
+	server := &http.Server{
+		Handler:           handler,
+		Addr:              ":" + h.cfg.HTTPPort,
+		ReadHeaderTimeout: h.cfg.ReadTimeout,
+		IdleTimeout:       h.cfg.IdleTimeout,
+		WriteTimeout:      h.cfg.WriteTimeout,
+	}
 	go func() {
 		slog.Info("REST server listening on", "port", h.cfg.HTTPPort)
-		server := &http.Server{
-			Handler:           handler,
-			Addr:              ":" + h.cfg.HTTPPort,
-			ReadHeaderTimeout: h.cfg.ReadTimeout,
-			IdleTimeout:       h.cfg.IdleTimeout,
-			WriteTimeout:      h.cfg.WriteTimeout,
-		}
-		err := server.ListenAndServe()
-		if err != nil {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("Error serving HTTP", "error", err)
 			panic(err)
 		}
 	}()
+	return server
 }
 
 func handleError(w http.ResponseWriter, r *http.Request, status int, message string, err error) {

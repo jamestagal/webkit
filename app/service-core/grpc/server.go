@@ -34,7 +34,7 @@ type noteServer struct {
 	handler *Handler
 }
 
-func Run(handler *Handler) {
+func Run(handler *Handler) *grpc.Server {
 	cfg := handler.cfg
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%v", cfg.GRPCPort))
 	if err != nil {
@@ -58,12 +58,12 @@ func Run(handler *Handler) {
 	})
 	go func() {
 		slog.Info("gRPC server listening on", "port", cfg.GRPCPort)
-		err = s.Serve(lis)
-		if err != nil {
+		if err := s.Serve(lis); err != nil {
 			slog.Error("Error serving gRPC", "error", err)
 			panic(err)
 		}
 	}()
+	return s
 }
 
 func getToken(ctx context.Context) string {

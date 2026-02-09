@@ -27,6 +27,7 @@ import {
 import { getAgencyContext } from "$lib/server/agency";
 import { getOrCreateClient } from "$lib/api/clients.remote";
 import { logActivity } from "$lib/server/db-helpers";
+import { sendContractEmailToClient, sendContractSignedEmails } from "$lib/server/contract-emails";
 import {
 	hasPermission,
 	canAccessResource,
@@ -37,6 +38,9 @@ import {
 	dataPipelineService,
 	type MergeFieldData,
 } from "$lib/server/services/data-pipeline.service";
+import { sanitizeHtml } from "$lib/utils/sanitize";
+import { formatCurrency, formatDate } from "$lib/utils/formatting";
+import { getNextDocumentNumber } from "$lib/server/document-numbers";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
@@ -137,34 +141,10 @@ async function generateUniqueSlug(): Promise<string> {
 }
 
 /**
- * Get the next contract number and increment it.
+ * Get the next contract number and increment it atomically.
  */
 async function getNextContractNumber(agencyId: string): Promise<string> {
-	// Get or create profile
-	const [profile] = await db
-		.select()
-		.from(agencyProfiles)
-		.where(eq(agencyProfiles.agencyId, agencyId))
-		.limit(1);
-
-	const prefix = profile?.contractPrefix || "CON";
-	const nextNumber = profile?.nextContractNumber || 1;
-
-	// Generate document number
-	const contractNumber = dataPipelineService.generateDocumentNumber(prefix, nextNumber);
-
-	// Increment next number
-	if (profile) {
-		await db
-			.update(agencyProfiles)
-			.set({
-				nextContractNumber: nextNumber + 1,
-				updatedAt: new Date(),
-			})
-			.where(eq(agencyProfiles.id, profile.id));
-	}
-
-	return contractNumber;
+	return getNextDocumentNumber(agencyId, "contract");
 }
 
 /**
@@ -611,13 +591,13 @@ export const createContractFromProposal = command(CreateContractSchema, async (d
 		mergeData.client = dataPipelineService.buildClientMergeFields(consultation);
 	}
 
-	// Resolve merge fields in template content
+	// Resolve merge fields in template content and sanitize (defense in depth)
 	const generatedTermsHtml = template
-		? dataPipelineService.resolveMergeFields(template.termsContent, mergeData)
+		? sanitizeHtml(dataPipelineService.resolveMergeFields(template.termsContent, mergeData))
 		: "";
 
 	const generatedScheduleHtml = schedule
-		? dataPipelineService.resolveMergeFields(schedule.content, mergeData)
+		? sanitizeHtml(dataPipelineService.resolveMergeFields(schedule.content, mergeData))
 		: "";
 
 	// Get signature config from template
@@ -789,8 +769,7 @@ export const deleteContract = command(v.pipe(v.string(), v.uuid()), async (contr
 });
 
 /**
- * Send a contract (mark as sent).
- * TODO: Implement email notification in Phase 3
+ * Send a contract (mark as sent and email to client).
  */
 export const sendContract = command(v.pipe(v.string(), v.uuid()), async (contractId: string) => {
 	const context = await getAgencyContext();
@@ -828,8 +807,12 @@ export const sendContract = command(v.pipe(v.string(), v.uuid()), async (contrac
 		.where(eq(contracts.id, contractId))
 		.returning();
 
-	// TODO: Send email notification to client
-	// await sendContractEmail(contract);
+	// Send email notification to client (non-blocking, don't fail the request)
+	if (contract) {
+		sendContractEmailToClient(contract, context.userId).catch((err) =>
+			console.error("Failed to send contract email:", err),
+		);
+	}
 
 	// Log activity
 	await logActivity("contract.sent", "contract", contractId, {
@@ -841,7 +824,6 @@ export const sendContract = command(v.pipe(v.string(), v.uuid()), async (contrac
 
 /**
  * Resend a contract email.
- * TODO: Implement email notification in Phase 3
  */
 export const resendContract = command(v.pipe(v.string(), v.uuid()), async (contractId: string) => {
 	const context = await getAgencyContext();
@@ -867,8 +849,10 @@ export const resendContract = command(v.pipe(v.string(), v.uuid()), async (contr
 		throw new Error("Contract must be sent before resending");
 	}
 
-	// TODO: Resend email notification to client
-	// await sendContractEmail(existing);
+	// Resend email notification to client (non-blocking)
+	sendContractEmailToClient(existing, context.userId).catch((err) =>
+		console.error("Failed to resend contract email:", err),
+	);
 
 	// Log activity
 	await logActivity("contract.resent", "contract", contractId, {
@@ -1023,57 +1007,16 @@ export const regenerateContractTerms = command(
 					),
 			contract: {
 				number: existing.contractNumber || "",
-				date: existing.createdAt
-					? new Date(existing.createdAt).toLocaleDateString("en-AU", {
-							day: "numeric",
-							month: "long",
-							year: "numeric",
-						})
-					: "",
-				valid_until: existing.validUntil
-					? new Date(existing.validUntil).toLocaleDateString("en-AU", {
-							day: "numeric",
-							month: "long",
-							year: "numeric",
-						})
-					: "",
-				total_price: existing.totalPrice
-					? new Intl.NumberFormat("en-AU", {
-							style: "currency",
-							currency: "AUD",
-						}).format(parseFloat(existing.totalPrice))
-					: "",
+				date: existing.createdAt ? formatDate(existing.createdAt, "long") : "",
+				valid_until: existing.validUntil ? formatDate(existing.validUntil, "long") : "",
+				total_price: existing.totalPrice ? formatCurrency(existing.totalPrice) : "",
 				payment_terms: existing.paymentTerms || "",
 				minimum_term: "",
 				cancellation_terms: "",
-				start_date: existing.commencementDate
-					? new Date(existing.commencementDate).toLocaleDateString("en-AU", {
-							day: "numeric",
-							month: "long",
-							year: "numeric",
-						})
-					: "",
-				end_date: existing.completionDate
-					? new Date(existing.completionDate).toLocaleDateString("en-AU", {
-							day: "numeric",
-							month: "long",
-							year: "numeric",
-						})
-					: "",
-				commencement_date: existing.commencementDate
-					? new Date(existing.commencementDate).toLocaleDateString("en-AU", {
-							day: "numeric",
-							month: "long",
-							year: "numeric",
-						})
-					: "",
-				completion_date: existing.completionDate
-					? new Date(existing.completionDate).toLocaleDateString("en-AU", {
-							day: "numeric",
-							month: "long",
-							year: "numeric",
-						})
-					: "",
+				start_date: existing.commencementDate ? formatDate(existing.commencementDate, "long") : "",
+				end_date: existing.completionDate ? formatDate(existing.completionDate, "long") : "",
+				commencement_date: existing.commencementDate ? formatDate(existing.commencementDate, "long") : "",
+				completion_date: existing.completionDate ? formatDate(existing.completionDate, "long") : "",
 				services_description: existing.servicesDescription || "",
 				special_conditions: existing.specialConditions || "",
 				agency_signatory_name: "",
@@ -1089,11 +1032,11 @@ export const regenerateContractTerms = command(
 			mergeData.client = dataPipelineService.buildClientMergeFields(consultation);
 		}
 
-		// Resolve merge fields in template content
-		const generatedTermsHtml = dataPipelineService.resolveMergeFields(
+		// Resolve merge fields in template content and sanitize (defense in depth)
+		const generatedTermsHtml = sanitizeHtml(dataPipelineService.resolveMergeFields(
 			template.termsContent,
 			mergeData,
-		);
+		));
 
 		// Update contract with regenerated terms
 		const [contract] = await db
@@ -1279,11 +1222,11 @@ export const linkTemplateToContract = command(
 				computed: dataPipelineService.buildComputedMergeFields(),
 			};
 
-			// Resolve merge fields
-			const generatedTermsHtml = dataPipelineService.resolveMergeFields(
+			// Resolve merge fields and sanitize (defense in depth)
+			const generatedTermsHtml = sanitizeHtml(dataPipelineService.resolveMergeFields(
 				template.termsContent,
 				mergeData,
-			);
+			));
 
 			// Update contract with linked template and regenerated terms
 			const [contract] = await db
@@ -1343,7 +1286,6 @@ export const recordContractView = command(
 
 /**
  * Sign a contract (public, client signing).
- * TODO: Implement email confirmation in Phase 3
  */
 export const signContract = command(SignContractSchema, async (data) => {
 	// Find contract by slug
@@ -1383,10 +1325,12 @@ export const signContract = command(SignContractSchema, async (data) => {
 		.where(eq(contracts.id, contract.id))
 		.returning();
 
-	// TODO: Send confirmation email to client
-	// TODO: Send notification to agency
-	// await sendSignatureConfirmationEmail(signedContract);
-	// await sendAgencyNotificationEmail(signedContract);
+	// Send signature confirmation and agency notification (non-blocking)
+	if (signedContract) {
+		sendContractSignedEmails(signedContract, data.signatoryName).catch((err) =>
+			console.error("Failed to send contract signed emails:", err),
+		);
+	}
 
 	// Log activity (without user context since this is public)
 	await logActivity("contract.signed", "contract", contract.id, {

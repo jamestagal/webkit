@@ -13,6 +13,7 @@
  */
 
 import type { Agency, AgencyProfile, Consultation } from "$lib/server/schema";
+import { formatCurrency as sharedFormatCurrency, formatDate as sharedFormatDate } from "$lib/utils/formatting";
 
 // =============================================================================
 // Type Definitions
@@ -603,29 +604,14 @@ export class DataPipelineService {
 	 * Format a number as Australian currency.
 	 */
 	formatCurrency(value: number | string): string {
-		const num = typeof value === "string" ? parseFloat(value) : value;
-		if (isNaN(num)) return "$0.00";
-
-		return new Intl.NumberFormat("en-AU", {
-			style: "currency",
-			currency: "AUD",
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2,
-		}).format(num);
+		return sharedFormatCurrency(value);
 	}
 
 	/**
 	 * Format a date in Australian format (e.g., "25 Dec 2025").
 	 */
 	formatDate(date: Date | string): string {
-		const d = typeof date === "string" ? new Date(date) : date;
-		if (isNaN(d.getTime())) return "";
-
-		return d.toLocaleDateString("en-AU", {
-			day: "numeric",
-			month: "short",
-			year: "numeric",
-		});
+		return sharedFormatDate(date, "medium");
 	}
 
 	/**

@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { formatDate } from '$lib/utils/formatting';
+
     interface UsageData {
         used: number;
         limit: number;
@@ -102,7 +104,7 @@
 
                 {#if stats.period}
                     <div class="text-xs text-secondary-1">
-                        <div>Period ends: {new Date(stats.period.end).toLocaleDateString()}</div>
+                        <div>Period ends: {formatDate(stats.period.end)}</div>
                         <div>{stats.period.daysRemaining} days remaining</div>
                     </div>
                 {/if}

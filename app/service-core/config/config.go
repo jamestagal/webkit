@@ -73,8 +73,6 @@ type Config struct {
 	PaymentProvider            string
 	SubscriptionSafePeriodDays int
 	StripeAPIKey               string
-	StripePriceIDBasic         string
-	StripePriceIDPremium       string
 	StripeWebhookSecret        string
 
 	// Agency Billing (Platform Subscriptions)
@@ -167,8 +165,6 @@ func LoadConfig() *Config {
 		TwilioServiceSID:             os.Getenv("TWILIO_SERVICE_SID"),
 		PaymentProvider:              MustSetEnv(true, "PAYMENT_PROVIDER"),
 		StripeAPIKey:                 MustSetEnv(os.Getenv("PAYMENT_PROVIDER") == "stripe", "STRIPE_API_KEY"),
-		StripePriceIDBasic:           os.Getenv("STRIPE_PRICE_ID_BASIC"),   // Legacy - optional
-		StripePriceIDPremium:         os.Getenv("STRIPE_PRICE_ID_PREMIUM"), // Legacy - optional
 		StripeWebhookSecret:          MustSetEnv(os.Getenv("PAYMENT_PROVIDER") == "stripe", "STRIPE_WEBHOOK_SECRET"),
 		// Agency billing price IDs (optional - loaded if set)
 		StripePriceStarterMonthly:    os.Getenv("STRIPE_PRICE_STARTER_MONTHLY"),
@@ -248,8 +244,6 @@ func LoadTestConfig() *Config {
 		PaymentProvider:              "stripe",
 		SubscriptionSafePeriodDays:   SubscriptionSafePeriodDays,
 		StripeAPIKey:                 "stripe_api_key",
-		StripePriceIDBasic:           "stripe_price_id_basic",
-		StripePriceIDPremium:         "stripe_price_id_premium",
 		StripeWebhookSecret:          "stripe_webhook_secret",
 		StripePriceStarterMonthly:    "price_starter_monthly_test",
 		StripePriceStarterYearly:     "price_starter_yearly_test",

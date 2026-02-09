@@ -3,6 +3,7 @@
 	import { invalidateAll, goto } from "$app/navigation";
 	import { getToast } from "$lib/ui/toast_store.svelte";
 	import { createClient, updateClient, archiveClient, restoreClient, deleteClient } from "$lib/api/clients.remote";
+	import { formatDate } from '$lib/utils/formatting';
 	import {
 		Users,
 		Plus,
@@ -202,14 +203,7 @@
 		}
 	}
 
-	function formatDate(date: Date | string | null) {
-		if (!date) return "—";
-		return new Date(date).toLocaleDateString("en-AU", {
-			day: "numeric",
-			month: "short",
-			year: "numeric",
-		});
-	}
+
 </script>
 
 <div class="space-y-6">

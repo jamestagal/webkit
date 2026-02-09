@@ -8,8 +8,8 @@
 	import { getAgencyConsultations, deleteConsultation } from '$lib/api/consultation.remote';
 	import { FEATURES } from '$lib/config/features';
 	import { INDUSTRY_OPTIONS, URGENCY_COLORS } from '$lib/config/consultation-options';
+	import { formatDateTime } from '$lib/utils/formatting';
 	import { Plus, Trash2, User } from 'lucide-svelte';
-	import Button from '$lib/components/Button.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -29,21 +29,6 @@
 	let deleteModalOpen = $state(false);
 	let consultationToDelete = $state<{ id: string; name: string } | null>(null);
 	let isDeleting = $state(false);
-
-	function formatDate(date: Date | string | null): string {
-		if (!date) return 'N/A';
-		const d = new Date(date);
-		const datePart = d.toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric'
-		});
-		const timePart = d.toLocaleTimeString('en-AU', {
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-		return `${datePart}, ${timePart}`;
-	}
 
 	function getStatusBadgeClass(status: string): string {
 		switch (status) {
@@ -131,10 +116,10 @@
 				<p class="text-base-content/70 mt-1">View and manage your consultation submissions</p>
 			</div>
 		</div>
-		<Button variant="primary" onclick={startNewConsultation}>
+		<button class="btn btn-primary" onclick={startNewConsultation}>
 			<Plus class="mr-2 h-4 w-4" />
 			New Consultation
-		</Button>
+		</button>
 	</div>
 
 	<!-- Consultations List -->
@@ -151,8 +136,8 @@
 				<p class="text-base-content/60 max-w-sm">
 					Get started by creating your first consultation.
 				</p>
-				<Button class="mt-4" variant="primary" onclick={startNewConsultation}
-					>Start New Consultation</Button
+				<button class="btn btn-primary mt-4" onclick={startNewConsultation}
+					>Start New Consultation</button
 				>
 			</div>
 		</div>
@@ -209,7 +194,7 @@
 							</div>
 							<div>
 								<span class="font-medium">Updated:</span>
-								{formatDate(consultation.updatedAt)}
+								{formatDateTime(consultation.updatedAt)}
 							</div>
 							{#if consultation.creatorName}
 								<div class="flex items-center gap-1">
