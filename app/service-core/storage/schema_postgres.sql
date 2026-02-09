@@ -1,3 +1,18 @@
+-- =============================================================================
+-- GO SCHEMA REFERENCE (sqlc only)
+-- =============================================================================
+-- This file is used ONLY by sqlc for Go type generation.
+-- It is NOT the source of truth for the database schema.
+-- The database is managed by sequential SQL migrations in /migrations/.
+-- Drizzle schema (service-client/src/lib/server/schema.ts) is the SvelteKit
+-- source of truth.
+--
+-- NEVER use `atlas schema apply` against this file (see CLAUDE.md).
+-- Tables listed here may be a subset of what exists in production.
+-- Column types/constraints may diverge from Drizzle — see
+-- docs/plans/database-spec.md #3.
+-- =============================================================================
+
 -- Enable required extensions
 create extension if not exists pg_trgm;
 
