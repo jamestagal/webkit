@@ -121,23 +121,40 @@ Update Drizzle schema `schema.ts` to add matching unique constraints on proposal
 
 ## 3. Fix Schema Drift Between Go, Drizzle, and Migrations
 
-**Priority:** P1 (before launch) | **Effort:** 2-3 hrs
+**Priority:** P1 (before launch) | **Effort:** 4-6 hrs (revised from 2-3 hrs — see audit note below)
 
-**Issue:** Three schema sources drift. Specific mismatches found:
+**Issue:** Three schema sources drift. The drift is primarily **column-level** (types, nullability, constraints, missing columns) rather than table-level. Table-level divergence between Go and Drizzle is intentional — each backend only defines tables it queries.
+
+**Audit correction (2026-02-09):** The original roadmap claimed "5 mismatches, 2-3 hrs". Independent verification found 5+ confirmed column-level mismatches plus the need to document the intentional table-level split. The table-level divergence (~10 tables exist in Go but not Drizzle, and vice versa) is by design and should be documented, not fixed. The column-level drift is the real risk and requires migrations + Go schema updates + sqlc regeneration.
+
+**BLOCKER:** Atlas workflows MUST be removed before running any migrations in this item. See execution-roadmap "BLOCKER: Remove Legacy Atlas Workflows" section. If Atlas fires after these migrations, it could revert them.
+
+### Confirmed column-level mismatches:
 
 | Column | Go Schema | Drizzle Schema | DB (migrations) | Action |
 |--------|-----------|---------------|-----------------|--------|
-| `agency_activity_log.ip_address` | `inet` (line 190) | `text("ip_address")` (line 211) | `inet` (schema_postgres.sql:190) | Change Go to `text` or Drizzle to `inet`. Prefer: keep as `text` in migration, update Go schema |
-| `consultations.agency_id` | nullable (line 661) | `.notNull()` (line 1158) | nullable (schema_postgres.sql:661) | Add migration to set NOT NULL |
-| `email_logs.form_submission_id` | MISSING from Go schema | present in Drizzle (line 1106) | added in migration 004 | Add to Go `schema_postgres.sql` |
-| `consultations.status` CHECK | `('draft','completed','archived')` | type `'draft'\|'completed'\|'converted'` | `('draft','completed','archived')` | Either add `'converted'` to CHECK or change Drizzle type to `'archived'` |
-| `clients` unique constraint | MISSING from Go schema | present in Drizzle (line 523) | present in migration 005 | Add to Go schema |
+| `agency_activity_log.ip_address` | `inet` (line 190) | `text("ip_address")` (line 211) | `inet` (schema_postgres.sql:190) | Migrate DB to `text`. Update Go schema. SvelteKit is the primary writer; no Go code does inet-specific operations. |
+| `consultations.agency_id` | nullable (line 661) | `.notNull()` (line 1158) | nullable (schema_postgres.sql:661) | Add migration to set NOT NULL. Update Go schema. |
+| `email_logs.form_submission_id` | MISSING from Go schema | present in Drizzle (line 1106) | added in migration 004 | Add column to Go `schema_postgres.sql`. Regenerate sqlc. |
+| `consultations.status` CHECK | `('draft','completed','archived')` | type `'draft'\|'completed'\|'converted'` | `('draft','completed','archived')` | Add `'converted'` to CHECK constraint. Both values valid — `archived` (Go legacy) and `converted` (SvelteKit active). |
+| `clients` unique constraint | MISSING from Go schema | `unique().on(table.agencyId, table.email)` (line 523) | present in migration 005 | Add to Go schema. |
 
-**Proposed Fix:**
+### Intentional table-level divergence (DOCUMENT ONLY — do not fix):
 
-A. Migration `010_fix_schema_drift.sql` (or combine with #2):
+**Tables in Go schema but not Drizzle (~10):** `tokens`, `files`, `emails`, `email_attachments`, `notes`, `questionnaire_responses`, `subscriptions`, `form_field_options`, `form_submission_values`, `agency_form_options` (some of these). These are Go-only tables that SvelteKit doesn't query.
+
+**Tables in Drizzle but not Go:** Minimal — the Go schema has been partially kept in sync and includes most SvelteKit tables. Any remaining gaps are tables Go doesn't query.
+
+**Action:** Add a header comment block to `schema_postgres.sql` documenting this split (see execution-roadmap blocker section for the exact comment).
+
+### Proposed Fix:
+
+A. Migration `011_fix_schema_drift.sql`:
 
 ```sql
+-- Fix ip_address column type to match Drizzle (text, not inet)
+ALTER TABLE agency_activity_log ALTER COLUMN ip_address TYPE text;
+
 -- Fix consultations.agency_id to NOT NULL
 -- Only safe if no NULL values exist
 DO $$ BEGIN
@@ -146,23 +163,24 @@ DO $$ BEGIN
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
--- Fix consultations.status CHECK to include 'converted'
+-- Fix consultations.status CHECK to include both 'archived' and 'converted'
 ALTER TABLE consultations DROP CONSTRAINT IF EXISTS valid_status;
 ALTER TABLE consultations ADD CONSTRAINT valid_status
   CHECK (status IN ('draft', 'completed', 'archived', 'converted'));
-
--- Fix ip_address column type (keep as inet in DB, OK for now)
--- Or: ALTER TABLE agency_activity_log ALTER COLUMN ip_address TYPE text;
 ```
 
 B. Update Go `schema_postgres.sql`:
+- Change `agency_activity_log.ip_address` from `inet` to `text`
 - Add `form_submission_id` to `email_logs`
 - Add `CONSTRAINT clients_agency_email_unique UNIQUE (agency_id, email)` to `clients`
 - Fix `consultations.agency_id` to `NOT NULL`
+- Add `'converted'` to `consultations.status` CHECK
 
 C. Regenerate sqlc: `sh scripts/run_queries.sh postgres`
 
-**Dependencies:** None
+D. Add header comment to `schema_postgres.sql` documenting its role as sqlc-only reference.
+
+**Dependencies:** Atlas workflows must be removed first (blocker).
 
 ---
 
@@ -396,18 +414,22 @@ END $$;
 
 ---
 
-## Resolved Questions (2026-02-07)
+## Resolved Questions (2026-02-07, updated 2026-02-09)
 
 1. **ip_address type:** **Change DB to `text`.** SvelteKit is the primary writer of audit logs. Drizzle already uses `text("ip_address")`. No Go code does inet-specific operations (CIDR matching). Migration: `ALTER TABLE agency_activity_log ALTER COLUMN ip_address TYPE text;`
 
-2. **Consultations JSONB vs flat:** **Go is HEAVILY using JSONB (39+ SQL queries).** Go actively reads, writes, searches, versions, and validates all 4 JSONB columns. `consultation.sql` has 39 queries referencing JSONB. `domain/consultation/service.go` parses/validates on every operation. Draft auto-save, version rollback, change detection all use JSONB. **Revised item #9 recommendation:** Keep both column sets. Add sync mechanism. Long-term: migrate all consultation CRUD to SvelteKit, then drop JSONB. Blocked by dual-DB architecture decision (architecture-spec #4).
+2. **Consultations JSONB vs flat (SUPERSEDED 2026-02-08/09):** ~~Go is HEAVILY using JSONB (39+ SQL queries).~~ **Correction:** While Go has 39+ JSONB queries defined, independent investigation confirmed these endpoints are completely unused by the frontend. Zero SvelteKit code calls the Go consultation routes. All consultation CRUD flows through Drizzle using flat columns. The Go JSONB system is orphaned dead code, not an active dependency. **See item #9 for the resolved action plan: do nothing now, deprecate Go consultation routes, remove later.**
 
-3. **subscriptions table:** **Go backend DOES reference it. Cannot drop.** Complete user-level subscription system: `query_postgres.sql` (5 queries), `domain/payment/service.go` (Stripe webhook handling), `models.go` (Subscription struct), routes for `/payments-portal`, `/payments-checkout`, `/payments-update`, `/payments-webhook`. **Two separate subscription systems exist:** user subscriptions (`subscriptions` table) via `domain/payment/` and agency subscriptions (`agencies` table fields) via `domain/billing/`. **Revised item #7:** Do NOT drop. Evaluate whether user-level subscriptions are still needed now that billing is agency-based. If deprecated, remove Go `payment/service.go` first, then drop table.
+3. **subscriptions table (SUPERSEDED 2026-02-08/09):** ~~Go backend DOES reference it. Cannot drop.~~ **Correction:** While Go code references the `subscriptions` table, the entire user-level payment system (`domain/payment/`, `/payments-*` routes) has zero frontend integration — no SvelteKit code calls these endpoints. Production verification confirmed: `subscriptions` table has 0 rows; `users` table has 1 row with subscription data (test account with empty strings and a 2000-01-01 placeholder date). **Decision: REMOVE.** See item #7 for ordered removal steps, now slotted into Wave 2 Stream I.
 
 4. **RLS scope:** **Use restricted role for app connections, keep superuser for admin/migrations.** Create `webapp_user` role for SvelteKit and Go connections. Keep `webkit` superuser for migrations and admin queries. RLS policies apply to `webapp_user` only. Super-admin bypasses RLS via superuser connection.
 
 5. **Encryption key rotation:** **No. Start with single static AES-256 key via env var.** Key rotation adds significant complexity (dual-key decryption, re-encryption migration). Add rotation support at 200+ agency milestone or when compliance requires it.
 
-### Additional Resolution
+### Additional Resolutions
 
 **Item #10b (questionnaire_responses):** **RESOLVED -- not needed.** `questionnaire.remote.ts` does not exist. Questionnaire system was deprecated in Phase 9 (commit `c5a237c`). `formSubmissions` table has replaced `questionnaire_responses`. Can drop the Go schema table in a future migration.
+
+**Atlas workflows (2026-02-09 audit):** Three CI/CD workflows (`release.yml`, `migration.yml`, `pr-preview.yml`) plus two scripts (`scripts/atlas.sh`, `consultation-domain.yml`) use `atlas schema apply` — directly violating CLAUDE.md line 470. These must be removed before any Wave 2 migration work. See execution-roadmap "BLOCKER" section for full details.
+
+**Schema drift scope (2026-02-09 audit):** Item #3 originally claimed "5 mismatches, 2-3 hrs". Actual scope: 5+ confirmed column-level mismatches (effort revised to 4-6 hrs) plus intentional table-level divergence that should be documented, not fixed. See item #3 for corrected details.

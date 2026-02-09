@@ -117,11 +117,67 @@ SEQUENTIAL AFTER GROUP 1:
 
 ---
 
+## BLOCKER: Remove Legacy Atlas Workflows (Before Wave 2)
+
+**Priority:** BLOCKER — must complete before any Wave 2 migration work
+**Effort:** 1-2 hrs
+**Risk if skipped:** Atlas `schema apply` uses `schema_postgres.sql` (Go schema) as the declarative target. This schema is missing Drizzle-only columns and has column-level drift. Running Atlas against production could drop columns, alter types, or remove constraints that SvelteKit depends on.
+
+**CLAUDE.md violation:** Line 470 explicitly states: *"Never use `atlas schema apply` for migrations — it's declarative and can be destructive."* Three workflows and two scripts violate this.
+
+### Workflows to disable/delete:
+
+| File | Issue | Trigger |
+|------|-------|---------|
+| `release.yml` | Calls `migration.yml` which runs `atlas schema apply --auto-approve` against K8s database. Legacy from pre-Hostinger architecture. **Fires on same event as `deploy-production.yml`** (`release: published`), meaning both run in parallel on every release. | Every GitHub release |
+| `migration.yml` | `ariga/atlas-action/schema/apply@v1` with `auto-approve: true`. Port-forwards to K8s CloudNativePG and applies Go schema declaratively. | Called by `release.yml` |
+| `pr-preview.yml` (lines 106-112) | Raw `./atlas schema apply --auto-approve \|\| true`. The `\|\| true` silently masks failures. Deploys K8s-based PR preview environments. | PR with `preview` label |
+| `consultation-domain.yml` (lines 210-239, 289-312) | Installs Atlas CLI via `curl`, runs `scripts/atlas.sh postgres` in two separate jobs. | Workflow-specific triggers |
+
+### Scripts to remove:
+
+| File | Issue |
+|------|-------|
+| `scripts/atlas.sh` | Standalone Atlas apply script targeting postgres/sqlite/turso. Called by `consultation-domain.yml` and `test-consultation.sh`. |
+| `scripts/test-consultation.sh` (line 185-188) | Conditionally runs `atlas.sh` if file exists. Remove the Atlas block. |
+
+### What to keep:
+
+- **`deploy-production.yml`** — This is the real production deploy pipeline. It pulls images and runs `docker compose up`. It does NOT use Atlas. This is the only deploy workflow that should exist.
+- **`lint-go.yml`, `lint-ts.yml`** — Linting workflows, no Atlas usage.
+- **`build-and-deploy.yml`** — Build/push workflow called by `release.yml`. Can be kept if `release.yml` is deleted (it becomes orphaned and harmless), or deleted alongside `release.yml` for cleanliness.
+
+### Implementation:
+
+1. Delete `release.yml` (legacy K8s deploy — superseded by `deploy-production.yml`)
+2. Delete `migration.yml` (Atlas migration workflow — violates CLAUDE.md)
+3. Delete `pr-preview.yml` (K8s-based PR previews — infrastructure no longer exists)
+4. Remove Atlas steps from `consultation-domain.yml` (lines 210-239, 289-312)
+5. Delete `scripts/atlas.sh`
+6. Remove Atlas block from `scripts/test-consultation.sh` (lines 185-188)
+7. Add header comment to `schema_postgres.sql`:
+   ```sql
+   -- =============================================================================
+   -- GO SCHEMA REFERENCE (sqlc only)
+   -- =============================================================================
+   -- This file is used ONLY by sqlc for Go type generation.
+   -- It is NOT the source of truth for the database schema.
+   -- The database is managed by sequential SQL migrations in storage/migrations/.
+   -- Drizzle schema (service-client/src/lib/server/schema.ts) is the SvelteKit source of truth.
+   --
+   -- NEVER use `atlas schema apply` against this file (see CLAUDE.md line 470).
+   -- Tables listed here may be a subset of what exists in production.
+   -- Column types/constraints may diverge from Drizzle — see docs/plans/database-spec.md #3.
+   -- =============================================================================
+   ```
+
+---
+
 ## Wave 2: Launch Readiness (P1)
 
 **Goal:** Features and hardening needed before accepting paying customers.
 **Timeline:** 1-2 weeks after Wave 1
-**Depends on Wave 1 being complete.**
+**Depends on Wave 1 being complete AND Atlas blocker being resolved.**
 
 ### Stream G: Dashboard & Reporting (1 agent)
 
@@ -137,23 +193,38 @@ SEQUENTIAL AFTER GROUP 1:
 
 | Item | Source | Effort | Files |
 |------|--------|--------|-------|
-| Add unique constraints on doc numbers | db-spec #2 | 1-2 hrs | New migration, `schema.ts` |
-| Fix schema drift (5 mismatches) | db-spec #3 | 2-3 hrs | New migration, `schema_postgres.sql`, `schema.ts` |
-| Add FKs on form_submissions | db-spec #10a | 30 min | New migration |
+| Add unique constraints on doc numbers | db-spec #2 | 1-2 hrs | New migration `010_add_unique_doc_number_constraints.sql`, `schema.ts` |
+| Fix column-level schema drift | db-spec #3 | 4-6 hrs | New migration `011_fix_schema_drift.sql`, `schema_postgres.sql`, `schema.ts` |
+| Add FKs on form_submissions | db-spec #10a | 30 min | New migration `012_add_form_submission_fks.sql` |
+| Document intentional Go/Drizzle split | audit finding | 1 hr | `schema_postgres.sql` header comments |
 
-**Why one agent:** All migration work. Must be in a single migration file (or sequential numbered files). Requires `run_queries.sh postgres` after Go schema changes.
+**Scope correction (2026-02-09 audit):** The original roadmap claimed "5 mismatches, 2-3 hrs". Actual scope:
+
+- **Column-level drift (5+ confirmed mismatches):** `ip_address` type (inet vs text), `consultations.agency_id` nullability, `email_logs.form_submission_id` missing from Go, `consultations.status` CHECK values (`archived` vs `converted`), `clients` unique constraint missing from Go. These require both a migration and Go schema update + sqlc regeneration.
+- **Table-level divergence (intentional, document only):** ~10 tables exist in Go but not Drizzle (e.g. `tokens`, `files`, `emails`, `notes`). ~0 tables are missing from Go that shouldn't be — the Go schema has been partially kept in sync. These are intentional splits (Go-only vs SvelteKit-only tables) and should be documented in `schema_postgres.sql` header, not "fixed".
+- **The original "5 mismatches" understated the column-level work and conflated it with table-level divergence. The table-level split is by design. The column-level drift is the real risk.**
+
+**Why one agent:** All migration work. Sequential numbered migration files. Requires `run_queries.sh postgres` after Go schema changes.
 
 **Dependency:** db-spec #2 depends on Wave 1 Stream C (race condition fix must come first, then add unique constraint).
+
+**BLOCKER dependency:** Atlas workflows MUST be removed before this stream runs. If Atlas fires on a release after these migrations, it could revert them by applying the (now stale) Go schema declaratively.
 
 ### Stream I: Security & CI/CD (1 agent)
 
 | Item | Source | Effort | Files |
 |------|--------|--------|-------|
+| **Remove legacy Atlas/K8s workflows** | audit finding (2026-02-09) | 1-2 hrs | `release.yml`, `migration.yml`, `pr-preview.yml`, `consultation-domain.yml`, `scripts/atlas.sh`, `scripts/test-consultation.sh` |
 | Move JWT keys from Docker layers to env vars | arch-spec #6 | 2-4 hrs | Dockerfiles, `deploy-production.yml`, Go auth code |
 | Add migration tracking table | arch-spec #7 | 4-8 hrs | `run_migrations.sh`, new migration |
 | Traefik rate limiting | scalability-spec #3 Phase 1 | 1 hr | `docker-compose.production.yml` |
+| **Remove legacy user-level payment system** | db-spec #7 (decision 2026-02-08) | 2-3 hrs | `domain/payment/`, `rest/payment_route.go`, `server.go:32-40`, `query_postgres.sql`, auth constants |
 
-**Why one agent:** All CI/CD and infra. No overlap with code streams.
+**Why one agent:** All CI/CD, infra, and legacy cleanup. No overlap with code streams.
+
+**Note on Atlas removal:** This must be the FIRST item in Stream I. It is a blocker for Stream H (database integrity). Run Atlas cleanup before any migration work begins. See the "BLOCKER: Remove Legacy Atlas Workflows" section above for full details.
+
+**Note on payment removal:** Confirmed dead code — zero frontend calls, zero production data (`subscriptions` table empty, only test data on `users` table). See db-spec #7 for ordered removal steps. Pre-removal verification (grep for `BasicPlan`/`PremiumPlan` in auth middleware) should be done before deleting.
 
 ### Stream J: Deploy Improvements (1 agent)
 
@@ -176,17 +247,22 @@ SEQUENTIAL AFTER GROUP 1:
 ### Wave 2 Execution Plan
 
 ```
-PARALLEL GROUP 2 (all independent):
+FIRST (blocker — must complete before Stream H):
+└── Atlas workflow removal (part of Stream I)    ~1-2 hrs
+
+THEN PARALLEL GROUP 2 (all independent):
 ├── Agent 1: Stream G (Dashboard/Reports)   ~2-3 weeks
-├── Agent 2: Stream H (DB integrity)        ~4-6 hrs
-├── Agent 3: Stream I (Security/CI)         ~7-13 hrs
+├── Agent 2: Stream H (DB integrity)        ~6-9 hrs (revised up from 4-6)
+├── Agent 3: Stream I (Security/CI + legacy cleanup) ~12-18 hrs (revised up from 7-13)
 ├── Agent 4: Stream J (Deploy improvements) ~7-11 hrs
 └── Agent 5: Stream K (Onboarding)          ~1-2 weeks
 
 Max parallel agents: 5
 ```
 
-**Stream G and K are the long poles** (weeks). H, I, J finish in 1-2 days each.
+**Stream G and K are the long poles** (weeks). H, I, J finish in 1-3 days each.
+
+**Stream I is larger than originally scoped** due to Atlas removal and legacy payment system cleanup. These additions are cleanup work that reduces future risk — not new features.
 
 ---
 
@@ -223,20 +299,20 @@ All infra/Docker + Go pubsub code. No SvelteKit overlap.
 |------|--------|--------|
 | CASCADE delete protection | db-spec #5 | 4-8 hrs |
 | RLS policies | db-spec #8 | 2-3 days |
-| Address dual JSONB+flat columns | db-spec #9 | 1-2 days |
+| Deprecate Go consultation routes + remove Go consultation code | db-spec #9 (decision 2026-02-08) | 1-2 days |
+| Drop orphaned JSONB columns from consultations | db-spec #9 (after Go code removed) | 30 min |
 | Context key collision fix (Go) | arch-spec #11 | 15 min |
 | Duplicate route cleanup (Go) | arch-spec #9 | 2-4 hrs |
 
-**CROSS-CUTTING:** db-spec #9 (JSONB) is blocked by arch-spec #4 (dual-DB decision). Resolved question says: keep both column sets, long-term migrate consultation CRUD to SvelteKit. This is a product decision -- defer unless you want to commit to that direction.
+**Note on JSONB (decision 2026-02-08):** The dual-DB decision is resolved. Go consultation endpoints are confirmed dead code — zero frontend calls. Action: mark Go consultation routes deprecated (Wave 2-3), then remove Go consultation code and JSONB columns here (Wave 3). No backfill needed. See db-spec #9 for full rationale.
 
 ### Stream O: Encryption (1 agent)
 
 | Item | Source | Effort |
 |------|--------|--------|
 | Encrypt banking info (BSB, TFN) | db-spec #6 | 1-2 days |
-| Evaluate/drop legacy subscriptions table | db-spec #7 | 1 hr (after product decision) |
 
-**Dependency:** db-spec #7 requires product decision on whether user-level subscriptions are still needed (resolved Q3 says Go backend DOES reference it). Must remove Go `payment/service.go` first if deprecating.
+**Note:** Legacy user-level payment system removal (db-spec #7) moved to Wave 2 Stream I. The `subscriptions` table and user-level Stripe fields will be removed there. Confirmed dead code with zero production data (decision 2026-02-08, verified 2026-02-09).
 
 ---
 
@@ -275,6 +351,8 @@ These files are touched by multiple items. **Never assign two agents to the same
 | `schema_postgres.sql` (Go) | Stream H (drift fixes) | Single agent |
 | `subscription.ts` | Stream C (AI counter fix) | Single agent |
 | `deploy-production.yml` | Stream I (JWT), Stream J (zero-downtime) | Same wave but different sections; safer as one agent |
+| `.github/workflows/*.yml` | Stream I (Atlas removal, JWT) | Single agent handles all workflow changes |
+| `schema_postgres.sql` (Go) | Stream H (drift fixes), Stream I (Atlas header comment) | Stream I adds header comment first, then Stream H modifies schema. Run I before H. |
 | `package.json` | Stream B (remove zod), Stream F (add dompurify) | Different waves, no conflict |
 
 ---
