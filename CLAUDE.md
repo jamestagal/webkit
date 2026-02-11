@@ -566,6 +566,24 @@ That's it! No SSH or manual scripts required. The workflow handles everything au
    - Prunes old images
    - Runs health check
 
+### CRITICAL: Never Remove JWT Key Injection Steps
+
+The deploy workflow has steps that write `PRIVATE_KEY_PEM` and `PUBLIC_KEY_PEM` from GitHub Secrets to files before the Docker build, then clean them up after. **These steps are essential for authentication to work.** Without them, production containers have no JWT keys and all logins fail with HTTP 500.
+
+The flow is: GitHub Secrets → CI writes PEM files → Dockerfile COPY bakes into image → Go reads `/private.pem` at runtime → CI cleans up files.
+
+**Do NOT remove, refactor, or "simplify" these steps.** See `.claude/notes/deployment/gotchas.md` for the full incident report.
+
+### CRITICAL: Health Checks Must Match Container Tooling
+
+Docker health checks in `docker-compose.production.yml` must use tools available in each container's base image. If a health check command fails (e.g., `wget` not found), Traefik marks the container unhealthy and stops routing traffic to it, causing site-wide 404s even though the service is running fine.
+
+- Go services (`debian:bookworm-slim`): use `curl` (installed in Dockerfile)
+- Node service (`node:22-slim`): use `node -e "fetch(...)"`
+- Deploy script health checks run on VPS host: use `curl`
+
+**Do NOT use `wget` in any health check or deploy script.**
+
 ### Required GitHub Secrets
 
 | Secret | Purpose |
@@ -779,6 +797,7 @@ This builds institutional knowledge over time and reduces repeated errors.
 | Feature | Status | Last Updated |
 |---------|--------|--------------|
 | billing | Active | 2026-02-01 |
+| deployment | Active | 2026-02-11 |
 
 ### Pattern: Idempotent Billing Status
 
