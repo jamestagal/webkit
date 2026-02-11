@@ -15,6 +15,11 @@ import (
 	"time"
 )
 
+// contextKey is a typed key for context values to avoid collisions.
+type contextKey string
+
+const userContextKey contextKey = "user"
+
 // Middleware types
 type Middleware func(http.HandlerFunc) http.HandlerFunc
 
@@ -31,7 +36,7 @@ func AuthMiddleware(authService *auth.Service, requiredAccess int64) Middleware 
 			}
 
 			// Add user to context
-			ctx := context.WithValue(r.Context(), "user", user)
+			ctx := context.WithValue(r.Context(), userContextKey, user)
 			r = r.WithContext(ctx)
 
 			next(w, r)
@@ -295,7 +300,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 
 // GetUserFromContext extracts the authenticated user from request context
 func GetUserFromContext(r *http.Request) (*auth.AccessTokenClaims, bool) {
-	user, ok := r.Context().Value("user").(*auth.AccessTokenClaims)
+	user, ok := r.Context().Value(userContextKey).(*auth.AccessTokenClaims)
 	return user, ok
 }
 
