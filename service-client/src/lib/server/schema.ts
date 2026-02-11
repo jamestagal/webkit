@@ -1164,10 +1164,9 @@ export const consultations = pgTable("consultations", {
 		.notNull()
 		.references(() => agencies.id, { onDelete: "cascade" }),
 
-	// User who owns this consultation (required for Go backend compatibility)
+	// User who owns this consultation (nullable — SET NULL on user deletion to preserve records)
 	userId: uuid("user_id")
-		.notNull()
-		.references(() => users.id, { onDelete: "cascade" }),
+		.references(() => users.id, { onDelete: "set null" }),
 
 	// Link to unified client (optional - populated via getOrCreateClient)
 	clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),

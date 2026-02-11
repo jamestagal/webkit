@@ -672,7 +672,7 @@ create table if not exists notes (
 -- TODO: Migrate SvelteKit to use JSONB columns and remove flat columns
 create table if not exists consultations (
     id uuid primary key not null default gen_random_uuid(),
-    user_id uuid not null references users(id) on delete cascade,
+    user_id uuid references users(id) on delete set null,
     agency_id uuid not null references agencies(id) on delete cascade,  -- Added for multi-tenancy
 
     -- Contact Information (JSONB structure for Go backend)
