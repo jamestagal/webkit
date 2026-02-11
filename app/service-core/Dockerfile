@@ -50,5 +50,7 @@ WORKDIR /
 RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app /app
+COPY --from=build /service-core/private.pem /private.pem
+COPY --from=build /service-core/public.pem /public.pem
 
 CMD ["/app"]

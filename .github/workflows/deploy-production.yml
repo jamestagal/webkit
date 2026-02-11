@@ -35,6 +35,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Create key files (Go services)
+        if: matrix.service != 'service-client'
+        run: |
+          echo "${{ secrets.PRIVATE_KEY_PEM }}" > app/${{ matrix.service }}/private.pem
+          echo "${{ secrets.PUBLIC_KEY_PEM }}" > app/${{ matrix.service }}/public.pem
+
+      - name: Create key files (SvelteKit)
+        if: matrix.service == 'service-client'
+        run: |
+          echo "${{ secrets.PUBLIC_KEY_PEM }}" > service-client/public.pem
+
       - name: Login to Container Registry
         uses: docker/login-action@v3
         with:
@@ -53,6 +64,17 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}:latest
           no-cache: true
+
+      - name: Clean up key files (Go services)
+        if: always() && matrix.service != 'service-client'
+        run: |
+          rm -f app/${{ matrix.service }}/private.pem
+          rm -f app/${{ matrix.service }}/public.pem
+
+      - name: Clean up key files (SvelteKit)
+        if: always() && matrix.service == 'service-client'
+        run: |
+          rm -f service-client/public.pem
 
   # Deploy to Hostinger VPS
   deploy:
@@ -95,17 +117,17 @@ jobs:
             # Core API first (other services depend on it)
             docker compose -f docker-compose.production.yml up -d --no-deps core
             sleep 10
-            wget --no-verbose --tries=3 --spider http://localhost:4001/health || echo "Core health check pending"
+            curl -f http://localhost:4001/health || echo "Core health check pending"
 
             # Admin service
             docker compose -f docker-compose.production.yml up -d --no-deps admin
             sleep 10
-            wget --no-verbose --tries=3 --spider http://localhost:3001/ready || echo "Admin health check pending"
+            curl -f http://localhost:3001/ready || echo "Admin health check pending"
 
             # Client service
             docker compose -f docker-compose.production.yml up -d --no-deps client
             sleep 10
-            wget --no-verbose --tries=3 --spider http://localhost:3000 || echo "Client health check pending"
+            curl -f http://localhost:3000 || echo "Client health check pending"
 
             # Clean up old images
             docker image prune -f

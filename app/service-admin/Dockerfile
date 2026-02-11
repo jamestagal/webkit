@@ -60,6 +60,7 @@ WORKDIR /
 RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app /app
+COPY --from=build /service-admin/public.pem /public.pem
 COPY ./service-admin/web/static /web/static
 
 CMD ["/app"]
