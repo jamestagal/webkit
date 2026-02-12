@@ -86,18 +86,38 @@
 		}
 	}
 
-	async function handleDelete(id: string) {
-		if (!confirm("Are you sure you want to delete this form? This action cannot be undone.")) {
-			return;
-		}
+	// Delete modal state
+	let showDeleteModal = $state(false);
+	let deletingItem = $state<{ id: string; name: string } | null>(null);
+	let isDeleting = $state(false);
 
+	function openDeleteModal(id: string, name: string) {
+		deletingItem = { id, name };
+		showDeleteModal = true;
+	}
+
+	function closeDeleteModal() {
+		showDeleteModal = false;
+		deletingItem = null;
+	}
+
+	async function confirmDelete() {
+		if (!deletingItem) return;
+		isDeleting = true;
 		try {
-			await deleteForm(id);
+			await deleteForm(deletingItem.id);
 			await invalidateAll();
+			closeDeleteModal();
 			toast.success("Form deleted");
 		} catch (err) {
 			toast.error("Failed to delete", err instanceof Error ? err.message : "");
+		} finally {
+			isDeleting = false;
 		}
+	}
+
+	function handleDelete(id: string, name?: string) {
+		openDeleteModal(id, name || "this form");
 	}
 
 	async function handleUseTemplate(templateId: string) {
@@ -598,3 +618,27 @@
 		{/if}
 	{/if}
 </div>
+
+{#if showDeleteModal && deletingItem}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">Delete Form</h3>
+			<p class="py-4">
+				Are you sure you want to delete <strong>{deletingItem.name}</strong>? This action cannot
+				be undone.
+			</p>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={closeDeleteModal} disabled={isDeleting}>
+					Cancel
+				</button>
+				<button class="btn btn-error" onclick={confirmDelete} disabled={isDeleting}>
+					{#if isDeleting}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					Delete
+				</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={closeDeleteModal}></div>
+	</div>
+{/if}

@@ -41,6 +41,27 @@
 	let selectedInvoice = $state<{ id: string; clientEmail: string; clientBusinessName: string | null } | null>(null);
 	let emailAction = $state<'send' | 'resend' | 'reminder'>('send');
 
+	// Confirm modal state
+	let confirmModal = $state<{
+		title: string;
+		message: string;
+		actionLabel: string;
+		actionClass: string;
+		onConfirm: () => Promise<void>;
+	} | null>(null);
+	let isConfirming = $state(false);
+
+	async function handleConfirm() {
+		if (!confirmModal) return;
+		isConfirming = true;
+		try {
+			await confirmModal.onConfirm();
+			confirmModal = null;
+		} finally {
+			isConfirming = false;
+		}
+	}
+
 	// Filtered invoices
 	let filteredInvoices = $derived(() => {
 		if (!statusFilter) return data.invoices;
@@ -94,32 +115,32 @@
 		}
 	}
 
-	async function handleDelete(invoiceId: string) {
-		if (!confirm('Are you sure you want to delete this invoice?')) {
-			return;
-		}
-
-		try {
-			await deleteInvoice(invoiceId);
-			await invalidateAll();
-			toast.success('Invoice deleted');
-		} catch (err) {
-			toast.error('Failed to delete invoice', err instanceof Error ? err.message : '');
-		}
+	function handleDelete(invoiceId: string) {
+		confirmModal = {
+			title: 'Delete Invoice',
+			message: 'Are you sure you want to delete this invoice? This action cannot be undone.',
+			actionLabel: 'Delete',
+			actionClass: 'btn-error',
+			onConfirm: async () => {
+				await deleteInvoice(invoiceId);
+				await invalidateAll();
+				toast.success('Invoice deleted');
+			}
+		};
 	}
 
-	async function handleCancel(invoiceId: string) {
-		if (!confirm('Are you sure you want to cancel this invoice?')) {
-			return;
-		}
-
-		try {
-			await cancelInvoice({ invoiceId });
-			await invalidateAll();
-			toast.success('Invoice cancelled');
-		} catch (err) {
-			toast.error('Failed to cancel invoice', err instanceof Error ? err.message : '');
-		}
+	function handleCancel(invoiceId: string) {
+		confirmModal = {
+			title: 'Cancel Invoice',
+			message: 'Are you sure you want to cancel this invoice? The client will no longer be able to pay it.',
+			actionLabel: 'Cancel Invoice',
+			actionClass: 'btn-warning',
+			onConfirm: async () => {
+				await cancelInvoice({ invoiceId });
+				await invalidateAll();
+				toast.success('Invoice cancelled');
+			}
+		};
 	}
 
 	function getStatusBadge(status: string) {
@@ -579,3 +600,25 @@
 	onConfirm={confirmSendEmail}
 	onCancel={() => sendModalOpen = false}
 />
+
+<!-- Confirm Modal -->
+{#if confirmModal}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">{confirmModal.title}</h3>
+			<p class="py-4">{confirmModal.message}</p>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={() => confirmModal = null} disabled={isConfirming}>
+					Cancel
+				</button>
+				<button class="btn {confirmModal.actionClass}" onclick={handleConfirm} disabled={isConfirming}>
+					{#if isConfirming}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					{confirmModal.actionLabel}
+				</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={() => confirmModal = null}></div>
+	</div>
+{/if}

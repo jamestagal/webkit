@@ -2,17 +2,13 @@
 	/**
 	 * Proposal Editor Page
 	 *
-	 * Full editor for creating and editing proposals with:
-	 * - Client info section
-	 * - Performance analysis (PageSpeed)
-	 * - Content sections (opportunity, issues, ROI)
-	 * - Package selection
-	 * - Timeline and architecture
+	 * Data loaded in +page.server.ts — no top-level await.
+	 * Uses invalidateAll() after mutations to re-run server load.
 	 */
 
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getProposalWithRelations, updateProposal, markProposalReady, revertProposalToDraft } from '$lib/api/proposals.remote';
+	import { updateProposal, markProposalReady, revertProposalToDraft } from '$lib/api/proposals.remote';
 	import { sendProposalEmail } from '$lib/api/email.remote';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
 	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';
@@ -20,8 +16,6 @@
 	import AIPreviewModal from './AIPreviewModal.svelte';
 	import AIStreamingModal from './AIStreamingModal.svelte';
 	import AIErrorDisplay from '$lib/components/AIErrorDisplay.svelte';
-	import { getActivePackages } from '$lib/api/agency-packages.remote';
-	import { getActiveAddons } from '$lib/api/agency-addons.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import {
 		Save,
@@ -60,15 +54,18 @@
 		ConsultationPainPoints,
 		ConsultationGoals
 	} from '$lib/server/schema';
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
 
 	const toast = getToast();
 	const agencySlug = page.params.agencySlug;
 	const proposalId = page.params.proposalId!;
 
-	// Load data
-	const { proposal } = await getProposalWithRelations(proposalId);
-	const packages = await getActivePackages();
-	const addons = await getActiveAddons();
+	// Data from server load (reactive — updates when invalidateAll() runs)
+	const proposal = $derived(data.proposal);
+	const packages = $derived(data.packages);
+	const addons = $derived(data.addons);
 
 	// Form state
 	let formData = $state({

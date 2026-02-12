@@ -10,6 +10,7 @@
 	import { goto } from "$app/navigation";
 	import { formatDateTime } from '$lib/utils/formatting';
 	import DynamicForm from "$lib/components/form-renderer/DynamicForm.svelte";
+	import PageSpeedAudit from "$lib/components/audit/PageSpeedAudit.svelte";
 	import { getConsultation } from "$lib/api/consultation.remote";
 	import { getFormById } from "$lib/api/forms.remote";
 	import { consultationToFormData } from "$lib/utils/consultation-field-map";
@@ -18,6 +19,7 @@
 	import type { ResolvedBranding } from "$lib/types/branding";
 	import { defaultAgencyBranding } from "$lib/types/branding";
 	import { hexToHsl } from "$lib/components/form-renderer/utils/theme-generator";
+	import type { PerformanceData } from "$lib/server/schema";
 	import type { PageProps } from "./$types";
 
 	let { data }: PageProps = $props();
@@ -182,6 +184,21 @@
 				</div>
 			</div>
 		{/if}
+
+		<!-- Website Performance Audit -->
+		<div class="mt-6 rounded-lg bg-base-100 border border-base-300 shadow">
+			<div class="collapse collapse-arrow">
+				<input type="checkbox" />
+				<div class="collapse-title text-lg font-semibold">Website Performance Audit</div>
+				<div class="collapse-content">
+					<PageSpeedAudit
+						consultationId={consultation.id}
+						websiteUrl={consultation.website}
+						existingData={consultation.performanceData as PerformanceData | null}
+					/>
+				</div>
+			</div>
+		</div>
 
 		<!-- Metadata -->
 		<div class="mt-6 rounded-lg bg-base-100 border border-base-300 p-4">

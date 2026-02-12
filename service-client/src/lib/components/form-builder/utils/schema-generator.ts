@@ -35,12 +35,18 @@ function generateFieldSchema(field: FormField): v.GenericSchema {
 
 		case "email": {
 			const emailSchema = v.pipe(v.string(), v.email());
-			return field.required ? emailSchema : v.optional(emailSchema);
+			// Optional email fields: allow empty string (user left it blank)
+			return field.required
+				? emailSchema
+				: v.optional(v.union([v.literal(""), emailSchema]));
 		}
 
 		case "url": {
 			const urlSchema = v.pipe(v.string(), v.url());
-			return field.required ? urlSchema : v.optional(urlSchema);
+			// Optional URL fields: allow empty string (user left it blank)
+			return field.required
+				? urlSchema
+				: v.optional(v.union([v.literal(""), urlSchema]));
 		}
 
 		case "tel": {
@@ -206,13 +212,31 @@ function getTypeScriptType(field: FormField): string {
 }
 
 /**
- * Validate form data against a FormSchema
+ * Validate form data against a FormSchema.
+ * If `fieldNames` is provided, only those fields are validated (for per-step validation).
  */
 export function validateFormData(
 	formSchema: FormSchema,
-	data: Record<string, unknown>
+	data: Record<string, unknown>,
+	fieldNames?: string[]
 ): { success: true; data: Record<string, unknown> } | { success: false; errors: Record<string, string> } {
-	const schema = generateFormSchema(formSchema);
+	let schema: v.GenericSchema;
+
+	if (fieldNames) {
+		// Build schema for only the specified fields (step validation)
+		const schemaShape: Record<string, v.GenericSchema> = {};
+		for (const step of formSchema.steps) {
+			for (const field of step.fields) {
+				if (["heading", "paragraph", "divider"].includes(field.type)) continue;
+				if (fieldNames.includes(field.name)) {
+					schemaShape[field.name] = generateFieldSchema(field);
+				}
+			}
+		}
+		schema = v.object(schemaShape);
+	} else {
+		schema = generateFormSchema(formSchema);
+	}
 
 	const result = v.safeParse(schema, data);
 

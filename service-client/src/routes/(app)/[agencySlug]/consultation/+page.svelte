@@ -121,6 +121,15 @@
 		phase = "filling";
 	}
 
+	function extractError(e: unknown, fallback: string): string {
+		if (e instanceof Error) return e.message;
+		if (e && typeof e === "object" && "body" in e) {
+			const body = (e as { body: { message?: string } }).body;
+			if (body?.message) return body.message;
+		}
+		return fallback;
+	}
+
 	// Step change handler (lazy create + step save)
 	async function handleStepChange(
 		direction: "next" | "prev",
@@ -153,7 +162,7 @@
 				});
 			}
 		} catch (e) {
-			error = e instanceof Error ? e.message : "Failed to save progress";
+			error = extractError(e, "Failed to save progress");
 			throw e; // Abort step transition
 		} finally {
 			saving = false;
@@ -184,7 +193,7 @@
 				});
 			}
 		} catch (e) {
-			error = e instanceof Error ? e.message : "Failed to save";
+			error = extractError(e, "Failed to save");
 		} finally {
 			saving = false;
 		}
@@ -228,9 +237,9 @@
 				});
 			}
 
-			goto(`/${agencySlug}/consultation/view/${consultationId}`);
+			goto(`/${agencySlug}/consultation/history`);
 		} catch (e) {
-			error = e instanceof Error ? e.message : "Failed to submit consultation";
+			error = extractError(e, "Failed to submit consultation");
 		} finally {
 			saving = false;
 		}
@@ -290,8 +299,8 @@
 				branding={resolvedBranding}
 				optionSets={data.optionSets}
 				initialData={prefillData}
-				onStepChange={handleStepChange}
 				showSaveButton={true}
+				onStepChange={handleStepChange}
 				onSave={handleSave}
 				onSubmit={handleSubmit}
 			/>

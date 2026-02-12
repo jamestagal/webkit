@@ -2,13 +2,13 @@
 	/**
 	 * Proposals List Page
 	 *
-	 * Displays all proposals for the agency with status filtering,
-	 * search, and quick actions (view, edit, duplicate, delete).
+	 * Data loaded in +page.server.ts — no top-level await.
+	 * Uses invalidateAll() after mutations to re-run server load.
 	 */
 
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getProposals, deleteProposal, duplicateProposal } from '$lib/api/proposals.remote';
+	import { deleteProposal, duplicateProposal } from '$lib/api/proposals.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { FEATURES } from '$lib/config/features';
 	import { Plus, Eye, Pencil, Copy, Trash2, ExternalLink, User } from 'lucide-svelte';
@@ -30,8 +30,13 @@
 	let statusFilter = $state<ProposalStatus | 'all'>('all');
 	let isLoading = $state(false);
 
-	// Load all proposals (client-side filtering handles status filter)
-	const proposals = await getProposals({});
+	// Delete modal state
+	let showDeleteModal = $state(false);
+	let deletingProposal = $state<{ id: string; title: string } | null>(null);
+	let isDeleting = $state(false);
+
+	// Proposals from server load (reactive — updates when invalidateAll() runs)
+	let proposals = $derived(data.proposals);
 
 	// Derived: filtered proposals (client-side filter for quick switching)
 	let filteredProposals = $derived(
@@ -101,20 +106,28 @@
 		}
 	}
 
-	async function handleDelete(id: string, title: string) {
-		if (!confirm(`Are you sure you want to delete "${title}"? This cannot be undone.`)) {
-			return;
-		}
+	function openDeleteModal(id: string, title: string) {
+		deletingProposal = { id, title };
+		showDeleteModal = true;
+	}
 
-		isLoading = true;
+	function closeDeleteModal() {
+		showDeleteModal = false;
+		deletingProposal = null;
+	}
+
+	async function confirmDelete() {
+		if (!deletingProposal) return;
+		isDeleting = true;
 		try {
-			await deleteProposal(id);
+			await deleteProposal(deletingProposal.id);
+			closeDeleteModal();
 			toast.success('Proposal deleted');
 			await invalidateAll();
 		} catch (err) {
 			toast.error('Failed to delete', err instanceof Error ? err.message : 'Unknown error');
 		} finally {
-			isLoading = false;
+			isDeleting = false;
 		}
 	}
 
@@ -326,7 +339,7 @@
 								<button
 									type="button"
 									class="btn btn-ghost btn-sm text-error"
-									onclick={() => handleDelete(proposal.id, proposal.title)}
+									onclick={() => openDeleteModal(proposal.id, proposal.title)}
 									disabled={isLoading || !canEdit}
 									title={canEdit ? 'Delete proposal' : 'Only the creator can delete this proposal'}
 								>
@@ -340,3 +353,27 @@
 		</div>
 	{/if}
 </div>
+
+{#if showDeleteModal && deletingProposal}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">Delete Proposal</h3>
+			<p class="py-4">
+				Are you sure you want to delete <strong>"{deletingProposal.title}"</strong>? This action
+				cannot be undone.
+			</p>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={closeDeleteModal} disabled={isDeleting}>
+					Cancel
+				</button>
+				<button class="btn btn-error" onclick={confirmDelete} disabled={isDeleting}>
+					{#if isDeleting}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					Delete
+				</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={closeDeleteModal}></div>
+	</div>
+{/if}

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from "$app/stores";
-	import { invalidateAll, goto } from "$app/navigation";
+	import { invalidateAll, goto, replaceState } from "$app/navigation";
 	import { getToast } from "$lib/ui/toast_store.svelte";
 	import { createClient, updateClient, archiveClient, restoreClient, deleteClient } from "$lib/api/clients.remote";
 	import { formatDate } from '$lib/utils/formatting';
@@ -41,8 +41,11 @@
 	// Modal state
 	let showCreateModal = $state(false);
 	let showEditModal = $state(false);
+	let showDeleteModal = $state(false);
 	let editingClient = $state<(typeof data.clients)[0] | null>(null);
+	let deletingClient = $state<(typeof data.clients)[0] | null>(null);
 	let isSaving = $state(false);
+	let isDeleting = $state(false);
 
 	// Form state
 	let formData = $state({
@@ -53,14 +56,13 @@
 		notes: "",
 	});
 
-	// Auto-open create modal if ?new=true in URL
+	// Auto-open create modal if ?new=true in URL (one-shot)
+	let newParamHandled = false;
 	$effect(() => {
-		if ($page.url.searchParams.get("new") === "true") {
+		if (!newParamHandled && $page.url.searchParams.get("new") === "true") {
+			newParamHandled = true;
 			showCreateModal = true;
-			// Clear the URL param without navigation
-			const url = new URL($page.url);
-			url.searchParams.delete("new");
-			history.replaceState({}, "", url.toString());
+			replaceState(new URL($page.url.pathname, $page.url.origin), {});
 		}
 	});
 
@@ -189,17 +191,29 @@
 		}
 	}
 
-	async function handleDelete(clientId: string) {
-		if (!confirm("Are you sure you want to permanently delete this client? This cannot be undone.")) {
-			return;
-		}
+	function openDeleteModal(client: (typeof data.clients)[0]) {
+		deletingClient = client;
+		showDeleteModal = true;
+	}
 
+	function closeDeleteModal() {
+		showDeleteModal = false;
+		deletingClient = null;
+	}
+
+	async function confirmDelete() {
+		if (!deletingClient) return;
+
+		isDeleting = true;
 		try {
-			await deleteClient(clientId);
+			await deleteClient(deletingClient.id);
+			closeDeleteModal();
 			await invalidateAll();
 			toast.success("Client deleted");
 		} catch (err) {
 			toast.error("Failed to delete client", err instanceof Error ? err.message : "");
+		} finally {
+			isDeleting = false;
 		}
 	}
 
@@ -362,7 +376,7 @@
 										</li>
 									{/if}
 									<li class="border-t border-base-300 mt-1 pt-1">
-										<button type="button" class="text-error" onclick={() => handleDelete(client.id)}>
+										<button type="button" class="text-error" onclick={() => openDeleteModal(client)}>
 											<Trash2 class="h-4 w-4" />
 											Delete
 										</button>
@@ -472,7 +486,7 @@
 												</li>
 											{/if}
 											<li class="border-t border-base-300 mt-1 pt-1">
-												<button type="button" class="text-error" onclick={() => handleDelete(client.id)}>
+												<button type="button" class="text-error" onclick={() => openDeleteModal(client)}>
 													<Trash2 class="h-4 w-4" />
 													Delete
 												</button>
@@ -699,4 +713,28 @@
 		<button type="button" onclick={() => { showEditModal = false; editingClient = null; }} disabled={isSaving}>close</button>
 	</form>
 </dialog>
+{/if}
+
+<!-- Delete Confirmation Modal -->
+{#if showDeleteModal && deletingClient}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">Delete Client</h3>
+			<p class="py-4">
+				Are you sure you want to permanently delete <strong>{deletingClient.businessName}</strong>? This action cannot be undone.
+			</p>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={closeDeleteModal} disabled={isDeleting}>
+					Cancel
+				</button>
+				<button class="btn btn-error" onclick={confirmDelete} disabled={isDeleting}>
+					{#if isDeleting}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					Delete
+				</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={closeDeleteModal}></div>
+	</div>
 {/if}

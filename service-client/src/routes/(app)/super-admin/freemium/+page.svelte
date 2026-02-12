@@ -41,6 +41,11 @@
 	let newExpiryDate = $state('');
 	let updatingExpiry = $state(false);
 
+	// Revoke confirmation modal
+	let showRevokeModal = $state(false);
+	let revokingAgency = $state<{ id: string; name: string } | null>(null);
+	let isRevoking = $state(false);
+
 	let searchDebounce: ReturnType<typeof setTimeout>;
 
 	const reasonLabels: Record<string, string> = {
@@ -89,17 +94,28 @@
 		loadAgencies();
 	}
 
-	async function handleRevoke(agency: FreemiumAgency) {
-		if (!confirm(`Are you sure you want to revoke freemium status from "${agency.name}"? They will be reverted to the free tier.`)) {
-			return;
-		}
+	function openRevokeModal(agency: FreemiumAgency) {
+		revokingAgency = { id: agency.id, name: agency.name };
+		showRevokeModal = true;
+	}
 
+	function closeRevokeModal() {
+		showRevokeModal = false;
+		revokingAgency = null;
+	}
+
+	async function handleRevoke() {
+		if (!revokingAgency) return;
+		isRevoking = true;
 		try {
-			await revokeAgencyFreemium(agency.id);
+			await revokeAgencyFreemium(revokingAgency.id);
+			closeRevokeModal();
 			toast.success('Success', 'Freemium status revoked');
 			loadAgencies();
 		} catch (e) {
 			toast.error('Error', e instanceof Error ? e.message : 'Failed to revoke freemium');
+		} finally {
+			isRevoking = false;
 		}
 	}
 
@@ -288,7 +304,7 @@
 									</button>
 									<button
 										class="btn btn-ghost btn-xs text-error"
-										onclick={() => handleRevoke(agency)}
+										onclick={() => openRevokeModal(agency)}
 										title="Revoke freemium"
 									>
 										<XCircle class="h-3 w-3" />
@@ -373,5 +389,28 @@
 			</div>
 		</div>
 		<div class="modal-backdrop" onclick={() => (showExpiryModal = false)}></div>
+	</div>
+{/if}
+<!-- Revoke Freemium Confirmation Modal -->
+{#if showRevokeModal && revokingAgency}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">Revoke Freemium</h3>
+			<p class="py-4">
+				Are you sure you want to revoke freemium status from <strong>{revokingAgency.name}</strong>? They will be reverted to the free tier.
+			</p>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={closeRevokeModal} disabled={isRevoking}>
+					Cancel
+				</button>
+				<button class="btn btn-warning" onclick={handleRevoke} disabled={isRevoking}>
+					{#if isRevoking}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					Revoke Freemium
+				</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={closeRevokeModal}></div>
 	</div>
 {/if}

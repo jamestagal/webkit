@@ -84,6 +84,11 @@
 	let showDeleteConfirm = $state(false);
 	let deleteConfirmEmail = $state('');
 
+	// Remove from agency confirmation
+	let showRemoveAgencyConfirm = $state(false);
+	let removingAgency = $state<{ agencyId: string; agencyName: string } | null>(null);
+	let isRemovingFromAgency = $state(false);
+
 	async function loadUsers() {
 		loading = true;
 		error = null;
@@ -161,19 +166,29 @@
 		}
 	}
 
-	async function handleRemoveFromAgency(agencyId: string, agencyName: string) {
-		if (!selectedUser) return;
-		if (!confirm(`Remove this user from "${agencyName}"?`)) return;
+	function openRemoveAgencyModal(agencyId: string, agencyName: string) {
+		removingAgency = { agencyId, agencyName };
+		showRemoveAgencyConfirm = true;
+	}
 
-		updating = true;
+	function closeRemoveAgencyModal() {
+		showRemoveAgencyConfirm = false;
+		removingAgency = null;
+	}
+
+	async function handleRemoveFromAgency() {
+		if (!selectedUser || !removingAgency) return;
+		isRemovingFromAgency = true;
 		try {
 			const result = await removeUserFromAgency({
 				userId: selectedUser.user.id,
-				agencyId
+				agencyId: removingAgency.agencyId
 			});
 
 			if (result.success) {
-				toast.success('Removed', `User removed from ${agencyName}`);
+				const name = removingAgency.agencyName;
+				closeRemoveAgencyModal();
+				toast.success('Removed', `User removed from ${name}`);
 				selectedUser = await getUserDetails(selectedUser.user.id);
 				await loadUsers();
 			} else {
@@ -182,7 +197,7 @@
 		} catch (e) {
 			toast.error('Error', e instanceof Error ? e.message : 'Failed to remove user');
 		} finally {
-			updating = false;
+			isRemovingFromAgency = false;
 		}
 	}
 
@@ -556,7 +571,7 @@
 											<button
 												class="btn btn-ghost btn-xs text-error"
 												onclick={() =>
-													handleRemoveFromAgency(membership.agencyId, membership.agencyName)}
+													openRemoveAgencyModal(membership.agencyId, membership.agencyName)}
 												disabled={updating}
 												title="Remove from agency"
 											>
@@ -723,6 +738,34 @@
 				showDeleteConfirm = false;
 				deleteConfirmEmail = '';
 			}}
+			aria-label="Close modal"
+		></button>
+	</div>
+{/if}
+<!-- Remove from Agency Confirmation Modal -->
+{#if showRemoveAgencyConfirm && removingAgency}
+	<div class="modal modal-open" style="z-index: 60;">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">Remove from Agency</h3>
+			<p class="py-4">
+				Are you sure you want to remove this user from <strong>{removingAgency.agencyName}</strong>?
+			</p>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={closeRemoveAgencyModal} disabled={isRemovingFromAgency}>
+					Cancel
+				</button>
+				<button class="btn btn-error" onclick={handleRemoveFromAgency} disabled={isRemovingFromAgency}>
+					{#if isRemovingFromAgency}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					Remove
+				</button>
+			</div>
+		</div>
+		<button
+			type="button"
+			class="modal-backdrop bg-black/50"
+			onclick={closeRemoveAgencyModal}
 			aria-label="Close modal"
 		></button>
 	</div>

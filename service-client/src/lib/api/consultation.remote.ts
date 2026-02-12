@@ -6,6 +6,7 @@
  */
 
 import { query, command } from "$app/server";
+import { error } from "@sveltejs/kit";
 import * as v from "valibot";
 import { db } from "$lib/server/db";
 import { consultations, users, agencyMemberships } from "$lib/server/schema";
@@ -308,7 +309,7 @@ const DynamicUpdateSchema = v.object({
 	budgetRange: v.optional(v.nullable(v.string())),
 	timeline: v.optional(v.nullable(v.string())),
 	designStyles: v.optional(v.nullable(v.array(v.string()))),
-	admiredWebsites: v.optional(v.nullable(v.string())),
+	admiredWebsites: v.optional(v.nullable(v.union([v.string(), v.array(v.string())]))),
 	consultationNotes: v.optional(v.nullable(v.string())),
 });
 
@@ -338,7 +339,12 @@ export const updateDynamicConsultation = command(DynamicUpdateSchema, async (dat
 	for (const [key, value] of Object.entries(data)) {
 		if (skipKeys.has(key)) continue;
 		if (value !== undefined) {
-			updates[key] = value;
+			// Normalize admiredWebsites: DB expects string[] but form may send a string
+			if (key === "admiredWebsites" && typeof value === "string") {
+				updates[key] = value ? [value] : [];
+			} else {
+				updates[key] = value;
+			}
 		}
 	}
 
@@ -361,7 +367,9 @@ export const updateDynamicConsultation = command(DynamicUpdateSchema, async (dat
 		});
 	}
 
-	getConsultation(consultationId).refresh();
+	// NOTE: Do NOT call getConsultation().refresh() here.
+	// It invalidates the query cache, causing SvelteKit to remount the edit page
+	// and resetting currentStepIndex back to 0 (breaking multi-step form navigation).
 });
 
 // =============================================================================
@@ -557,7 +565,7 @@ export const deleteConsultation = command(
 
 		await db.delete(consultations).where(eq(consultations.id, data.consultationId));
 
-		// Refresh caches
+		// Refresh caches so server load functions return fresh data
 		getAgencyConsultations().refresh();
 		getExistingDraftConsultation().refresh();
 
@@ -594,7 +602,13 @@ export const runPageSpeedAudit = command(
 		}
 
 		// Run the PageSpeed audit
-		const performanceData = await runAudit(consultation.website);
+		let performanceData: PerformanceData;
+		try {
+			performanceData = await runAudit(consultation.website);
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : "Failed to run PageSpeed audit";
+			throw error(502, msg);
+		}
 
 		// Store results on the consultation
 		await db

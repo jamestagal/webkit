@@ -105,18 +105,38 @@
 		}
 	}
 
-	async function handleDelete(scheduleId: string) {
-		if (!confirm('Are you sure you want to delete this schedule?')) {
-			return;
-		}
+	// Delete modal state
+	let showDeleteModal = $state(false);
+	let deletingItem = $state<{ id: string; name: string } | null>(null);
+	let isDeleting = $state(false);
 
+	function openDeleteModal(id: string, name: string) {
+		deletingItem = { id, name };
+		showDeleteModal = true;
+	}
+
+	function closeDeleteModal() {
+		showDeleteModal = false;
+		deletingItem = null;
+	}
+
+	async function confirmDelete() {
+		if (!deletingItem) return;
+		isDeleting = true;
 		try {
-			await deleteContractSchedule(scheduleId);
+			await deleteContractSchedule(deletingItem.id);
 			await invalidateAll();
+			closeDeleteModal();
 			toast.success('Schedule deleted');
 		} catch (err) {
 			toast.error('Failed to delete schedule', err instanceof Error ? err.message : '');
+		} finally {
+			isDeleting = false;
 		}
+	}
+
+	function handleDelete(scheduleId: string, name?: string) {
+		openDeleteModal(scheduleId, name || 'this schedule');
 	}
 
 	function toggleExpanded(scheduleId: string) {
@@ -278,7 +298,7 @@
 								<button
 									type="button"
 									class="btn btn-ghost btn-sm text-error"
-									onclick={() => handleDelete(schedule.id)}
+									onclick={() => handleDelete(schedule.id, schedule.name)}
 								>
 									<Trash2 class="h-4 w-4" />
 								</button>
@@ -382,5 +402,29 @@
 			</form>
 		</div>
 		<button type="button" class="modal-backdrop" onclick={closeModal} aria-label="Close modal"></button>
+	</div>
+{/if}
+
+{#if showDeleteModal && deletingItem}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">Delete Schedule</h3>
+			<p class="py-4">
+				Are you sure you want to delete <strong>{deletingItem.name}</strong>? This action cannot
+				be undone.
+			</p>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={closeDeleteModal} disabled={isDeleting}>
+					Cancel
+				</button>
+				<button class="btn btn-error" onclick={confirmDelete} disabled={isDeleting}>
+					{#if isDeleting}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					Delete
+				</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={closeDeleteModal}></div>
 	</div>
 {/if}

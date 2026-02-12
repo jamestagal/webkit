@@ -151,19 +151,29 @@
 		}
 	}
 
-	async function handleDelete() {
-		if (
-			!confirm("Are you sure you want to delete this form submission? This action cannot be undone.")
-		) {
-			return;
-		}
+	// Delete modal state
+	let showDeleteModal = $state(false);
+	let isDeleting = $state(false);
 
+	function openDeleteModal() {
+		showDeleteModal = true;
+	}
+
+	function closeDeleteModal() {
+		showDeleteModal = false;
+	}
+
+	async function confirmDelete() {
+		isDeleting = true;
 		try {
 			await deleteSubmission(submission.id);
+			closeDeleteModal();
 			toast.success("Submission deleted");
 			goto(`/${agencySlug}/forms`);
 		} catch (err) {
 			toast.error("Failed to delete", err instanceof Error ? err.message : "");
+		} finally {
+			isDeleting = false;
 		}
 	}
 
@@ -265,7 +275,7 @@
 							</li>
 						{/if}
 						<li class="border-t border-base-200 mt-1 pt-1">
-							<button type="button" class="text-error" onclick={handleDelete}>
+							<button type="button" class="text-error" onclick={openDeleteModal}>
 								<Trash2 class="h-4 w-4" />
 								Delete
 							</button>
@@ -533,6 +543,29 @@
 		</div>
 	{/if}
 </div>
+
+{#if showDeleteModal}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">Delete Submission</h3>
+			<p class="py-4">
+				Are you sure you want to delete this form submission? This action cannot be undone.
+			</p>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={closeDeleteModal} disabled={isDeleting}>
+					Cancel
+				</button>
+				<button class="btn btn-error" onclick={confirmDelete} disabled={isDeleting}>
+					{#if isDeleting}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					Delete
+				</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={closeDeleteModal}></div>
+	</div>
+{/if}
 
 <!-- Send Email Modal -->
 <SendEmailModal

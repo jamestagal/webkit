@@ -128,7 +128,7 @@
 			stepData[name] = formData[name];
 		}
 
-		const result = validateFormData(schema, stepData);
+		const result = validateFormData(schema, stepData, stepFieldNames);
 
 		if (result.success) {
 			// Clear errors for this step

@@ -49,8 +49,16 @@
 		try {
 			const result = await runPageSpeedAudit({ consultationId });
 			performanceData = result;
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to run audit';
+		} catch (err: unknown) {
+			if (err instanceof Error) {
+				error = err.message;
+			} else if (err && typeof err === 'object' && 'body' in err) {
+				// SvelteKit HttpError from remote function
+				const body = (err as { body: { message?: string } }).body;
+				error = body?.message || 'Failed to run audit';
+			} else {
+				error = 'Failed to run audit';
+			}
 			console.error('PageSpeed audit error:', err);
 		} finally {
 			isLoading = false;

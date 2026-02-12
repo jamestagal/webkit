@@ -1,11 +1,14 @@
 <script lang="ts">
 	/**
 	 * Agency-Scoped Consultation History Page v2
+	 *
+	 * Data loaded in +page.server.ts — no top-level await.
+	 * Uses invalidateAll() after mutations to re-run server load.
 	 */
 
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getAgencyConsultations, deleteConsultation } from '$lib/api/consultation.remote';
+	import { deleteConsultation } from '$lib/api/consultation.remote';
 	import { FEATURES } from '$lib/config/features';
 	import { INDUSTRY_OPTIONS, URGENCY_COLORS } from '$lib/config/consultation-options';
 	import { formatDateTime } from '$lib/utils/formatting';
@@ -22,8 +25,8 @@
 	// Get current user's membership info for permission checks
 	const membership = data.membership;
 
-	// Load consultations using remote function
-	let consultations = $state(await getAgencyConsultations());
+	// Consultations from server load (reactive — updates when invalidateAll() runs)
+	let consultations = $derived(data.consultations);
 
 	// Delete modal state
 	let deleteModalOpen = $state(false);
@@ -76,12 +79,11 @@
 		isDeleting = true;
 		try {
 			await deleteConsultation({ consultationId: consultationToDelete.id });
-			// Remove from local state
-			consultations = consultations.filter((c) => c.id !== consultationToDelete!.id);
 			closeDeleteModal();
+			// Re-run server load to get fresh data
+			await invalidateAll();
 		} catch (error) {
 			console.error('Failed to delete consultation:', error);
-			// Could add toast notification here
 		} finally {
 			isDeleting = false;
 		}

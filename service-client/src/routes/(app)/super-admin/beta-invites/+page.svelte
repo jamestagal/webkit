@@ -46,6 +46,11 @@
 	let newInviteNotes = $state('');
 	let creating = $state(false);
 
+	// Revoke confirmation modal
+	let showRevokeModal = $state(false);
+	let revokingInvite = $state<{ id: string; email: string } | null>(null);
+	let isRevoking = $state(false);
+
 	let searchDebounce: ReturnType<typeof setTimeout>;
 
 	async function loadInvites() {
@@ -109,15 +114,28 @@
 		}
 	}
 
-	async function handleRevoke(inviteId: string) {
-		if (!confirm('Are you sure you want to revoke this invite?')) return;
+	function openRevokeModal(inviteId: string, email: string) {
+		revokingInvite = { id: inviteId, email };
+		showRevokeModal = true;
+	}
 
+	function closeRevokeModal() {
+		showRevokeModal = false;
+		revokingInvite = null;
+	}
+
+	async function handleRevoke() {
+		if (!revokingInvite) return;
+		isRevoking = true;
 		try {
-			await revokeBetaInvite(inviteId);
+			await revokeBetaInvite(revokingInvite.id);
+			closeRevokeModal();
 			toast.success('Success', 'Invite revoked');
 			loadInvites();
 		} catch (e) {
 			toast.error('Error', e instanceof Error ? e.message : 'Failed to revoke invite');
+		} finally {
+			isRevoking = false;
 		}
 	}
 
@@ -300,7 +318,7 @@
 										</button>
 										<button
 											class="btn btn-ghost btn-xs text-error"
-											onclick={() => handleRevoke(invite.id)}
+											onclick={() => openRevokeModal(invite.id, invite.email)}
 											title="Revoke invite"
 										>
 											<X class="h-3 w-3" />
@@ -399,5 +417,29 @@
 			</div>
 		</div>
 		<div class="modal-backdrop" onclick={() => (showCreateModal = false)}></div>
+	</div>
+{/if}
+
+<!-- Revoke Confirmation Modal -->
+{#if showRevokeModal && revokingInvite}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">Revoke Invite</h3>
+			<p class="py-4">
+				Are you sure you want to revoke the invite for <strong>{revokingInvite.email}</strong>?
+			</p>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={closeRevokeModal} disabled={isRevoking}>
+					Cancel
+				</button>
+				<button class="btn btn-warning" onclick={handleRevoke} disabled={isRevoking}>
+					{#if isRevoking}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					Revoke
+				</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={closeRevokeModal}></div>
 	</div>
 {/if}

@@ -193,6 +193,16 @@ let doubled = $derived(count * 2);
 <svelte:window onbeforeunload={handleUnload} />
 ```
 
+## Confirmation Dialogs (CRITICAL)
+
+**NEVER use native `confirm()`.** Always use styled DaisyUI modals with `modal modal-open`. See `.claude/notes/ui/gotchas.md` for full patterns.
+
+Quick reference:
+- Single action: `showDeleteModal` + `deletingItem` state + `btn-error` delete button
+- Multi action (delete + cancel): generic `confirmModal` object with configurable title/message/actionClass/onConfirm
+- Always include: loading spinner, disabled buttons during async, backdrop click to close, item name in bold
+- Button colors: `btn-error` for delete/remove, `btn-warning` for cancel/revoke
+
 ## SvelteKit Remote Functions
 
 This project uses **SvelteKit Remote Functions** for server-side data operations. Remote functions are server-side functions that can be called from the client.
@@ -375,6 +385,34 @@ export const myQuery = query(async () => {
 
 - `redirect()` works in `query`, `form`, `prerender` (NOT in `command`)
 - `error()` throws HTTP errors in all function types
+
+### Page Data Loading Pattern
+
+SvelteKit remote functions support top-level `await` in components (the official pattern), but **on pages that have `+page.server.ts` AND call `command()` functions with stateful child components, prefer loading data in `+page.server.ts`** to avoid component remount issues.
+
+See `.claude/notes/sveltekit-data-loading/` for full details and incident report.
+
+```svelte
+<!-- CAUTION — may remount on command() if page also has +page.server.ts -->
+<script lang="ts">
+  const items = await getItems();           // top-level await
+  let selected = $state(null);              // can reset on remount
+</script>
+
+<!-- PREFERRED for pages with mutations + stateful components -->
+<script lang="ts">
+  let { data }: PageProps = $props();
+  let items = $derived(data.items);         // reactive to server data
+  let selected = $state(null);              // preserved across mutations
+</script>
+```
+
+**When page has mutations + stateful components (forms, wizards):**
+1. Fetch data in `+page.server.ts` `load` function
+2. Read from `data` props in `+page.svelte` (no `await`)
+3. After mutations, call `invalidateAll()` to re-run server load
+
+**When page is read-only or simple:** Top-level `await` is fine and simpler.
 
 ### Remote Functions Files
 
@@ -798,6 +836,8 @@ This builds institutional knowledge over time and reduces repeated errors.
 |---------|--------|--------------|
 | billing | Active | 2026-02-01 |
 | deployment | Active | 2026-02-11 |
+| sveltekit-data-loading | Active | 2026-02-12 |
+| ui | Active | 2026-02-12 |
 
 ### Pattern: Idempotent Billing Status
 

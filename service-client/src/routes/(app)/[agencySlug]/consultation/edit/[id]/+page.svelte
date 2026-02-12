@@ -2,21 +2,16 @@
 	/**
 	 * Consultation Edit Page (DynamicForm with Save)
 	 *
-	 * Loads existing consultation and presents DynamicForm for editing.
-	 * Supports step saves and explicit save button.
+	 * All data is loaded in +page.server.ts to avoid top-level await.
+	 * This prevents SvelteKit from remounting the component when command() runs,
+	 * which would reset DynamicForm's currentStepIndex.
 	 */
 
 	import { page } from "$app/state";
 	import { goto } from "$app/navigation";
 	import DynamicForm from "$lib/components/form-renderer/DynamicForm.svelte";
-	import { getConsultation, updateDynamicConsultation } from "$lib/api/consultation.remote";
-	import { getFormById } from "$lib/api/forms.remote";
-	import {
-		consultationToFormData,
-		mapFormDataToConsultation,
-	} from "$lib/utils/consultation-field-map";
-	import { buildFormSchema } from "$lib/components/form-builder/utils/schema-generator";
-	import type { FormSchema } from "$lib/types/form-builder";
+	import { updateDynamicConsultation } from "$lib/api/consultation.remote";
+	import { mapFormDataToConsultation } from "$lib/utils/consultation-field-map";
 	import type { ResolvedBranding } from "$lib/types/branding";
 	import { defaultAgencyBranding } from "$lib/types/branding";
 	import { hexToHsl } from "$lib/components/form-renderer/utils/theme-generator";
@@ -26,8 +21,14 @@
 
 	const agencySlug = page.params.agencySlug;
 
+	// All data comes from +page.server.ts — no top-level await needed
+	const consultation = data.consultation;
+	const formSchema = data.formSchema;
+	const formName = data.formName;
+	const formDescription = data.formDescription;
+	const initialData = data.initialData;
+
 	// Agency branding (from parent layout)
-	// Colors from DB are hex - convert to HSL for theme generator
 	function toHsl(hex: string | null | undefined): string | undefined {
 		if (!hex) return undefined;
 		return hex.startsWith("#") ? hexToHsl(hex) : hex;
@@ -50,33 +51,6 @@
 		} as ResolvedBranding;
 	});
 
-	// Load consultation
-	const consultation = await getConsultation(data.consultationId);
-
-	// State
-	let saving = $state(false);
-	let error = $state<string | null>(null);
-
-	// Resolve form schema: from consultation's formId or fallback template
-	let formSchema: FormSchema | null = null;
-	let formName: string = "Consultation";
-	let formDescription: string | null = null;
-	if (consultation.formId) {
-		try {
-			const form = await getFormById(consultation.formId);
-			formSchema = buildFormSchema(form.schema, form.uiConfig);
-			formName = form.name;
-			formDescription = form.description;
-		} catch {
-			// Form may have been deleted
-		}
-	}
-	if (!formSchema && data.fallbackTemplate) {
-		formSchema = buildFormSchema(data.fallbackTemplate.schema, data.fallbackTemplate.uiConfig);
-		formName = data.fallbackTemplate.name;
-		formDescription = data.fallbackTemplate.description;
-	}
-
 	// Resolved branding with form header
 	let resolvedBranding = $derived.by((): ResolvedBranding => {
 		const header: { title: string; subtitle?: string } = { title: formName };
@@ -87,13 +61,20 @@
 		};
 	});
 
-	// Build initial data from consultation columns + customData
-	const initialData = consultationToFormData(
-		consultation as unknown as Record<string, unknown>,
-		(consultation.customData as Record<string, unknown>) ?? undefined,
-	);
+	// State
+	let saving = $state(false);
+	let error = $state<string | null>(null);
 
-	// Step change handler (save on next)
+	function extractError(e: unknown, fallback: string): string {
+		if (e instanceof Error) return e.message;
+		if (e && typeof e === "object" && "body" in e) {
+			const body = (e as { body: { message?: string } }).body;
+			if (body?.message) return body.message;
+		}
+		return fallback;
+	}
+
+	// Step change handler (auto-save on next)
 	async function handleStepChange(
 		direction: "next" | "prev",
 		_stepIndex: number,
@@ -112,7 +93,7 @@
 				customData: Object.keys(custom).length > 0 ? custom : undefined,
 			});
 		} catch (e) {
-			error = e instanceof Error ? e.message : "Failed to save progress";
+			error = extractError(e, "Failed to save progress");
 			throw e;
 		} finally {
 			saving = false;
@@ -132,7 +113,7 @@
 				customData: Object.keys(custom).length > 0 ? custom : undefined,
 			});
 		} catch (e) {
-			error = e instanceof Error ? e.message : "Failed to save";
+			error = extractError(e, "Failed to save");
 		} finally {
 			saving = false;
 		}
@@ -154,7 +135,7 @@
 
 			goto(`/${agencySlug}/consultation/view/${consultation.id}`);
 		} catch (e) {
-			error = e instanceof Error ? e.message : "Failed to submit consultation";
+			error = extractError(e, "Failed to submit consultation");
 		} finally {
 			saving = false;
 		}
@@ -213,8 +194,8 @@
 				branding={resolvedBranding}
 				optionSets={data.optionSets}
 				{initialData}
-				onStepChange={handleStepChange}
 				showSaveButton={true}
+				onStepChange={handleStepChange}
 				onSave={handleSave}
 				onSubmit={handleSubmit}
 			/>

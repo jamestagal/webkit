@@ -34,6 +34,11 @@
 
 	let agencySlug = $derived(data.agency.slug);
 
+	// Delete modal state
+	let showDeleteModal = $state(false);
+	let deletingContract = $state<{ id: string; name: string } | null>(null);
+	let isDeleting = $state(false);
+
 	// Get current user's membership info for permission checks
 	const membership = data.membership;
 
@@ -79,17 +84,28 @@
 		}
 	}
 
-	async function handleDelete(contractId: string) {
-		if (!confirm('Are you sure you want to delete this contract?')) {
-			return;
-		}
+	function openDeleteModal(id: string, name: string) {
+		deletingContract = { id, name };
+		showDeleteModal = true;
+	}
 
+	function closeDeleteModal() {
+		showDeleteModal = false;
+		deletingContract = null;
+	}
+
+	async function confirmDelete() {
+		if (!deletingContract) return;
+		isDeleting = true;
 		try {
-			await deleteContract(contractId);
+			await deleteContract(deletingContract.id);
+			closeDeleteModal();
 			await invalidateAll();
 			toast.success('Contract deleted');
 		} catch (err) {
 			toast.error('Failed to delete contract', err instanceof Error ? err.message : '');
+		} finally {
+			isDeleting = false;
 		}
 	}
 
@@ -297,7 +313,7 @@
 										{/if}
 										{#if canEdit && !['signed', 'completed'].includes(contract.status)}
 											<li class="border-t border-base-300 mt-1 pt-1">
-												<button type="button" class="text-error" onclick={() => handleDelete(contract.id)}>
+												<button type="button" class="text-error" onclick={() => openDeleteModal(contract.id, contract.contractNumber)}>
 													<Trash2 class="h-4 w-4" />
 													Delete
 												</button>
@@ -459,7 +475,7 @@
 												<button
 													type="button"
 													class="text-error"
-													onclick={() => handleDelete(contract.id)}
+													onclick={() => openDeleteModal(contract.id, contract.contractNumber)}
 												>
 													<Trash2 class="h-4 w-4" />
 													Delete
@@ -488,3 +504,27 @@
 	onConfirm={confirmSendEmail}
 	onCancel={() => sendModalOpen = false}
 />
+
+<!-- Delete Contract Modal -->
+{#if showDeleteModal && deletingContract}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">Delete Contract</h3>
+			<p class="py-4">
+				Are you sure you want to delete contract <strong>{deletingContract.name}</strong>? This action cannot be undone.
+			</p>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={closeDeleteModal} disabled={isDeleting}>
+					Cancel
+				</button>
+				<button class="btn btn-error" onclick={confirmDelete} disabled={isDeleting}>
+					{#if isDeleting}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					Delete
+				</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={closeDeleteModal}></div>
+	</div>
+{/if}

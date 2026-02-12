@@ -17,6 +17,36 @@
 	let activeAddons = $derived(data.addons.filter((a) => a.isActive));
 	let inactiveAddons = $derived(data.addons.filter((a) => !a.isActive));
 
+	// Delete modal state
+	let showDeleteModal = $state(false);
+	let deletingItem = $state<{ id: string; name: string } | null>(null);
+	let isDeleting = $state(false);
+
+	function openDeleteModal(id: string, name: string) {
+		deletingItem = { id, name };
+		showDeleteModal = true;
+	}
+
+	function closeDeleteModal() {
+		showDeleteModal = false;
+		deletingItem = null;
+	}
+
+	async function confirmDelete() {
+		if (!deletingItem) return;
+		isDeleting = true;
+		try {
+			await deleteAgencyAddon(deletingItem.id);
+			await invalidateAll();
+			closeDeleteModal();
+			toast.success('Add-on deleted');
+		} catch (err) {
+			toast.error('Failed to delete', err instanceof Error ? err.message : '');
+		} finally {
+			isDeleting = false;
+		}
+	}
+
 	async function handleDuplicate(id: string) {
 		try {
 			await duplicateAgencyAddon(id);
@@ -27,18 +57,8 @@
 		}
 	}
 
-	async function handleDelete(id: string) {
-		if (!confirm('Are you sure you want to delete this add-on? It will be deactivated.')) {
-			return;
-		}
-
-		try {
-			await deleteAgencyAddon(id);
-			await invalidateAll();
-			toast.success('Add-on deleted');
-		} catch (err) {
-			toast.error('Failed to delete', err instanceof Error ? err.message : '');
-		}
+	function handleDelete(id: string, name?: string) {
+		openDeleteModal(id, name || 'this add-on');
 	}
 </script>
 
@@ -117,3 +137,27 @@
 		{/if}
 	{/if}
 </div>
+
+{#if showDeleteModal && deletingItem}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">Delete Add-on</h3>
+			<p class="py-4">
+				Are you sure you want to delete <strong>{deletingItem.name}</strong>? It will be
+				deactivated.
+			</p>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={closeDeleteModal} disabled={isDeleting}>
+					Cancel
+				</button>
+				<button class="btn btn-error" onclick={confirmDelete} disabled={isDeleting}>
+					{#if isDeleting}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					Delete
+				</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={closeDeleteModal}></div>
+	</div>
+{/if}

@@ -32,6 +32,33 @@
 	let editingDisplayName = $state('');
 	let isUpdating = $state(false);
 
+	// Generic confirm modal state
+	let confirmModal = $state<{
+		title: string;
+		message: string;
+		actionLabel: string;
+		actionClass: string;
+		onConfirm: () => Promise<void>;
+	} | null>(null);
+	let isConfirming = $state(false);
+
+	function closeConfirmModal() {
+		confirmModal = null;
+	}
+
+	async function handleConfirmAction() {
+		if (!confirmModal) return;
+		isConfirming = true;
+		try {
+			await confirmModal.onConfirm();
+			closeConfirmModal();
+		} catch {
+			// Error handling is done inside the onConfirm callback
+		} finally {
+			isConfirming = false;
+		}
+	}
+
 	// Check if current user can manage a member
 	function canManageMember(member: (typeof members)[0]) {
 		if (currentUserRole === 'owner') return true;
@@ -75,16 +102,23 @@
 	}
 
 	// Remove member from agency
-	async function handleRemoveMember(member: (typeof members)[0]) {
-		if (!confirm(`Remove ${member.displayName || member.userEmail} from ${agency.name}?`)) return;
-
-		try {
-			await removeMember(member.id);
-			toast.success('Member removed');
-			await invalidate('load:members');
-		} catch (error) {
-			toast.error((error as Error).message || 'Failed to remove member');
-		}
+	function handleRemoveMember(member: (typeof members)[0]) {
+		confirmModal = {
+			title: 'Remove Member',
+			message: `Remove ${member.displayName || member.userEmail} from ${agency.name}?`,
+			actionLabel: 'Remove',
+			actionClass: 'btn-error',
+			onConfirm: async () => {
+				try {
+					await removeMember(member.id);
+					toast.success('Member removed');
+					await invalidate('load:members');
+				} catch (error) {
+					toast.error((error as Error).message || 'Failed to remove member');
+					throw error;
+				}
+			}
+		};
 	}
 
 	// Handle successful invite
@@ -177,17 +211,23 @@
 	}
 
 	// Handle cancel invitation
-	async function handleCancelInvitation(member: (typeof members)[0]) {
-		if (!confirm(`Cancel invitation for ${member.userEmail}? This will remove them from the agency.`))
-			return;
-
-		try {
-			await cancelInvitation(member.id);
-			toast.success('Invitation cancelled');
-			await invalidate('load:members');
-		} catch (error) {
-			toast.error((error as Error).message || 'Failed to cancel invitation');
-		}
+	function handleCancelInvitation(member: (typeof members)[0]) {
+		confirmModal = {
+			title: 'Cancel Invitation',
+			message: `Cancel invitation for ${member.userEmail}? This will remove them from the agency.`,
+			actionLabel: 'Cancel Invitation',
+			actionClass: 'btn-warning',
+			onConfirm: async () => {
+				try {
+					await cancelInvitation(member.id);
+					toast.success('Invitation cancelled');
+					await invalidate('load:members');
+				} catch (error) {
+					toast.error((error as Error).message || 'Failed to cancel invitation');
+					throw error;
+				}
+			}
+		};
 	}
 </script>
 
@@ -549,6 +589,32 @@
 		{/if}
 	{/snippet}
 </Modal>
+
+<!-- Confirm Action Modal -->
+{#if confirmModal}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">{confirmModal.title}</h3>
+			<p class="py-4">{confirmModal.message}</p>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={closeConfirmModal} disabled={isConfirming}>
+					Cancel
+				</button>
+				<button
+					class="btn {confirmModal.actionClass}"
+					onclick={handleConfirmAction}
+					disabled={isConfirming}
+				>
+					{#if isConfirming}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					{confirmModal.actionLabel}
+				</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={closeConfirmModal}></div>
+	</div>
+{/if}
 
 <!-- Edit Display Name Modal -->
 <Modal bind:isOpen={showNameModal} title="Edit Display Name" maxWidth="max-w-md">

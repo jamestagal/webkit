@@ -65,6 +65,10 @@
 	let sendingEmail = $state(false);
 	let isResend = $state(false);
 
+	// Delete modal state
+	let showDeleteModal = $state(false);
+	let isDeleting = $state(false);
+
 	// Form state - editable fields
 	let clientBusinessName = $state('');
 	let clientContactName = $state('');
@@ -285,17 +289,25 @@
 		}
 	}
 
-	async function handleDelete() {
-		if (!confirm('Are you sure you want to delete this contract?')) {
-			return;
-		}
+	function openDeleteModal() {
+		showDeleteModal = true;
+	}
 
+	function closeDeleteModal() {
+		showDeleteModal = false;
+	}
+
+	async function confirmDelete() {
+		isDeleting = true;
 		try {
 			await deleteContract(contract.id);
+			closeDeleteModal();
 			toast.success('Contract deleted');
 			goto(`/${agencySlug}/contracts`);
 		} catch (err) {
 			toast.error('Failed to delete', err instanceof Error ? err.message : '');
+		} finally {
+			isDeleting = false;
 		}
 	}
 
@@ -581,7 +593,7 @@
 				<button
 					type="button"
 					class="btn btn-ghost btn-sm w-full justify-start text-error"
-					onclick={handleDelete}
+					onclick={openDeleteModal}
 				>
 					<Trash2 class="h-4 w-4" />
 					Delete
@@ -1260,3 +1272,27 @@
 	onConfirm={confirmSendEmail}
 	onCancel={() => sendModalOpen = false}
 />
+
+<!-- Delete Contract Modal -->
+{#if showDeleteModal}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">Delete Contract</h3>
+			<p class="py-4">
+				Are you sure you want to delete contract <strong>{contract.contractNumber}</strong>? This action cannot be undone.
+			</p>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={closeDeleteModal} disabled={isDeleting}>
+					Cancel
+				</button>
+				<button class="btn btn-error" onclick={confirmDelete} disabled={isDeleting}>
+					{#if isDeleting}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					Delete
+				</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={closeDeleteModal}></div>
+	</div>
+{/if}
