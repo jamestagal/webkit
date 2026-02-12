@@ -39,18 +39,13 @@ func Run(apiHandler *Handler) *http.Server {
 	mux.HandleFunc("/api/v1/billing/webhook", apiHandler.handleBillingWebhook)
 
 	// Emails
-	mux.HandleFunc("/emails", apiHandler.handleEmails)
 	mux.HandleFunc("/api/v1/emails", apiHandler.handleEmails)
 
 	// Files
-	mux.HandleFunc("/files", apiHandler.handleFilesCollection)
-	mux.HandleFunc("/files/{id}", apiHandler.handleFileResource)
 	mux.HandleFunc("/api/v1/files", apiHandler.handleFilesCollection)
 	mux.HandleFunc("/api/v1/files/{id}", apiHandler.handleFileResource)
 
 	// Notes
-	mux.HandleFunc("/notes", apiHandler.handleNotesCollection)
-	mux.HandleFunc("/notes/{id}", apiHandler.handleNoteResource)
 	mux.HandleFunc("/api/v1/notes", apiHandler.handleNotesCollection)
 	mux.HandleFunc("/api/v1/notes/{id}", apiHandler.handleNoteResource)
 
