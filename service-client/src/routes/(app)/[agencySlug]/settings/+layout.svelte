@@ -3,6 +3,7 @@
 	import type { Snippet } from 'svelte';
 	import { Building2, Package, PlusSquare, Users, Palette, FileText, CreditCard, Sparkles, FileStack, Receipt } from 'lucide-svelte';
 	import SetupChecklist from '$lib/components/settings/SetupChecklist.svelte';
+	import Breadcrumbs from '$lib/components/settings/Breadcrumbs.svelte';
 	import { getSetupChecklist } from '$lib/api/agency-profile.remote';
 
 	let { children, data }: { children: Snippet; data: import('./$types').LayoutData } = $props();
@@ -90,6 +91,11 @@
 
 	// Check if on main settings page (no sub-route)
 	let isSettingsIndex = $derived(current === `/${agencySlug}/settings`);
+
+	// Derive current section label from settingsNav for breadcrumbs
+	let currentSectionLabel = $derived(
+		settingsNav.find((item) => current.startsWith(item.url))?.label ?? ''
+	);
 </script>
 
 {#if isSettingsIndex}
@@ -199,6 +205,14 @@
 
 		<!-- Main content -->
 		<main class="flex-1 min-w-0">
+			{#if currentSectionLabel}
+				<div class="mb-4">
+					<Breadcrumbs crumbs={[
+						{ label: 'Settings', href: `/${agencySlug}/settings` },
+						{ label: currentSectionLabel }
+					]} />
+				</div>
+			{/if}
 			{@render children()}
 		</main>
 	</div>
