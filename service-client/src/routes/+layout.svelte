@@ -3,6 +3,7 @@
 	import Toast from "$lib/ui/toast.svelte";
 	import { setToast } from "$lib/ui/toast_store.svelte";
 	import { page } from "$app/stores";
+	import { navigating } from "$app/state";
 
 	let { children } = $props();
 
@@ -39,6 +40,11 @@
 </script>
 
 {#if loaded}
+	{#if navigating.to}
+		<div class="fixed top-0 left-0 right-0 z-[9999] h-0.5">
+			<div class="bg-primary h-full animate-progress"></div>
+		</div>
+	{/if}
 	<div class="text-base-content bg-base-100 font-poppins h-full font-normal antialiased">
 		{@render children()}
 	</div>
