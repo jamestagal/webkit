@@ -4,7 +4,6 @@ import (
 	"app/pkg/auth"
 	"service-core/config"
 	"service-core/domain/billing"
-	"service-core/domain/consultation"
 	"service-core/domain/email"
 	"service-core/domain/file"
 	"service-core/domain/login"
@@ -13,15 +12,14 @@ import (
 )
 
 type Handler struct {
-	cfg                 *config.Config
-	storage             *storage.Storage
-	authService         auth.AuthService
-	loginService        *login.Service
-	billingService      *billing.Service
-	emailService        *email.Service
-	fileService         *file.Service
-	noteService         *note.Service
-	consultationService consultation.ConsultationService
+	cfg            *config.Config
+	storage        *storage.Storage
+	authService    auth.AuthService
+	loginService   *login.Service
+	billingService *billing.Service
+	emailService   *email.Service
+	fileService    *file.Service
+	noteService    *note.Service
 }
 
 func NewHandler(
@@ -33,17 +31,15 @@ func NewHandler(
 	emailService *email.Service,
 	fileService *file.Service,
 	noteService *note.Service,
-	consultationService consultation.ConsultationService,
 ) *Handler {
 	return &Handler{
-		cfg:                 config,
-		storage:             storage,
-		authService:         authService,
-		loginService:        loginService,
-		billingService:      billingService,
-		emailService:        emailService,
-		fileService:         fileService,
-		noteService:         noteService,
-		consultationService: consultationService,
+		cfg:            config,
+		storage:        storage,
+		authService:    authService,
+		loginService:   loginService,
+		billingService: billingService,
+		emailService:   emailService,
+		fileService:    fileService,
+		noteService:    noteService,
 	}
 }

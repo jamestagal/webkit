@@ -52,12 +52,6 @@ const (
 	// Admin access
 	GetUsers int64 = 0x0000000000001000
 	EditUser int64 = 0x0000000000002000
-
-	// Consultation access
-	GetConsultations    int64 = 0x0000000001000000
-	CreateConsultation  int64 = 0x0000000002000000
-	EditConsultation    int64 = 0x0000000004000000
-	DeleteConsultation  int64 = 0x0000000008000000
 )
 
 const UserAccess int64 = GetNotes |
@@ -69,11 +63,7 @@ const UserAccess int64 = GetNotes |
 	GetFiles |
 	UploadFile |
 	DownloadFile |
-	RemoveFile |
-	GetConsultations |
-	CreateConsultation |
-	EditConsultation |
-	DeleteConsultation
+	RemoveFile
 
 const AdminAccess int64 = UserAccess |
 	GetUsers |

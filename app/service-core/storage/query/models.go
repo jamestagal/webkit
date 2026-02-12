@@ -247,7 +247,7 @@ type Client struct {
 
 type Consultation struct {
 	ID                   uuid.UUID             `json:"id"`
-	UserID               uuid.UUID             `json:"user_id"`
+	UserID               uuid.NullUUID         `json:"user_id"`
 	AgencyID             uuid.UUID             `json:"agency_id"`
 	ContactInfo          json.RawMessage       `json:"contact_info"`
 	BusinessContext      json.RawMessage       `json:"business_context"`

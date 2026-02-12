@@ -12,7 +12,6 @@ import (
 
 	"service-core/config"
 	"service-core/domain/billing"
-	"service-core/domain/consultation"
 	"service-core/domain/email"
 	"service-core/domain/file"
 	"service-core/domain/login"
@@ -84,12 +83,6 @@ func setupRESTHandlers(cfg *config.Config, storage *storage.Storage) *rest.Handl
 	billingService := billing.NewService(cfg, store)
 	noteService := note.NewService(store)
 
-	// Initialize consultation domain services
-	consultationRepo := consultation.NewRepository(store)
-	draftRepo := consultation.NewDraftRepository(store)
-	versionRepo := consultation.NewVersionRepository(store)
-	consultationService := consultation.NewConsultationService(consultationRepo, draftRepo, versionRepo)
-
 	apiHandler := rest.NewHandler(
 		cfg,
 		storage,
@@ -99,7 +92,6 @@ func setupRESTHandlers(cfg *config.Config, storage *storage.Storage) *rest.Handl
 		emailService,
 		fileService,
 		noteService,
-		consultationService,
 	)
 	return apiHandler
 }

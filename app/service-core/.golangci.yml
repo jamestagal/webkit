@@ -263,7 +263,7 @@ linters:
     - typecheck
     - unused
 
-    # Additional linters for consultation domain
+    # Additional linters
     - asciicheck      # Simple linter to check that your code does not contain non-ASCII identifiers
     - bidichk         # Checks for dangerous unicode character sequences
     - bodyclose       # Checks whether HTTP response body is closed successfully
@@ -322,7 +322,7 @@ linters:
     - exhaustivestruct # Checks if all struct's fields are initialized
     - exhaustruct     # Checks if all structure fields are initialized
     - forcetypeassert # Finds forced type assertions
-    - funlen          # Tool for detection of long functions (disabled for consultation domain)
+    - funlen          # Tool for detection of long functions
     - gci             # Gci controls golang package import order and makes it always deterministic
     - ginkgolinter    # Enforces standards of using ginkgo and gomega
     - godox           # Tool for detection of FIXME, TODO and other comment keywords
@@ -382,12 +382,6 @@ issues:
     - linters:
         - lll
       source: "^\\s*`"
-
-    # Disable specific rules for certain paths
-    - path: domain/consultation/model\.go
-      linters:
-        - goconst
-      text: "string.*has.*occurrences"
 
     # Disable magic number detection for HTTP status codes
     - linters:

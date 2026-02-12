@@ -4,12 +4,9 @@ import (
 	"app/pkg"
 	"app/pkg/auth"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
-	"net/mail"
 	"strings"
 	"sync"
 	"time"
@@ -38,29 +35,6 @@ func AuthMiddleware(authService *auth.Service, requiredAccess int64) Middleware 
 			// Add user to context
 			ctx := context.WithValue(r.Context(), userContextKey, user)
 			r = r.WithContext(ctx)
-
-			next(w, r)
-		}
-	}
-}
-
-// ValidationMiddleware validates JSON input for consultation endpoints
-func ValidationMiddleware() Middleware {
-	return func(next http.HandlerFunc) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			// Only validate requests with JSON body
-			if r.Method == http.MethodPost || r.Method == http.MethodPut {
-				contentType := r.Header.Get("Content-Type")
-				if strings.Contains(contentType, "application/json") {
-					if err := validateJSONInput(r); err != nil {
-						writeResponse(nil, w, r, nil, pkg.BadRequestError{
-							Message: "Invalid JSON format",
-							Err:     err,
-						})
-						return
-					}
-				}
-			}
 
 			next(w, r)
 		}
@@ -244,29 +218,6 @@ func Chain(middlewares ...Middleware) Middleware {
 
 // Helper functions
 
-// validateJSONInput validates that the request body contains valid JSON
-func validateJSONInput(r *http.Request) error {
-	// Limit body size to 10MB to prevent memory exhaustion
-	r.Body = http.MaxBytesReader(nil, r.Body, 10<<20)
-
-	// Read body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return fmt.Errorf("error reading request body: %w", err)
-	}
-
-	// Restore body for next handler
-	r.Body = io.NopCloser(strings.NewReader(string(body)))
-
-	// Validate JSON
-	var data interface{}
-	if err := json.Unmarshal(body, &data); err != nil {
-		return fmt.Errorf("invalid JSON: %w", err)
-	}
-
-	return nil
-}
-
 // getClientIP extracts the real client IP from request
 func getClientIP(r *http.Request) string {
 	// Check X-Forwarded-For header
@@ -316,96 +267,3 @@ func RequireAuth(w http.ResponseWriter, r *http.Request) (*auth.AccessTokenClaim
 	return user, true
 }
 
-// Validation helper functions for consultation-specific validation
-
-// ValidateConsultationCreate validates consultation creation request
-func ValidateConsultationCreate(data map[string]interface{}) []pkg.ValidationError {
-	var errors []pkg.ValidationError
-
-	// Check required fields or business rules
-	if contactInfo, ok := data["contactInfo"].(map[string]interface{}); ok {
-		if businessName, ok := contactInfo["businessName"].(string); !ok || strings.TrimSpace(businessName) == "" {
-			errors = append(errors, pkg.ValidationError{
-				Field:   "contactInfo.businessName",
-				Tag:     "required",
-				Message: "Business name is required",
-			})
-		}
-
-		if email, ok := contactInfo["email"].(string); ok && email != "" {
-			if !isValidEmail(email) {
-				errors = append(errors, pkg.ValidationError{
-					Field:   "contactInfo.email",
-					Tag:     "email",
-					Message: "Invalid email format",
-				})
-			}
-		}
-	}
-
-	// Validate pain points if provided
-	if painPoints, ok := data["painPoints"].(map[string]interface{}); ok {
-		if urgencyLevel, ok := painPoints["urgencyLevel"].(string); ok && urgencyLevel != "" {
-			validUrgencies := []string{"low", "medium", "high", "critical"}
-			if !contains(validUrgencies, urgencyLevel) {
-				errors = append(errors, pkg.ValidationError{
-					Field:   "painPoints.urgencyLevel",
-					Tag:     "oneof",
-					Message: "Urgency level must be one of: low, medium, high, critical",
-				})
-			}
-		}
-	}
-
-	return errors
-}
-
-// ValidateConsultationUpdate validates consultation update request
-func ValidateConsultationUpdate(data map[string]interface{}) []pkg.ValidationError {
-	var errors []pkg.ValidationError
-
-	// Similar validation to create but all fields are optional
-	if contactInfo, ok := data["contactInfo"].(map[string]interface{}); ok {
-		if email, ok := contactInfo["email"].(string); ok && email != "" {
-			if !isValidEmail(email) {
-				errors = append(errors, pkg.ValidationError{
-					Field:   "contactInfo.email",
-					Tag:     "email",
-					Message: "Invalid email format",
-				})
-			}
-		}
-	}
-
-	// Validate status transition if provided
-	if status, ok := data["status"].(string); ok && status != "" {
-		validStatuses := []string{"draft", "completed", "archived"}
-		if !contains(validStatuses, status) {
-			errors = append(errors, pkg.ValidationError{
-				Field:   "status",
-				Tag:     "oneof",
-				Message: "Status must be one of: draft, completed, archived",
-			})
-		}
-	}
-
-	return errors
-}
-
-// Helper validation functions
-func isValidEmail(email string) bool {
-	if len(email) > 254 {
-		return false
-	}
-	_, err := mail.ParseAddress(email)
-	return err == nil
-}
-
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}

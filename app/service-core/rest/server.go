@@ -54,32 +54,6 @@ func Run(apiHandler *Handler) *http.Server {
 	mux.HandleFunc("/api/v1/notes", apiHandler.handleNotesCollection)
 	mux.HandleFunc("/api/v1/notes/{id}", apiHandler.handleNoteResource)
 
-	// DEPRECATED: Consultation routes are unused by the frontend (SvelteKit handles all CRUD).
-	// Scheduled for removal in Wave 3. See docs/plans/execution-roadmap.md Stream N.
-	// Consultations - Core CRUD operations (both legacy and API v1 paths)
-	mux.HandleFunc("/consultations", apiHandler.handleConsultationsCollection)
-	mux.HandleFunc("/consultations/{id}", apiHandler.handleConsultationResource)
-	mux.HandleFunc("/api/v1/consultations", apiHandler.handleConsultationsCollection)
-	mux.HandleFunc("/api/v1/consultations/{id}", apiHandler.handleConsultationResource)
-
-	// Consultations - Draft management
-	mux.HandleFunc("/consultations/{id}/drafts", apiHandler.handleConsultationDrafts)
-	mux.HandleFunc("/api/v1/consultations/{id}/drafts", apiHandler.handleConsultationDrafts)
-
-	// Consultations - Version history
-	mux.HandleFunc("/consultations/{id}/versions", apiHandler.handleConsultationVersions)
-	mux.HandleFunc("/consultations/{id}/versions/{version}", apiHandler.handleConsultationVersions)
-	mux.HandleFunc("/api/v1/consultations/{id}/versions", apiHandler.handleConsultationVersions)
-	mux.HandleFunc("/api/v1/consultations/{id}/versions/{version}", apiHandler.handleConsultationVersions)
-
-	// Consultations - Lifecycle operations
-	mux.HandleFunc("/consultations/{id}/complete", apiHandler.handleConsultationComplete)
-	mux.HandleFunc("/consultations/{id}/archive", apiHandler.handleConsultationArchive)
-	mux.HandleFunc("/consultations/{id}/restore", apiHandler.handleConsultationRestore)
-	mux.HandleFunc("/api/v1/consultations/{id}/complete", apiHandler.handleConsultationComplete)
-	mux.HandleFunc("/api/v1/consultations/{id}/archive", apiHandler.handleConsultationArchive)
-	mux.HandleFunc("/api/v1/consultations/{id}/restore", apiHandler.handleConsultationRestore)
-
 	// Cron jobs
 	mux.HandleFunc("/tasks/delete-tokens", apiHandler.handleTasksDeleteTokens)
 
