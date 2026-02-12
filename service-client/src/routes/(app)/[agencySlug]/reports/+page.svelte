@@ -2,8 +2,6 @@
 	import { BarChart3, TrendingUp, PieChart, Clock, Users, Lock } from 'lucide-svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 	import DoughnutChart from '$lib/components/charts/DoughnutChart.svelte';
-	import { formatCurrency } from '$lib/utils/formatting';
-
 	let { data } = $props();
 
 	// Status color maps
@@ -23,7 +21,7 @@
 		expired: '#f59e0b',
 	};
 
-	let aging = $derived(data.agingBuckets);
+	let aging = $derived(data.agingBuckets ?? { current: 0, overdue30: 0, overdue60: 0, overdue90: 0 });
 	let hasAging = $derived(aging.current + aging.overdue30 + aging.overdue60 + aging.overdue90 > 0);
 </script>
 

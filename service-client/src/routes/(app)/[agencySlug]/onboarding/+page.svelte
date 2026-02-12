@@ -5,7 +5,7 @@
 	import {
 		Building2, Palette, Package, CreditCard, Rocket,
 		ChevronRight, ChevronLeft, Check, ExternalLink, ArrowRight,
-		MessageCircle, FileText, FileSignature, Receipt, Users
+		MessageCircle, FileText, FileSignature, Users
 	} from 'lucide-svelte';
 
 	let { data } = $props();
