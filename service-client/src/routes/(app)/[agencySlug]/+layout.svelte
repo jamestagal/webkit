@@ -171,8 +171,10 @@
 			type="button"
 			class="-m-2.5 cursor-pointer p-2.5 hover:opacity-60 lg:hidden"
 			onclick={() => sidebarOpen = true}
+			aria-expanded={sidebarOpen}
+			aria-controls="mobile-sidebar"
+			aria-label="Open sidebar"
 		>
-			<span class="sr-only">Open sidebar</span>
 			<svg
 				class="size-6"
 				fill="none"

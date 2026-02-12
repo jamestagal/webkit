@@ -96,6 +96,9 @@
 		class="btn btn-ghost gap-2 px-2"
 		onclick={toggleDropdown}
 		disabled={isSwitching !== null}
+		aria-expanded={showDropdown}
+		aria-haspopup="true"
+		aria-label="Switch agency"
 	>
 		<!-- Agency Avatar (prefer avatar logo, fallback to horizontal, then initial) -->
 		{#if getAvatarLogo(currentAgency)}
@@ -126,6 +129,8 @@
 	{#if showDropdown}
 		<div
 			class="dropdown-content menu bg-base-100 rounded-box z-50 mt-2 w-72 p-2 shadow-lg border border-base-300"
+			role="menu"
+			aria-label="Agency options"
 		>
 			<!-- Current Agency Header -->
 			<div class="px-3 py-2">
