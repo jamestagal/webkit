@@ -323,13 +323,13 @@ create table if not exists agency_profiles (
 
     -- Banking (for invoice display)
     bank_name varchar(100) not null default '',
-    bsb varchar(10) not null default '',
-    account_number varchar(30) not null default '',
+    bsb text not null default '',
+    account_number text not null default '',
     account_name text not null default '',
 
     -- Tax & GST
     gst_registered boolean not null default true,
-    tax_file_number varchar(20) not null default '',
+    tax_file_number text not null default '',
     gst_rate decimal(5,2) not null default 10.00,
 
     -- Social & Branding

@@ -5,6 +5,7 @@ import { agencyProfiles } from "$lib/server/schema";
 import { getAgencyContext } from "$lib/server/agency";
 import { eq } from "drizzle-orm";
 import { error } from "@sveltejs/kit";
+import { decryptProfileFields } from "$lib/server/crypto";
 
 export const load: PageServerLoad = async ({ params }) => {
 	const { invoiceId } = params;
@@ -26,6 +27,6 @@ export const load: PageServerLoad = async ({ params }) => {
 	return {
 		invoice: result.invoice,
 		lineItems: result.lineItems,
-		profile,
+		profile: profile ? decryptProfileFields(profile) : null,
 	};
 };

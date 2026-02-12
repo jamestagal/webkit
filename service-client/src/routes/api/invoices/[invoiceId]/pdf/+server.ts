@@ -14,6 +14,7 @@ import { invoices, invoiceLineItems, agencies, agencyProfiles } from "$lib/serve
 import { eq } from "drizzle-orm";
 import { generateInvoicePdfHtml } from "$lib/templates/invoice-pdf";
 import { env } from "$env/dynamic/private";
+import { decryptProfileFields } from "$lib/server/crypto";
 
 const GOTENBERG_URL = env["GOTENBERG_URL"] || "http://localhost:3003";
 
@@ -57,7 +58,7 @@ export const GET: RequestHandler = async ({ params }) => {
 			invoice,
 			lineItems,
 			agency,
-			profile: profile || null,
+			profile: profile ? decryptProfileFields(profile) : null,
 		});
 
 		// Convert to PDF using Gotenberg

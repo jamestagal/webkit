@@ -10,6 +10,7 @@ import { db } from "$lib/server/db";
 import { invoices, invoiceLineItems, agencies, agencyProfiles } from "$lib/server/schema";
 import { eq, sql, asc } from "drizzle-orm";
 import { error } from "@sveltejs/kit";
+import { decryptProfileFields } from "$lib/server/crypto";
 
 export const load: PageServerLoad = async ({ params }) => {
 	const { slug } = params;
@@ -69,6 +70,6 @@ export const load: PageServerLoad = async ({ params }) => {
 		invoice,
 		lineItems,
 		agency,
-		profile: profile || null,
+		profile: profile ? decryptProfileFields(profile) : null,
 	};
 };
