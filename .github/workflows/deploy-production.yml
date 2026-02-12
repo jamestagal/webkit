@@ -97,6 +97,18 @@ jobs:
           overwrite: true
           timeout: 120s
 
+      - name: Sync backup script to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          passphrase: ${{ secrets.VPS_SSH_PASSPHRASE }}
+          source: "scripts/backup-db.sh"
+          target: "/opt/webkit/"
+          overwrite: true
+          timeout: 120s
+
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -129,6 +141,9 @@ jobs:
             sleep 10
             curl -f http://localhost:3000 || echo "Client health check pending"
 
+            # Ensure backup script is executable
+            chmod +x /opt/webkit/scripts/backup-db.sh
+
             # Clean up old images
             docker image prune -f
 
@@ -141,3 +156,13 @@ jobs:
           sleep 15
           curl -f --retry 3 --retry-delay 5 https://api.webkit.au/health || echo "Health check pending - services may still be starting"
           curl -f --retry 3 --retry-delay 5 https://app.webkit.au || echo "Client health check pending"
+
+      - name: Verify backup cron
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          passphrase: ${{ secrets.VPS_SSH_PASSPHRASE }}
+          script: |
+            crontab -l 2>/dev/null | grep -q backup-db.sh && echo "Backup cron: OK" || echo "WARNING: Backup cron not configured - see docs/ops/backup-setup.md"
