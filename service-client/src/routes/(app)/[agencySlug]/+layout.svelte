@@ -71,20 +71,7 @@
 		return current.startsWith(itemUrl);
 	}
 
-	function showModal(): undefined {
-		const modal = document.getElementById('sidebar') as HTMLDialogElement;
-		if (modal) {
-			modal.showModal();
-		}
-		return undefined;
-	}
-
-	function closeModal(): void {
-		const modal = document.getElementById('sidebar') as HTMLDialogElement;
-		if (modal) {
-			modal.close();
-		}
-	}
+	let sidebarOpen = $state(false);
 </script>
 
 <div id="content" class="h-full">
@@ -183,7 +170,7 @@
 		<button
 			type="button"
 			class="-m-2.5 cursor-pointer p-2.5 hover:opacity-60 lg:hidden"
-			onclick={() => showModal()}
+			onclick={() => sidebarOpen = true}
 		>
 			<span class="sr-only">Open sidebar</span>
 			<svg
@@ -216,7 +203,7 @@
 	</div>
 
 	<!-- Sidebar -->
-	<dialog id="sidebar" class="modal modal-start">
+	<div class="modal modal-start" class:modal-open={sidebarOpen} role="dialog" id="mobile-sidebar" aria-label="Navigation menu">
 		<div class="modal-box w-full max-w-sm">
 			<div class="relative flex-1 px-4 sm:px-6">
 				<nav class="flex flex-1 flex-col">
@@ -226,7 +213,7 @@
 							<li>
 								<a
 									href={item.url}
-									onclick={closeModal}
+									onclick={() => sidebarOpen = false}
 									class="group relative flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold transition-all duration-200
 										{active ? 'bg-base-200' : 'hover:bg-base-200 hover:opacity-80'}"
 								>
@@ -254,7 +241,7 @@
 								<li>
 									<a
 										href={item.url}
-										onclick={closeModal}
+										onclick={() => sidebarOpen = false}
 										class="group relative flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold transition-all duration-200
 											{active ? 'bg-base-200' : 'hover:bg-base-200 hover:opacity-80'}"
 									>
@@ -288,10 +275,8 @@
 				</nav>
 			</div>
 		</div>
-		<form method="dialog" class="modal-backdrop">
-			<button>close</button>
-		</form>
-	</dialog>
+		<div class="modal-backdrop" onclick={() => sidebarOpen = false}></div>
+	</div>
 
 	<main class="min-h-full lg:pl-20">
 		<!-- Desktop header with agency switcher -->
