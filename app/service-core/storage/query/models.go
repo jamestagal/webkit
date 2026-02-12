@@ -249,10 +249,6 @@ type Consultation struct {
 	ID                   uuid.UUID             `json:"id"`
 	UserID               uuid.NullUUID         `json:"user_id"`
 	AgencyID             uuid.UUID             `json:"agency_id"`
-	ContactInfo          json.RawMessage       `json:"contact_info"`
-	BusinessContext      json.RawMessage       `json:"business_context"`
-	PainPoints           json.RawMessage       `json:"pain_points"`
-	GoalsObjectives      json.RawMessage       `json:"goals_objectives"`
 	BusinessName         sql.NullString        `json:"business_name"`
 	ContactPerson        sql.NullString        `json:"contact_person"`
 	Email                sql.NullString        `json:"email"`
@@ -286,18 +282,14 @@ type Consultation struct {
 }
 
 type ConsultationDraft struct {
-	ID              uuid.UUID       `json:"id"`
-	ConsultationID  uuid.UUID       `json:"consultation_id"`
-	UserID          uuid.UUID       `json:"user_id"`
-	AgencyID        uuid.NullUUID   `json:"agency_id"`
-	ContactInfo     json.RawMessage `json:"contact_info"`
-	BusinessContext json.RawMessage `json:"business_context"`
-	PainPoints      json.RawMessage `json:"pain_points"`
-	GoalsObjectives json.RawMessage `json:"goals_objectives"`
-	AutoSaved       bool            `json:"auto_saved"`
-	DraftNotes      sql.NullString  `json:"draft_notes"`
-	CreatedAt       time.Time       `json:"created_at"`
-	UpdatedAt       time.Time       `json:"updated_at"`
+	ID             uuid.UUID      `json:"id"`
+	ConsultationID uuid.UUID      `json:"consultation_id"`
+	UserID         uuid.UUID      `json:"user_id"`
+	AgencyID       uuid.NullUUID  `json:"agency_id"`
+	AutoSaved      bool           `json:"auto_saved"`
+	DraftNotes     sql.NullString `json:"draft_notes"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
 }
 
 type ConsultationVersion struct {
@@ -306,10 +298,6 @@ type ConsultationVersion struct {
 	UserID               uuid.UUID       `json:"user_id"`
 	AgencyID             uuid.NullUUID   `json:"agency_id"`
 	VersionNumber        int32           `json:"version_number"`
-	ContactInfo          json.RawMessage `json:"contact_info"`
-	BusinessContext      json.RawMessage `json:"business_context"`
-	PainPoints           json.RawMessage `json:"pain_points"`
-	GoalsObjectives      json.RawMessage `json:"goals_objectives"`
 	Status               string          `json:"status"`
 	CompletionPercentage int32           `json:"completion_percentage"`
 	ChangeSummary        sql.NullString  `json:"change_summary"`

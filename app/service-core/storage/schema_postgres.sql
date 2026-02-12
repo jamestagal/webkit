@@ -667,23 +667,11 @@ create table if not exists notes (
     content text not null
 );
 
--- create "consultations" table with new structure
--- Note: Includes both JSONB columns (for Go backend) and flat columns (for SvelteKit compatibility)
--- TODO: Migrate SvelteKit to use JSONB columns and remove flat columns
+-- create "consultations" table
 create table if not exists consultations (
     id uuid primary key not null default gen_random_uuid(),
     user_id uuid references users(id) on delete set null,
-    agency_id uuid not null references agencies(id) on delete cascade,  -- Added for multi-tenancy
-
-    -- Contact Information (JSONB structure for Go backend)
-    contact_info jsonb not null default '{}',
-    business_context jsonb not null default '{}',
-    pain_points jsonb not null default '{}',
-    goals_objectives jsonb not null default '{}',
-
-    -- ==========================================================================
-    -- FLAT COLUMNS (for SvelteKit compatibility - to be migrated to JSONB later)
-    -- ==========================================================================
+    agency_id uuid not null references agencies(id) on delete cascade,
 
     -- Step 1: Contact & Business
     business_name text,
@@ -738,15 +726,9 @@ create table if not exists consultation_drafts (
     id uuid primary key not null default gen_random_uuid(),
     consultation_id uuid not null references consultations(id) on delete cascade,
     user_id uuid not null references users(id) on delete cascade,
-    agency_id uuid references agencies(id) on delete cascade,  -- Added for multi-tenancy
+    agency_id uuid references agencies(id) on delete cascade,
 
-    -- Draft data (same structure as consultations)
-    contact_info jsonb not null default '{}',
-    business_context jsonb not null default '{}',
-    pain_points jsonb not null default '{}',
-    goals_objectives jsonb not null default '{}',
-
-    -- Draft metadata (NOT NULL with defaults)
+    -- Draft metadata
     auto_saved boolean not null default false,
     draft_notes text,
 
@@ -758,19 +740,15 @@ create table if not exists consultation_drafts (
     unique(consultation_id)
 );
 
--- create "consultation_versions" table with new structure
+-- create "consultation_versions" table
 create table if not exists consultation_versions (
     id uuid primary key not null default gen_random_uuid(),
     consultation_id uuid not null references consultations(id) on delete cascade,
     user_id uuid not null references users(id) on delete cascade,
-    agency_id uuid references agencies(id) on delete cascade,  -- Added for multi-tenancy
+    agency_id uuid references agencies(id) on delete cascade,
     version_number integer not null,
 
-    -- Snapshot of consultation data at this version
-    contact_info jsonb not null default '{}',
-    business_context jsonb not null default '{}',
-    pain_points jsonb not null default '{}',
-    goals_objectives jsonb not null default '{}',
+    -- Snapshot metadata
     status varchar(50) not null,
     completion_percentage integer not null,
 
@@ -791,11 +769,6 @@ create index if not exists idx_consultations_agency_id on consultations(agency_i
 create index if not exists idx_consultations_status on consultations(status);
 create index if not exists idx_consultations_created_at on consultations(created_at);
 create index if not exists idx_consultations_updated_at on consultations(updated_at);
-
--- JSONB indexes for efficient querying (using btree for text values)
-create index if not exists idx_consultations_contact_business_name on consultations ((contact_info->>'business_name'));
-create index if not exists idx_consultations_business_industry on consultations ((business_context->>'industry'));
-create index if not exists idx_consultations_urgency on consultations ((pain_points->>'urgency_level'));
 
 -- Indexes for consultation_drafts
 create index if not exists idx_consultation_drafts_consultation_id on consultation_drafts(consultation_id);

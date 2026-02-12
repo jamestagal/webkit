@@ -1226,13 +1226,7 @@ export const consultationDrafts = pgTable(
 		userId: uuid("user_id")
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
-		agencyId: uuid("agency_id").references(() => agencies.id, { onDelete: "cascade" }), // Added for multi-tenancy
-
-		// Draft data (same structure as consultations)
-		contactInfo: jsonb("contact_info").notNull().default({}),
-		businessContext: jsonb("business_context").notNull().default({}),
-		painPoints: jsonb("pain_points").notNull().default({}),
-		goalsObjectives: jsonb("goals_objectives").notNull().default({}),
+		agencyId: uuid("agency_id").references(() => agencies.id, { onDelete: "cascade" }),
 
 		// Draft metadata
 		autoSaved: boolean("auto_saved").notNull().default(false),
@@ -1259,14 +1253,10 @@ export const consultationVersions = pgTable(
 		userId: uuid("user_id")
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
-		agencyId: uuid("agency_id").references(() => agencies.id, { onDelete: "cascade" }), // Added for multi-tenancy
+		agencyId: uuid("agency_id").references(() => agencies.id, { onDelete: "cascade" }),
 		versionNumber: integer("version_number").notNull(),
 
-		// Snapshot of consultation data at this version
-		contactInfo: jsonb("contact_info").notNull().default({}),
-		businessContext: jsonb("business_context").notNull().default({}),
-		painPoints: jsonb("pain_points").notNull().default({}),
-		goalsObjectives: jsonb("goals_objectives").notNull().default({}),
+		// Snapshot metadata
 		status: varchar("status", { length: 50 }).notNull(),
 		completionPercentage: integer("completion_percentage").notNull(),
 
