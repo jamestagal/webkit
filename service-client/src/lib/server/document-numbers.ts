@@ -16,12 +16,13 @@ import { dataPipelineService } from "$lib/server/services/data-pipeline.service"
  */
 export async function getNextDocumentNumber(
 	agencyId: string,
-	type: "proposal" | "contract" | "invoice",
+	type: "proposal" | "contract" | "invoice" | "quotation",
 ): Promise<string> {
 	const columnMap = {
 		proposal: { counter: "next_proposal_number", prefix: "proposal_prefix", defaultPrefix: "PROP" },
 		contract: { counter: "next_contract_number", prefix: "contract_prefix", defaultPrefix: "CON" },
 		invoice: { counter: "next_invoice_number", prefix: "invoice_prefix", defaultPrefix: "INV" },
+		quotation: { counter: "next_quotation_number", prefix: "quotation_prefix", defaultPrefix: "QUO" },
 	};
 
 	const { counter, prefix: prefixCol, defaultPrefix } = columnMap[type];
@@ -43,8 +44,8 @@ export async function getNextDocumentNumber(
 	const prefix = (row["prefix"] as string) || defaultPrefix;
 	const number = row["current_number"] as number;
 
-	if (type === "invoice") {
-		// Invoices use a different format: PREFIX-YYYY-NNNN
+	if (type === "invoice" || type === "quotation") {
+		// Invoices and quotations use format: PREFIX-YYYY-NNNN
 		const year = new Date().getFullYear();
 		const paddedNumber = String(number).padStart(4, "0");
 		return `${prefix}-${year}-${paddedNumber}`;

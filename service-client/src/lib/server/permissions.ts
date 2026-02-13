@@ -121,6 +121,22 @@ export const PERMISSIONS = {
 	"invoice:cancel": ["owner", "admin"],
 	"invoice:refund": ["owner"],
 
+	// Quotation Templates
+	"quotation_template:view": ["owner", "admin"],
+	"quotation_template:create": ["owner", "admin"],
+	"quotation_template:edit": ["owner", "admin"],
+	"quotation_template:delete": ["owner"],
+
+	// Quotations
+	"quotation:create": ["owner", "admin", "member"],
+	"quotation:view_own": ["owner", "admin", "member"],
+	"quotation:view_all": ["owner", "admin"],
+	"quotation:edit_own": ["owner", "admin", "member"],
+	"quotation:edit_all": ["owner", "admin"],
+	"quotation:send": ["owner", "admin", "member"],
+	"quotation:delete_own": ["owner", "admin", "member"],
+	"quotation:delete_all": ["owner", "admin"],
+
 	// Emails (V2)
 	"email:send": ["owner", "admin", "member"],
 	"email:view_logs": ["owner", "admin"],
@@ -228,7 +244,7 @@ export function canAccessResource(
 	role: AgencyRole,
 	resourceOwnerId: string,
 	currentUserId: string,
-	resourceType: "consultation" | "proposal" | "contract" | "invoice",
+	resourceType: "consultation" | "proposal" | "contract" | "invoice" | "quotation",
 ): boolean {
 	// Check for 'view_all' permission
 	const viewAllPermission = `${resourceType}:view_all` as Permission;
@@ -247,7 +263,7 @@ export function canModifyResource(
 	role: AgencyRole,
 	resourceOwnerId: string,
 	currentUserId: string,
-	resourceType: "consultation" | "proposal" | "contract" | "invoice",
+	resourceType: "consultation" | "proposal" | "contract" | "invoice" | "quotation",
 ): boolean {
 	// Check for 'edit_all' permission
 	const editAllPermission = `${resourceType}:edit_all` as Permission;
@@ -271,7 +287,7 @@ export function canDeleteResource(
 	role: AgencyRole,
 	resourceOwnerId: string,
 	currentUserId: string,
-	resourceType: "consultation" | "proposal" | "contract" | "invoice",
+	resourceType: "consultation" | "proposal" | "contract" | "invoice" | "quotation",
 ): boolean {
 	// Check for 'delete_all' permission
 	const deleteAllPermission = `${resourceType}:delete_all` as Permission;
@@ -470,6 +486,28 @@ export function getPermissionMatrix(): {
 				formatPermission("invoice:delete_all", "Delete all invoices"),
 				formatPermission("invoice:cancel", "Cancel invoices"),
 				formatPermission("invoice:refund", "Refund invoices"),
+			],
+		},
+		{
+			category: "Quotation Templates",
+			permissions: [
+				formatPermission("quotation_template:view", "View quotation templates"),
+				formatPermission("quotation_template:create", "Create quotation templates"),
+				formatPermission("quotation_template:edit", "Edit quotation templates"),
+				formatPermission("quotation_template:delete", "Delete quotation templates"),
+			],
+		},
+		{
+			category: "Quotations",
+			permissions: [
+				formatPermission("quotation:create", "Create quotations"),
+				formatPermission("quotation:view_own", "View own quotations"),
+				formatPermission("quotation:view_all", "View all quotations"),
+				formatPermission("quotation:edit_own", "Edit own quotations"),
+				formatPermission("quotation:edit_all", "Edit all quotations"),
+				formatPermission("quotation:send", "Send quotations"),
+				formatPermission("quotation:delete_own", "Delete own quotations"),
+				formatPermission("quotation:delete_all", "Delete all quotations"),
 			],
 		},
 		{

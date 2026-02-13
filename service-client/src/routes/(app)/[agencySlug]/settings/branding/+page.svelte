@@ -83,7 +83,8 @@
 		invoice: getInitialDocBranding('invoice'),
 		questionnaire: getInitialDocBranding('questionnaire'),
 		proposal: getInitialDocBranding('proposal'),
-		email: getInitialDocBranding('email')
+		email: getInitialDocBranding('email'),
+		quotation: getInitialDocBranding('quotation')
 	});
 
 	// Logo upload state - separate for each logo type

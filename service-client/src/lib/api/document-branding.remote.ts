@@ -22,6 +22,7 @@ const DocumentTypeSchema = v.picklist([
 	"questionnaire",
 	"proposal",
 	"email",
+	"quotation",
 ]);
 
 const GetDocumentBrandingSchema = v.object({

@@ -14,6 +14,7 @@ import {
 	Settings,
 	Users,
 	ClipboardList,
+	ClipboardCheck,
 	Send,
 	ChartColumnBig,
 } from "lucide-svelte";
@@ -35,6 +36,7 @@ export type FeatureKey =
 	| "proposals"
 	| "contracts"
 	| "invoices"
+	| "quotations"
 	| "forms"
 	| "clients"
 	| "reports";
@@ -78,6 +80,15 @@ export const FEATURES: Record<FeatureKey, FeatureConfig> = {
 		icon: Receipt,
 		color: "#10b981", // Emerald
 		colorLight: "#10b98115",
+	},
+	quotations: {
+		key: "quotations",
+		title: "Quotations",
+		description:
+			"Build detailed quotations with scope of work, pricing breakdowns, and client acceptance.",
+		icon: ClipboardCheck,
+		color: "#f97316", // Orange
+		colorLight: "#f9731615",
 	},
 	forms: {
 		key: "forms",

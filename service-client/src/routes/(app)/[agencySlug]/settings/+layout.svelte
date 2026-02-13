@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
-	import { Building2, Package, PlusSquare, Users, Palette, FileText, CreditCard, Sparkles, FileStack, Receipt } from 'lucide-svelte';
+	import { Building2, Package, PlusSquare, Users, Palette, FileText, CreditCard, Sparkles, FileStack, Receipt, ClipboardCheck } from 'lucide-svelte';
 	import SetupChecklist from '$lib/components/settings/SetupChecklist.svelte';
 	import Breadcrumbs from '$lib/components/settings/Breadcrumbs.svelte';
 	import { getSetupChecklist } from '$lib/api/agency-profile.remote';
@@ -56,6 +56,12 @@
 			url: `/${agencySlug}/settings/contracts`,
 			icon: FileText,
 			description: 'Contract templates & terms'
+		},
+		{
+			label: 'Quotations',
+			url: `/${agencySlug}/settings/quotations`,
+			icon: ClipboardCheck,
+			description: 'Quotation templates & pricing'
 		},
 		{
 			label: 'Forms',

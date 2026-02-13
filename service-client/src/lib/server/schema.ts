@@ -315,6 +315,9 @@ export const agencyProfiles = pgTable("agency_profiles", {
 	nextContractNumber: integer("next_contract_number").notNull().default(1),
 	proposalPrefix: varchar("proposal_prefix", { length: 20 }).notNull().default("PROP"),
 	nextProposalNumber: integer("next_proposal_number").notNull().default(1),
+	quotationPrefix: varchar("quotation_prefix", { length: 20 }).notNull().default("QUO"),
+	nextQuotationNumber: integer("next_quotation_number").notNull().default(1),
+	defaultQuotationValidityDays: integer("default_quotation_validity_days").notNull().default(60),
 
 	// Stripe Connect
 	stripeAccountId: varchar("stripe_account_id", { length: 255 }),
@@ -440,7 +443,7 @@ export const agencyDocumentBranding = pgTable(
 	}),
 );
 
-export type DocumentType = "contract" | "invoice" | "questionnaire" | "proposal" | "email";
+export type DocumentType = "contract" | "invoice" | "questionnaire" | "proposal" | "email" | "quotation";
 
 // =============================================================================
 // FORM BUILDER TABLES
@@ -974,6 +977,7 @@ export const invoices = pgTable(
 		// Link to source documents (optional)
 		proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "set null" }),
 		contractId: uuid("contract_id").references(() => contracts.id, { onDelete: "set null" }),
+		quotationId: uuid("quotation_id").references(() => quotations.id, { onDelete: "set null" }),
 
 		// Link to unified client (populated via getOrCreateClient)
 		clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),
@@ -1111,10 +1115,12 @@ export const emailLogs = pgTable(
 		formSubmissionId: uuid("form_submission_id").references(() => formSubmissions.id, {
 			onDelete: "set null",
 		}),
+		quotationId: uuid("quotation_id").references(() => quotations.id, { onDelete: "set null" }),
 
 		// Email type
 		emailType: varchar("email_type", { length: 50 }).notNull(),
-		// Types: 'proposal_sent', 'invoice_sent', 'contract_sent', 'payment_reminder', 'custom'
+		// Types: 'proposal_sent', 'invoice_sent', 'contract_sent', 'payment_reminder',
+		// 'quotation_sent', 'quotation_accepted', 'quotation_declined', 'quotation_reminder', 'custom'
 
 		// Email details
 		recipientEmail: varchar("recipient_email", { length: 255 }).notNull(),
@@ -1150,6 +1156,282 @@ export const emailLogs = pgTable(
 		invoiceIdx: index("email_logs_invoice_idx").on(table.invoiceId),
 		contractIdx: index("email_logs_contract_idx").on(table.contractId),
 		formSubmissionIdx: index("email_logs_form_submission_idx").on(table.formSubmissionId),
+		quotationIdx: index("email_logs_quotation_idx").on(table.quotationId),
+	}),
+);
+
+// =============================================================================
+// QUOTATION TABLES
+// =============================================================================
+
+// Quotation Scope Templates - Reusable work item building blocks
+export const quotationScopeTemplates = pgTable(
+	"quotation_scope_templates",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+
+		agencyId: uuid("agency_id")
+			.notNull()
+			.references(() => agencies.id, { onDelete: "cascade" }),
+
+		// Template identity
+		name: varchar("name", { length: 255 }).notNull(),
+		slug: varchar("slug", { length: 100 }).notNull(),
+		description: text("description").notNull().default(""),
+		category: varchar("category", { length: 100 }),
+
+		// Default work items for this job type
+		workItems: jsonb("work_items").notNull().default([]),
+
+		// Default section price (optional, pre-fills when added to quotation)
+		defaultPrice: decimal("default_price", { precision: 10, scale: 2 }),
+
+		// Display
+		isActive: boolean("is_active").notNull().default(true),
+		sortOrder: integer("sort_order").notNull().default(0),
+
+		createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+	},
+	(table) => ({
+		agencyIdx: index("quotation_scope_templates_agency_idx").on(table.agencyId),
+		uniqueAgencySlug: unique().on(table.agencyId, table.slug),
+	}),
+);
+
+// Quotation Terms Templates - Reusable terms blocks
+export const quotationTermsTemplates = pgTable(
+	"quotation_terms_templates",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+
+		agencyId: uuid("agency_id")
+			.notNull()
+			.references(() => agencies.id, { onDelete: "cascade" }),
+
+		// Template identity
+		title: varchar("title", { length: 255 }).notNull(),
+		content: text("content").notNull(),
+
+		// When true, automatically included on all new quotations
+		isDefault: boolean("is_default").notNull().default(false),
+		sortOrder: integer("sort_order").notNull().default(0),
+		isActive: boolean("is_active").notNull().default(true),
+
+		createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+	},
+	(table) => ({
+		agencyIdx: index("quotation_terms_templates_agency_idx").on(table.agencyId),
+	}),
+);
+
+// Quotation Templates - Parent templates bundling scope + terms
+export const quotationTemplates = pgTable(
+	"quotation_templates",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+
+		agencyId: uuid("agency_id")
+			.notNull()
+			.references(() => agencies.id, { onDelete: "cascade" }),
+
+		// Template identity
+		name: varchar("name", { length: 255 }).notNull(),
+		description: text("description").notNull().default(""),
+		category: varchar("category", { length: 100 }),
+
+		// Default validity period override (null = use agency default)
+		defaultValidityDays: integer("default_validity_days"),
+
+		// Status
+		isDefault: boolean("is_default").notNull().default(false),
+		isActive: boolean("is_active").notNull().default(true),
+		sortOrder: integer("sort_order").notNull().default(0),
+
+		createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+	},
+	(table) => ({
+		agencyIdx: index("quotation_templates_agency_idx").on(table.agencyId),
+		activeIdx: index("quotation_templates_active_idx").on(table.agencyId, table.isActive),
+	}),
+);
+
+// Quotation Template Sections - Junction: template -> scope templates
+export const quotationTemplateSections = pgTable(
+	"quotation_template_sections",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+
+		templateId: uuid("template_id")
+			.notNull()
+			.references(() => quotationTemplates.id, { onDelete: "cascade" }),
+		scopeTemplateId: uuid("scope_template_id")
+			.notNull()
+			.references(() => quotationScopeTemplates.id, { onDelete: "cascade" }),
+
+		// Optional default price override for this scope in this template
+		defaultSectionPrice: decimal("default_section_price", { precision: 10, scale: 2 }),
+
+		sortOrder: integer("sort_order").notNull().default(0),
+	},
+	(table) => ({
+		templateIdx: index("quotation_template_sections_template_idx").on(table.templateId),
+		uniqueTemplateScope: unique().on(table.templateId, table.scopeTemplateId),
+	}),
+);
+
+// Quotation Template Terms - Junction: template -> terms templates
+export const quotationTemplateTerms = pgTable(
+	"quotation_template_terms",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+
+		templateId: uuid("template_id")
+			.notNull()
+			.references(() => quotationTemplates.id, { onDelete: "cascade" }),
+		termsTemplateId: uuid("terms_template_id")
+			.notNull()
+			.references(() => quotationTermsTemplates.id, { onDelete: "cascade" }),
+
+		sortOrder: integer("sort_order").notNull().default(0),
+	},
+	(table) => ({
+		templateIdx: index("quotation_template_terms_template_idx").on(table.templateId),
+		uniqueTemplateTerms: unique().on(table.templateId, table.termsTemplateId),
+	}),
+);
+
+// Quotations - Main quotation document
+export const quotations = pgTable(
+	"quotations",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+
+		agencyId: uuid("agency_id")
+			.notNull()
+			.references(() => agencies.id, { onDelete: "cascade" }),
+
+		// Unified client link
+		clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),
+
+		// Source template (if created from a template)
+		templateId: uuid("template_id").references(() => quotationTemplates.id, {
+			onDelete: "set null",
+		}),
+
+		// Document identification
+		quotationNumber: varchar("quotation_number", { length: 50 }).notNull(),
+		slug: varchar("slug", { length: 100 }).notNull().unique(),
+		quotationName: text("quotation_name").notNull().default(""),
+
+		// Status workflow: draft → sent → viewed → accepted → declined
+		// "expired" is calculated dynamically (sent/viewed + past expiryDate)
+		status: varchar("status", { length: 50 }).notNull().default("draft"),
+
+		// Client info (snapshot at creation)
+		clientBusinessName: text("client_business_name").notNull().default(""),
+		clientContactName: text("client_contact_name").notNull().default(""),
+		clientEmail: varchar("client_email", { length: 255 }).notNull().default(""),
+		clientPhone: varchar("client_phone", { length: 50 }).notNull().default(""),
+		clientAddress: text("client_address").notNull().default(""),
+
+		// Site / job details
+		siteAddress: text("site_address").notNull().default(""),
+		siteReference: text("site_reference").notNull().default(""),
+
+		// Dates
+		preparedDate: timestamp("prepared_date", { withTimezone: true }).notNull(),
+		expiryDate: timestamp("expiry_date", { withTimezone: true }).notNull(),
+
+		// Pricing (grand totals across all scope sections)
+		subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+		discountAmount: decimal("discount_amount", { precision: 10, scale: 2 })
+			.notNull()
+			.default("0.00"),
+		discountDescription: text("discount_description").notNull().default(""),
+		gstAmount: decimal("gst_amount", { precision: 10, scale: 2 }).notNull().default("0.00"),
+		total: decimal("total", { precision: 10, scale: 2 }).notNull(),
+
+		// GST snapshot from agency profile
+		gstRegistered: boolean("gst_registered").notNull().default(true),
+		gstRate: decimal("gst_rate", { precision: 5, scale: 2 }).notNull().default("10.00"),
+
+		// Terms sections (frozen snapshot: array of { title, content } objects)
+		termsBlocks: jsonb("terms_blocks").notNull().default([]),
+
+		// Optional add-ons / upgrades (free text for MVP)
+		optionsNotes: text("options_notes").notNull().default(""),
+
+		// Notes (internal, not shown on document)
+		notes: text("notes").notNull().default(""),
+
+		// Tracking
+		viewCount: integer("view_count").notNull().default(0),
+		lastViewedAt: timestamp("last_viewed_at", { withTimezone: true }),
+		sentAt: timestamp("sent_at", { withTimezone: true }),
+		declinedAt: timestamp("declined_at", { withTimezone: true }),
+		declineReason: text("decline_reason").notNull().default(""),
+
+		// Client acceptance fields
+		acceptedByName: varchar("accepted_by_name", { length: 255 }),
+		acceptedByTitle: varchar("accepted_by_title", { length: 255 }),
+		acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+		acceptanceIp: varchar("acceptance_ip", { length: 50 }),
+
+		// Creator
+		createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+	},
+	(table) => ({
+		agencyIdx: index("quotations_agency_idx").on(table.agencyId),
+		clientIdx: index("quotations_client_idx").on(table.clientId),
+		statusIdx: index("quotations_status_idx").on(table.status),
+		slugIdx: index("quotations_slug_idx").on(table.slug),
+		uniqueAgencyNumber: unique("quotations_agency_number_unique").on(
+			table.agencyId,
+			table.quotationNumber,
+		),
+	}),
+);
+
+// Quotation Scope Sections - Per-quotation scope sections with work items
+export const quotationScopeSections = pgTable(
+	"quotation_scope_sections",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+
+		quotationId: uuid("quotation_id")
+			.notNull()
+			.references(() => quotations.id, { onDelete: "cascade" }),
+
+		// Section identity
+		title: text("title").notNull(),
+
+		// Work items (array of strings displayed in two-column grid)
+		workItems: jsonb("work_items").notNull().default([]),
+
+		// Per-section pricing
+		sectionPrice: decimal("section_price", { precision: 10, scale: 2 }),
+		sectionGst: decimal("section_gst", { precision: 10, scale: 2 }),
+		sectionTotal: decimal("section_total", { precision: 10, scale: 2 }),
+
+		// Ordering
+		sortOrder: integer("sort_order").notNull().default(0),
+
+		// Source template (if created from a template)
+		scopeTemplateId: uuid("scope_template_id").references(() => quotationScopeTemplates.id, {
+			onDelete: "set null",
+		}),
+	},
+	(table) => ({
+		quotationIdx: index("quotation_scope_sections_quotation_idx").on(table.quotationId),
 	}),
 );
 
@@ -1416,8 +1698,35 @@ export type EmailType =
 	| "invoice_sent"
 	| "contract_sent"
 	| "payment_reminder"
-	| "custom";
+	| "custom"
+	| "quotation_sent"
+	| "quotation_accepted"
+	| "quotation_declined"
+	| "quotation_reminder";
 export type EmailStatus = "pending" | "sent" | "delivered" | "opened" | "bounced" | "failed";
+
+// Quotation types
+export type QuotationScopeTemplate = typeof quotationScopeTemplates.$inferSelect;
+export type QuotationScopeTemplateInsert = typeof quotationScopeTemplates.$inferInsert;
+export type QuotationTermsTemplate = typeof quotationTermsTemplates.$inferSelect;
+export type QuotationTermsTemplateInsert = typeof quotationTermsTemplates.$inferInsert;
+export type QuotationTemplate = typeof quotationTemplates.$inferSelect;
+export type QuotationTemplateInsert = typeof quotationTemplates.$inferInsert;
+export type QuotationTemplateSection = typeof quotationTemplateSections.$inferSelect;
+export type QuotationTemplateSectionInsert = typeof quotationTemplateSections.$inferInsert;
+export type QuotationTemplateTerm = typeof quotationTemplateTerms.$inferSelect;
+export type QuotationTemplateTermInsert = typeof quotationTemplateTerms.$inferInsert;
+export type Quotation = typeof quotations.$inferSelect;
+export type QuotationInsert = typeof quotations.$inferInsert;
+export type QuotationScopeSection = typeof quotationScopeSections.$inferSelect;
+export type QuotationScopeSectionInsert = typeof quotationScopeSections.$inferInsert;
+export type QuotationStatus =
+	| "draft"
+	| "sent"
+	| "viewed"
+	| "accepted"
+	| "declined"
+	| "expired";
 
 // Cover page configuration (for contract templates)
 export interface CoverPageConfig {
