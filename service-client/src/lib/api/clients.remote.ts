@@ -14,6 +14,7 @@ import {
 	proposals,
 	contracts,
 	invoices,
+	quotations,
 } from "$lib/server/schema";
 import { error } from "@sveltejs/kit";
 import { getAgencyContext, requireAgencyRole } from "$lib/server/agency";
@@ -407,7 +408,7 @@ export const getClientDocuments = query(v.pipe(v.string(), v.uuid()), async (cli
 	}
 
 	// Fetch all linked documents in parallel
-	const [clientConsultations, clientProposals, clientContracts, clientInvoices] = await Promise.all([
+	const [clientConsultations, clientProposals, clientContracts, clientInvoices, clientQuotations] = await Promise.all([
 		// Consultations
 		db
 			.select({
@@ -490,6 +491,28 @@ export const getClientDocuments = query(v.pipe(v.string(), v.uuid()), async (cli
 				)
 			)
 			.orderBy(desc(invoices.createdAt)),
+
+		// Quotations
+		db
+			.select({
+				id: quotations.id,
+				type: sql<string>`'quotation'`.as("type"),
+				title: sql<string>`'Quotation'`.as("title"),
+				status: quotations.status,
+				number: quotations.quotationNumber,
+				slug: quotations.slug,
+				total: quotations.total,
+				createdAt: quotations.createdAt,
+				updatedAt: quotations.updatedAt,
+			})
+			.from(quotations)
+			.where(
+				and(
+					eq(quotations.clientId, clientId),
+					eq(quotations.agencyId, context.agencyId)
+				)
+			)
+			.orderBy(desc(quotations.createdAt)),
 	]);
 
 	return {
@@ -498,13 +521,15 @@ export const getClientDocuments = query(v.pipe(v.string(), v.uuid()), async (cli
 		proposals: clientProposals,
 		contracts: clientContracts,
 		invoices: clientInvoices,
+		quotations: clientQuotations,
 		// Summary counts
 		counts: {
 			consultations: clientConsultations.length,
 			proposals: clientProposals.length,
 			contracts: clientContracts.length,
 			invoices: clientInvoices.length,
-			total: clientConsultations.length + clientProposals.length + clientContracts.length + clientInvoices.length,
+			quotations: clientQuotations.length,
+			total: clientConsultations.length + clientProposals.length + clientContracts.length + clientInvoices.length + clientQuotations.length,
 		},
 	};
 });

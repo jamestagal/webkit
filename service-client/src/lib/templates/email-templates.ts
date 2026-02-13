@@ -5,7 +5,7 @@
  * Uses inline styles for maximum email client compatibility.
  */
 
-import type { Agency, AgencyProfile, Proposal, Invoice, Contract } from "$lib/server/schema";
+import type { Agency, AgencyProfile, Proposal, Invoice, Contract, Quotation } from "$lib/server/schema";
 import { formatCurrency, formatDate } from "$lib/utils/formatting";
 
 // =============================================================================
@@ -27,7 +27,7 @@ export interface EmailTemplateData {
 		email: string;
 	};
 	document: {
-		type: "proposal" | "invoice" | "contract";
+		type: "proposal" | "invoice" | "contract" | "quotation";
 		number: string;
 		publicUrl: string;
 		total?: string | undefined;
@@ -1369,6 +1369,307 @@ export function generateProposalRevisionRequestedAgencyEmail(data: ProposalRespo
 
 	return {
 		subject: `Changes Requested by ${client.businessName || client.name} - ${proposal.number}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
+	};
+}
+
+// =============================================================================
+// Quotation Email Templates
+// =============================================================================
+
+export function buildQuotationEmailData(
+	quotation: Quotation,
+	agency: Agency,
+	profile: AgencyProfile | null,
+	publicUrl: string,
+): EmailTemplateData {
+	return {
+		agency: {
+			name: profile?.tradingName || agency.name,
+			email: agency.email || undefined,
+			phone: agency.phone || undefined,
+			logoUrl: agency.logoUrl || undefined,
+			primaryColor: agency.primaryColor || undefined,
+			website: agency.website || undefined,
+		},
+		recipient: {
+			name: quotation.clientContactName || quotation.clientBusinessName,
+			businessName: quotation.clientBusinessName || undefined,
+			email: quotation.clientEmail,
+		},
+		document: {
+			type: "quotation",
+			number: quotation.quotationNumber,
+			publicUrl,
+			total: quotation.total?.toString(),
+		},
+	};
+}
+
+/**
+ * Client-facing: Quotation sent email
+ */
+export function generateQuotationEmail(data: EmailTemplateData): EmailTemplate {
+	const { agency, recipient, document, customMessage } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Hi ${recipient.name},
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            ${customMessage || `Thank you for your enquiry. Please find your quotation from ${agency.name} below.`}
+        </p>
+
+        <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Quotation Number</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${document.number}</td>
+                </tr>
+                ${
+									document.total
+										? `
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px; padding-top: 12px;">Total</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600; padding-top: 12px;">${formatCurrency(document.total)}</td>
+                </tr>
+                `
+										: ""
+								}
+            </table>
+        </div>
+
+        <p style="margin: 0 0 24px 0; color: #4b5563;">
+            Please review the quotation and accept it online if you're happy to proceed. Click the button below to view the full details.
+        </p>
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${document.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Quotation
+            </a>
+        </div>
+
+        <p style="margin: 24px 0 0 0; color: #4b5563;">
+            Best regards,<br>
+            <strong>${agency.name}</strong>
+        </p>
+    `;
+
+	return {
+		subject: `Quotation ${document.number} from ${agency.name}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
+	};
+}
+
+/**
+ * Client-facing: Quotation reminder email
+ */
+export function generateQuotationReminderEmail(data: EmailTemplateData & { expiryDate?: string }): EmailTemplate {
+	const { agency, recipient, document, customMessage, expiryDate } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Hi ${recipient.name},
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            ${customMessage || `This is a friendly reminder about your outstanding quotation from ${agency.name}.`}
+        </p>
+
+        <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Quotation Number</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${document.number}</td>
+                </tr>
+                ${
+									document.total
+										? `
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px; padding-top: 12px;">Total</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600; padding-top: 12px;">${formatCurrency(document.total)}</td>
+                </tr>
+                `
+										: ""
+								}
+                ${
+									expiryDate
+										? `
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px; padding-top: 12px;">Valid Until</td>
+                    <td style="text-align: right; color: #92400e; font-weight: 600; padding-top: 12px;">${expiryDate}</td>
+                </tr>
+                `
+										: ""
+								}
+            </table>
+        </div>
+
+        <p style="margin: 0 0 24px 0; color: #4b5563;">
+            If you have any questions or would like to discuss the quotation, please don't hesitate to get in touch.
+        </p>
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${document.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Quotation
+            </a>
+        </div>
+
+        <p style="margin: 24px 0 0 0; color: #4b5563;">
+            Best regards,<br>
+            <strong>${agency.name}</strong>
+        </p>
+    `;
+
+	return {
+		subject: `Reminder: Quotation ${document.number} from ${agency.name}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
+	};
+}
+
+// =============================================================================
+// Quotation Response Notification Emails (to Agency)
+// =============================================================================
+
+export interface QuotationResponseNotificationData {
+	agency: {
+		name: string;
+		primaryColor?: string | undefined;
+		logoUrl?: string | undefined;
+	};
+	quotation: {
+		number: string;
+		total?: string | undefined;
+		publicUrl: string;
+	};
+	client: {
+		name: string;
+		businessName?: string | undefined;
+	};
+	respondedAt: string;
+	reason?: string | undefined;
+}
+
+/**
+ * Email sent to AGENCY notifying that a client has accepted their quotation
+ */
+export function generateQuotationAcceptedAgencyEmail(data: QuotationResponseNotificationData): EmailTemplate {
+	const { agency, quotation, client, respondedAt } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Quotation Accepted
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            Great news! <strong>${client.businessName || client.name}</strong> has accepted your quotation.
+        </p>
+
+        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Quotation</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${quotation.number}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Client</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${client.businessName || client.name}</td>
+                </tr>
+                ${
+									quotation.total
+										? `
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Total</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${formatCurrency(quotation.total)}</td>
+                </tr>
+                `
+										: ""
+								}
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Accepted</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${respondedAt}</td>
+                </tr>
+            </table>
+        </div>
+
+        <p style="margin: 0 0 24px 0; color: #4b5563;">
+            You can now convert this quotation to an invoice from your dashboard.
+        </p>
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${quotation.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Quotation
+            </a>
+        </div>
+    `;
+
+	return {
+		subject: `Quotation Accepted by ${client.businessName || client.name} - ${quotation.number}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
+	};
+}
+
+/**
+ * Email sent to AGENCY notifying that a client has declined their quotation
+ */
+export function generateQuotationDeclinedAgencyEmail(data: QuotationResponseNotificationData): EmailTemplate {
+	const { agency, quotation, client, respondedAt, reason } = data;
+	const primaryColor = getColor(agency.primaryColor);
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Quotation Declined
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            <strong>${client.businessName || client.name}</strong> has declined quotation <strong>${quotation.number}</strong>.
+        </p>
+
+        <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Quotation</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${quotation.number}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Client</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${client.businessName || client.name}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Declined</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${respondedAt}</td>
+                </tr>
+            </table>
+        </div>
+
+        ${reason ? `
+        <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 0 0 24px 0;">
+            <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px; font-weight: 600; text-transform: uppercase;">Reason Given</p>
+            <p style="margin: 0; color: #374151; white-space: pre-wrap;">${reason}</p>
+        </div>
+        ` : ""}
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${quotation.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Quotation
+            </a>
+        </div>
+    `;
+
+	return {
+		subject: `Quotation Declined by ${client.businessName || client.name} - ${quotation.number}`,
 		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
 	};
 }

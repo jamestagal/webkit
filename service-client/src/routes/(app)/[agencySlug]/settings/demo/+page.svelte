@@ -3,7 +3,7 @@
 	import { loadDemoData, clearDemoData, getDemoDataStatus } from '$lib/api/demo.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
-	import { Sparkles, Trash2, Play, CheckCircle, FileText, MessageCircle, Receipt, ScrollText, AlertTriangle, X, Loader2, Users } from 'lucide-svelte';
+	import { Sparkles, Trash2, Play, CheckCircle, FileText, MessageCircle, Receipt, ScrollText, ClipboardCheck, AlertTriangle, X, Loader2, Users } from 'lucide-svelte';
 
 	let { data } = $props();
 
@@ -113,6 +113,13 @@
 					<p class="text-xs text-base-content/60">Demo: Deposit Invoice</p>
 				</div>
 			</div>
+			<div class="flex items-center gap-3 p-3 rounded-lg bg-base-200">
+				<ClipboardCheck class="h-5 w-5 text-primary" />
+				<div>
+					<p class="font-medium text-sm">Quotation</p>
+					<p class="text-xs text-base-content/60">Demo: Bathroom Shower Retile</p>
+				</div>
+			</div>
 		</div>
 
 		<div class="flex items-center gap-4">
@@ -161,6 +168,10 @@
 					<Receipt class="h-4 w-4" />
 					View Invoices
 				</a>
+				<a href="/{data.agency.slug}/quotations" class="btn btn-outline btn-sm">
+					<ClipboardCheck class="h-4 w-4" />
+					View Quotations
+				</a>
 			</div>
 		</SettingsSection>
 	{/if}
@@ -205,6 +216,10 @@
 			<div class="flex items-center gap-2 text-sm p-2 bg-base-200 rounded">
 				<Receipt class="h-4 w-4 text-primary" />
 				<span>Invoice</span>
+			</div>
+			<div class="flex items-center gap-2 text-sm p-2 bg-base-200 rounded">
+				<ClipboardCheck class="h-4 w-4 text-primary" />
+				<span>Quotation</span>
 			</div>
 		</div>
 
@@ -258,6 +273,7 @@
 			<li>All linked proposals</li>
 			<li>All linked contracts</li>
 			<li>All linked invoices</li>
+			<li>All linked quotations</li>
 		</ul>
 
 		<div class="alert alert-warning py-2">

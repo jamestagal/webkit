@@ -50,6 +50,16 @@ export async function fetchContractPdf(
 }
 
 /**
+ * Fetch quotation PDF from internal API
+ */
+export async function fetchQuotationPdf(
+	quotationId: string,
+	cookies: string,
+): Promise<PdfFetchResult> {
+	return fetchPdf(`/api/quotations/${quotationId}/pdf`, `quotation-${quotationId}.pdf`, cookies);
+}
+
+/**
  * Internal fetch function for PDF endpoints
  */
 async function fetchPdf(

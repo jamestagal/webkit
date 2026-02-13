@@ -16,6 +16,7 @@ import {
 	proposals,
 	invoices,
 	contracts,
+	quotations,
 	agencies,
 	agencyProfiles,
 	formSubmissions,
@@ -31,6 +32,7 @@ import {
 	fetchProposalPdf,
 	fetchInvoicePdf,
 	fetchContractPdf,
+	fetchQuotationPdf,
 } from "$lib/server/services/pdf.service";
 import {
 	generateProposalEmail,
@@ -38,9 +40,11 @@ import {
 	generateInvoiceReminderEmail,
 	generateContractEmail,
 	generateFormEmail,
+	generateQuotationEmail,
 	buildProposalEmailData,
 	buildInvoiceEmailData,
 	buildContractEmailData,
+	buildQuotationEmailData,
 	type ReminderEmailData,
 } from "$lib/templates/email-templates";
 
@@ -83,11 +87,17 @@ const SendInvoiceReminderSchema = v.object({
 	customMessage: v.optional(v.string()),
 });
 
+const SendQuotationEmailSchema = v.object({
+	quotationId: v.pipe(v.string(), v.uuid()),
+	customMessage: v.optional(v.string()),
+});
+
 const GetEmailLogsFilterSchema = v.optional(
 	v.object({
 		proposalId: v.optional(v.pipe(v.string(), v.uuid())),
 		invoiceId: v.optional(v.pipe(v.string(), v.uuid())),
 		contractId: v.optional(v.pipe(v.string(), v.uuid())),
+		quotationId: v.optional(v.pipe(v.string(), v.uuid())),
 		status: v.optional(v.string()),
 		limit: v.optional(v.number()),
 		offset: v.optional(v.number()),
@@ -119,6 +129,9 @@ export const getEmailLogs = query(GetEmailLogsFilterSchema, async (filters) => {
 	if (filters?.contractId) {
 		conditions.push(eq(emailLogs.contractId, filters.contractId));
 	}
+	if (filters?.quotationId) {
+		conditions.push(eq(emailLogs.quotationId, filters.quotationId));
+	}
 	if (filters?.status) {
 		conditions.push(eq(emailLogs.status, filters.status));
 	}
@@ -141,6 +154,7 @@ export const getEntityEmailLogs = query(
 		proposalId: v.optional(v.pipe(v.string(), v.uuid())),
 		invoiceId: v.optional(v.pipe(v.string(), v.uuid())),
 		contractId: v.optional(v.pipe(v.string(), v.uuid())),
+		quotationId: v.optional(v.pipe(v.string(), v.uuid())),
 		formSubmissionId: v.optional(v.pipe(v.string(), v.uuid())),
 	}),
 	async (params) => {
@@ -155,6 +169,8 @@ export const getEntityEmailLogs = query(
 			conditions.push(eq(emailLogs.invoiceId, params.invoiceId));
 		} else if (params.contractId) {
 			conditions.push(eq(emailLogs.contractId, params.contractId));
+		} else if (params.quotationId) {
+			conditions.push(eq(emailLogs.quotationId, params.quotationId));
 		} else if (params.formSubmissionId) {
 			conditions.push(eq(emailLogs.formSubmissionId, params.formSubmissionId));
 		} else {
@@ -181,7 +197,7 @@ export const getClientEmailLogs = query(
 		const context = await getAgencyContext();
 
 		// Get IDs of all documents belonging to this client
-		const [clientProposals, clientInvoices, clientContracts, clientFormSubs] = await Promise.all([
+		const [clientProposals, clientInvoices, clientContracts, clientQuotations, clientFormSubs] = await Promise.all([
 			db.select({ id: proposals.id }).from(proposals).where(
 				and(eq(proposals.clientId, clientId), eq(proposals.agencyId, context.agencyId))
 			),
@@ -191,6 +207,9 @@ export const getClientEmailLogs = query(
 			db.select({ id: contracts.id }).from(contracts).where(
 				and(eq(contracts.clientId, clientId), eq(contracts.agencyId, context.agencyId))
 			),
+			db.select({ id: quotations.id }).from(quotations).where(
+				and(eq(quotations.clientId, clientId), eq(quotations.agencyId, context.agencyId))
+			),
 			db.select({ id: formSubmissions.id }).from(formSubmissions).where(
 				and(eq(formSubmissions.clientId, clientId), eq(formSubmissions.agencyId, context.agencyId))
 			),
@@ -199,10 +218,11 @@ export const getClientEmailLogs = query(
 		const proposalIds = clientProposals.map((p) => p.id);
 		const invoiceIds = clientInvoices.map((i) => i.id);
 		const contractIds = clientContracts.map((c) => c.id);
+		const quotationIds = clientQuotations.map((q) => q.id);
 		const formSubIds = clientFormSubs.map((f) => f.id);
 
 		// If client has no documents, return empty
-		if (proposalIds.length === 0 && invoiceIds.length === 0 && contractIds.length === 0 && formSubIds.length === 0) {
+		if (proposalIds.length === 0 && invoiceIds.length === 0 && contractIds.length === 0 && quotationIds.length === 0 && formSubIds.length === 0) {
 			return [];
 		}
 
@@ -216,6 +236,9 @@ export const getClientEmailLogs = query(
 		}
 		if (contractIds.length > 0) {
 			entityConditions.push(inArray(emailLogs.contractId, contractIds));
+		}
+		if (quotationIds.length > 0) {
+			entityConditions.push(inArray(emailLogs.quotationId, quotationIds));
 		}
 		if (formSubIds.length > 0) {
 			entityConditions.push(inArray(emailLogs.formSubmissionId, formSubIds));
@@ -800,6 +823,147 @@ export const sendContractEmail = command(SendContractEmailSchema, async (data) =
 });
 
 /**
+ * Send quotation email with PDF attachment
+ */
+export const sendQuotationEmail = command(SendQuotationEmailSchema, async (data) => {
+	const context = await getAgencyContext();
+	const event = getRequestEvent();
+
+	if (!hasPermission(context.role, "email:send")) {
+		throw new Error("Permission denied");
+	}
+
+	// Fetch quotation
+	const quotation = await db.query.quotations.findFirst({
+		where: and(eq(quotations.id, data.quotationId), eq(quotations.agencyId, context.agencyId)),
+	});
+
+	if (!quotation) {
+		throw new Error("Quotation not found");
+	}
+
+	const agency = await db.query.agencies.findFirst({
+		where: eq(agencies.id, context.agencyId),
+	});
+
+	if (!agency) {
+		throw new Error("Agency not found");
+	}
+
+	const profile = await db.query.agencyProfiles.findFirst({
+		where: eq(agencyProfiles.agencyId, context.agencyId),
+	});
+
+	// Get email-specific branding
+	const emailBranding = await getEffectiveBranding(context.agencyId, "email");
+
+	// Generate public URL
+	const publicUrl = `${getPublicBaseUrl()}/q/${quotation.slug}`;
+
+	// Build email template data with branding overrides
+	const agencyWithEmailBranding = {
+		...agency,
+		logoUrl: emailBranding.logoUrl || agency.logoUrl,
+		primaryColor: emailBranding.primaryColor || agency.primaryColor,
+	};
+	const templateData = buildQuotationEmailData(
+		quotation,
+		agencyWithEmailBranding,
+		profile || null,
+		publicUrl,
+	);
+	if (data.customMessage) {
+		templateData.customMessage = data.customMessage;
+	}
+
+	// Generate email content
+	const emailContent = generateQuotationEmail(templateData);
+
+	// Fetch PDF
+	const cookieHeader = event.cookies
+		.getAll()
+		.map((c) => `${c.name}=${c.value}`)
+		.join("; ");
+	const pdfResult = await fetchQuotationPdf(quotation.id, cookieHeader);
+
+	// Create email log entry
+	const [emailLog] = await db
+		.insert(emailLogs)
+		.values({
+			agencyId: context.agencyId,
+			quotationId: quotation.id,
+			emailType: "quotation_sent",
+			recipientEmail: quotation.clientEmail,
+			recipientName: quotation.clientContactName || quotation.clientBusinessName,
+			subject: emailContent.subject,
+			bodyHtml: emailContent.bodyHtml,
+			hasAttachment: pdfResult.success,
+			attachmentFilename: pdfResult.filename,
+			status: "pending",
+			sentBy: context.userId,
+		})
+		.returning();
+
+	// Build email options
+	const emailOptions: Parameters<typeof sendEmail>[0] = {
+		to: quotation.clientEmail,
+		subject: emailContent.subject,
+		html: emailContent.bodyHtml,
+	};
+	if (agency.email) {
+		emailOptions.replyTo = agency.email;
+	}
+	if (pdfResult.success && pdfResult.buffer) {
+		emailOptions.attachments = [
+			{
+				filename: pdfResult.filename || `${quotation.quotationNumber}.pdf`,
+				content: pdfResult.buffer,
+			},
+		];
+	}
+	const result = await sendEmail(emailOptions);
+
+	// Update email log with result
+	if (emailLog) {
+		await db
+			.update(emailLogs)
+			.set({
+				status: result.success ? "sent" : "failed",
+				resendMessageId: result.messageId,
+				sentAt: result.success ? new Date() : null,
+				errorMessage: result.error,
+			})
+			.where(eq(emailLogs.id, emailLog.id));
+	}
+
+	// Update quotation sentAt and status
+	if (result.success) {
+		const updates: Record<string, unknown> = { updatedAt: new Date() };
+
+		if (!quotation.sentAt) {
+			updates["sentAt"] = new Date();
+		}
+
+		if (quotation.status === "draft") {
+			updates["status"] = "sent";
+		}
+
+		await db.update(quotations).set(updates).where(eq(quotations.id, quotation.id));
+	}
+
+	// Log activity
+	await logActivity(result.success ? "email_sent" : "email_failed", "quotation", quotation.id, {
+		metadata: { recipientEmail: quotation.clientEmail, error: result.error },
+	});
+
+	return {
+		success: result.success,
+		messageId: result.messageId,
+		error: result.error,
+	};
+});
+
+/**
  * Resend a previously sent email
  */
 export const resendEmail = command(ResendEmailSchema, async (data) => {
@@ -826,6 +990,7 @@ export const resendEmail = command(ResendEmailSchema, async (data) => {
 			proposalId: originalLog.proposalId,
 			invoiceId: originalLog.invoiceId,
 			contractId: originalLog.contractId,
+			quotationId: originalLog.quotationId,
 			emailType: originalLog.emailType,
 			recipientEmail: originalLog.recipientEmail,
 			recipientName: originalLog.recipientName,

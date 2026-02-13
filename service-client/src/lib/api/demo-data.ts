@@ -5,7 +5,7 @@
  * All entity names are prefixed with "Demo:" for easy identification and cleanup.
  *
  * This data is used by demo.remote.ts to create a complete client journey:
- * Consultation → Proposal → Contract → Questionnaire → Invoice
+ * Consultation → Proposal → Contract → Questionnaire → Invoice → Quotation
  */
 
 // ============================================================================
@@ -299,3 +299,107 @@ Bank Transfer: Please use your invoice number as the reference.`,
 	viewCount: 0,
 	onlinePaymentEnabled: true,
 };
+
+// ============================================================================
+// QUOTATION DATA
+// ============================================================================
+
+export const DEMO_QUOTATION = {
+	quotationName: "Demo: Bathroom Shower Retile",
+	status: "draft" as const,
+
+	// Client info (snapshot)
+	clientBusinessName: "Demo: Murray's Plumbing",
+	clientContactName: "Steve Murray",
+	clientEmail: "steve@murraysplumbing.com.au",
+	clientPhone: "0412 345 678",
+	clientAddress: "42 Trade Street\nEight Mile Plains QLD 4113",
+
+	// Site details
+	siteAddress: "17 Hillview Crescent\nIndooroopilly QLD 4068",
+	siteReference: "Mrs. Thompson — Main bathroom shower retile",
+
+	// Dates (prepared today, expires in 60 days)
+	preparedDate: new Date(),
+	expiryDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+
+	// Pricing (sum of sections below)
+	subtotal: "5000.00",
+	discountAmount: "0.00",
+	discountDescription: "",
+	gstAmount: "500.00",
+	total: "5500.00",
+
+	gstRegistered: true,
+	gstRate: "10.00",
+
+	// Terms blocks (frozen snapshot)
+	termsBlocks: [
+		{
+			title: "Quotation Notes For Client Below:",
+			content:
+				"Please ensure that you have thoroughly reviewed your quotation and understand all items before approving the work. Kindly note that this quote has been provided based on the visible conditions and the information available to us at the time of the assessment.",
+		},
+		{
+			title: "FIXED PRICE QUOTE",
+			content:
+				"This is a fixed price quote. Any unforeseen damage will be completed at no additional cost, including plumbing, flooring, and stud framing repairs within the shower recess. The only variation would be for additional tiling if required, or unforeseen asbestos removal by a licensed specialist.",
+		},
+		{
+			title: "Payment Terms",
+			content:
+				"On signed acceptance of this quote, our payment schedule is: 30% deposit (please note that we cannot schedule any work until the deposit has been received), 70% final payment on completion of the job.",
+		},
+		{
+			title: "CLIENT TO SUPPLY TILES OF THEIR CHOICE",
+			content:
+				"If you have existing wall tiles that you are trying to match, be mindful of the thickness of your new tiles. A thickness variance no greater than 2mm is recommended. Tiles need to be onsite prior to commencement. This quote does not include mosaic tiles, painting, or plastering.",
+		},
+	],
+
+	optionsNotes:
+		"Optional upgrades available: heated towel rail installation ($350+GST), exhaust fan replacement ($180+GST), shower niche installation ($220+GST).",
+	notes: "Demo quotation for Murray's Plumbing scenario",
+	viewCount: 0,
+};
+
+export const DEMO_QUOTATION_SECTIONS = [
+	{
+		title: "Main — Inspection & Assessment",
+		workItems: [
+			"Video inspection of shower and assessment of proposed scope of work",
+			"Tap service and pressure test to ensure there are no significant plumbing issues",
+		],
+		sectionPrice: "550.00",
+		sectionGst: "55.00",
+		sectionTotal: "605.00",
+		sortOrder: 0,
+	},
+	{
+		title: "Full Shower Retile",
+		workItems: [
+			"Removing the old wall tiles in the shower",
+			"Removing the existing shower screen",
+			"Lifting the old floor and removing the bed",
+			"Fill in sunken shower",
+			"Re-sheet two shower walls with new villa board",
+			"Prime the walls",
+			"Waterproofing the shower walls",
+			"Applying a new wet seal membrane to the floor and the bottom row of the walls",
+			"Screeding a new 30mm raised bed and re-tiling the floor and bottom row of wall tiles",
+			"Tiling the shower walls with tiles supplied",
+			"Grouting the walls",
+			"Grouting the shower floor",
+			"Applying Re-seal to the wall to floor joints and the vertical grout joints on the first row of wall tiles",
+			"Refitting the existing shower screen if possible",
+			"Replacing the silicone on the shower screen",
+			"Applying a penetrating sealer over the floor of the shower",
+			"Disposal of all rubbish associated with the job",
+			"Finish off any miscellaneous items",
+		],
+		sectionPrice: "4450.00",
+		sectionGst: "445.00",
+		sectionTotal: "4895.00",
+		sortOrder: 1,
+	},
+];

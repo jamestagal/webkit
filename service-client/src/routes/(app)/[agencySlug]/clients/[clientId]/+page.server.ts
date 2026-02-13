@@ -17,6 +17,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		proposals: data.proposals,
 		contracts: data.contracts,
 		invoices: data.invoices,
+		quotations: data.quotations,
 		counts: data.counts,
 		emailLogs,
 	};

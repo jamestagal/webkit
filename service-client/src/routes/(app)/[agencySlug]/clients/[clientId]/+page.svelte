@@ -16,6 +16,7 @@
 		FileText,
 		ScrollText,
 		Receipt,
+		ClipboardCheck,
 		Plus,
 		ExternalLink,
 		CheckCircle,
@@ -48,7 +49,7 @@
 	});
 
 	// Tab filter state
-	let activeTab = $state<"all" | "consultations" | "proposals" | "contracts" | "invoices">("all");
+	let activeTab = $state<"all" | "consultations" | "proposals" | "contracts" | "invoices" | "quotations">("all");
 
 	// Status badge config
 	const statusConfig: Record<string, { label: string; icon: typeof CheckCircle; class: string }> = {
@@ -78,6 +79,7 @@
 		proposal: { label: "Proposal", icon: FileText, color: FEATURES.proposals.color },
 		contract: { label: "Contract", icon: ScrollText, color: FEATURES.contracts.color },
 		invoice: { label: "Invoice", icon: Receipt, color: FEATURES.invoices.color },
+		quotation: { label: "Quotation", icon: ClipboardCheck, color: FEATURES.quotations.color },
 	};
 
 	// Combined documents list
@@ -87,6 +89,7 @@
 			...data.proposals.map((d) => ({ ...d, docType: "proposal" as const })),
 			...data.contracts.map((d) => ({ ...d, docType: "contract" as const })),
 			...data.invoices.map((d) => ({ ...d, docType: "invoice" as const })),
+			...data.quotations.map((d) => ({ ...d, docType: "quotation" as const })),
 		];
 		// Sort by createdAt descending
 		return docs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -155,7 +158,7 @@
 		}
 	}
 
-	function getDocumentUrl(doc: ReturnType<typeof allDocuments>[0]) {
+	function getDocumentUrl(doc: ReturnType<typeof allDocuments>[0]): string {
 		switch (doc.docType) {
 			case "consultation":
 				return `/${agencySlug}/consultation/view/${doc.id}`;
@@ -165,6 +168,8 @@
 				return `/${agencySlug}/contracts/${doc.id}`;
 			case "invoice":
 				return `/${agencySlug}/invoices/${doc.id}`;
+			case "quotation":
+				return `/${agencySlug}/quotations/${doc.id}`;
 		}
 	}
 
@@ -182,6 +187,10 @@
 		proposal_accepted_agency: { label: "Proposal Accepted", docType: "proposal" },
 		proposal_declined_agency: { label: "Proposal Declined", docType: "proposal" },
 		proposal_revision_requested_agency: { label: "Changes Requested", docType: "proposal" },
+		quotation_sent: { label: "Quotation Sent", docType: "quotation" },
+		quotation_accepted: { label: "Quotation Accepted", docType: "quotation" },
+		quotation_declined: { label: "Quotation Declined", docType: "quotation" },
+		quotation_reminder: { label: "Quotation Reminder", docType: "quotation" },
 	};
 
 	function getEmailTypeLabel(emailType: string): string {
@@ -323,6 +332,14 @@
 			<Receipt class="h-3 w-3 mr-1" />
 			Invoices ({data.counts.invoices})
 		</button>
+		<button
+			class="tab"
+			class:tab-active={activeTab === "quotations"}
+			onclick={() => (activeTab = "quotations")}
+		>
+			<ClipboardCheck class="h-3 w-3 mr-1" />
+			Quotations ({data.counts.quotations})
+		</button>
 	</div>
 
 	<!-- Documents List -->
@@ -340,6 +357,8 @@
 						<FileText class="h-8 w-8 text-base-content/40" />
 					{:else if activeTab === "contracts"}
 						<ScrollText class="h-8 w-8 text-base-content/40" />
+					{:else if activeTab === "quotations"}
+						<ClipboardCheck class="h-8 w-8 text-base-content/40" />
 					{:else}
 						<Receipt class="h-8 w-8 text-base-content/40" />
 					{/if}

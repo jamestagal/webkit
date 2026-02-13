@@ -3,7 +3,7 @@
  *
  * Provides functions to load, check, and clear demo data for agency onboarding.
  * Creates a complete Murray's Plumbing demo flow:
- * Consultation → Proposal → Contract → Questionnaire → Invoice
+ * Consultation → Proposal → Contract → Invoice → Quotation
  *
  * All demo entities are prefixed with "Demo:" for easy identification and cleanup.
  */
@@ -16,6 +16,8 @@ import {
 	contracts,
 	invoices,
 	invoiceLineItems,
+	quotations,
+	quotationScopeSections,
 	agencyPackages,
 	agencyAddons,
 	clients,
@@ -28,6 +30,8 @@ import {
 	DEMO_PROPOSAL,
 	DEMO_CONTRACT,
 	DEMO_INVOICE,
+	DEMO_QUOTATION,
+	DEMO_QUOTATION_SECTIONS,
 } from "./demo-data";
 
 // =============================================================================
@@ -56,7 +60,7 @@ export const getDemoDataStatus = query(async () => {
 
 /**
  * Load demo data for the current agency.
- * Creates a complete client journey: Consultation → Proposal → Contract → Questionnaire → Invoice
+ * Creates a complete client journey: Consultation → Proposal → Contract → Invoice → Quotation
  *
  * All entities are prefixed with "Demo:" for easy identification and cleanup.
  */
@@ -80,11 +84,13 @@ export const loadDemoData = command(async () => {
 	const proposalId = crypto.randomUUID();
 	const contractId = crypto.randomUUID();
 	const invoiceId = crypto.randomUUID();
+	const quotationId = crypto.randomUUID();
 
 	// Generate unique slugs
 	const proposalSlug = `demo-murrays-${nanoid(8)}`;
 	const contractSlug = `demo-contract-${nanoid(8)}`;
 	const invoiceSlug = `demo-invoice-${nanoid(8)}`;
+	const quotationSlug = `demo-quotation-${nanoid(8)}`;
 
 	// 0. Create unified client first (Unified Client Approach)
 	await db.insert(clients).values({
@@ -283,6 +289,52 @@ export const loadDemoData = command(async () => {
 		category: "setup",
 	});
 
+	// 6. Create quotation with scope sections
+	await db.insert(quotations).values({
+		id: quotationId,
+		agencyId,
+		clientId,
+		quotationNumber: `DEMO-QUO-${Date.now().toString(36).toUpperCase()}`,
+		slug: quotationSlug,
+		quotationName: DEMO_QUOTATION.quotationName,
+		status: DEMO_QUOTATION.status,
+		clientBusinessName: DEMO_QUOTATION.clientBusinessName,
+		clientContactName: DEMO_QUOTATION.clientContactName,
+		clientEmail: DEMO_QUOTATION.clientEmail,
+		clientPhone: DEMO_QUOTATION.clientPhone,
+		clientAddress: DEMO_QUOTATION.clientAddress,
+		siteAddress: DEMO_QUOTATION.siteAddress,
+		siteReference: DEMO_QUOTATION.siteReference,
+		preparedDate: DEMO_QUOTATION.preparedDate,
+		expiryDate: DEMO_QUOTATION.expiryDate,
+		subtotal: DEMO_QUOTATION.subtotal,
+		discountAmount: DEMO_QUOTATION.discountAmount,
+		discountDescription: DEMO_QUOTATION.discountDescription,
+		gstAmount: DEMO_QUOTATION.gstAmount,
+		total: DEMO_QUOTATION.total,
+		gstRegistered: DEMO_QUOTATION.gstRegistered,
+		gstRate: DEMO_QUOTATION.gstRate,
+		termsBlocks: DEMO_QUOTATION.termsBlocks,
+		optionsNotes: DEMO_QUOTATION.optionsNotes,
+		notes: DEMO_QUOTATION.notes,
+		viewCount: 0,
+		createdBy: userId,
+	});
+
+	// 7. Create quotation scope sections
+	for (const section of DEMO_QUOTATION_SECTIONS) {
+		await db.insert(quotationScopeSections).values({
+			id: crypto.randomUUID(),
+			quotationId,
+			title: section.title,
+			workItems: section.workItems,
+			sectionPrice: section.sectionPrice,
+			sectionGst: section.sectionGst,
+			sectionTotal: section.sectionTotal,
+			sortOrder: section.sortOrder,
+		});
+	}
+
 	return {
 		success: true,
 		created: {
@@ -291,6 +343,7 @@ export const loadDemoData = command(async () => {
 			proposalId,
 			contractId,
 			invoiceId,
+			quotationId,
 		},
 		// Include info about linked packages/addons (helps user understand if they need to create these first)
 		linkedPackage: selectedPackage ? { id: selectedPackage.id, name: selectedPackage.name } : null,
@@ -305,7 +358,7 @@ export const loadDemoData = command(async () => {
 /**
  * Clear all demo data for the current agency.
  * Deletes entities in reverse order to handle foreign key constraints:
- * Invoice Line Items → Invoices → Questionnaires → Contracts → Proposals → Consultations
+ * Quotation Scope Sections → Quotations → Invoice Line Items → Invoices → Contracts → Proposals → Consultations → Clients
  */
 export const clearDemoData = command(async () => {
 	const { agencyId } = await getAgencyContext();
@@ -352,32 +405,60 @@ export const clearDemoData = command(async () => {
 		invoiceIds = demoInvoices.map((i) => i.id);
 	}
 
+	// Find all demo quotations (linked to demo clients)
+	const demoClients = await db
+		.select({ id: clients.id })
+		.from(clients)
+		.where(and(eq(clients.agencyId, agencyId), like(clients.businessName, "Demo:%")));
+	const clientIds = demoClients.map((c) => c.id);
+
+	let quotationIds: string[] = [];
+	if (clientIds.length > 0) {
+		const demoQuotations = await db
+			.select({ id: quotations.id })
+			.from(quotations)
+			.where(and(eq(quotations.agencyId, agencyId), inArray(quotations.clientId, clientIds)));
+		quotationIds = demoQuotations.map((q) => q.id);
+	}
+
 	// Delete in reverse order of foreign key dependencies
 
-	// 1. Delete invoice line items
+	// 1. Delete quotation scope sections (child of quotations)
+	if (quotationIds.length > 0) {
+		await db
+			.delete(quotationScopeSections)
+			.where(inArray(quotationScopeSections.quotationId, quotationIds));
+	}
+
+	// 2. Delete quotations
+	if (quotationIds.length > 0) {
+		await db.delete(quotations).where(inArray(quotations.id, quotationIds));
+	}
+
+	// 3. Delete invoice line items
 	if (invoiceIds.length > 0) {
 		await db.delete(invoiceLineItems).where(inArray(invoiceLineItems.invoiceId, invoiceIds));
 	}
 
-	// 2. Delete invoices
+	// 4. Delete invoices
 	if (invoiceIds.length > 0) {
 		await db.delete(invoices).where(inArray(invoices.id, invoiceIds));
 	}
 
-	// 3. Delete contracts
+	// 5. Delete contracts
 	if (contractIds.length > 0) {
 		await db.delete(contracts).where(inArray(contracts.id, contractIds));
 	}
 
-	// 4. Delete proposals
+	// 6. Delete proposals
 	if (proposalIds.length > 0) {
 		await db.delete(proposals).where(inArray(proposals.id, proposalIds));
 	}
 
-	// 5. Delete consultations
+	// 7. Delete consultations
 	await db.delete(consultations).where(inArray(consultations.id, consultationIds));
 
-	// 6. Delete demo clients (identified by "Demo:" prefix in business name)
+	// 8. Delete demo clients (identified by "Demo:" prefix in business name)
 	const deletedClients = await db
 		.delete(clients)
 		.where(and(eq(clients.agencyId, agencyId), like(clients.businessName, "Demo:%")))
@@ -391,6 +472,7 @@ export const clearDemoData = command(async () => {
 			proposals: proposalIds.length,
 			contracts: contractIds.length,
 			invoices: invoiceIds.length,
+			quotations: quotationIds.length,
 		},
 	};
 });

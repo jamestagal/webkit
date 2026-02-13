@@ -16,6 +16,8 @@ import {
 	invoiceLineItems,
 	proposals,
 	contracts,
+	quotations,
+	quotationScopeSections,
 	agencies,
 	agencyProfiles,
 	agencyPackages,
@@ -956,6 +958,141 @@ export const createInvoiceFromContract = command(
 
 		await logActivity("invoice.created_from_contract", "invoice", invoice.id, {
 			newValues: { invoiceNumber, contractId },
+		});
+
+		return invoice;
+	},
+);
+
+/**
+ * Create invoice from accepted quotation.
+ * Creates one line item per scope section.
+ */
+export const createInvoiceFromQuotation = command(
+	v.pipe(v.string(), v.uuid()),
+	async (quotationId) => {
+		const context = await getAgencyContext();
+
+		if (!hasPermission(context.role, "invoice:create")) {
+			throw new Error("Permission denied");
+		}
+
+		// Load quotation
+		const [quotation] = await db
+			.select()
+			.from(quotations)
+			.where(and(eq(quotations.id, quotationId), eq(quotations.agencyId, context.agencyId)))
+			.limit(1);
+
+		if (!quotation) {
+			throw new Error("Quotation not found");
+		}
+
+		if (quotation.status !== "accepted") {
+			throw new Error("Can only create invoice from accepted quotation");
+		}
+
+		// Load scope sections
+		const sections = await db
+			.select()
+			.from(quotationScopeSections)
+			.where(eq(quotationScopeSections.quotationId, quotationId))
+			.orderBy(asc(quotationScopeSections.sortOrder));
+
+		// Get agency profile
+		const [profile] = await db
+			.select()
+			.from(agencyProfiles)
+			.where(eq(agencyProfiles.agencyId, context.agencyId))
+			.limit(1);
+
+		// Generate invoice number atomically
+		const invoiceNumber = await getNextDocumentNumber(context.agencyId, "invoice");
+
+		const slug = await generateUniqueSlug();
+		const issueDate = new Date();
+		const paymentTerms = profile?.defaultPaymentTerms || "NET_14";
+		const dueDate = calculateDueDate(issueDate, paymentTerms);
+
+		// Build line items from quotation scope sections
+		const lineItems = sections.map((section, index) => ({
+			description: section.title,
+			quantity: "1.00",
+			unitPrice: section.sectionTotal || "0.00",
+			amount: section.sectionTotal || "0.00",
+			isTaxable: true,
+			sortOrder: index,
+			category: null,
+			packageId: null,
+			addonId: null,
+		}));
+
+		// Calculate totals using quotation's GST settings
+		const discountAmount = parseFloat(quotation.discountAmount as string) || 0;
+		const { subtotal, gstAmount, total } = calculateInvoiceTotals(
+			lineItems,
+			quotation.gstRegistered ?? (profile?.gstRegistered ?? true),
+			parseFloat((quotation.gstRate as string) || profile?.gstRate || "10.00"),
+			discountAmount,
+		);
+
+		// Reuse client from quotation or create
+		let clientId: string | null = quotation.clientId;
+		if (!clientId && quotation.clientEmail) {
+			const result = await getOrCreateClient({
+				businessName: quotation.clientBusinessName || quotation.clientContactName || "Unknown",
+				email: quotation.clientEmail,
+				contactName: quotation.clientContactName || null,
+			});
+			if (result.client) {
+				clientId = result.client.id;
+			}
+		}
+
+		// Create invoice
+		const [invoice] = await db
+			.insert(invoices)
+			.values({
+				agencyId: context.agencyId,
+				quotationId,
+				clientId,
+				invoiceNumber,
+				slug,
+				status: "draft",
+				clientBusinessName: quotation.clientBusinessName,
+				clientContactName: quotation.clientContactName,
+				clientEmail: quotation.clientEmail,
+				clientPhone: quotation.clientPhone || "",
+				clientAddress: quotation.clientAddress || "",
+				clientAbn: "",
+				issueDate,
+				dueDate,
+				subtotal: subtotal.toFixed(2),
+				discountAmount: discountAmount.toFixed(2),
+				discountDescription: quotation.discountDescription || "",
+				gstAmount: gstAmount.toFixed(2),
+				total: total.toFixed(2),
+				gstRegistered: quotation.gstRegistered ?? (profile?.gstRegistered ?? true),
+				gstRate: (quotation.gstRate as string) || profile?.gstRate || "10.00",
+				paymentTerms,
+				createdBy: context.userId,
+			})
+			.returning();
+
+		if (!invoice) {
+			throw new Error("Failed to create invoice");
+		}
+
+		// Create line items
+		for (const item of lineItems) {
+			await db.insert(invoiceLineItems).values({
+				invoiceId: invoice.id,
+				...item,
+			});
+		}
+
+		await logActivity("invoice.created_from_quotation", "invoice", invoice.id, {
+			newValues: { invoiceNumber, quotationId },
 		});
 
 		return invoice;
