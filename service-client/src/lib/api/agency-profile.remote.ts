@@ -19,6 +19,7 @@ import {
 } from "$lib/server/schema";
 import { requireAgencyRole, getAgencyContext } from "$lib/server/agency";
 import { logActivity } from "$lib/server/db-helpers";
+import { encrypt, decryptProfileFields } from "$lib/server/crypto";
 import { eq, and, count } from "drizzle-orm";
 
 // =============================================================================
@@ -109,7 +110,7 @@ export const getAgencyProfile = query(async () => {
 		.limit(1);
 
 	return {
-		profile: profile ?? null,
+		profile: profile ? decryptProfileFields(profile) : null,
 		agency,
 	};
 });
@@ -127,7 +128,7 @@ export const getAgencyProfileOnly = query(async () => {
 		.where(eq(agencyProfiles.agencyId, context.agencyId))
 		.limit(1);
 
-	return profile ?? null;
+	return profile ? decryptProfileFields(profile) : null;
 });
 
 /**
@@ -194,15 +195,15 @@ export const updateAgencyProfile = command(UpdateProfileSchema, async (data) => 
 	if (data.postcode !== undefined) updates["postcode"] = data.postcode;
 	if (data.country !== undefined) updates["country"] = data.country;
 
-	// Banking
+	// Banking — encrypt sensitive fields
 	if (data.bankName !== undefined) updates["bankName"] = data.bankName;
-	if (data.bsb !== undefined) updates["bsb"] = data.bsb;
-	if (data.accountNumber !== undefined) updates["accountNumber"] = data.accountNumber;
+	if (data.bsb !== undefined) updates["bsb"] = encrypt(data.bsb);
+	if (data.accountNumber !== undefined) updates["accountNumber"] = encrypt(data.accountNumber);
 	if (data.accountName !== undefined) updates["accountName"] = data.accountName;
 
 	// Tax & GST
 	if (data.gstRegistered !== undefined) updates["gstRegistered"] = data.gstRegistered;
-	if (data.taxFileNumber !== undefined) updates["taxFileNumber"] = data.taxFileNumber;
+	if (data.taxFileNumber !== undefined) updates["taxFileNumber"] = encrypt(data.taxFileNumber);
 	if (data.gstRate !== undefined) updates["gstRate"] = data.gstRate;
 
 	// Social & Branding

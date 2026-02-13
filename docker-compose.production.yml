@@ -160,6 +160,8 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # JWT Keys (runtime injection)
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+      # Encryption (banking & tax data)
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
     networks:
       - traefik-public
       - webkit-internal

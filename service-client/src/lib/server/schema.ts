@@ -288,13 +288,13 @@ export const agencyProfiles = pgTable("agency_profiles", {
 
 	// Banking (for invoice display)
 	bankName: varchar("bank_name", { length: 100 }).notNull().default(""),
-	bsb: varchar("bsb", { length: 10 }).notNull().default(""),
-	accountNumber: varchar("account_number", { length: 30 }).notNull().default(""),
+	bsb: text("bsb").notNull().default(""),
+	accountNumber: text("account_number").notNull().default(""),
 	accountName: text("account_name").notNull().default(""),
 
 	// Tax & GST
 	gstRegistered: boolean("gst_registered").notNull().default(true),
-	taxFileNumber: varchar("tax_file_number", { length: 20 }).notNull().default(""),
+	taxFileNumber: text("tax_file_number").notNull().default(""),
 	gstRate: decimal("gst_rate", { precision: 5, scale: 2 }).notNull().default("10.00"),
 
 	// Social & Branding

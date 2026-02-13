@@ -152,6 +152,8 @@ services:
       PUBLIC_STRIPE_PUBLISHABLE_KEY: ${PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
       # AI Services (Claude API for proposal generation)
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Encryption (banking & tax data)
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
 
   mailpit:
     container_name: webkit-mailpit
