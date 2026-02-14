@@ -20,7 +20,6 @@ import { eq, asc } from "drizzle-orm";
 import { generateQuotationPdfHtml } from "$lib/templates/quotation-pdf";
 import { env } from "$env/dynamic/private";
 import { decryptProfileFields } from "$lib/server/crypto";
-import { getEffectiveBranding } from "$lib/server/document-branding";
 
 const GOTENBERG_URL = env["GOTENBERG_URL"] || "http://localhost:3003";
 
@@ -70,16 +69,12 @@ export const GET: RequestHandler = async ({ params }) => {
 
 		const profile = rawProfile ? decryptProfileFields(rawProfile) : null;
 
-		// Get branding (with document-level overrides)
-		const brandingOverride = await getEffectiveBranding(quotation.agencyId, "quotation");
-
 		// Generate HTML
 		const html = generateQuotationPdfHtml({
 			quotation,
 			sections,
 			agency,
 			profile,
-			brandingOverride,
 		});
 
 		// Convert to PDF using Gotenberg

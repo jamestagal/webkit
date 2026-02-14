@@ -9,6 +9,7 @@
 	} from '$lib/api/quotations.remote';
 	import ClientPicker from '$lib/components/shared/ClientPicker.svelte';
 	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';
+	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import { formatCurrency, formatDate } from '$lib/utils/formatting';
 	import {
 		ArrowLeft,
@@ -24,7 +25,11 @@
 		AlertCircle,
 		ChevronUp,
 		ChevronDown,
-		Save
+		Save,
+		Edit,
+		Download,
+		MapPin,
+		MoreHorizontal
 	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
 	import type { ScopeSectionInput, TermsBlock } from '$lib/api/quotations.types';
@@ -37,9 +42,12 @@
 	let effectiveStatus = $derived(data.quotation.effectiveStatus);
 	let statusInfo = $derived(getStatusBadge(effectiveStatus));
 
-	// Edit form state (only for draft)
+	// View/Edit toggle — default to view mode
+	let isEditing = $state(false);
+
+	// Edit form state (populated by startEditing)
 	let isSaving = $state(false);
-	let quotationName = $state(data.quotation.quotationName);
+	let quotationName = $state('');
 
 	// Client fields
 	type Client = {
@@ -50,55 +58,32 @@
 		phone: string | null;
 	};
 	let selectedClient = $state<Client | null>(null);
-	let manualBusinessName = $state(data.quotation.clientBusinessName);
-	let manualEmail = $state(data.quotation.clientEmail);
-	let manualContactName = $state(data.quotation.clientContactName);
-	let manualPhone = $state(data.quotation.clientPhone);
+	let manualBusinessName = $state('');
+	let manualEmail = $state('');
+	let manualContactName = $state('');
+	let manualPhone = $state('');
 
 	// Site fields
-	let siteAddress = $state(data.quotation.siteAddress);
-	let siteReference = $state(data.quotation.siteReference);
+	let siteAddress = $state('');
+	let siteReference = $state('');
 
 	// Dates
-	let preparedDate = $state(
-		data.quotation.preparedDate
-			? new Date(data.quotation.preparedDate).toISOString().split('T')[0]!
-			: ''
-	);
-	let expiryDate = $state(
-		data.quotation.expiryDate
-			? new Date(data.quotation.expiryDate).toISOString().split('T')[0]!
-			: ''
-	);
+	let preparedDate = $state('');
+	let expiryDate = $state('');
 
 	// Scope sections
-	let sections = $state<ScopeSectionInput[]>(
-		data.sections.map((s) => ({
-			title: s.title,
-			workItems: Array.isArray(s.workItems) ? [...(s.workItems as string[])] : [],
-			sectionPrice: s.sectionPrice || '0.00',
-			scopeTemplateId: s.scopeTemplateId || null,
-			sortOrder: s.sortOrder,
-		}))
-	);
+	let sections = $state<ScopeSectionInput[]>([]);
 
 	// Pricing
-	let discountAmount = $state(data.quotation.discountAmount || '');
-	let discountDescription = $state(data.quotation.discountDescription || '');
+	let discountAmount = $state('');
+	let discountDescription = $state('');
 
 	// Terms
-	let termsBlocks = $state<TermsBlock[]>(
-		Array.isArray(data.quotation.termsBlocks)
-			? (data.quotation.termsBlocks as TermsBlock[]).map((t, i) => ({
-					...t,
-					sortOrder: t.sortOrder ?? i
-				}))
-			: []
-	);
+	let termsBlocks = $state<TermsBlock[]>([]);
 
 	// Options & notes
-	let optionsNotes = $state(data.quotation.optionsNotes || '');
-	let notes = $state(data.quotation.notes || '');
+	let optionsNotes = $state('');
+	let notes = $state('');
 
 	// Modals
 	let sendModalOpen = $state(false);
@@ -109,7 +94,7 @@
 	let newSectionTitle = $state('');
 	let selectedScopeTemplateId = $state<string | null>(null);
 
-	// Calculated values
+	// Calculated values (edit mode)
 	let gstRegistered = $derived(data.profile?.gstRegistered ?? true);
 	let gstRate = $derived(parseFloat(data.profile?.gstRate || '10.00'));
 
@@ -119,6 +104,55 @@
 	let discount = $derived(parseFloat(discountAmount || '0'));
 	let gstAmount = $derived(gstRegistered ? (subtotal - discount) * (gstRate / 100) : 0);
 	let total = $derived(subtotal - discount + gstAmount);
+
+	// View mode terms blocks (from server data)
+	let viewTermsBlocks = $derived(
+		(data.quotation.termsBlocks as Array<{ title: string; content: string; sortOrder: number }>) || []
+	);
+
+	// =========================================================================
+	// startEditing — deep copies server data into edit state
+	// =========================================================================
+	function startEditing() {
+		quotationName = data.quotation.quotationName;
+		selectedClient = null;
+		manualBusinessName = data.quotation.clientBusinessName;
+		manualEmail = data.quotation.clientEmail;
+		manualContactName = data.quotation.clientContactName;
+		manualPhone = data.quotation.clientPhone;
+		siteAddress = data.quotation.siteAddress;
+		siteReference = data.quotation.siteReference;
+		preparedDate = data.quotation.preparedDate
+			? new Date(data.quotation.preparedDate).toISOString().split('T')[0]!
+			: '';
+		expiryDate = data.quotation.expiryDate
+			? new Date(data.quotation.expiryDate).toISOString().split('T')[0]!
+			: '';
+		// Deep copy sections (JSONB workItems arrays)
+		sections = structuredClone(
+			data.sections.map((s) => ({
+				title: s.title,
+				workItems: Array.isArray(s.workItems) ? (s.workItems as string[]) : [],
+				sectionPrice: s.sectionPrice || '0.00',
+				scopeTemplateId: s.scopeTemplateId || null,
+				sortOrder: s.sortOrder,
+			}))
+		);
+		discountAmount = data.quotation.discountAmount || '';
+		discountDescription = data.quotation.discountDescription || '';
+		// Deep copy terms blocks (JSONB)
+		termsBlocks = structuredClone(
+			Array.isArray(data.quotation.termsBlocks)
+				? (data.quotation.termsBlocks as TermsBlock[]).map((t, i) => ({
+						...t,
+						sortOrder: t.sortOrder ?? i
+					}))
+				: []
+		);
+		optionsNotes = data.quotation.optionsNotes || '';
+		notes = data.quotation.notes || '';
+		isEditing = true;
+	}
 
 	// Section management
 	function openAddSectionModal() {
@@ -138,7 +172,7 @@
 					{
 						title: scopeTemplate.name,
 						workItems: Array.isArray(scopeTemplate.workItems)
-							? [...(scopeTemplate.workItems as string[])]
+							? structuredClone(scopeTemplate.workItems as string[])
 							: [],
 						sectionPrice: scopeTemplate.defaultPrice || '0.00',
 						scopeTemplateId: scopeTemplate.id,
@@ -252,6 +286,7 @@
 				discountDescription: discountDescription.trim(),
 			});
 			await invalidateAll();
+			isEditing = false;
 			toast.success('Quotation saved');
 		} catch (err) {
 			toast.error('Failed to save', err instanceof Error ? err.message : '');
@@ -306,6 +341,10 @@
 		toast.success('Link copied to clipboard');
 	}
 
+	function downloadPdf() {
+		window.open(`/api/quotations/${data.quotation.id}/pdf`, '_blank');
+	}
+
 	function getStatusBadge(status: string) {
 		switch (status) {
 			case 'draft':
@@ -328,7 +367,7 @@
 
 <div class="space-y-6 max-w-4xl">
 	<!-- Header -->
-	<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+	<div class="flex flex-col gap-4">
 		<div class="flex items-center gap-3">
 			<a href="/{agencySlug}/quotations" class="btn btn-ghost btn-sm btn-square">
 				<ArrowLeft class="h-4 w-4" />
@@ -347,15 +386,11 @@
 			</div>
 		</div>
 
-		<!-- Actions -->
-		<div class="flex items-center gap-2 flex-wrap">
-			{#if isDraft}
-				<button
-					type="button"
-					class="btn btn-primary btn-sm"
-					onclick={handleSave}
-					disabled={isSaving}
-				>
+		<!-- Action Bar -->
+		<div class="flex flex-wrap gap-2 pt-3 border-t border-base-200">
+			{#if isEditing}
+				<!-- Editing: Save + Cancel -->
+				<button type="button" class="btn btn-primary btn-sm" onclick={handleSave} disabled={isSaving}>
 					{#if isSaving}
 						<span class="loading loading-spinner loading-sm"></span>
 					{:else}
@@ -363,75 +398,76 @@
 					{/if}
 					Save
 				</button>
-				<button
-					type="button"
-					class="btn btn-info btn-sm"
-					onclick={() => (sendModalOpen = true)}
-				>
-					<Send class="h-4 w-4" />
-					Send
-				</button>
-				<button
-					type="button"
-					class="btn btn-ghost btn-sm"
-					onclick={() => handleDuplicate()}
-				>
-					<Copy class="h-4 w-4" />
-					Duplicate
-				</button>
-				<button
-					type="button"
-					class="btn btn-ghost btn-sm text-error"
-					onclick={() => (showDeleteModal = true)}
-				>
-					<Trash2 class="h-4 w-4" />
-					Delete
-				</button>
-			{:else if ['sent', 'viewed'].includes(effectiveStatus)}
-				<button
-					type="button"
-					class="btn btn-info btn-sm"
-					onclick={() => (sendModalOpen = true)}
-				>
-					<Send class="h-4 w-4" />
-					Resend
-				</button>
-				<button type="button" class="btn btn-ghost btn-sm" onclick={copyPublicUrl}>
-					<ExternalLink class="h-4 w-4" />
-					Copy Link
-				</button>
-				<button
-					type="button"
-					class="btn btn-ghost btn-sm"
-					onclick={() => handleDuplicate()}
-				>
-					<Copy class="h-4 w-4" />
-					Duplicate
-				</button>
-			{:else if effectiveStatus === 'accepted'}
-				<button
-					type="button"
-					class="btn btn-ghost btn-sm"
-					onclick={() => handleDuplicate()}
-				>
-					<Copy class="h-4 w-4" />
-					Duplicate
+				<button type="button" class="btn btn-ghost btn-sm" onclick={() => (isEditing = false)}>
+					Cancel
 				</button>
 			{:else}
-				<button
-					type="button"
-					class="btn btn-ghost btn-sm"
-					onclick={() => handleDuplicate()}
-				>
-					<Copy class="h-4 w-4" />
-					Duplicate
+				<!-- View mode actions by status -->
+				{#if isDraft}
+					<button type="button" class="btn btn-outline btn-sm" onclick={startEditing}>
+						<Edit class="h-4 w-4" />
+						Edit
+					</button>
+					<button type="button" class="btn btn-primary btn-sm" onclick={() => (sendModalOpen = true)}>
+						<Send class="h-4 w-4" />
+						Send
+					</button>
+				{/if}
+
+				{#if ['sent', 'viewed'].includes(effectiveStatus)}
+					<button type="button" class="btn btn-info btn-sm" onclick={() => (sendModalOpen = true)}>
+						<Send class="h-4 w-4" />
+						Resend
+					</button>
+					<button type="button" class="btn btn-outline btn-sm" onclick={copyPublicUrl}>
+						<ExternalLink class="h-4 w-4" />
+						Copy Link
+					</button>
+				{/if}
+
+				{#if effectiveStatus === 'accepted'}
+					<button type="button" class="btn btn-outline btn-sm" onclick={copyPublicUrl}>
+						<ExternalLink class="h-4 w-4" />
+						Copy Link
+					</button>
+				{/if}
+
+				<button type="button" class="btn btn-outline btn-sm" onclick={downloadPdf}>
+					<Download class="h-4 w-4" />
+					PDF
 				</button>
+
+				<!-- More dropdown -->
+				<div class="dropdown dropdown-end ml-auto">
+					<button type="button" tabindex="0" class="btn btn-outline btn-sm gap-1">
+						<MoreHorizontal class="h-4 w-4" />
+						More
+					</button>
+					<ul class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-48 border border-base-300">
+						<li>
+							<button type="button" onclick={handleDuplicate}>
+								<Copy class="h-4 w-4" />
+								Duplicate
+							</button>
+						</li>
+						{#if isDraft}
+							<li class="border-t border-base-300 mt-1 pt-1">
+								<button type="button" class="text-error" onclick={() => (showDeleteModal = true)}>
+									<Trash2 class="h-4 w-4" />
+									Delete
+								</button>
+							</li>
+						{/if}
+					</ul>
+				</div>
 			{/if}
 		</div>
 	</div>
 
-	{#if isDraft}
+	{#if isEditing}
+		<!-- ================================================================= -->
 		<!-- EDIT MODE -->
+		<!-- ================================================================= -->
 
 		<!-- Client & Site Details -->
 		<div class="card bg-base-100 border border-base-300">
@@ -479,23 +515,13 @@
 							<label class="label" for="edit-site-address">
 								<span class="label-text">Site Address</span>
 							</label>
-							<input
-								id="edit-site-address"
-								type="text"
-								class="input input-bordered"
-								bind:value={siteAddress}
-							/>
+							<input id="edit-site-address" type="text" class="input input-bordered" bind:value={siteAddress} />
 						</div>
 						<div class="form-control">
 							<label class="label" for="edit-site-reference">
 								<span class="label-text">Site Reference</span>
 							</label>
-							<input
-								id="edit-site-reference"
-								type="text"
-								class="input input-bordered"
-								bind:value={siteReference}
-							/>
+							<input id="edit-site-reference" type="text" class="input input-bordered" bind:value={siteReference} />
 						</div>
 					</div>
 
@@ -504,23 +530,13 @@
 							<label class="label" for="edit-prepared-date">
 								<span class="label-text">Prepared Date</span>
 							</label>
-							<input
-								id="edit-prepared-date"
-								type="date"
-								class="input input-bordered"
-								bind:value={preparedDate}
-							/>
+							<input id="edit-prepared-date" type="date" class="input input-bordered" bind:value={preparedDate} />
 						</div>
 						<div class="form-control">
 							<label class="label" for="edit-expiry-date">
 								<span class="label-text">Expiry Date</span>
 							</label>
-							<input
-								id="edit-expiry-date"
-								type="date"
-								class="input input-bordered"
-								bind:value={expiryDate}
-							/>
+							<input id="edit-expiry-date" type="date" class="input input-bordered" bind:value={expiryDate} />
 						</div>
 					</div>
 				</div>
@@ -532,11 +548,7 @@
 			<div class="card-body">
 				<div class="flex items-center justify-between">
 					<h2 class="card-title text-base">Scope of Works</h2>
-					<button
-						type="button"
-						class="btn btn-primary btn-sm"
-						onclick={openAddSectionModal}
-					>
+					<button type="button" class="btn btn-primary btn-sm" onclick={openAddSectionModal}>
 						<Plus class="h-4 w-4" />
 						Add Section
 					</button>
@@ -553,20 +565,10 @@
 								<div class="flex items-start justify-between gap-2 mb-3">
 									<div class="flex items-center gap-2 flex-1">
 										<div class="flex flex-col gap-0.5">
-											<button
-												type="button"
-												class="btn btn-ghost btn-xs btn-square"
-												onclick={() => moveSection(sectionIndex, -1)}
-												disabled={sectionIndex === 0}
-											>
+											<button type="button" class="btn btn-ghost btn-xs btn-square" onclick={() => moveSection(sectionIndex, -1)} disabled={sectionIndex === 0}>
 												<ChevronUp class="h-3 w-3" />
 											</button>
-											<button
-												type="button"
-												class="btn btn-ghost btn-xs btn-square"
-												onclick={() => moveSection(sectionIndex, 1)}
-												disabled={sectionIndex === sections.length - 1}
-											>
+											<button type="button" class="btn btn-ghost btn-xs btn-square" onclick={() => moveSection(sectionIndex, 1)} disabled={sectionIndex === sections.length - 1}>
 												<ChevronDown class="h-3 w-3" />
 											</button>
 										</div>
@@ -574,18 +576,10 @@
 											type="text"
 											class="input input-bordered input-sm flex-1 font-semibold"
 											value={section.title}
-											oninput={(e) =>
-												updateSectionTitle(
-													sectionIndex,
-													e.currentTarget.value
-												)}
+											oninput={(e) => updateSectionTitle(sectionIndex, e.currentTarget.value)}
 										/>
 									</div>
-									<button
-										type="button"
-										class="btn btn-ghost btn-sm btn-square text-error"
-										onclick={() => removeSection(sectionIndex)}
-									>
+									<button type="button" class="btn btn-ghost btn-sm btn-square text-error" onclick={() => removeSection(sectionIndex)}>
 										<Trash2 class="h-4 w-4" />
 									</button>
 								</div>
@@ -593,14 +587,8 @@
 								<!-- Work Items -->
 								<div class="space-y-2 mb-3">
 									<div class="flex items-center justify-between">
-										<span class="text-sm font-medium text-base-content/70"
-											>Work Items</span
-										>
-										<button
-											type="button"
-											class="btn btn-ghost btn-xs"
-											onclick={() => addWorkItem(sectionIndex)}
-										>
+										<span class="text-sm font-medium text-base-content/70">Work Items</span>
+										<button type="button" class="btn btn-ghost btn-xs" onclick={() => addWorkItem(sectionIndex)}>
 											<Plus class="h-3 w-3" />
 											Add
 										</button>
@@ -612,19 +600,9 @@
 												class="input input-bordered input-sm flex-1"
 												placeholder="Work item description"
 												value={item}
-												oninput={(e) =>
-													updateWorkItem(
-														sectionIndex,
-														itemIndex,
-														e.currentTarget.value
-													)}
+												oninput={(e) => updateWorkItem(sectionIndex, itemIndex, e.currentTarget.value)}
 											/>
-											<button
-												type="button"
-												class="btn btn-ghost btn-xs btn-square text-error"
-												onclick={() =>
-													removeWorkItem(sectionIndex, itemIndex)}
-											>
+											<button type="button" class="btn btn-ghost btn-xs btn-square text-error" onclick={() => removeWorkItem(sectionIndex, itemIndex)}>
 												<Trash2 class="h-3 w-3" />
 											</button>
 										</div>
@@ -632,14 +610,9 @@
 								</div>
 
 								<!-- Section Price -->
-								<div
-									class="flex items-center gap-4 pt-3 border-t border-base-200"
-								>
+								<div class="flex items-center gap-4 pt-3 border-t border-base-200">
 									<div class="form-control flex-1">
-										<label
-											class="label"
-											for="edit-section-price-{sectionIndex}"
-										>
+										<label class="label" for="edit-section-price-{sectionIndex}">
 											<span class="label-text text-sm">Price (ex GST)</span>
 										</label>
 										<input
@@ -648,26 +621,15 @@
 											class="input input-bordered input-sm"
 											placeholder="0.00"
 											value={section.sectionPrice}
-											oninput={(e) =>
-												updateSectionPrice(
-													sectionIndex,
-													e.currentTarget.value
-												)}
+											oninput={(e) => updateSectionPrice(sectionIndex, e.currentTarget.value)}
 										/>
 									</div>
 									{#if gstRegistered}
-										{@const sectionGst =
-											parseFloat(section.sectionPrice || '0') *
-											(gstRate / 100)}
-										{@const sectionTotal =
-											parseFloat(section.sectionPrice || '0') + sectionGst}
+										{@const sectionGst = parseFloat(section.sectionPrice || '0') * (gstRate / 100)}
+										{@const sectionTotal = parseFloat(section.sectionPrice || '0') + sectionGst}
 										<div class="text-right text-sm">
-											<div class="text-base-content/60">
-												GST: {formatCurrency(sectionGst)}
-											</div>
-											<div class="font-semibold">
-												Inc: {formatCurrency(sectionTotal)}
-											</div>
+											<div class="text-base-content/60">GST: {formatCurrency(sectionGst)}</div>
+											<div class="font-semibold">Inc: {formatCurrency(sectionTotal)}</div>
 										</div>
 									{/if}
 								</div>
@@ -689,24 +651,13 @@
 							<label class="label" for="edit-discount">
 								<span class="label-text">Discount Amount</span>
 							</label>
-							<input
-								id="edit-discount"
-								type="text"
-								class="input input-bordered"
-								placeholder="0.00"
-								bind:value={discountAmount}
-							/>
+							<input id="edit-discount" type="text" class="input input-bordered" placeholder="0.00" bind:value={discountAmount} />
 						</div>
 						<div class="form-control">
 							<label class="label" for="edit-discount-desc">
 								<span class="label-text">Discount Description</span>
 							</label>
-							<input
-								id="edit-discount-desc"
-								type="text"
-								class="input input-bordered"
-								bind:value={discountDescription}
-							/>
+							<input id="edit-discount-desc" type="text" class="input input-bordered" bind:value={discountDescription} />
 						</div>
 					</div>
 
@@ -727,9 +678,7 @@
 								<span>{formatCurrency(gstAmount)}</span>
 							</div>
 						{/if}
-						<div
-							class="flex justify-between font-bold text-lg pt-2 border-t border-base-300"
-						>
+						<div class="flex justify-between font-bold text-lg pt-2 border-t border-base-300">
 							<span>Total (inc GST)</span>
 							<span>{formatCurrency(total)}</span>
 						</div>
@@ -761,18 +710,9 @@
 										class="input input-bordered input-sm flex-1"
 										placeholder="Terms title"
 										value={block.title}
-										oninput={(e) =>
-											updateTermsBlock(
-												blockIndex,
-												'title',
-												e.currentTarget.value
-											)}
+										oninput={(e) => updateTermsBlock(blockIndex, 'title', e.currentTarget.value)}
 									/>
-									<button
-										type="button"
-										class="btn btn-ghost btn-xs btn-square text-error"
-										onclick={() => removeTermsBlock(blockIndex)}
-									>
+									<button type="button" class="btn btn-ghost btn-xs btn-square text-error" onclick={() => removeTermsBlock(blockIndex)}>
 										<Trash2 class="h-3 w-3" />
 									</button>
 								</div>
@@ -781,12 +721,7 @@
 									rows="3"
 									placeholder="Terms content"
 									value={block.content}
-									oninput={(e) =>
-										updateTermsBlock(
-											blockIndex,
-											'content',
-											e.currentTarget.value
-										)}
+									oninput={(e) => updateTermsBlock(blockIndex, 'content', e.currentTarget.value)}
 								></textarea>
 							</div>
 						{/each}
@@ -797,77 +732,226 @@
 					<label class="label" for="edit-options">
 						<span class="label-text">Options / Additional Notes</span>
 					</label>
-					<textarea
-						id="edit-options"
-						class="textarea textarea-bordered"
-						rows="3"
-						bind:value={optionsNotes}
-					></textarea>
+					<textarea id="edit-options" class="textarea textarea-bordered" rows="3" bind:value={optionsNotes}></textarea>
 				</div>
 
 				<div class="form-control">
 					<label class="label" for="edit-internal-notes">
 						<span class="label-text">Internal Notes</span>
 					</label>
-					<textarea
-						id="edit-internal-notes"
-						class="textarea textarea-bordered"
-						rows="2"
-						bind:value={notes}
-					></textarea>
+					<textarea id="edit-internal-notes" class="textarea textarea-bordered" rows="2" bind:value={notes}></textarea>
 				</div>
 			</div>
+		</div>
+
+		<!-- Bottom save/cancel -->
+		<div class="flex justify-end gap-4">
+			<button type="button" class="btn btn-ghost" onclick={() => (isEditing = false)}>Cancel</button>
+			<button type="button" class="btn btn-primary" onclick={handleSave} disabled={isSaving}>
+				{#if isSaving}
+					<span class="loading loading-spinner loading-sm"></span>
+				{/if}
+				<Save class="h-4 w-4" />
+				Save Changes
+			</button>
 		</div>
 	{:else}
-		<!-- VIEW MODE (sent/viewed/accepted/declined/expired) -->
+		<!-- ================================================================= -->
+		<!-- VIEW MODE — Formatted Quotation Preview -->
+		<!-- ================================================================= -->
 
-		<!-- Info Cards -->
-		<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-			<div class="card bg-base-100 border border-base-300">
-				<div class="card-body p-4">
-					<h3 class="text-sm font-semibold text-base-content/60 uppercase">Client</h3>
-					<p class="font-medium">{data.quotation.clientBusinessName}</p>
-					{#if data.quotation.clientContactName}
-						<p class="text-sm text-base-content/70">
-							{data.quotation.clientContactName}
-						</p>
-					{/if}
-					<p class="text-sm text-base-content/70">{data.quotation.clientEmail}</p>
-					{#if data.quotation.clientPhone}
-						<p class="text-sm text-base-content/70">
-							{data.quotation.clientPhone}
-						</p>
-					{/if}
+		<div class="card bg-base-100 border border-base-300">
+			<div class="card-body p-4 sm:p-6">
+				<!-- Header -->
+				<div class="flex flex-col sm:flex-row justify-between gap-4 pb-6 border-b border-base-300">
+					<div>
+						{#if data.agency.logoUrl}
+							<img
+								src={data.agency.logoUrl}
+								alt={data.agency.name}
+								class="h-12 object-contain mb-2"
+							/>
+						{:else}
+							<h2 class="text-2xl font-bold" style:color={data.agency.primaryColor || undefined}>
+								{data.agency.name}
+							</h2>
+						{/if}
+						{#if data.profile?.tagline}
+							<p class="text-sm text-base-content/60">{data.profile.tagline}</p>
+						{/if}
+					</div>
+					<div class="sm:text-right">
+						<div class="text-3xl font-bold">QUOTATION</div>
+						<p class="text-base-content/60 mt-1 font-mono"># {data.quotation.quotationNumber}</p>
+						<div class="mt-2">
+							<span class="badge {statusInfo.class} badge-lg gap-1">
+								<svelte:component this={statusInfo.icon} class="h-3 w-3" />
+								{statusInfo.label}
+							</span>
+						</div>
+					</div>
 				</div>
-			</div>
 
-			<div class="card bg-base-100 border border-base-300">
-				<div class="card-body p-4">
-					<h3 class="text-sm font-semibold text-base-content/60 uppercase">Details</h3>
+				<!-- From / Prepared For -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-8 py-6 border-b border-base-300">
+					<div>
+						<h3 class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-3">From</h3>
+						<div class="text-sm space-y-1">
+							<p class="font-semibold">{data.profile?.tradingName || data.agency.name}</p>
+							{#if data.profile?.addressLine1}
+								<p>{data.profile.addressLine1}</p>
+							{/if}
+							{#if data.profile?.addressLine2}
+								<p>{data.profile.addressLine2}</p>
+							{/if}
+							{#if data.profile?.city || data.profile?.state || data.profile?.postcode}
+								<p>{[data.profile?.city, data.profile?.state, data.profile?.postcode].filter(Boolean).join(' ')}</p>
+							{/if}
+							{#if data.profile?.abn}
+								<p>ABN: {data.profile.abn}</p>
+							{/if}
+						</div>
+					</div>
+					<div class="sm:text-right">
+						<h3 class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-3">Prepared For</h3>
+						<div class="text-sm space-y-1">
+							<p class="font-semibold">{data.quotation.clientBusinessName}</p>
+							{#if data.quotation.clientContactName}
+								<p>{data.quotation.clientContactName}</p>
+							{/if}
+							{#if data.quotation.clientAddress}
+								<p class="whitespace-pre-line">{data.quotation.clientAddress}</p>
+							{/if}
+							{#if data.quotation.clientEmail}
+								<p>{data.quotation.clientEmail}</p>
+							{/if}
+							{#if data.quotation.clientPhone}
+								<p>{data.quotation.clientPhone}</p>
+							{/if}
+						</div>
+					</div>
+				</div>
+
+				<!-- Dates & Site -->
+				<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 py-6 bg-base-200/50 rounded-lg px-4 my-4">
+					<div>
+						<h3 class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Date</h3>
+						<p class="font-medium">{formatDate(data.quotation.preparedDate, 'long')}</p>
+					</div>
+					<div>
+						<h3 class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Valid Until</h3>
+						<p class="font-medium">{formatDate(data.quotation.expiryDate, 'long')}</p>
+					</div>
 					{#if data.quotation.siteAddress}
-						<p class="text-sm">
-							<span class="text-base-content/60">Site:</span>
-							{data.quotation.siteAddress}
-						</p>
-					{/if}
-					<p class="text-sm">
-						<span class="text-base-content/60">Prepared:</span>
-						{formatDate(data.quotation.preparedDate)}
-					</p>
-					<p class="text-sm">
-						<span class="text-base-content/60">Expires:</span>
-						{formatDate(data.quotation.expiryDate)}
-					</p>
-					{#if data.quotation.viewCount > 0}
-						<p class="text-sm">
-							<span class="text-base-content/60">Views:</span>
-							{data.quotation.viewCount}
-						</p>
+						<div class="col-span-2">
+							<h3 class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Site Address</h3>
+							<p class="font-medium flex items-start gap-1">
+								<MapPin class="h-4 w-4 shrink-0 mt-0.5" />
+								{data.quotation.siteAddress}
+							</p>
+						</div>
 					{/if}
 				</div>
+
+				{#if data.quotation.siteReference}
+					<div class="mb-4 px-4">
+						<span class="text-xs font-semibold text-base-content/60 uppercase tracking-wider">Reference:</span>
+						<span class="font-medium ml-2">{data.quotation.siteReference}</span>
+					</div>
+				{/if}
+
+				<!-- Scope Sections -->
+				{#if data.sections.length > 0}
+					<div class="mt-4 space-y-6">
+						<h2 class="text-lg font-bold">Scope of Works</h2>
+
+						{#each data.sections as section (section.id)}
+							{@const items = (section.workItems as string[]) || []}
+							<div class="border border-base-300 rounded-lg overflow-hidden">
+								<div class="bg-base-200/50 px-4 py-3 flex justify-between items-center">
+									<h3 class="font-semibold">{section.title}</h3>
+									{#if section.sectionTotal}
+										<span class="font-bold text-primary">
+											{formatCurrency(parseFloat(section.sectionTotal))}
+											{#if data.quotation.gstRegistered}
+												<span class="text-xs text-base-content/60 font-normal">inc GST</span>
+											{/if}
+										</span>
+									{/if}
+								</div>
+								<div class="p-4">
+									{#if items.length > 0}
+										<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+											{#each items as item}
+												<div class="flex items-start gap-2 text-sm">
+													<span class="text-primary mt-0.5 shrink-0">&#x2022;</span>
+													<span>{item}</span>
+												</div>
+											{/each}
+										</div>
+									{/if}
+								</div>
+							</div>
+						{/each}
+					</div>
+				{/if}
+
+				<!-- Pricing Summary -->
+				<div class="mt-8 flex justify-end">
+					<div class="w-full max-w-xs space-y-2">
+						<div class="flex justify-between text-sm">
+							<span class="text-base-content/70">Subtotal (ex GST)</span>
+							<span>{formatCurrency(parseFloat(data.quotation.subtotal))}</span>
+						</div>
+						{#if parseFloat(data.quotation.discountAmount) > 0}
+							<div class="flex justify-between text-sm text-success">
+								<span>
+									Discount{data.quotation.discountDescription ? ` (${data.quotation.discountDescription})` : ''}
+								</span>
+								<span>-{formatCurrency(parseFloat(data.quotation.discountAmount))}</span>
+							</div>
+						{/if}
+						{#if data.quotation.gstRegistered && parseFloat(data.quotation.gstAmount as string) > 0}
+							<div class="flex justify-between text-sm">
+								<span class="text-base-content/70">GST ({data.quotation.gstRate}%)</span>
+								<span>{formatCurrency(parseFloat(data.quotation.gstAmount))}</span>
+							</div>
+						{/if}
+						<div class="flex justify-between font-bold text-xl border-t-2 border-base-content pt-3 mt-2">
+							<span>Total</span>
+							<span>{formatCurrency(parseFloat(data.quotation.total))}</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Terms -->
+				{#if viewTermsBlocks.length > 0}
+					<div class="mt-8 pt-6 border-t border-base-300">
+						<h2 class="text-lg font-bold mb-4">Terms & Conditions</h2>
+						<div class="space-y-4">
+							{#each viewTermsBlocks.sort((a, b) => a.sortOrder - b.sortOrder) as term}
+								<div>
+									<h3 class="font-semibold text-sm mb-1">{term.title}</h3>
+									<div class="prose prose-sm max-w-none text-base-content/80">
+										{@html sanitizeHtml(term.content)}
+									</div>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				<!-- Options Notes -->
+				{#if data.quotation.optionsNotes}
+					<div class="mt-8 pt-6 border-t border-base-300">
+						<h2 class="text-lg font-bold mb-2">Options & Notes</h2>
+						<p class="text-sm whitespace-pre-wrap text-base-content/80">{data.quotation.optionsNotes}</p>
+					</div>
+				{/if}
 			</div>
 		</div>
 
+		<!-- Status Info Cards (below the main preview card) -->
 		{#if effectiveStatus === 'accepted' && data.quotation.acceptedByName}
 			<div class="alert alert-success">
 				<CheckCircle class="h-5 w-5" />
@@ -897,131 +981,31 @@
 			</div>
 		{/if}
 
-		<!-- Scope Sections (read-only) -->
-		<div class="card bg-base-100 border border-base-300">
-			<div class="card-body">
-				<h2 class="card-title text-base">Scope of Works</h2>
-
-				<div class="space-y-4 mt-2">
-					{#each data.sections as section (section.id)}
-						<div class="border border-base-300 rounded-lg p-4">
-							<h3 class="font-semibold">{section.title}</h3>
-							{#if Array.isArray(section.workItems) && (section.workItems as string[]).length > 0}
-								<ul class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1">
-									{#each section.workItems as string[] as item}
-										<li class="flex items-start gap-2 text-sm">
-											<span class="text-primary mt-0.5">•</span>
-											<span>{item}</span>
-										</li>
-									{/each}
-								</ul>
-							{/if}
-							{#if section.sectionPrice}
-								<div
-									class="flex items-center justify-between mt-3 pt-3 border-t border-base-200"
-								>
-									<span class="text-sm text-base-content/60">Section Price</span
-									>
-									<div class="text-right">
-										<span class="font-semibold"
-											>{formatCurrency(
-												parseFloat(section.sectionPrice)
-											)}</span
-										>
-										{#if section.sectionTotal}
-											<span class="text-sm text-base-content/60 ml-2"
-												>(inc GST: {formatCurrency(
-													parseFloat(section.sectionTotal)
-												)})</span
-											>
-										{/if}
-									</div>
-								</div>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			</div>
-		</div>
-
-		<!-- Pricing (read-only) -->
-		<div class="card bg-base-100 border border-base-300">
-			<div class="card-body">
-				<h2 class="card-title text-base">Pricing</h2>
-				<div class="bg-base-200/50 rounded-lg p-4 space-y-2">
-					<div class="flex justify-between text-sm">
-						<span>Subtotal (ex GST)</span>
-						<span>{formatCurrency(parseFloat(data.quotation.subtotal))}</span>
-					</div>
-					{#if parseFloat(data.quotation.discountAmount) > 0}
-						<div class="flex justify-between text-sm text-error">
-							<span>
-								Discount
-								{#if data.quotation.discountDescription}
-									({data.quotation.discountDescription})
-								{/if}
-							</span>
-							<span
-								>-{formatCurrency(
-									parseFloat(data.quotation.discountAmount)
-								)}</span
-							>
-						</div>
-					{/if}
-					{#if data.quotation.gstRegistered}
-						<div class="flex justify-between text-sm">
-							<span>GST ({data.quotation.gstRate}%)</span>
-							<span
-								>{formatCurrency(parseFloat(data.quotation.gstAmount))}</span
-							>
-						</div>
-					{/if}
-					<div
-						class="flex justify-between font-bold text-lg pt-2 border-t border-base-300"
-					>
-						<span>Total (inc GST)</span>
-						<span>{formatCurrency(parseFloat(data.quotation.total))}</span>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<!-- Terms (read-only) -->
-		{#if Array.isArray(data.quotation.termsBlocks) && (data.quotation.termsBlocks as any[]).length > 0}
-			<div class="card bg-base-100 border border-base-300">
-				<div class="card-body">
-					<h2 class="card-title text-base">Terms & Conditions</h2>
-					<div class="space-y-4 mt-2">
-						{#each data.quotation.termsBlocks as any[] as block}
-							<div>
-								<h3 class="font-semibold text-sm">{block.title}</h3>
-								<div class="text-sm text-base-content/70 mt-1 whitespace-pre-wrap">
-									{block.content}
-								</div>
-							</div>
-						{/each}
-					</div>
-				</div>
-			</div>
-		{/if}
-
-		{#if data.quotation.optionsNotes}
-			<div class="card bg-base-100 border border-base-300">
-				<div class="card-body">
-					<h2 class="card-title text-base">Options / Additional Notes</h2>
-					<div class="whitespace-pre-wrap text-sm">
-						{data.quotation.optionsNotes}
-					</div>
-				</div>
-			</div>
-		{/if}
-
+		<!-- Internal Notes (not on public page) -->
 		{#if data.quotation.notes}
 			<div class="card bg-base-100 border border-base-300">
-				<div class="card-body">
-					<h2 class="card-title text-base">Internal Notes</h2>
-					<div class="whitespace-pre-wrap text-sm text-base-content/70">
-						{data.quotation.notes}
+				<div class="card-body p-4">
+					<h3 class="text-sm font-semibold text-base-content/60 uppercase">Internal Notes</h3>
+					<div class="whitespace-pre-wrap text-sm text-base-content/70 mt-1">{data.quotation.notes}</div>
+				</div>
+			</div>
+		{/if}
+
+		<!-- View Stats -->
+		{#if data.quotation.viewCount > 0 || data.quotation.sentAt}
+			<div class="card bg-base-100 border border-base-300">
+				<div class="card-body p-4">
+					<h3 class="text-sm font-semibold text-base-content/60 uppercase mb-2">Activity</h3>
+					<div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-base-content/70">
+						{#if data.quotation.sentAt}
+							<span>Sent: {formatDate(data.quotation.sentAt)}</span>
+						{/if}
+						{#if data.quotation.viewCount > 0}
+							<span>Views: {data.quotation.viewCount}</span>
+						{/if}
+						{#if data.quotation.lastViewedAt}
+							<span>Last viewed: {formatDate(data.quotation.lastViewedAt)}</span>
+						{/if}
 					</div>
 				</div>
 			</div>
@@ -1051,11 +1035,7 @@
 				This action cannot be undone.
 			</p>
 			<div class="modal-action">
-				<button
-					class="btn btn-ghost"
-					onclick={() => (showDeleteModal = false)}
-					disabled={isDeleting}
-				>
+				<button class="btn btn-ghost" onclick={() => (showDeleteModal = false)} disabled={isDeleting}>
 					Cancel
 				</button>
 				<button class="btn btn-error" onclick={confirmDelete} disabled={isDeleting}>
@@ -1082,11 +1062,7 @@
 						<label class="label" for="edit-scope-template-picker">
 							<span class="label-text">From Template</span>
 						</label>
-						<select
-							id="edit-scope-template-picker"
-							class="select select-bordered"
-							bind:value={selectedScopeTemplateId}
-						>
+						<select id="edit-scope-template-picker" class="select select-bordered" bind:value={selectedScopeTemplateId}>
 							<option value={null}>Custom Section</option>
 							{#each data.scopeTemplates as scopeTemplate (scopeTemplate.id)}
 								<option value={scopeTemplate.id}>{scopeTemplate.name}</option>
@@ -1098,9 +1074,7 @@
 				{#if !selectedScopeTemplateId}
 					<div class="form-control">
 						<label class="label" for="edit-new-section-title">
-							<span class="label-text"
-								>Section Title <span class="text-error">*</span></span
-							>
+							<span class="label-text">Section Title <span class="text-error">*</span></span>
 						</label>
 						<input
 							id="edit-new-section-title"
@@ -1114,14 +1088,8 @@
 			</div>
 
 			<div class="modal-action">
-				<button class="btn btn-ghost" onclick={() => (showAddSectionModal = false)}>
-					Cancel
-				</button>
-				<button
-					class="btn btn-primary"
-					onclick={addSection}
-					disabled={!selectedScopeTemplateId && !newSectionTitle.trim()}
-				>
+				<button class="btn btn-ghost" onclick={() => (showAddSectionModal = false)}>Cancel</button>
+				<button class="btn btn-primary" onclick={addSection} disabled={!selectedScopeTemplateId && !newSectionTitle.trim()}>
 					Add Section
 				</button>
 			</div>

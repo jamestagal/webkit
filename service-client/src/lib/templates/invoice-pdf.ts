@@ -191,9 +191,9 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 	<div class="container">
 		<!-- Header -->
 		<div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 2px solid #111827;">
-			<div>
+			<div style="flex: 1; min-width: 0;">
 				${
-					logoUrl
+					logoUrl && logoUrl.trim()
 						? `<img src="${logoUrl}" alt="${agency.name}" style="max-height: 60px; max-width: 200px; object-fit: contain; margin-bottom: 8px;">`
 						: `<div style="font-size: 24px; font-weight: bold; color: ${primaryColor};">${agency.name}</div>`
 				}

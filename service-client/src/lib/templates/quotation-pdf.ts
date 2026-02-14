@@ -28,20 +28,54 @@ export interface QuotationPdfData {
 	brandingOverride?: EffectiveBranding;
 }
 
+/**
+ * Get status badge color
+ */
+function getStatusColor(status: string): { bg: string; text: string } {
+	switch (status) {
+		case "accepted":
+			return { bg: "#dcfce7", text: "#166534" };
+		case "sent":
+		case "viewed":
+			return { bg: "#fef3c7", text: "#92400e" };
+		case "declined":
+			return { bg: "#fee2e2", text: "#991b1b" };
+		default:
+			return { bg: "#e0e7ff", text: "#3730a3" };
+	}
+}
+
+/**
+ * Escape HTML for safe rendering
+ */
+function escapeHtml(text: string): string {
+	return text
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#039;");
+}
+
 function buildAgencyAddress(agency: Agency, profile: AgencyProfile | null): string {
 	const parts: string[] = [];
 
 	if (profile?.tradingName || agency.name) {
-		parts.push(`<strong>${profile?.tradingName || agency.name}</strong>`);
+		parts.push(`<strong>${escapeHtml(profile?.tradingName || agency.name)}</strong>`);
 	}
-	if (profile?.addressLine1) parts.push(profile.addressLine1);
-	if (profile?.addressLine2) parts.push(profile.addressLine2);
+	if (profile?.addressLine1) parts.push(escapeHtml(profile.addressLine1));
+	if (profile?.addressLine2) parts.push(escapeHtml(profile.addressLine2));
 	if (profile?.city || profile?.state || profile?.postcode) {
-		parts.push([profile?.city, profile?.state, profile?.postcode].filter(Boolean).join(" "));
+		parts.push(
+			[profile?.city, profile?.state, profile?.postcode]
+				.filter(Boolean)
+				.map((s) => escapeHtml(s as string))
+				.join(" "),
+		);
 	}
-	if (agency.email) parts.push(agency.email);
-	if (agency.phone) parts.push(agency.phone);
-	if (profile?.abn) parts.push(`ABN: ${profile.abn}`);
+	if (agency.email) parts.push(escapeHtml(agency.email));
+	if (agency.phone) parts.push(escapeHtml(agency.phone));
+	if (profile?.abn) parts.push(`ABN: ${escapeHtml(profile.abn)}`);
 
 	return parts.join("<br>");
 }
@@ -50,12 +84,12 @@ function buildClientAddress(quotation: Quotation): string {
 	const parts: string[] = [];
 
 	if (quotation.clientBusinessName) {
-		parts.push(`<strong>${quotation.clientBusinessName}</strong>`);
+		parts.push(`<strong>${escapeHtml(quotation.clientBusinessName)}</strong>`);
 	}
-	if (quotation.clientContactName) parts.push(quotation.clientContactName);
-	if (quotation.clientAddress) parts.push(quotation.clientAddress);
-	if (quotation.clientEmail) parts.push(quotation.clientEmail);
-	if (quotation.clientPhone) parts.push(quotation.clientPhone);
+	if (quotation.clientContactName) parts.push(escapeHtml(quotation.clientContactName));
+	if (quotation.clientAddress) parts.push(escapeHtml(quotation.clientAddress));
+	if (quotation.clientEmail) parts.push(escapeHtml(quotation.clientEmail));
+	if (quotation.clientPhone) parts.push(escapeHtml(quotation.clientPhone));
 
 	return parts.join("<br>");
 }
@@ -77,7 +111,7 @@ function buildWorkItemsHtml(items: string[]): string {
 							(item) => `
 						<div style="display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px; font-size: 12px; color: #374151;">
 							<span style="color: #6366f1; margin-top: 2px;">&#x2022;</span>
-							<span>${item}</span>
+							<span>${escapeHtml(item)}</span>
 						</div>
 					`,
 						)
@@ -89,7 +123,7 @@ function buildWorkItemsHtml(items: string[]): string {
 							(item) => `
 						<div style="display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px; font-size: 12px; color: #374151;">
 							<span style="color: #6366f1; margin-top: 2px;">&#x2022;</span>
-							<span>${item}</span>
+							<span>${escapeHtml(item)}</span>
 						</div>
 					`,
 						)
@@ -104,7 +138,8 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 	const { quotation, sections, agency, profile, brandingOverride } = data;
 
 	const logoUrl = brandingOverride?.logoUrl || agency.logoUrl;
-	const primaryColor = brandingOverride?.primaryColor || agency.primaryColor || "#111827";
+	const accentColor = brandingOverride?.primaryColor || agency.primaryColor || "#6366f1";
+	const statusColor = getStatusColor(quotation.status);
 
 	const isAccepted = quotation.status === "accepted";
 
@@ -117,10 +152,10 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 		.sort((a, b) => a.sortOrder - b.sortOrder)
 		.map(
 			(section) => `
-		<div style="margin-bottom: 20px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+		<div style="margin-bottom: 20px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; page-break-inside: avoid;">
 			<div style="background: #f9fafb; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;">
-				<h3 style="margin: 0; font-size: 14px; font-weight: 600; color: #111827;">${section.title}</h3>
-				<span style="font-size: 14px; font-weight: 700; color: ${primaryColor};">
+				<h3 style="margin: 0; font-size: 14px; font-weight: 600; color: #111827;">${escapeHtml(section.title)}</h3>
+				<span style="font-size: 14px; font-weight: 700; color: ${accentColor};">
 					${formatCurrency(section.sectionTotal)}
 					${quotation.gstRegistered ? '<span style="font-size: 10px; color: #6b7280; font-weight: 400;"> inc GST</span>' : ""}
 				</span>
@@ -137,14 +172,14 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 	const termsHtml =
 		termsBlocks.length > 0
 			? `
-		<div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
-			<h2 style="font-size: 16px; font-weight: 700; margin: 0 0 16px 0;">Terms & Conditions</h2>
+		<div style="margin: 32px 0; page-break-inside: avoid;">
+			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Terms & Conditions</h2>
 			${termsBlocks
 				.map(
 					(term) => `
 				<div style="margin-bottom: 12px;">
-					<h3 style="font-size: 12px; font-weight: 600; margin: 0 0 4px 0; color: #374151;">${term.title}</h3>
-					<div style="font-size: 12px; color: #6b7280; line-height: 1.5;">${term.content}</div>
+					<h3 style="font-size: 12px; font-weight: 600; margin: 0 0 4px 0; color: #374151;">${escapeHtml(term.title)}</h3>
+					<div style="font-size: 12px; color: #6b7280; line-height: 1.5;">${escapeHtml(term.content)}</div>
 				</div>
 			`,
 				)
@@ -156,37 +191,63 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 	// Build acceptance block
 	const acceptanceHtml = isAccepted
 		? `
-		<div style="margin-top: 32px; padding: 16px; background: #dcfce7; border-radius: 8px; text-align: center;">
-			<div style="font-weight: 700; color: #166534; font-size: 14px;">Accepted</div>
-			<div style="font-size: 12px; color: #166534; margin-top: 4px;">
-				By ${quotation.acceptedByName}${quotation.acceptedByTitle ? ` (${quotation.acceptedByTitle})` : ""}
-				on ${formatDate(quotation.acceptedAt, "long")}
+		<div style="margin: 48px 0 32px 0; page-break-inside: avoid;">
+			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Acceptance</h2>
+
+			<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px;">
+				<!-- Agency -->
+				<div style="padding: 20px; background: #f9fafb; border-radius: 8px;">
+					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
+						From ${escapeHtml(agency.name)}
+					</div>
+					<div style="margin-top: 16px;">
+						<div style="font-size: 16px; font-weight: 600; color: #111827;">${escapeHtml(agency.name)}</div>
+						<div style="font-size: 12px; color: #9ca3af; margin-top: 8px;">Prepared: ${formatDate(quotation.preparedDate, "long")}</div>
+					</div>
+				</div>
+
+				<!-- Client -->
+				<div style="padding: 20px; background: #f9fafb; border-radius: 8px;">
+					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
+						For ${escapeHtml(quotation.clientBusinessName || "Client")}
+					</div>
+					<div style="margin-top: 16px;">
+						<div style="display: flex; align-items: center; gap: 8px;">
+							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+							<div style="font-size: 16px; font-weight: 600; color: #111827;">${escapeHtml(quotation.acceptedByName || "")}</div>
+						</div>
+						${quotation.acceptedByTitle ? `<div style="font-size: 13px; color: #6b7280; margin-top: 2px; margin-left: 28px;">${escapeHtml(quotation.acceptedByTitle)}</div>` : ""}
+						<div style="font-size: 12px; color: #16a34a; margin-top: 8px; margin-left: 28px;">Accepted: ${formatDate(quotation.acceptedAt, "long")}</div>
+					</div>
+				</div>
 			</div>
 		</div>
 	`
 		: `
-		<div style="margin-top: 32px; padding: 16px; border: 2px dashed #d1d5db; border-radius: 8px;">
-			<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px;">
-				Acceptance
+		<div style="margin: 48px 0 32px 0; page-break-inside: avoid;">
+			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Acceptance</h2>
+
+			<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px;">
+				<!-- Agency -->
+				<div style="padding: 20px; background: #f9fafb; border-radius: 8px;">
+					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
+						From ${escapeHtml(agency.name)}
+					</div>
+					<div style="margin-top: 16px;">
+						<div style="font-size: 16px; font-weight: 600; color: #111827;">${escapeHtml(agency.name)}</div>
+						<div style="font-size: 12px; color: #9ca3af; margin-top: 8px;">Prepared: ${formatDate(quotation.preparedDate, "long")}</div>
+					</div>
+				</div>
+
+				<!-- Client -->
+				<div style="padding: 20px; background: #f9fafb; border-radius: 8px;">
+					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
+						For ${escapeHtml(quotation.clientBusinessName || "Client")}
+					</div>
+					<div style="height: 60px; border-bottom: 2px solid #d1d5db; margin: 20px 0;"></div>
+					<div style="font-size: 12px; color: #9ca3af;">Date: _______________</div>
+				</div>
 			</div>
-			<table style="width: 100%; font-size: 12px;">
-				<tr>
-					<td style="padding: 8px 0; width: 120px; color: #6b7280;">Name:</td>
-					<td style="padding: 8px 0; border-bottom: 1px solid #d1d5db;"></td>
-				</tr>
-				<tr>
-					<td style="padding: 8px 0; color: #6b7280;">Position/Title:</td>
-					<td style="padding: 8px 0; border-bottom: 1px solid #d1d5db;"></td>
-				</tr>
-				<tr>
-					<td style="padding: 8px 0; color: #6b7280;">Date:</td>
-					<td style="padding: 8px 0; border-bottom: 1px solid #d1d5db;"></td>
-				</tr>
-				<tr>
-					<td style="padding: 8px 0; color: #6b7280;">Signature:</td>
-					<td style="padding: 8px 0; border-bottom: 1px solid #d1d5db; height: 40px;"></td>
-				</tr>
-			</table>
 		</div>
 	`;
 
@@ -199,7 +260,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 	<style>
 		@page {
 			size: A4;
-			margin: 20mm;
+			margin: 15mm;
 		}
 		* {
 			margin: 0;
@@ -226,9 +287,9 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 			top: 50%;
 			left: 50%;
 			transform: translate(-50%, -50%) rotate(-45deg);
-			font-size: 120px;
+			font-size: 100px;
 			font-weight: bold;
-			color: rgba(22, 163, 74, 0.08);
+			color: rgba(22, 163, 74, 0.06);
 			z-index: 0;
 			pointer-events: none;
 			user-select: none;
@@ -242,23 +303,27 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 	${isAccepted ? '<div class="accepted-watermark">ACCEPTED</div>' : ""}
 	<div class="container">
 		<!-- Header -->
-		<div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 2px solid ${primaryColor};">
-			<div>
+		<div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 3px solid ${accentColor};">
+			<div style="flex: 1; min-width: 0;">
 				${
-					logoUrl
-						? `<img src="${logoUrl}" alt="${agency.name}" style="max-height: 60px; max-width: 200px; object-fit: contain; margin-bottom: 8px;">`
-						: `<div style="font-size: 24px; font-weight: bold; color: ${primaryColor};">${agency.name}</div>`
+					logoUrl && logoUrl.trim()
+						? `<img src="${logoUrl}" alt="${escapeHtml(agency.name)}" style="max-height: 60px; max-width: 200px; object-fit: contain;">`
+						: `<div style="font-size: 24px; font-weight: bold; color: ${accentColor};">${escapeHtml(agency.name)}</div>`
 				}
-				${profile?.tagline ? `<div style="font-size: 12px; color: #6b7280; margin-top: 4px;">${profile.tagline}</div>` : ""}
 			</div>
-			<div style="text-align: right;">
+			<div style="text-align: right; flex-shrink: 0;">
 				<div style="font-size: 28px; font-weight: bold; color: #111827; margin-bottom: 4px;">QUOTATION</div>
 				<div style="font-family: monospace; font-size: 16px; color: #6b7280;">#${quotation.quotationNumber}</div>
+				<div style="margin-top: 8px;">
+					<span style="display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; background: ${statusColor.bg}; color: ${statusColor.text}; text-transform: uppercase;">
+						${quotation.status}
+					</span>
+				</div>
 			</div>
 		</div>
 
 		<!-- Addresses -->
-		<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin: 32px 0;">
+		<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin: 24px 0;">
 			<div>
 				<h3 style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">From</h3>
 				<div style="font-size: 13px; line-height: 1.6;">
@@ -274,7 +339,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 		</div>
 
 		<!-- Dates & Site -->
-		<div style="display: grid; grid-template-columns: repeat(${quotation.siteAddress ? "3" : "2"}, 1fr); gap: 24px; margin: 24px 0; padding: 16px; background: #f9fafb; border-radius: 8px;">
+		<div style="display: grid; grid-template-columns: repeat(${quotation.siteAddress ? "3" : "2"}, 1fr); gap: 24px; margin: 24px 0; padding: 16px; background: #f9fafb; border-radius: 8px; border-left: 4px solid ${accentColor};">
 			<div>
 				<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Date</div>
 				<div style="font-weight: 500;">${formatDate(quotation.preparedDate, "long")}</div>
@@ -288,7 +353,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 					? `
 			<div>
 				<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Site Address</div>
-				<div style="font-weight: 500;">${quotation.siteAddress}</div>
+				<div style="font-weight: 500;">${escapeHtml(quotation.siteAddress)}</div>
 			</div>
 			`
 					: ""
@@ -300,48 +365,51 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 				? `
 		<div style="margin-bottom: 16px; font-size: 13px;">
 			<span style="font-weight: 600; color: #6b7280;">Reference:</span>
-			<span style="margin-left: 8px; font-weight: 500;">${quotation.siteReference}</span>
+			<span style="margin-left: 8px; font-weight: 500;">${escapeHtml(quotation.siteReference)}</span>
 		</div>
 		`
 				: ""
 		}
 
 		<!-- Scope of Works -->
-		<div style="margin-top: 24px;">
-			<h2 style="font-size: 16px; font-weight: 700; margin: 0 0 16px 0;">Scope of Works</h2>
+		<div style="margin: 24px 0;">
+			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Scope of Works</h2>
 			${scopeSectionsHtml}
 		</div>
 
 		<!-- Totals -->
-		<div style="display: flex; justify-content: flex-end; margin-top: 24px;">
-			<div style="width: 280px;">
-				<div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px;">
-					<span style="color: #6b7280;">Subtotal (ex GST)</span>
-					<span style="font-weight: 500;">${formatCurrency(quotation.subtotal)}</span>
+		<div style="margin: 32px 0; padding: 24px; background: linear-gradient(135deg, ${accentColor}10 0%, ${accentColor}05 100%); border-radius: 12px; border: 1px solid ${accentColor}20; page-break-inside: avoid;">
+			<div style="display: flex; justify-content: space-between; align-items: center;">
+				<div>
+					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Quotation Total</div>
+					<div style="font-size: 32px; font-weight: bold; color: ${accentColor};">${formatCurrency(quotation.total)}</div>
+					<div style="font-size: 13px; color: #6b7280; margin-top: 4px;">${quotation.gstRegistered ? "Inclusive of GST" : "Exclusive of GST"}</div>
 				</div>
-				${
-					parseFloat(quotation.discountAmount as string) > 0
-						? `
-				<div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; color: #059669;">
-					<span>Discount${quotation.discountDescription ? ` (${quotation.discountDescription})` : ""}</span>
-					<span>-${formatCurrency(quotation.discountAmount)}</span>
-				</div>
-				`
-						: ""
-				}
-				${
-					quotation.gstRegistered && parseFloat(quotation.gstAmount as string) > 0
-						? `
-				<div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px;">
-					<span style="color: #6b7280;">GST (${parseFloat(quotation.gstRate as string)}%)</span>
-					<span style="font-weight: 500;">${formatCurrency(quotation.gstAmount)}</span>
-				</div>
-				`
-						: ""
-				}
-				<div style="display: flex; justify-content: space-between; padding: 12px 0; margin-top: 8px; border-top: 2px solid #111827; font-size: 18px; font-weight: bold;">
-					<span>Total</span>
-					<span>${formatCurrency(quotation.total)}</span>
+				<div style="text-align: right;">
+					<div style="font-size: 14px; color: #6b7280; margin-bottom: 4px;">
+						<span>Subtotal (ex GST):</span>
+						<span style="font-weight: 500; margin-left: 8px;">${formatCurrency(quotation.subtotal)}</span>
+					</div>
+					${
+						parseFloat(quotation.discountAmount as string) > 0
+							? `
+					<div style="font-size: 14px; color: #059669; margin-bottom: 4px;">
+						<span>Discount${quotation.discountDescription ? ` (${escapeHtml(quotation.discountDescription)})` : ""}:</span>
+						<span style="margin-left: 8px;">-${formatCurrency(quotation.discountAmount)}</span>
+					</div>
+					`
+							: ""
+					}
+					${
+						quotation.gstRegistered && parseFloat(quotation.gstAmount as string) > 0
+							? `
+					<div style="font-size: 14px; color: #6b7280;">
+						<span>GST (${parseFloat(quotation.gstRate as string)}%):</span>
+						<span style="font-weight: 500; margin-left: 8px;">${formatCurrency(quotation.gstAmount)}</span>
+					</div>
+					`
+							: ""
+					}
 				</div>
 			</div>
 		</div>
@@ -350,9 +418,9 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 		${
 			quotation.optionsNotes
 				? `
-		<div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
-			<h3 style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">Options & Notes</h3>
-			<div style="font-size: 13px; color: #6b7280; white-space: pre-wrap;">${quotation.optionsNotes}</div>
+		<div style="margin: 32px 0; page-break-inside: avoid;">
+			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Options & Notes</h2>
+			<div style="font-size: 13px; color: #6b7280; line-height: 1.7; white-space: pre-wrap;">${escapeHtml(quotation.optionsNotes)}</div>
 		</div>
 		`
 				: ""
@@ -363,6 +431,11 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 
 		<!-- Acceptance Block -->
 		${acceptanceHtml}
+
+		<!-- Footer -->
+		<div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #9ca3af;">
+			<div>Generated on ${formatDate(new Date(), "long")} by ${escapeHtml(agency.name)}</div>
+		</div>
 	</div>
 </body>
 </html>`;

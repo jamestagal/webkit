@@ -316,7 +316,7 @@
 		</div>
 
 		<!-- Desktop Table Layout -->
-		<div class="hidden md:block overflow-x-auto">
+		<div class="hidden md:block overflow-visible">
 			<table class="table">
 				<thead>
 					<tr>
