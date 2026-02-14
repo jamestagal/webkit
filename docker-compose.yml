@@ -154,6 +154,8 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # Encryption (banking & tax data)
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      # Sentry error tracking (empty = disabled locally)
+      PUBLIC_SENTRY_DSN: ""
 
   mailpit:
     container_name: webkit-mailpit

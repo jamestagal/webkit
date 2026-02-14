@@ -24,6 +24,8 @@ const config = {
 		alias: {},
 		experimental: {
 			remoteFunctions: true,
+			tracing: { server: true },
+			instrumentation: { server: true },
 		},
 	},
 };

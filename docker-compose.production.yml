@@ -162,6 +162,8 @@ services:
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
       # Encryption (banking & tax data)
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      # Sentry error tracking
+      PUBLIC_SENTRY_DSN: ${SENTRY_DSN:-}
     networks:
       - traefik-public
       - webkit-internal

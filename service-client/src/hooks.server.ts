@@ -1,5 +1,7 @@
+import * as Sentry from "@sentry/sveltekit";
 import { logger, perf } from "./lib/server/logger";
 import { error, redirect, type Handle } from "@sveltejs/kit";
+import { sequence } from "@sveltejs/kit/hooks";
 import { building } from "$app/environment";
 import { verifyJWT } from "./lib/server/jwt";
 import { refresh, TokenRefreshError } from "./lib/server/refresh";
@@ -23,7 +25,7 @@ function isRemoteFunctionRequest(event: { request: Request; url: URL }): boolean
 }
 
 // --- Public route rate limiting ---
-const PUBLIC_ROUTE_PREFIXES = ["/p/", "/c/", "/i/", "/f/"];
+const PUBLIC_ROUTE_PREFIXES = ["/p/", "/c/", "/i/", "/f/", "/q/"];
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 60;
 const rateLimitMap = new Map<string, number[]>();
@@ -50,7 +52,7 @@ function isRateLimited(ip: string): boolean {
 	return recent.length > RATE_LIMIT_MAX_REQUESTS;
 }
 
-export const handle: Handle = async ({ event, resolve }) => {
+const authHandle: Handle = async ({ event, resolve }) => {
 	const end = perf("handle");
 
 	logger.debug(event.url.pathname);
@@ -172,3 +174,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 		preload: ({ type }) => type === "js" || type === "css" || type === "font",
 	});
 };
+
+export const handle = sequence(Sentry.sentryHandle(), authHandle);
+
+export const handleError = Sentry.handleErrorWithSentry((e: { error: unknown }) => {
+	logger.error("Unhandled error", e.error);
+});
