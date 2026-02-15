@@ -13,6 +13,7 @@
 		CreditCard
 	} from 'lucide-svelte';
 	import { formatDate, formatCurrency } from '$lib/utils/formatting';
+	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -346,7 +347,7 @@
 						<h3 class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-3">
 							Notes
 						</h3>
-						<p class="text-sm whitespace-pre-wrap">{invoice.publicNotes}</p>
+						<div class="prose prose-sm max-w-none">{@html sanitizeHtml(invoice.publicNotes)}</div>
 					</div>
 				{/if}
 

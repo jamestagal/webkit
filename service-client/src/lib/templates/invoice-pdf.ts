@@ -310,7 +310,7 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 				? `
 		<div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
 			<h3 style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">Notes</h3>
-			<div style="font-size: 13px; color: #6b7280; white-space: pre-wrap;">${invoice.publicNotes}</div>
+			<div style="font-size: 13px; color: #6b7280; line-height: 1.7;">${invoice.publicNotes}</div>
 		</div>
 		`
 				: ""

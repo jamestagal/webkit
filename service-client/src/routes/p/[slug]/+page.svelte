@@ -40,6 +40,7 @@
 		CustomPricing
 	} from '$lib/server/schema';
 	import { formatDate } from '$lib/utils/formatting';
+	import { sanitizeHtml } from '$lib/utils/sanitize';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -68,6 +69,12 @@
 	function parseMarkdown(text: string): string {
 		if (!text) return '';
 
+		// If content contains HTML tags (from RichTextEditor), render directly with sanitization
+		if (/<[a-z][\s\S]*>/i.test(text)) {
+			return sanitizeHtml(text);
+		}
+
+		// Legacy plain-text content: parse simple markdown
 		return text
 			// Escape HTML first
 			.replace(/&/g, '&amp;')

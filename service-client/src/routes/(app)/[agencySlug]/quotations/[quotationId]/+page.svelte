@@ -9,6 +9,8 @@
 	} from '$lib/api/quotations.remote';
 	import ClientPicker from '$lib/components/shared/ClientPicker.svelte';
 	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';
+	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
+	import AutoResizeTextarea from '$lib/components/AutoResizeTextarea.svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import { formatCurrency, formatDate } from '$lib/utils/formatting';
 	import {
@@ -716,30 +718,39 @@
 										<Trash2 class="h-3 w-3" />
 									</button>
 								</div>
-								<textarea
-									class="textarea textarea-bordered w-full"
-									rows="3"
+								<RichTextEditor
+									content={block.content}
 									placeholder="Terms content"
-									value={block.content}
-									oninput={(e) => updateTermsBlock(blockIndex, 'content', e.currentTarget.value)}
-								></textarea>
+									minHeight="80px"
+									onUpdate={(html) => updateTermsBlock(blockIndex, 'content', html)}
+								/>
 							</div>
 						{/each}
 					</div>
 				{/if}
 
 				<div class="form-control mt-4">
-					<label class="label" for="edit-options">
+					<label class="label">
 						<span class="label-text">Options / Additional Notes</span>
 					</label>
-					<textarea id="edit-options" class="textarea textarea-bordered" rows="3" bind:value={optionsNotes}></textarea>
+					<RichTextEditor
+						content={optionsNotes}
+						placeholder="Additional options or notes for the client..."
+						minHeight="80px"
+						onUpdate={(html) => { optionsNotes = html; }}
+					/>
 				</div>
 
 				<div class="form-control">
-					<label class="label" for="edit-internal-notes">
+					<label class="label">
 						<span class="label-text">Internal Notes</span>
 					</label>
-					<textarea id="edit-internal-notes" class="textarea textarea-bordered" rows="2" bind:value={notes}></textarea>
+					<AutoResizeTextarea
+						bind:value={notes}
+						placeholder="Notes only visible to your team"
+						minRows={2}
+						maxRows={8}
+					/>
 				</div>
 			</div>
 		</div>
@@ -945,7 +956,7 @@
 				{#if data.quotation.optionsNotes}
 					<div class="mt-8 pt-6 border-t border-base-300">
 						<h2 class="text-lg font-bold mb-2">Options & Notes</h2>
-						<p class="text-sm whitespace-pre-wrap text-base-content/80">{data.quotation.optionsNotes}</p>
+						<div class="prose prose-sm max-w-none text-base-content/80">{@html sanitizeHtml(data.quotation.optionsNotes)}</div>
 					</div>
 				{/if}
 			</div>

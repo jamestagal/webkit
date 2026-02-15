@@ -35,6 +35,9 @@
 		MoreHorizontal
 	} from 'lucide-svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/formatting';
+	import { sanitizeHtml } from '$lib/utils/sanitize';
+	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
+	import AutoResizeTextarea from '$lib/components/AutoResizeTextarea.svelte';
 	import type { PageProps } from './$types';
 
 	const toast = getToast();
@@ -874,28 +877,26 @@
 					<h2 class="card-title text-lg">Notes</h2>
 					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 						<div class="form-control">
-							<label class="label" for="edit-notes">
+							<label class="label">
 								<span class="label-text">Internal Notes</span>
 							</label>
-							<textarea
-								id="edit-notes"
-								class="textarea textarea-bordered w-full"
-								rows="3"
+							<AutoResizeTextarea
 								bind:value={editNotes}
 								placeholder="Notes only visible to your team"
-							></textarea>
+								minRows={2}
+								maxRows={8}
+							/>
 						</div>
 						<div class="form-control">
-							<label class="label" for="edit-publicNotes">
+							<label class="label">
 								<span class="label-text">Public Notes</span>
 							</label>
-							<textarea
-								id="edit-publicNotes"
-								class="textarea textarea-bordered w-full"
-								rows="3"
-								bind:value={editPublicNotes}
+							<RichTextEditor
+								content={editPublicNotes}
 								placeholder="Notes visible on the invoice"
-							></textarea>
+								minHeight="80px"
+								onUpdate={(html) => { editPublicNotes = html; }}
+							/>
 						</div>
 					</div>
 				</div>
@@ -1137,7 +1138,7 @@
 						<h3 class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-3">
 							Notes
 						</h3>
-						<p class="text-sm whitespace-pre-wrap">{invoice.publicNotes}</p>
+						<div class="prose prose-sm max-w-none">{@html sanitizeHtml(invoice.publicNotes)}</div>
 					</div>
 				{/if}
 

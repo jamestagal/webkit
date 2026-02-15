@@ -39,6 +39,8 @@
 		MoreHorizontal,
 		Sparkles
 	} from 'lucide-svelte';
+	import AutoResizeTextarea from '$lib/components/AutoResizeTextarea.svelte';
+	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import { ALL_SECTIONS, SECTION_DISPLAY_NAMES } from '$lib/constants/proposal-sections';
 	import type { AIErrorCode } from '$lib/constants/ai-errors';
 	import type { AIProposalOutput } from '$lib/types/ai-proposal';
@@ -736,11 +738,12 @@
 							<p class="text-base-content/60 text-sm">
 								A brief overview of the proposal highlighting key benefits and value proposition.
 							</p>
-							<textarea
-								class="textarea textarea-bordered w-full min-h-48"
-								bind:value={formData.executiveSummary}
+							<RichTextEditor
+								content={formData.executiveSummary}
 								placeholder="Summarize the key points of this proposal: what problem you're solving, your recommended solution, expected outcomes, and why your agency is the right choice..."
-							></textarea>
+								minHeight="180px"
+								onUpdate={(html) => { formData.executiveSummary = html; }}
+							/>
 						</div>
 					</section>
 				{/if}
@@ -872,11 +875,12 @@
 							<p class="text-base-content/60 text-sm">
 								Research about the client's industry and business opportunity.
 							</p>
-							<textarea
-								class="textarea textarea-bordered w-full min-h-32"
-								bind:value={formData.opportunityContent}
+							<RichTextEditor
+								content={formData.opportunityContent}
 								placeholder="Write about the market opportunity, industry trends, and how a new website can help..."
-							></textarea>
+								minHeight="120px"
+								onUpdate={(html) => { formData.opportunityContent = html; }}
+							/>
 						</div>
 					</section>
 
@@ -885,17 +889,18 @@
 							<h2 class="card-title">Current Issues We'll Solve</h2>
 							<div class="space-y-2">
 								{#each formData.currentIssues as issue, index}
-									<div class="flex items-center gap-2">
+									<div class="flex items-start gap-2">
 										<input
 											type="checkbox"
-											class="checkbox checkbox-sm"
+											class="checkbox checkbox-sm mt-2"
 											bind:checked={issue.checked}
 										/>
-										<input
-											type="text"
-											class="input input-bordered input-sm flex-1"
+										<AutoResizeTextarea
 											bind:value={issue.text}
 											placeholder="Describe an issue..."
+											minRows={1}
+											maxRows={6}
+											class="input-sm flex-1"
 										/>
 										<button
 											type="button"
@@ -978,11 +983,12 @@
 					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
 						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Local Advantage</h2>
-							<textarea
-								class="textarea textarea-bordered w-full min-h-24"
-								bind:value={formData.localAdvantageContent}
+							<RichTextEditor
+								content={formData.localAdvantageContent}
 								placeholder="Describe local SEO benefits, community presence..."
-							></textarea>
+								minHeight="100px"
+								onUpdate={(html) => { formData.localAdvantageContent = html; }}
+							/>
 						</div>
 					</section>
 				{/if}
@@ -1174,10 +1180,10 @@
 
 							<div class="space-y-2">
 								{#each formData.nextSteps as step, index}
-									<div class="flex items-center gap-2">
+									<div class="flex items-start gap-2">
 										<button
 											type="button"
-											class="btn btn-ghost btn-xs"
+											class="btn btn-ghost btn-xs mt-1.5"
 											onclick={() => toggleNextStep(index)}
 											title={step.completed ? 'Mark as incomplete' : 'Mark as complete'}
 										>
@@ -1187,13 +1193,12 @@
 												<div class="h-4 w-4 rounded border-2 border-base-content/30"></div>
 											{/if}
 										</button>
-										<input
-											type="text"
-											class="input input-bordered input-sm flex-1"
-											class:line-through={step.completed}
-											class:opacity-60={step.completed}
+										<AutoResizeTextarea
 											bind:value={step.text}
 											placeholder="e.g., Schedule kickoff meeting"
+											minRows={1}
+											maxRows={6}
+											class="input-sm flex-1 {step.completed ? 'line-through opacity-60' : ''}"
 										/>
 										<button
 											type="button"
@@ -1219,11 +1224,12 @@
 					<section class="card bg-base-100 shadow mx-2 lg:mx-0">
 						<div class="card-body p-4 sm:p-6">
 							<h2 class="card-title">Closing Message</h2>
-							<textarea
-								class="textarea textarea-bordered w-full min-h-32"
-								bind:value={formData.closingContent}
+							<RichTextEditor
+								content={formData.closingContent}
 								placeholder="A personal message to close the proposal..."
-							></textarea>
+								minHeight="120px"
+								onUpdate={(html) => { formData.closingContent = html; }}
+							/>
 						</div>
 					</section>
 				{/if}

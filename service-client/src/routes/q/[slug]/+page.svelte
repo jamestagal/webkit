@@ -389,7 +389,7 @@
 				{#if quotation.optionsNotes}
 					<div class="mt-8 pt-6 border-t border-base-300">
 						<h2 class="text-lg font-bold mb-2">Options & Notes</h2>
-						<p class="text-sm whitespace-pre-wrap text-base-content/80">{quotation.optionsNotes}</p>
+						<div class="prose prose-sm max-w-none text-base-content/80">{@html sanitizeHtml(quotation.optionsNotes)}</div>
 					</div>
 				{/if}
 

@@ -179,7 +179,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 					(term) => `
 				<div style="margin-bottom: 12px;">
 					<h3 style="font-size: 12px; font-weight: 600; margin: 0 0 4px 0; color: #374151;">${escapeHtml(term.title)}</h3>
-					<div style="font-size: 12px; color: #6b7280; line-height: 1.5;">${escapeHtml(term.content)}</div>
+					<div style="font-size: 12px; color: #6b7280; line-height: 1.5;">${term.content}</div>
 				</div>
 			`,
 				)
@@ -420,7 +420,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 				? `
 		<div style="margin: 32px 0; page-break-inside: avoid;">
 			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Options & Notes</h2>
-			<div style="font-size: 13px; color: #6b7280; line-height: 1.7; white-space: pre-wrap;">${escapeHtml(quotation.optionsNotes)}</div>
+			<div style="font-size: 13px; color: #6b7280; line-height: 1.7;">${quotation.optionsNotes}</div>
 		</div>
 		`
 				: ""
