@@ -15,6 +15,7 @@
 	import { formatDate, formatCurrency } from '$lib/utils/formatting';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import type { PageProps } from './$types';
+	import SvelteSeo from 'svelte-seo';
 
 	let { data }: PageProps = $props();
 
@@ -65,6 +66,12 @@
 	let statusInfo = $derived(getStatusBadge(invoice.status));
 	let isPaid = $derived(invoice.status === 'paid');
 </script>
+
+<SvelteSeo
+	title="Invoice #{invoice.invoiceNumber} — {agency.name}"
+	description="Invoice from {agency.name}"
+	robots="noindex, nofollow"
+/>
 
 <svelte:head>
 	<title>Invoice {invoice.invoiceNumber} | {agency.name}</title>

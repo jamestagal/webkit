@@ -55,8 +55,24 @@ function isRateLimited(ip: string): boolean {
 const authHandle: Handle = async ({ event, resolve }) => {
 	const end = perf("handle");
 
-	logger.debug(event.url.pathname);
+	// Suppress noisy HMR/polling paths from debug logs
+	const isNoisyPath =
+		event.url.pathname === "/__webpack_hmr" ||
+		event.url.pathname.startsWith("/__vite") ||
+		event.url.pathname === "/login";
+	if (!isNoisyPath) {
+		logger.debug(event.url.pathname);
+	}
 	if (building) {
+		return await resolve(event);
+	}
+
+	// Skip auth for internal dev/framework paths
+	if (
+		event.url.pathname.startsWith("/__") ||
+		event.url.pathname.startsWith("/@") ||
+		event.url.pathname.startsWith("/node_modules")
+	) {
 		return await resolve(event);
 	}
 
@@ -79,25 +95,16 @@ const authHandle: Handle = async ({ event, resolve }) => {
 
 	// Public routes that don't require authentication
 	const isPublicRoute =
+		event.url.pathname === "/" ||
 		event.url.pathname === "/login" ||
+		event.url.pathname === "/sitemap.xml" ||
 		event.url.pathname.startsWith("/invite/");
-
-	if (event.url.pathname === "/login") {
-		event.cookies.set("access_token", "", {
-			path: "/",
-			maxAge: 0,
-			domain: env.DOMAIN,
-		});
-		event.cookies.set("refresh_token", "", {
-			path: "/",
-			maxAge: 0,
-			domain: env.DOMAIN,
-		});
-		return await resolve(event);
-	}
 
 	// Allow public routes without authentication
 	if (isPublicRoute) {
+		if (!isNoisyPath && event.url.pathname !== "/login") {
+			logger.debug(`Public route: ${event.url.pathname}`);
+		}
 		return await resolve(event);
 	}
 

@@ -37,7 +37,7 @@ This guide walks through setting up daily automated database backups from your p
    - **TTL:** Leave as no expiry, or set a long duration
 4. Click **Create API Token**
 5. **Copy these three values immediately** (they won't be shown again):
-   - Access Key ID
+   - Access Key ID:
    - Secret Access Key
    - Endpoint URL (looks like `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`)
 
@@ -51,13 +51,9 @@ SSH into your VPS:
 ssh root@<VPS_HOST>
 ```
 
-Install rclone:
+Install rclone (use the official script — the Ubuntu apt version is too old and has R2 compatibility issues):
 
 ```bash
-# Ubuntu/Debian
-apt update && apt install -y rclone
-
-# Or install latest via official script
 curl https://rclone.org/install.sh | bash
 ```
 
@@ -87,7 +83,10 @@ access_key_id = YOUR_R2_ACCESS_KEY
 secret_access_key = YOUR_R2_SECRET_KEY
 endpoint = https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com
 acl = private
+no_check_bucket = true
 ```
+
+> **Important:** The `no_check_bucket = true` line is required. Without it, rclone tries to verify/create the bucket before uploading, which fails with a 403 error since R2 API tokens scoped to Object Read & Write don't have bucket-creation permissions.
 
 Lock down permissions (credentials file should only be readable by root):
 
@@ -98,10 +97,10 @@ chmod 600 /opt/webkit/.rclone.conf
 Test the connection:
 
 ```bash
-rclone lsd r2: --config /opt/webkit/.rclone.conf
+rclone ls r2:webkit-backups --config /opt/webkit/.rclone.conf
 ```
 
-You should see your `webkit-backups` bucket listed. If you get an error, double-check your credentials.
+This should return empty (no errors) since the bucket is new. If you get a 403 error, double-check your credentials. Note: `rclone lsd r2:` (list all buckets) will fail with a 403 if your token is scoped to a specific bucket — that's expected.
 
 ---
 

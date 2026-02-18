@@ -3,6 +3,7 @@
 	import Loading from "../loading.svelte";
 	import { getToast } from "$lib/ui/toast_store.svelte";
 	import { env } from "$env/dynamic/public";
+	import SvelteSeo from "svelte-seo";
 
 	const toast = getToast();
 
@@ -25,6 +26,12 @@
 	});
 </script>
 
+<SvelteSeo
+	title="Log In — Webkit"
+	description="Sign in to your Webkit agency account. Manage consultations, proposals, quotations, contracts and invoices."
+	robots="noindex, nofollow"
+/>
+
 {#if loading}
 	<Loading />
 {/if}
@@ -33,6 +40,7 @@
 	<h2 class="text-center text-2xl font-semibold">Log in to Webkit</h2>
 
 	<div class="mx-auto mt-10 flex w-full max-w-sm flex-col gap-4">
+		<!-- TODO: Re-enable when GitHub OAuth is configured in .env
 		<form method="post" action={env.PUBLIC_CORE_URL + "/login"}>
 			<input type="hidden" name="provider" value="github" />
 			<input type="hidden" name="return_url" value={env.PUBLIC_CLIENT_URL} />
@@ -56,6 +64,7 @@
 				Continue with GitHub
 			</button>
 		</form>
+		-->
 		<form method="post" action={env.PUBLIC_CORE_URL + "/login"}>
 			<input type="hidden" name="provider" value="google" />
 			<input type="hidden" name="return_url" value={env.PUBLIC_CLIENT_URL} />

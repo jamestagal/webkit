@@ -2,13 +2,33 @@ import { redirect } from "@sveltejs/kit";
 import { db } from "$lib/server/db";
 import { agencies, agencyMemberships, users } from "$lib/server/schema";
 import { eq, and } from "drizzle-orm";
+import { verifyJWT } from "$lib/server/jwt";
+import type { User } from "$lib/types";
 
-export const load: import("./$types").PageServerLoad = async ({ locals }) => {
-	const userId = locals.user?.id;
+/**
+ * Root page handler: serves landing page (public) or redirects to agency dashboard.
+ *
+ * Since "/" is a public route (no hooks auth), we manually verify the JWT here
+ * to check if the user is logged in. This keeps the hooks auth flow completely
+ * untouched for all other routes while allowing "/" to serve the landing page.
+ */
+export const load: import("./$types").PageServerLoad = async ({ cookies }) => {
+	// Manually check auth — hooks skip auth for "/" (public route)
+	const access_token = cookies.get("access_token") ?? "";
+	const refresh_token = cookies.get("refresh_token") ?? "";
+
+	// No tokens at all — show landing page
+	if (!access_token && !refresh_token) {
+		return { isAuthenticated: false, email: "", avatar: "", subscription_active: false };
+	}
+
+	// Try to verify the access token
+	const user = await verifyJWT<User>(access_token);
+	const userId = user?.id ?? "";
 
 	if (userId) {
 		// Get user's default agency
-		const [user] = await db
+		const [dbUser] = await db
 			.select({ defaultAgencyId: users.defaultAgencyId })
 			.from(users)
 			.where(eq(users.id, userId))
@@ -16,12 +36,12 @@ export const load: import("./$types").PageServerLoad = async ({ locals }) => {
 
 		let agencySlug: string | null = null;
 
-		if (user?.defaultAgencyId) {
+		if (dbUser?.defaultAgencyId) {
 			// Get the default agency's slug
 			const [agency] = await db
 				.select({ slug: agencies.slug })
 				.from(agencies)
-				.where(and(eq(agencies.id, user.defaultAgencyId), eq(agencies.status, "active")))
+				.where(and(eq(agencies.id, dbUser.defaultAgencyId), eq(agencies.status, "active")))
 				.limit(1);
 
 			agencySlug = agency?.slug ?? null;
@@ -57,12 +77,17 @@ export const load: import("./$types").PageServerLoad = async ({ locals }) => {
 		if (agencySlug) {
 			throw redirect(302, `/${agencySlug}`);
 		}
+
+		// Authenticated but no agency — show create agency page
+		return {
+			isAuthenticated: true,
+			email: user?.email ?? "",
+			avatar: user?.avatar ?? "",
+			subscription_active: user?.subscription_active ?? false,
+		};
 	}
 
-	// If no agency, show welcome/create agency page
-	return {
-		email: locals.user.email,
-		avatar: locals.user.avatar,
-		subscription_active: locals.user.subscription_active,
-	};
+	// Token exists but expired/invalid — show landing page
+	// (Don't attempt refresh here; they'll get refreshed when they visit any auth route)
+	return { isAuthenticated: false, email: "", avatar: "", subscription_active: false };
 };

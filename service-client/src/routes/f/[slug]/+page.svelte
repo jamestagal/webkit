@@ -12,6 +12,7 @@
 	import { defaultAgencyBranding } from "$lib/types/branding";
 	import { hexToHsl } from "$lib/components/form-renderer/utils/theme-generator";
 	import { Check, AlertCircle } from "lucide-svelte";
+	import SvelteSeo from "svelte-seo";
 	import type { PageProps } from "./$types";
 
 	let { data }: PageProps = $props();
@@ -194,6 +195,17 @@
 		return typeof form.uiConfig === "string" ? JSON.parse(form.uiConfig) : form.uiConfig;
 	});
 </script>
+
+<SvelteSeo
+	title="{form?.name || 'Form'} — {agency.name}"
+	description="Complete this form from {agency.name}"
+	jsonLd={{
+		"@context": "https://schema.org",
+		"@type": "WebPage",
+		name: form?.name || "Form",
+		description: form?.description || `Form from ${agency.name}`,
+	}}
+/>
 
 <svelte:head>
 	<title>{form?.name || "Form"} - {agency.name}</title>

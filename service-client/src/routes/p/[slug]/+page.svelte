@@ -41,6 +41,7 @@
 	} from '$lib/server/schema';
 	import { formatDate } from '$lib/utils/formatting';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
+	import SvelteSeo from 'svelte-seo';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -150,6 +151,21 @@
 	const gst = subtotal * (gstRate / 100);
 	const total = subtotal + gst;
 </script>
+
+<SvelteSeo
+	title="{proposal.title} — {agency?.name}"
+	description={proposal.executiveSummary
+		? proposal.executiveSummary.substring(0, 160)
+		: `Proposal from ${agency?.name}`}
+	openGraph={{
+		type: 'website',
+		title: `${proposal.title} — ${agency?.name}`,
+		description: proposal.executiveSummary
+			? proposal.executiveSummary.substring(0, 160)
+			: `Proposal from ${agency?.name}`
+	}}
+	robots="noindex, nofollow"
+/>
 
 <svelte:head>
 	<title>{proposal.title} | {agency?.name}</title>

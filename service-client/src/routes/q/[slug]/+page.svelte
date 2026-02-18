@@ -14,6 +14,7 @@
 	} from 'lucide-svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import { formatDate, formatCurrency } from '$lib/utils/formatting';
+	import SvelteSeo from 'svelte-seo';
 	import type { PageProps, ActionData } from './$types';
 
 	let { data, form }: PageProps & { form: ActionData } = $props();
@@ -81,6 +82,12 @@
 		window.print();
 	}
 </script>
+
+<SvelteSeo
+	title="Quotation — {agency?.name || 'Quotation'}"
+	description="Quotation from {agency?.name || 'Agency'}"
+	robots="noindex, nofollow"
+/>
 
 <svelte:head>
 	<title>Quotation {quotation.quotationNumber} | {agency?.name || 'Quotation'}</title>
