@@ -195,6 +195,21 @@ func (m *Manager) runEmbeddingPhase(jobID, clientID uuid.UUID) int {
 	return errCount
 }
 
+// handleCrawlComplete logs the completion of a crawl job.
+func (m *Manager) handleCrawlComplete(msg *nats.Msg) {
+	var complete CrawlCompleteMsg
+	if err := json.Unmarshal(msg.Data, &complete); err != nil {
+		slog.Error("Failed to unmarshal crawl complete", "error", err)
+		return
+	}
+	slog.Info("Crawl completed",
+		"job_id", complete.JobID,
+		"total_pages", complete.TotalPages,
+		"pages_changed", complete.PagesChanged,
+		"success", complete.Success,
+	)
+}
+
 // publishCrawlComplete publishes a CrawlCompleteMsg to NATS.
 func (m *Manager) publishCrawlComplete(jobID, agencyID, clientID uuid.UUID, totalPages, pagesChanged int, success bool, errMsg string) {
 	complete := CrawlCompleteMsg{

@@ -4,6 +4,7 @@ import (
 	"app/pkg"
 	"app/pkg/auth"
 	"app/pkg/cfbrowser"
+	"app/pkg/dataforseo"
 	"app/pkg/jina"
 	"context"
 	"database/sql"
@@ -73,9 +74,13 @@ func main() {
 	if cfg.CFAccountID != "" && cfg.CFAPIToken != "" {
 		embedClient = embeddings.NewClient(cfg.CFAccountID, cfg.CFAPIToken)
 	}
+	var dfsClient *dataforseo.Client
+	if cfg.DataForSEOLogin != "" && cfg.DataForSEOPassword != "" {
+		dfsClient = dataforseo.NewClient(cfg.DataForSEOLogin, cfg.DataForSEOPassword)
+	}
 
 	// Start job manager
-	jobMgr := jobs.NewManager(db, nc, cfg, cfClient, jinaClient, embedClient)
+	jobMgr := jobs.NewManager(db, nc, cfg, cfClient, jinaClient, embedClient, dfsClient)
 	if err := jobMgr.Start(); err != nil {
 		slog.Error("Error starting job manager", "error", err)
 		panic(err)

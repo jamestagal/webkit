@@ -54,3 +54,34 @@ type AuditStartMsg struct {
 	AgencyID string `json:"agency_id"`
 	ClientID string `json:"client_id"`
 }
+
+// AuditCompleteMsg is published when an SEO audit finishes.
+type AuditCompleteMsg struct {
+	AuditID  string `json:"audit_id"`
+	AgencyID string `json:"agency_id"`
+	ClientID string `json:"client_id"`
+	Success  bool   `json:"success"`
+	Error    string `json:"error,omitempty"`
+}
+
+// GenerateCopyMsg triggers AI copy generation for a single page.
+type GenerateCopyMsg struct {
+	AgencyID        string `json:"agency_id"`
+	ClientID        string `json:"client_id"`
+	PageID          string `json:"page_id,omitempty"`
+	CopyType        string `json:"copy_type"`
+	TargetKeyword   string `json:"target_keyword,omitempty"`
+	TargetWordCount int    `json:"target_word_count,omitempty"`
+	Notes           string `json:"notes,omitempty"`
+	GeneratedBy     string `json:"generated_by"`
+}
+
+// GenerateBulkMsg triggers bulk content generation for multiple pages.
+type GenerateBulkMsg struct {
+	AgencyID       string   `json:"agency_id"`
+	ClientID       string   `json:"client_id"`
+	PageIDs        []string `json:"page_ids"`
+	CopyType       string   `json:"copy_type"`
+	TargetKeywords []string `json:"target_keywords,omitempty"`
+	GeneratedBy    string   `json:"generated_by"`
+}

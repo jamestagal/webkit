@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"app/pkg/cfbrowser"
+	"app/pkg/dataforseo"
 	"app/pkg/jina"
 	"content-service/config"
 	"content-service/internal/embeddings"
@@ -15,7 +16,7 @@ import (
 )
 
 // Manager subscribes to NATS subjects and dispatches crawl, embedding,
-// and future content-intelligence jobs.
+// and content-intelligence jobs.
 type Manager struct {
 	db          *sql.DB
 	nc          *nats.Conn
@@ -23,6 +24,7 @@ type Manager struct {
 	cfClient    *cfbrowser.Client
 	jinaClient  *jina.Client
 	embedClient *embeddings.Client
+	dfsClient   *dataforseo.Client
 	subs        []*nats.Subscription
 	wg          sync.WaitGroup
 	ctx         context.Context
@@ -37,6 +39,7 @@ func NewManager(
 	cf *cfbrowser.Client,
 	jinaClient *jina.Client,
 	embed *embeddings.Client,
+	dfs *dataforseo.Client,
 ) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Manager{
@@ -46,6 +49,7 @@ func NewManager(
 		cfClient:    cf,
 		jinaClient:  jinaClient,
 		embedClient: embed,
+		dfsClient:   dfs,
 		ctx:         ctx,
 		cancel:      cancel,
 	}
