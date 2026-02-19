@@ -156,6 +156,39 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       # Sentry error tracking (empty = disabled locally)
       PUBLIC_SENTRY_DSN: ""
+      # Content Intelligence service
+      CONTENT_URL: http://content:5001
+
+  content:
+    container_name: webkit-content
+    build:
+      context: ./app
+      dockerfile: ./content-service/Dockerfile
+      target: dev
+    volumes:
+      - ./app/content-service:/app/content-service
+    ports:
+      - 5001:5001
+    environment:
+      LOG_LEVEL: debug
+      HTTP_PORT: 5001
+      DOMAIN: localhost
+      CLIENT_URL: http://localhost:3000
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      NATS_URL: nats://nats:4222
+      CF_BROWSER_WORKER_URL: ${CF_BROWSER_WORKER_URL:-}
+      DATAFORSEO_LOGIN: ${DATAFORSEO_LOGIN:-}
+      DATAFORSEO_PASSWORD: ${DATAFORSEO_PASSWORD:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
 
   mailpit:
     container_name: webkit-mailpit
@@ -170,7 +203,7 @@ services:
 
   postgres:
     container_name: webkit-postgres
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg17
     ports:
       - 5432:5432
     volumes:

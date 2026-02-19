@@ -28,6 +28,9 @@ Thumbs.db
 # Agent/AI tooling
 .agent-os/
 
+# Node modules
+node_modules/
+
 # Build artifacts
 dist/
 build/

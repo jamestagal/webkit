@@ -18,6 +18,8 @@ import {
 	unique,
 	decimal,
 	index,
+	real,
+	vector,
 } from "drizzle-orm/pg-core";
 import type { RawFormSchema } from "$lib/types/form-builder";
 
@@ -1556,6 +1558,320 @@ export const consultationVersions = pgTable(
 );
 
 // =============================================================================
+// CONTENT INTELLIGENCE TABLES
+// =============================================================================
+
+// Content Crawl Jobs - Tracks crawl/import jobs per client
+export const contentCrawlJobs = pgTable("content_crawl_jobs", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	agencyId: uuid("agency_id")
+		.notNull()
+		.references(() => agencies.id),
+	clientId: uuid("client_id")
+		.notNull()
+		.references(() => clients.id),
+
+	status: text("status").notNull().default("pending"),
+	sourceUrl: text("source_url").notNull(),
+	crawlTarget: text("crawl_target").notNull().default("client"),
+
+	pagesDiscovered: integer("pages_discovered").default(0),
+	pagesProcessed: integer("pages_processed").default(0),
+	pagesChanged: integer("pages_changed").default(0),
+	maxDepth: integer("max_depth").default(3),
+
+	crawlType: text("crawl_type").notNull().default("full"),
+
+	errorMessage: text("error_message"),
+	startedAt: timestamp("started_at", { withTimezone: true }),
+	completedAt: timestamp("completed_at", { withTimezone: true }),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Content Pages - Individual scraped pages (client or competitor)
+export const contentPages = pgTable(
+	"content_pages",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		clientId: uuid("client_id")
+			.notNull()
+			.references(() => clients.id),
+		crawlJobId: uuid("crawl_job_id").references(() => contentCrawlJobs.id),
+
+		url: text("url").notNull(),
+		canonicalUrl: text("canonical_url"),
+		sourceType: text("source_type").notNull().default("client"),
+		competitorDomain: text("competitor_domain"),
+
+		pageType: text("page_type").notNull().default("unknown"),
+		classificationConfidence: real("classification_confidence").default(0),
+		classificationMethod: text("classification_method"),
+
+		// Extracted content
+		title: text("title"),
+		metaDescription: text("meta_description"),
+		h1Tags: text("h1_tags").array(),
+		h2Tags: text("h2_tags").array(),
+		bodyText: text("body_text"),
+		markdownContent: text("markdown_content"),
+		wordCount: integer("word_count").default(0),
+		readingTimeMinutes: integer("reading_time_minutes").default(0),
+
+		// Technical metadata
+		httpStatus: integer("http_status"),
+		contentHash: text("content_hash"),
+		schemaTypes: text("schema_types").array(),
+		hasCanonical: boolean("has_canonical").default(false),
+		hasRobotsMeta: boolean("has_robots_meta").default(false),
+		robotsDirectives: text("robots_directives"),
+		internalLinksCount: integer("internal_links_count").default(0),
+		externalLinksCount: integer("external_links_count").default(0),
+		imageCount: integer("image_count").default(0),
+		imagesMissingAlt: integer("images_missing_alt").default(0),
+
+		// Timestamps
+		firstScrapedAt: timestamp("first_scraped_at", { withTimezone: true }).notNull().defaultNow(),
+		lastScrapedAt: timestamp("last_scraped_at", { withTimezone: true }).notNull().defaultNow(),
+		contentChangedAt: timestamp("content_changed_at", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(table) => ({
+		uniqueClientUrl: unique().on(table.clientId, table.url),
+	}),
+);
+
+// Content Chunks - RAG vector embeddings
+export const contentChunks = pgTable("content_chunks", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	pageId: uuid("page_id")
+		.notNull()
+		.references(() => contentPages.id, { onDelete: "cascade" }),
+	clientId: uuid("client_id")
+		.notNull()
+		.references(() => clients.id),
+	chunkIndex: integer("chunk_index").notNull(),
+	chunkText: text("chunk_text").notNull(),
+	tokenCount: integer("token_count").notNull(),
+	summary: text("summary"),
+
+	embedding: vector("embedding", { dimensions: 768 }),
+	embeddingModel: text("embedding_model").notNull().default("bge-base-en-v1.5"),
+
+	metadata: jsonb("metadata").default({}),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Brand Profiles - Brand voice profiles per client
+export const brandProfiles = pgTable(
+	"brand_profiles",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		clientId: uuid("client_id")
+			.notNull()
+			.references(() => clients.id),
+		agencyId: uuid("agency_id")
+			.notNull()
+			.references(() => agencies.id),
+		version: integer("version").notNull().default(1),
+		isActive: boolean("is_active").notNull().default(true),
+
+		profile: jsonb("profile").notNull(),
+
+		sourceType: text("source_type").notNull().default("scrape"),
+		sourcePageIds: uuid("source_page_ids").array(),
+		sourcePageCount: integer("source_page_count"),
+		questionnaireId: uuid("questionnaire_id"),
+		consultationId: uuid("consultation_id").references(() => consultations.id),
+
+		generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(table) => ({
+		uniqueClientVersion: unique().on(table.clientId, table.version),
+	}),
+);
+
+// SEO Audits - Site-wide audit results
+export const seoAudits = pgTable("seo_audits", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	agencyId: uuid("agency_id")
+		.notNull()
+		.references(() => agencies.id),
+	clientId: uuid("client_id")
+		.notNull()
+		.references(() => clients.id),
+	crawlJobId: uuid("crawl_job_id").references(() => contentCrawlJobs.id),
+
+	status: text("status").notNull().default("pending"),
+
+	overallScore: integer("overall_score"),
+	technicalScore: integer("technical_score"),
+	contentScore: integer("content_score"),
+	backlinkScore: integer("backlink_score"),
+	keywordScore: integer("keyword_score"),
+
+	totalPages: integer("total_pages").default(0),
+	criticalIssues: integer("critical_issues").default(0),
+	warningIssues: integer("warning_issues").default(0),
+	passedChecks: integer("passed_checks").default(0),
+	opportunities: integer("opportunities").default(0),
+
+	auditConfig: jsonb("audit_config").default({}),
+	competitorDomains: text("competitor_domains").array(),
+
+	startedAt: timestamp("started_at", { withTimezone: true }),
+	completedAt: timestamp("completed_at", { withTimezone: true }),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// SEO Issues - Individual issues found during audit
+export const seoIssues = pgTable("seo_issues", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	auditId: uuid("audit_id")
+		.notNull()
+		.references(() => seoAudits.id, { onDelete: "cascade" }),
+	pageId: uuid("page_id").references(() => contentPages.id),
+	clientId: uuid("client_id")
+		.notNull()
+		.references(() => clients.id),
+
+	category: text("category").notNull(),
+	severity: text("severity").notNull(),
+	checkName: text("check_name").notNull(),
+	title: text("title").notNull(),
+	description: text("description").notNull(),
+	currentValue: text("current_value"),
+	recommendedValue: text("recommended_value"),
+	impact: text("impact"),
+
+	aiFixAvailable: boolean("ai_fix_available").default(false),
+	aiFixContent: text("ai_fix_content"),
+
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Backlink Profiles - Backlink data per audit
+export const backlinkProfiles = pgTable("backlink_profiles", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	clientId: uuid("client_id")
+		.notNull()
+		.references(() => clients.id),
+	auditId: uuid("audit_id")
+		.notNull()
+		.references(() => seoAudits.id, { onDelete: "cascade" }),
+
+	totalBacklinks: integer("total_backlinks").default(0),
+	referringDomains: integer("referring_domains").default(0),
+	dofollowLinks: integer("dofollow_links").default(0),
+	nofollowLinks: integer("nofollow_links").default(0),
+	domainRank: real("domain_rank"),
+	spamScore: real("spam_score"),
+
+	topReferringDomains: jsonb("top_referring_domains").default([]),
+	anchorTextDistribution: jsonb("anchor_text_distribution").default([]),
+	linkTypeDistribution: jsonb("link_type_distribution").default({}),
+	newLostTrend: jsonb("new_lost_trend").default([]),
+
+	fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Keyword Profiles - Keyword ranking data per audit
+export const keywordProfiles = pgTable("keyword_profiles", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	clientId: uuid("client_id")
+		.notNull()
+		.references(() => clients.id),
+	auditId: uuid("audit_id")
+		.notNull()
+		.references(() => seoAudits.id, { onDelete: "cascade" }),
+
+	rankingKeywords: jsonb("ranking_keywords").default([]),
+	keywordGaps: jsonb("keyword_gaps").default([]),
+	cannibalization: jsonb("cannibalization").default([]),
+
+	totalRankingKeywords: integer("total_ranking_keywords").default(0),
+	keywordsTop3: integer("keywords_top_3").default(0),
+	keywordsTop10: integer("keywords_top_10").default(0),
+	keywordsTop50: integer("keywords_top_50").default(0),
+	totalKeywordGaps: integer("total_keyword_gaps").default(0),
+	estimatedTraffic: integer("estimated_traffic").default(0),
+
+	fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Competitor Analyses - Per-competitor analysis data
+export const competitorAnalyses = pgTable("competitor_analyses", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	clientId: uuid("client_id")
+		.notNull()
+		.references(() => clients.id),
+	auditId: uuid("audit_id").references(() => seoAudits.id, { onDelete: "cascade" }),
+
+	competitorDomain: text("competitor_domain").notNull(),
+	crawlJobId: uuid("crawl_job_id").references(() => contentCrawlJobs.id),
+
+	domainRank: real("domain_rank"),
+	totalBacklinks: integer("total_backlinks"),
+	referringDomains: integer("referring_domains"),
+	totalRankingKeywords: integer("total_ranking_keywords"),
+	estimatedTraffic: integer("estimated_traffic"),
+	commonKeywords: integer("common_keywords"),
+	uniqueKeywords: integer("unique_keywords"),
+
+	contentThemes: jsonb("content_themes").default([]),
+	pageStructure: jsonb("page_structure").default({}),
+	avgWordCount: integer("avg_word_count"),
+	contentQualityNotes: text("content_quality_notes"),
+
+	comparison: jsonb("comparison").default({}),
+
+	fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Content Copy - AI-generated content pieces
+export const contentCopy = pgTable("content_copy", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	clientId: uuid("client_id")
+		.notNull()
+		.references(() => clients.id),
+	agencyId: uuid("agency_id")
+		.notNull()
+		.references(() => agencies.id),
+	pageId: uuid("page_id").references(() => contentPages.id),
+	generatedBy: uuid("generated_by").references(() => users.id),
+
+	copyType: text("copy_type").notNull(),
+
+	title: text("title"),
+	content: text("content").notNull(),
+	targetKeyword: text("target_keyword"),
+	targetWordCount: integer("target_word_count"),
+	actualWordCount: integer("actual_word_count"),
+
+	seoScore: integer("seo_score"),
+	readabilityScore: real("readability_score"),
+
+	status: text("status").notNull().default("draft"),
+
+	promptTokens: integer("prompt_tokens"),
+	completionTokens: integer("completion_tokens"),
+	modelUsed: text("model_used"),
+	generationConfig: jsonb("generation_config").default({}),
+
+	contextSources: jsonb("context_sources").default({}),
+
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// =============================================================================
 // TYPE EXPORTS
 // =============================================================================
 
@@ -1727,6 +2043,83 @@ export type QuotationStatus =
 	| "accepted"
 	| "declined"
 	| "expired";
+
+// Content Intelligence types
+export type ContentCrawlJob = typeof contentCrawlJobs.$inferSelect;
+export type ContentCrawlJobInsert = typeof contentCrawlJobs.$inferInsert;
+export type ContentPage = typeof contentPages.$inferSelect;
+export type ContentPageInsert = typeof contentPages.$inferInsert;
+export type ContentChunk = typeof contentChunks.$inferSelect;
+export type ContentChunkInsert = typeof contentChunks.$inferInsert;
+export type BrandProfile = typeof brandProfiles.$inferSelect;
+export type BrandProfileInsert = typeof brandProfiles.$inferInsert;
+export type SeoAudit = typeof seoAudits.$inferSelect;
+export type SeoAuditInsert = typeof seoAudits.$inferInsert;
+export type SeoIssue = typeof seoIssues.$inferSelect;
+export type SeoIssueInsert = typeof seoIssues.$inferInsert;
+export type BacklinkProfile = typeof backlinkProfiles.$inferSelect;
+export type BacklinkProfileInsert = typeof backlinkProfiles.$inferInsert;
+export type KeywordProfile = typeof keywordProfiles.$inferSelect;
+export type KeywordProfileInsert = typeof keywordProfiles.$inferInsert;
+export type CompetitorAnalysis = typeof competitorAnalyses.$inferSelect;
+export type CompetitorAnalysisInsert = typeof competitorAnalyses.$inferInsert;
+export type ContentCopyRecord = typeof contentCopy.$inferSelect;
+export type ContentCopyInsert = typeof contentCopy.$inferInsert;
+
+export type CrawlJobStatus =
+	| "pending"
+	| "crawling"
+	| "extracting"
+	| "classifying"
+	| "embedding"
+	| "profiling"
+	| "complete"
+	| "failed";
+
+export type ContentPageType =
+	| "homepage"
+	| "about"
+	| "service"
+	| "product"
+	| "blog_post"
+	| "case_study"
+	| "testimonial"
+	| "contact"
+	| "team"
+	| "faq"
+	| "landing"
+	| "category"
+	| "portfolio"
+	| "news"
+	| "other"
+	| "unknown";
+
+export type CopyType =
+	| "page_rewrite"
+	| "new_page"
+	| "meta_title"
+	| "meta_description"
+	| "h1_suggestion"
+	| "section"
+	| "blog_post"
+	| "product_description"
+	| "cta"
+	| "site_structure";
+
+export type SeoIssueSeverity = "critical" | "warning" | "info" | "opportunity";
+
+export type SeoIssueCategory =
+	| "technical"
+	| "content"
+	| "meta"
+	| "structure"
+	| "performance"
+	| "mobile"
+	| "accessibility"
+	| "backlinks"
+	| "keywords"
+	| "schema"
+	| "internal_links";
 
 // Cover page configuration (for contract templates)
 export interface CoverPageConfig {
