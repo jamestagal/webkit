@@ -3,6 +3,8 @@ package main
 import (
 	"app/pkg"
 	"app/pkg/auth"
+	"app/pkg/cfbrowser"
+	"app/pkg/jina"
 	"context"
 	"database/sql"
 	"fmt"
@@ -14,6 +16,8 @@ import (
 	"time"
 
 	"content-service/config"
+	"content-service/internal/embeddings"
+	"content-service/internal/jobs"
 	"content-service/rest"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -58,6 +62,25 @@ func main() {
 
 	// Create auth service
 	authService := auth.NewService()
+
+	// Create API clients
+	var cfClient *cfbrowser.Client
+	if cfg.CFBrowserWorkerURL != "" {
+		cfClient = cfbrowser.NewClient(cfg.CFBrowserWorkerURL)
+	}
+	jinaClient := jina.NewClient()
+	var embedClient *embeddings.Client
+	if cfg.CFAccountID != "" && cfg.CFAPIToken != "" {
+		embedClient = embeddings.NewClient(cfg.CFAccountID, cfg.CFAPIToken)
+	}
+
+	// Start job manager
+	jobMgr := jobs.NewManager(db, nc, cfg, cfClient, jinaClient, embedClient)
+	if err := jobMgr.Start(); err != nil {
+		slog.Error("Error starting job manager", "error", err)
+		panic(err)
+	}
+	defer jobMgr.Stop()
 
 	// Create REST handler
 	handler := rest.NewHandler(cfg, db, nc, authService)

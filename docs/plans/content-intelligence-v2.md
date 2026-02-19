@@ -1415,3 +1415,21 @@ All questions from the initial V2 draft have been resolved:
 | 4 | SEO audit in proposals | Audit summary auto-generates a proposal section with traffic-light indicators per category. Upsell tool for agencies. New proposal block type: `seo_summary`. |
 | 5 | Multi-language support | English only for V2. Multi-language deferred. |
 | 6 | Tenant isolation | content-service validates JWT + agency membership on every request. All queries scope by `agency_id`. SvelteKit passes agency context via `X-Agency-ID` header. See "Tenant Isolation Architecture" section. |
+
+---
+
+## Wave 1 Foundation — Completed (2026-02-20)
+
+All 5 foundation pieces built and committed (`11d3db9` on `feature/content-intelligence`):
+
+- **Agent A**: Migration `021_content_intelligence.sql` (10 tables, pgvector, HNSW index) + Drizzle schema
+- **Agent B**: Go `content-service` scaffold (26 routes, auth middleware, Dockerfile)
+- **Agent C**: `app/pkg/cfbrowser/` + `app/pkg/jina/` Go clients
+- **Agent D**: `app/pkg/dataforseo/` Go client (on-page, backlinks, keywords, labs)
+- **Agent E**: `workers/browser-rendering/` Cloudflare Worker (Puppeteer)
+
+### Follow-ups before Wave 2
+
+- [ ] Add `content` service block to `docker-compose.production.yml` before deploying
+- [ ] Add unit tests for `app/pkg/cfbrowser/` and `app/pkg/dataforseo/` packages
+- [ ] Generate `public.pem` via setup script for JWT validation in content-service

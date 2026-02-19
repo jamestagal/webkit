@@ -36,6 +36,9 @@ dist/
 build/
 tmp/
 
+# Go binaries
+app/server
+
 # Logs
 *.log
 logs/

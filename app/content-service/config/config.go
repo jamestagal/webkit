@@ -28,6 +28,10 @@ type Config struct {
 	DataForSEOPassword string
 	AnthropicAPIKey    string
 
+	// Cloudflare Workers AI
+	CFAccountID string
+	CFAPIToken  string
+
 	// Timeouts
 	HTTPTimeout    time.Duration
 	ContextTimeout time.Duration
@@ -65,6 +69,8 @@ func LoadConfig() *Config {
 		DataForSEOLogin:    os.Getenv("DATAFORSEO_LOGIN"),
 		DataForSEOPassword: os.Getenv("DATAFORSEO_PASSWORD"),
 		AnthropicAPIKey:    os.Getenv("ANTHROPIC_API_KEY"),
+		CFAccountID:        os.Getenv("CF_ACCOUNT_ID"),
+		CFAPIToken:         os.Getenv("CF_API_TOKEN"),
 
 		HTTPTimeout:    HTTPTimeout,
 		ContextTimeout: ContextTimeout,
