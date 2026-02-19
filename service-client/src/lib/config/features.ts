@@ -17,6 +17,7 @@ import {
 	ClipboardCheck,
 	Send,
 	ChartColumnBig,
+	Brain,
 } from "lucide-svelte";
 import type { ComponentType } from "svelte";
 
@@ -39,6 +40,7 @@ export type FeatureKey =
 	| "quotations"
 	| "forms"
 	| "clients"
+	| "content"
 	| "reports";
 
 /**
@@ -105,6 +107,15 @@ export const FEATURES: Record<FeatureKey, FeatureConfig> = {
 		icon: Users,
 		color: "#14b8a6", // Teal
 		colorLight: "#14b8a615",
+	},
+	content: {
+		key: "content",
+		title: "Content",
+		description:
+			"Analyze client websites, build brand profiles, and generate optimized content.",
+		icon: Brain,
+		color: "#0ea5e9", // Sky
+		colorLight: "#0ea5e915",
 	},
 	reports: {
 		key: "reports",

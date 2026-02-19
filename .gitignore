@@ -38,6 +38,7 @@ tmp/
 
 # Go binaries
 app/server
+app/content-service/server
 
 # Logs
 *.log

@@ -36,6 +36,7 @@
 	let nav = $derived([
 		{ label: 'Dashboard', url: `/${agencySlug}`, icon: NAV_FEATURES.dashboard.icon, color: NAV_FEATURES.dashboard.color },
 		{ label: 'Clients', url: `/${agencySlug}/clients`, icon: FEATURES.clients.icon, color: FEATURES.clients.color },
+		{ label: 'Content', url: `/${agencySlug}/content`, icon: FEATURES.content.icon, color: FEATURES.content.color },
 		{ label: 'New Consultation', url: `/${agencySlug}/consultation`, icon: FEATURES.consultations.icon, color: FEATURES.consultations.color },
 		{ label: 'My Consultations', url: `/${agencySlug}/consultation/history`, icon: NAV_FEATURES.consultationHistory.icon, color: FEATURES.consultations.color },
 		{ label: 'Proposals', url: `/${agencySlug}/proposals`, icon: FEATURES.proposals.icon, color: FEATURES.proposals.color },
