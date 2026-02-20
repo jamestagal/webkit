@@ -3,7 +3,7 @@
 **Version:** 2.0
 **Date:** February 2026
 **Status:** Specification — Pre-Development
-**Scope:** Phases 1-3 only (Crawl + Audit + Copy Generation)
+**Scope:** Phases 1-3 + Social Media Copy (Crawl + Audit + Copy Generation + Social)
 **Dependencies:** Existing Webkit platform (SvelteKit + Go + PostgreSQL + Cloudflare)
 
 ---
@@ -15,6 +15,10 @@
 - **DataForSEO pricing corrected.** No minimum commitment — pure pay-as-you-go.
 - **Two entry paths defined.** Path A (existing website) and Path B (new website / no site to crawl).
 - **Questionnaire + Consultation data integrated as first-class input** for brand profiling and content generation.
+- **Social media copy generator added** as lightweight Feature 6 — same AI pipeline, platform-specific prompts. No scheduling/publishing integration.
+- **Client Overview Dashboard (Option C)** replaces redirect at `/content/[clientId]` with status overview + guided next steps.
+- **Re-crawl & generation history** — crawl runs and generated copy tracked with timestamps, version-aware.
+- **AI context visibility** — shows users what data sources are available/used per client for transparency.
 - **Simpler copy status workflow.** Two states (draft/final) instead of four. Full approval workflow deferred.
 - **NATS job queue architecture defined** for background pipeline work.
 - **Embedding model versioning added** to content_chunks table.
@@ -213,22 +217,23 @@ NATS Subjects:
 ### New SvelteKit Routes
 
 ```
-/[agencySlug]/content/                          # Content Intelligence dashboard
+/[agencySlug]/content/                          # Content Intelligence dashboard (client list)
 ├── /[agencySlug]/content/import                # Import client website (enter URL)
 │                                                # OR start from questionnaire (Path B)
-├── /[agencySlug]/content/[clientId]/           # Client content overview
+├── /[agencySlug]/content/[clientId]/           # Client Overview Dashboard (see Feature 7)
 │   ├── /pages                                  # All scraped pages with status
 │   ├── /brand                                  # Brand voice profile viewer/editor
 │   ├── /audit                                  # SEO audit dashboard
-│   │   ├── /overview                           # Summary + score
-│   │   ├── /technical                          # Technical SEO issues
-│   │   ├── /content                            # Content quality per page
+│   │   ├── /issues                             # Issues by category/severity
 │   │   ├── /backlinks                          # Backlink profile
 │   │   ├── /keywords                           # Rankings + gaps
 │   │   └── /competitors                        # Competitor comparison
-│   └── /copy                                   # AI copy workspace
-│       ├── /audit                              # Page-by-page copy audit
-│       └── /generate                           # New copy generation
+│   ├── /copy                                   # AI copy workspace
+│   │   ├── /generate                           # New copy generation
+│   │   └── /[copyId]                           # Copy editor
+│   └── /social                                 # Social media copy (see Feature 6)
+│       ├── /generate                           # Generate social post
+│       └── /[postId]                           # Post editor
 └── /[agencySlug]/content/reports               # Generated reports
 ```
 
@@ -704,7 +709,7 @@ CREATE TABLE IF NOT EXISTS content_copy (
         CHECK (copy_type IN ('page_rewrite', 'new_page', 'meta_title',
                              'meta_description', 'h1_suggestion', 'section',
                              'blog_post', 'product_description', 'cta',
-                             'site_structure')),
+                             'site_structure', 'social_post')),
 
     title TEXT,
     content TEXT NOT NULL,
@@ -724,6 +729,18 @@ CREATE TABLE IF NOT EXISTS content_copy (
     completion_tokens INTEGER,
     model_used TEXT,
     generation_config JSONB DEFAULT '{}',
+    /*
+    For social_post copy_type, generation_config includes:
+    {
+      "platform": "facebook|instagram|linkedin|twitter",
+      "post_goal": "engagement|traffic|awareness|promotion",
+      "topic": "user-provided topic or brief",
+      "tone_override": "optional tone for this specific post",
+      "include_hashtags": true,
+      "include_cta": true,
+      "include_emoji": true
+    }
+    */
 
     -- Context tracking (what inputs were used)
     context_sources JSONB DEFAULT '{}',
@@ -1134,6 +1151,304 @@ In the proposal editor, when SEO audit data exists for the client:
 - The section is editable like any other proposal block
 - Traffic-light indicators render as colored badges in the proposal PDF/view
 
+#### SEO Data in Proposal Settings
+
+The existing Proposal Settings page includes a PageSpeed integration toggle. SEO audit data follows the same pattern — it appears as an additional data source toggle in the proposal settings, not as a separate feature area. When enabled, the proposal editor shows the "SEO audit available" badge for clients with completed audits.
+
+This keeps all external data sources (PageSpeed, SEO audit, future integrations) in a single settings location rather than scattered across the app.
+
+---
+
+### Feature 6: Social Media Copy Generator
+
+#### Philosophy
+
+Lightweight, AI-only. No scheduling, no publishing, no API integrations with social platforms. The agency generates copy, previews it, copies it, and pastes it into their existing social media tool (Buffer, Hootsuite, Meta Business Suite, native platform). This is a "content factory" feature — not a social media management tool.
+
+#### Why This Belongs in V2 (Not Deferred)
+
+The social media copy generator reuses 100% of the existing AI pipeline. Same brand voice profile, same RAG context, same 4-tier context assembly. The only new code is platform-specific prompt templates and a lightweight UI. It's ~2-3 days of work on top of what's already built, and agencies will ask for it the moment they see the brand profiling + copy generation working.
+
+#### Supported Platforms
+
+| Platform | Max Length | Tone | Special Rules |
+|----------|-----------|------|---------------|
+| Facebook | ~500 chars (optimal) | Conversational, story-driven | Links allowed, emoji moderate, hashtags 2-3 |
+| Instagram | 2,200 chars (caption) | Visual-first, lifestyle | Hashtag block (15-20), emoji heavy, no links in caption |
+| LinkedIn | ~1,300 chars (optimal) | Professional, thought-leadership | Minimal hashtags (3-5), no emoji in headlines, line breaks for readability |
+| X / Twitter | 280 chars | Punchy, direct | No hashtags in body (thread if needed), strong hooks, minimal emoji |
+
+#### Context Assembly (Same 4-Tier Pipeline)
+
+Social posts use the same context assembly as web copy but with a social-specific system prompt:
+
+```
+Tier 1: Brand Voice Profile (system prompt, cached)
+Tier 2: RAG chunks relevant to post topic (2-3 chunks)
+Tier 3: SEO context (target keyword if relevant, trending topics)
+Tier 4: Post brief (topic, goal, platform rules, CTA preference)
+```
+
+The AI model receives platform-specific constraints as part of the prompt:
+- Character limits (enforced, not just suggested)
+- Platform conventions (hashtag style, emoji usage, tone)
+- Post goal (engagement, traffic, awareness, promotion)
+- CTA format (link in bio, swipe up, click link, etc.)
+
+#### Generation Flow
+
+1. User navigates to `/content/[clientId]/social/generate`
+2. Selects platform (Facebook / Instagram / LinkedIn / X)
+3. Enters topic or brief ("Announce our new web design packages", "Share a tip about site speed")
+4. Optionally selects post goal (engagement / traffic / awareness / promotion)
+5. Optionally selects tone override (or use brand voice default)
+6. Clicks "Generate" → AI produces 3 variations
+7. User picks best variation (or regenerates)
+8. Edit in-place → copy to clipboard → paste into social platform
+9. Saved as `content_copy` with `copy_type: 'social_post'` and `generation_config.platform`
+
+#### Three Variations Pattern
+
+Each generation produces 3 variations with different angles:
+- **Variation A**: Informative — leads with the value/insight
+- **Variation B**: Engaging — leads with a question or hook
+- **Variation C**: Story-driven — leads with a narrative or analogy
+
+User selects one as the base, then edits. This avoids the "I don't love this one" regeneration loop.
+
+#### Social Copy List View
+
+`/content/[clientId]/social` shows all generated social posts with:
+- Platform icon + name
+- Topic/title preview
+- Post goal badge
+- Status (draft/final)
+- Created date
+- Copy-to-clipboard button (one-click for quick grab)
+
+Filterable by platform and status.
+
+#### API Endpoints
+
+```
+POST   /api/content/generate/social      # Generate social post (returns 3 variations)
+GET    /api/content/social/:clientId      # List social posts for client
+PATCH  /api/content/copy/:copyId         # Update (same as web copy — shared table)
+DELETE /api/content/copy/:copyId         # Delete (same as web copy — shared table)
+```
+
+The generate endpoint is new; list/update/delete reuse the existing `content_copy` endpoints since social posts are stored in the same table with `copy_type: 'social_post'`.
+
+#### Cost
+
+Negligible additional cost. Social posts are short (~100-500 tokens output). 3 variations ≈ ~$0.002 per generation with Claude Haiku. Even generating 50 social posts/month adds <$0.10 to the per-client cost.
+
+---
+
+### Feature 7: Client Overview Dashboard (Option C)
+
+#### The Problem
+
+Currently, `/content/[clientId]` redirects to `/pages`. This means:
+- New users don't know what features are available or what to do next
+- There's no single place to see the status of all content intelligence work for a client
+- After a crawl completes, users have to manually navigate to each section
+- No visibility into which AI data sources are available for this client
+
+#### The Solution: Smart Landing Page + Post-Crawl Prompt
+
+Replace the redirect with an overview dashboard that serves two purposes:
+1. **Status Overview** — at-a-glance view of what's been done and what's available
+2. **Guided Next Steps** — after key events (crawl complete, profile generated), show contextual prompts for what to do next
+
+#### Dashboard Layout
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Client: Plentify Web Designs                          │
+│  Website: plentify.au  •  Last crawled: 2 days ago     │
+│                                                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
+│  │ 📄 Pages    │  │ 🎨 Brand    │  │ 🔍 Audit    │    │
+│  │ 47 pages    │  │ Profile     │  │ Score: 62   │    │
+│  │ crawled     │  │ Active v2   │  │ /100        │    │
+│  │ ✅ Complete │  │ ✅ Ready    │  │ ✅ Complete │    │
+│  └─────────────┘  └─────────────┘  └─────────────┘    │
+│                                                         │
+│  ┌─────────────┐  ┌─────────────┐                      │
+│  │ ✍️ Copy     │  │ 📱 Social   │                      │
+│  │ 12 pieces   │  │ 8 posts     │                      │
+│  │ 5 final     │  │ 3 final     │                      │
+│  │ ✅ Active   │  │ ✅ Active   │                      │
+│  └─────────────┘  └─────────────┘                      │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │  AI Context Sources Available                    │   │
+│  │  ✅ Brand Profile (v2, hybrid)                  │   │
+│  │  ✅ 47 pages crawled (1,240 RAG chunks)         │   │
+│  │  ✅ SEO Audit (score: 62, 15 issues)            │   │
+│  │  ✅ Consultation data (39 fields)               │   │
+│  │  ⬜ Questionnaire data (not completed)          │   │
+│  │  → More data = better AI output                  │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │  Recent Activity                                │   │
+│  │  • Generated 3 Facebook posts (2 hrs ago)       │   │
+│  │  • Re-crawled website (yesterday)               │   │
+│  │  • Updated brand profile to v2 (3 days ago)     │   │
+│  │  • SEO audit completed, score 62 (1 week ago)   │   │
+│  └─────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### Feature Status Cards
+
+Each card shows:
+- **Feature name + icon** (Pages, Brand, Audit, Copy, Social)
+- **Key metric** (page count, profile version, score, copy count, post count)
+- **Status indicator**: `✅ Complete/Ready/Active`, `🔄 In Progress`, `⬜ Not Started`, `❌ Failed`
+- **Click → navigates to that feature's page**
+
+Status is derived from existing data (no new table needed):
+- **Pages**: `content_crawl_jobs` latest status + `content_pages` count
+- **Brand**: `brand_profiles` where `is_active = true` → version number + source_type
+- **Audit**: `seo_audits` latest → overall_score + status
+- **Copy**: `content_copy` count by status (draft/final), filtered by `copy_type != 'social_post'`
+- **Social**: `content_copy` count where `copy_type = 'social_post'`, by status
+
+#### AI Context Sources Panel
+
+This panel answers the user's question: "How much data is the AI using?" It shows what data is available for this client and what's missing:
+
+| Source | Check | Display When Present | Display When Missing |
+|--------|-------|---------------------|---------------------|
+| Brand Profile | `brand_profiles` exists and `is_active` | "✅ Brand Profile (v{version}, {source_type})" | "⬜ No brand profile — generate one" |
+| Crawled Pages | `content_pages` count > 0 | "✅ {count} pages crawled ({chunk_count} RAG chunks)" | "⬜ No pages crawled — import website" |
+| SEO Audit | `seo_audits` with `status = 'complete'` | "✅ SEO Audit (score: {score}, {issues} issues)" | "⬜ No audit — run SEO audit" |
+| Consultation | `consultations` for this client | "✅ Consultation data ({field_count} fields)" | "⬜ No consultation data" |
+| Questionnaire | `form_submissions` / questionnaire for this client | "✅ Questionnaire ({section_count} sections)" | "⬜ Questionnaire not completed" |
+
+**Why this matters:** Some clients might only have a crawl and brand profile. Others have a full consultation, questionnaire, crawl, audit, AND brand profile. The AI uses whatever is available — but more data = richer context = better output. Showing this to the agency creates a natural incentive to gather more data before generating content.
+
+The missing items link directly to the relevant action (e.g., "No audit — run SEO audit" links to `/content/[clientId]/audit` with a prompt to start).
+
+#### Post-Crawl Wizard (One-Time Guided Prompt)
+
+After a crawl completes for the first time, a dismissible wizard banner appears at the top of the overview:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  🎉 Crawl Complete! 47 pages imported from plentify.au  │
+│                                                          │
+│  Recommended next steps:                                │
+│  1. ✅ Generate Brand Profile  [Generate →]             │
+│  2. ⬜ Run SEO Audit          [Start Audit →]           │
+│  3. ⬜ Generate Website Copy   [Go to Copy →]           │
+│  4. ⬜ Create Social Posts     [Go to Social →]          │
+│                                                          │
+│  [Dismiss]                                              │
+└─────────────────────────────────────────────────────────┘
+```
+
+The wizard tracks completion of each step and checks them off. Steps auto-detect completion from the data (brand profile exists → step 1 checked). Once all steps are done or the user dismisses it, the banner doesn't reappear.
+
+**Storage:** Wizard state stored in `localStorage` keyed by `clientId`. No database table needed — it's a purely client-side UX aid.
+
+#### Implementation
+
+- **Replace** `content/[clientId]/+page.svelte` (currently just redirects to `/pages`)
+- **New data loading** in `content/[clientId]/+page.server.ts` — aggregate counts from crawl_jobs, brand_profiles, seo_audits, content_copy, form_submissions
+- **No new API endpoints** — all data is already available via existing remote functions, or can be added as a single aggregate query
+- **New remote function**: `getClientContentOverview(clientId)` → returns all status counts in one call
+
+---
+
+### Re-Crawl & Generation History
+
+#### Crawl History
+
+The `content_crawl_jobs` table already records every crawl run with timestamps, page counts, and status. The overview dashboard surfaces this as a "Recent Activity" timeline and the Pages section shows crawl history.
+
+**Crawl history view** (accessible from Pages tab or overview):
+- List of all crawl jobs for this client, newest first
+- Each row: date, type (full/incremental), pages discovered/processed, status, duration
+- "Re-crawl" button triggers a new full or incremental crawl
+- Change detection: after re-crawl, pages with updated `content_hash` are flagged as "Content Changed" with `content_changed_at` timestamp
+
+**Incremental vs Full re-crawl:**
+- **Full**: Re-crawls all pages from scratch. Used for major site updates.
+- **Incremental**: Only re-visits known pages + discovers new ones from sitemap. SHA-256 hash comparison skips unchanged pages. Faster and cheaper.
+
+#### Generation History
+
+Every generated piece of content (web copy, social post, meta tag) is stored as a `content_copy` row with `created_at`. The copy list view shows all generated content chronologically. There's no explicit versioning — each generation is a new row. If a user regenerates copy for the same page, both the old and new versions exist as separate entries.
+
+**Why no overwrite:** Agencies may want to compare variations or reference previous generations. Drafts are cheap (just text in the database). The status workflow (draft → final) handles the "which one is the real one" question.
+
+**Activity timeline on overview dashboard:**
+- Pulls from `content_crawl_jobs`, `brand_profiles`, `seo_audits`, `content_copy` ordered by `created_at`
+- Shows: "Generated 3 Facebook posts", "Re-crawled website (incremental, 2 pages changed)", "Updated brand profile to v2", "SEO audit completed, score 62"
+- Limited to last 20 items
+
+#### Brand Profile Versioning
+
+Brand profiles already have a `version` INTEGER column with `UNIQUE(client_id, version)`. Each regeneration creates a new version. The `is_active` flag marks which version is current. This means:
+- Full history of brand profile evolution is preserved
+- Agency can compare v1 (scrape only) vs v2 (hybrid with questionnaire) vs v3 (manually edited)
+- Rolling back to a previous version is possible by flipping `is_active`
+
+---
+
+### SEO Audit Data Presentation
+
+#### Dashboard Approach
+
+The SEO audit dashboard (`/content/[clientId]/audit`) presents data in a structured, section-by-section layout designed for agency consumption — comprehensive enough to demonstrate value to clients, but not overwhelming.
+
+#### Dashboard Structure
+
+**Main Audit Page (`/audit`)**
+- **Hero section**: Overall score (0-100) as a large gauge/ring with color coding (0-39 red, 40-69 amber, 70-100 green)
+- **Category score cards** (4 cards): Technical, Content, Backlinks, Keywords — each with score + mini-gauge + issue count
+- **Quick stats row**: Total pages analysed, Critical issues, Warnings, Passed checks, Opportunities
+- **Issue summary**: Top 5 critical issues with one-line descriptions and "Fix →" links
+- **Audit history**: Previous audit runs with date + score (shows improvement over time)
+
+**Issues Page (`/audit/issues`)**
+- Filterable by category (technical, content, meta, etc.) and severity (critical, warning, info, opportunity)
+- Each issue card: title, description, affected page URL, current value vs recommended value, estimated impact
+- Issues with `ai_fix_available = true` show an "AI Fix" badge — clicking it generates a fix via the copy generation pipeline
+- Sortable by severity, category, or page
+
+**Keywords Page (`/audit/keywords`)**
+- **Ranking keywords table**: keyword, position, search volume, CPC, URL ranking, trend
+- **Keyword gaps section**: keywords competitors rank for but client doesn't, with difficulty + volume
+- **Cannibalization alerts**: multiple pages competing for the same keyword
+- **Opportunity score** per keyword gap (volume × 1/difficulty)
+
+**Backlinks Page (`/audit/backlinks`)**
+- **Summary stats**: Total backlinks, referring domains, dofollow/nofollow ratio, domain rank, spam score
+- **Top referring domains**: table with domain, backlinks count, domain rank
+- **Anchor text distribution**: pie/bar chart of anchor text variety
+- **New/lost trend**: line chart of backlink acquisition over time
+- **Toxic links**: flagged links that should be disavowed
+
+**Competitors Page (`/audit/competitors`)**
+- **Comparison table**: client vs up to 3 competitors across key metrics (domain rank, backlinks, ranking keywords, estimated traffic)
+- **Content comparison**: avg word count, page types, content themes per competitor
+- **Keyword overlap matrix**: shared vs unique keywords between client and each competitor
+- **Gap analysis**: "Competitor X ranks for these keywords but you don't" with opportunity scoring
+
+#### Design Principles
+
+- Uses the existing DaisyUI component library — stats, cards, tables, badges, progress bars
+- Color-coded severity throughout (red = critical, amber = warning, green = passed, blue = opportunity)
+- Every data point links to the relevant page or action
+- Charts use Recharts (already available in the stack for React artifacts, but for Svelte use simple SVG-based gauges or DaisyUI progress bars)
+- Mobile-responsive: tables collapse to card layouts on mobile
+- All data loads from the existing `seo_audits`, `seo_issues`, `backlink_profiles`, `keyword_profiles`, `competitor_analyses` tables — no new data fetching needed
+
 ---
 
 ## Tenant Isolation Architecture (content-service)
@@ -1265,10 +1580,17 @@ POST   /api/content/generate/copy          # Generate copy (single page)
 POST   /api/content/generate/meta          # Generate meta title + description
 POST   /api/content/generate/structure     # Generate site structure (Path B)
 POST   /api/content/generate/bulk          # Bulk generation
-GET    /api/content/copy/:clientId         # List generated copy
+POST   /api/content/generate/social        # Generate social post (3 variations)
+GET    /api/content/copy/:clientId         # List generated copy (filterable by copy_type)
+GET    /api/content/social/:clientId       # List social posts (shorthand for copy_type=social_post)
 PATCH  /api/content/copy/:copyId           # Update status/content
 DELETE /api/content/copy/:copyId           # Delete draft
 POST   /api/content/copy/export/:clientId  # Export all final copy as document
+```
+
+### Client Overview
+```
+GET    /api/content/overview/:clientId     # Aggregate status for overview dashboard
 ```
 
 All endpoints require `agency_id` scoping via auth middleware (matching Webkit's existing pattern).
@@ -1286,8 +1608,9 @@ All endpoints require `agency_id` scoping via auth middleware (matching Webkit's
 | Anthropic (profiling) | ~$0.12 | ~$0.12 |
 | Anthropic (copy gen) | ~$1.50 (5 rewrites) | ~$2.50 (10 new pages) |
 | Workers AI (embeddings) | ~$0.00 | ~$0.00 |
+| Anthropic (social posts) | ~$0.05 (25 posts) | ~$0.05 (25 posts) |
 | R2 storage | ~$0.02 | ~$0.02 |
-| **Total per client** | **~$4.48** | **~$4.18** |
+| **Total per client** | **~$4.53** | **~$4.23** |
 
 ### Fixed Monthly Infrastructure
 
@@ -1363,12 +1686,26 @@ Content Intelligence features justify tier increases:
 - [ ] Export to structured document (Word/PDF via Gotenberg)
 - [ ] SvelteKit: `/content/[clientId]/copy/audit` and `/copy/generate`
 
+### Phase 3b: Social Media + Overview Dashboard (Weeks 14-15)
+
+- [ ] Social media generate endpoint (`/api/content/generate/social`)
+- [ ] Platform-specific prompt templates (Facebook, Instagram, LinkedIn, X)
+- [ ] Three-variation generation pattern
+- [ ] SvelteKit: `/content/[clientId]/social` list + generate + editor
+- [ ] Client Overview Dashboard replacing redirect at `/content/[clientId]`
+- [ ] Feature status cards (pages, brand, audit, copy, social)
+- [ ] AI Context Sources panel (data availability + missing prompts)
+- [ ] Recent Activity timeline (aggregated from all content tables)
+- [ ] Post-crawl wizard banner (dismissible, localStorage state)
+- [ ] Overview aggregate endpoint (`/api/content/overview/:clientId`)
+
 ### Post-Phase 3: Stabilise + Iterate
 
 - [ ] Performance tuning (pgvector HNSW parameters, NATS throughput)
 - [ ] Re-crawl scheduling (monthly default, opt-in weekly)
 - [ ] Change detection notifications
 - [ ] Proposal enrichment (feed content intelligence into proposal generation)
+- [ ] SEO data toggle in Proposal Settings page
 - [ ] User feedback → iterate on generation quality
 
 ---
@@ -1391,8 +1728,8 @@ Content Intelligence features justify tier increases:
 
 | Feature | Reason | Alternative |
 |---------|--------|-------------|
-| Social media publishing | Deferred to future spec. Not core to content intelligence value. | Phase 4 spec (future) |
-| Social content calendar | Deferred. Agencies already use Hootsuite/Buffer. | Phase 4 spec (future) |
+| Social media publishing/scheduling | Agencies already use Hootsuite/Buffer/Meta Business Suite. Webkit generates copy only. | Buffer, Hootsuite, native platforms |
+| Social content calendar | Different product category. Not core to content generation value. | Hootsuite, Later, Sprout Social |
 | Rank tracking over time | Adds ongoing DataForSEO cost; not needed for one-time audits | SE Ranking, AccuRanker |
 | Link building outreach | Different workflow entirely | Pitchbox, BuzzStream |
 | Full CMS | Agencies already have WordPress/Webflow | Existing CMS tools |
@@ -1415,6 +1752,12 @@ All questions from the initial V2 draft have been resolved:
 | 4 | SEO audit in proposals | Audit summary auto-generates a proposal section with traffic-light indicators per category. Upsell tool for agencies. New proposal block type: `seo_summary`. |
 | 5 | Multi-language support | English only for V2. Multi-language deferred. |
 | 6 | Tenant isolation | content-service validates JWT + agency membership on every request. All queries scope by `agency_id`. SvelteKit passes agency context via `X-Agency-ID` header. See "Tenant Isolation Architecture" section. |
+| 7 | Social media approach | Lightweight copy generation only — no publishing, scheduling, or platform API integrations. Same AI pipeline with platform-specific prompts. Stored in `content_copy` with `copy_type: 'social_post'`. |
+| 8 | Client overview UX | Option C — Smart Landing Page (overview dashboard) replaces redirect at `/content/[clientId]`. Shows feature status cards, AI context sources panel, recent activity timeline, and post-crawl wizard. |
+| 9 | Re-crawl / generation history | Crawl history from `content_crawl_jobs`, generation history from `content_copy` rows (no overwrite). Brand profiles versioned with `version` + `is_active`. Activity timeline on overview. |
+| 10 | AI context visibility | Overview dashboard shows which data sources are available per client (brand profile, crawled pages, SEO audit, consultation, questionnaire) with counts and missing-data prompts. |
+| 11 | SEO data in proposals | Appears as toggle in existing Proposal Settings page alongside PageSpeed. When enabled, proposal editor shows "SEO audit available" badge for clients with completed audits. |
+| 12 | Audit data presentation | Section-by-section dashboard: main scores → issues (filterable) → keywords (rankings + gaps) → backlinks (profile + trends) → competitors (comparison matrix). DaisyUI components, color-coded severity, mobile-responsive. |
 
 ---
 
@@ -1433,3 +1776,13 @@ All 5 foundation pieces built and committed (`11d3db9` on `feature/content-intel
 - [ ] Add `content` service block to `docker-compose.production.yml` before deploying
 - [ ] Add unit tests for `app/pkg/cfbrowser/` and `app/pkg/dataforseo/` packages
 - [ ] Generate `public.pem` via setup script for JWT validation in content-service
+
+---
+
+## Implementation Learnings
+
+### contentFetch must live in `$lib/server/`, not `.remote.ts`
+
+**Wave 5 discovery**: `.remote.ts` files can ONLY export `query()`/`command()`/`form()`/`prerender()` wrapped functions. Exporting a regular helper function like `contentFetch` passes `npm run check` but fails at `npm run build` with: `"all exports from this file must be remote functions"`.
+
+**Fix**: Moved `contentFetch` to `$lib/server/content-fetch.ts` (a plain server-only utility file). All `content-*.remote.ts` files import it from there. This matches the established pattern where `$lib/server/` holds internal utilities and `.remote.ts` holds only the client-callable remote function exports.

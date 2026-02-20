@@ -164,6 +164,8 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       # Sentry error tracking
       PUBLIC_SENTRY_DSN: ${SENTRY_DSN:-}
+      # Content Intelligence service
+      CONTENT_URL: http://webkit-content:5001
     networks:
       - traefik-public
       - webkit-internal
@@ -188,6 +190,50 @@ services:
       start_period: 15s
     depends_on:
       - core
+
+  # =============================================================================
+  # Content Intelligence Service (Go)
+  # =============================================================================
+  content:
+    image: ghcr.io/jamestagal/webkit/content-service-r:latest
+    container_name: webkit-content
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: info
+      HTTP_PORT: 5001
+      DOMAIN: webkit.au
+      CLIENT_URL: https://app.webkit.au
+      # Database
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-webkit}
+      POSTGRES_USER: ${POSTGRES_USER:-webkit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # NATS
+      NATS_URL: nats://nats:4222
+      # External APIs
+      CF_BROWSER_WORKER_URL: ${CF_BROWSER_WORKER_URL:-}
+      DATAFORSEO_LOGIN: ${DATAFORSEO_LOGIN:-}
+      DATAFORSEO_PASSWORD: ${DATAFORSEO_PASSWORD:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CF_ACCOUNT_ID: ${CF_ACCOUNT_ID:-}
+      CF_API_TOKEN: ${CF_API_TOKEN:-}
+      # PDF generation
+      GOTENBERG_URL: http://gotenberg:3000
+    networks:
+      - webkit-internal
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
 
   # =============================================================================
   # PostgreSQL Database

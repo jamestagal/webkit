@@ -6,48 +6,13 @@
  */
 
 import { query, command } from "$app/server";
-import { getRequestEvent } from "$app/server";
 import * as v from "valibot";
-import { env } from "$env/dynamic/private";
 import { db } from "$lib/server/db";
 import { clients, contentCrawlJobs } from "$lib/server/schema";
 import { getAgencyContext } from "$lib/server/agency";
 import { eq, and, desc } from "drizzle-orm";
-import { error } from "@sveltejs/kit";
+import { contentFetch } from "$lib/server/content-fetch";
 import type { CrawlJob, ContentPage } from "./content.types";
-
-// =============================================================================
-// Proxy Helper
-// =============================================================================
-
-/**
- * Fetch from the Go content-service with auth forwarding.
- * First SvelteKit -> Go microservice proxy in the codebase.
- * Similar to callBillingAPI in billing.remote.ts but adds X-Agency-ID header.
- */
-async function contentFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-	const event = getRequestEvent();
-	const accessToken = event.cookies.get("access_token");
-	const context = await getAgencyContext();
-
-	const res = await fetch(`${env["CONTENT_URL"]}${endpoint}`, {
-		...options,
-		headers: {
-			"Content-Type": "application/json",
-			...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-			"X-Agency-ID": context.agencyId,
-			...options.headers,
-		},
-	});
-
-	if (!res.ok) {
-		const body = await res.json().catch(() => ({ message: "Content service error" }));
-		throw error(res.status, body.message || "Content API error");
-	}
-
-	const json = await res.json();
-	return json.data as T;
-}
 
 // =============================================================================
 // Validation Schemas

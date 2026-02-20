@@ -8,6 +8,7 @@ openssl pkey -in private.pem -pubout -out public.pem
 cp private.pem ../app/service-core/private.pem
 cp public.pem ../app/service-core/public.pem
 cp public.pem ../app/service-admin/public.pem
+cp public.pem ../app/content-service/public.pem
 
 if [ -d "../service-client" ]; then
     cp public.pem ../service-client/public.pem

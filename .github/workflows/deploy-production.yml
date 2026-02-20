@@ -26,6 +26,10 @@ jobs:
             context: app
             dockerfile: app/service-admin/Dockerfile
             image: service-admin-r
+          - service: content-service
+            context: app
+            dockerfile: app/content-service/Dockerfile
+            image: content-service-r
           - service: service-client
             context: service-client
             dockerfile: service-client/Dockerfile
@@ -135,6 +139,11 @@ jobs:
             docker compose -f docker-compose.production.yml up -d --no-deps admin
             sleep 10
             curl -f http://localhost:3001/ready || echo "Admin health check pending"
+
+            # Content Intelligence service
+            docker compose -f docker-compose.production.yml up -d --no-deps content
+            sleep 10
+            curl -f http://localhost:5001/health || echo "Content health check pending"
 
             # Client service
             docker compose -f docker-compose.production.yml up -d --no-deps client
