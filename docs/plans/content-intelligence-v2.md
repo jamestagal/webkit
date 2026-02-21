@@ -1153,9 +1153,40 @@ In the proposal editor, when SEO audit data exists for the client:
 
 #### SEO Data in Proposal Settings
 
-The existing Proposal Settings page includes a PageSpeed integration toggle. SEO audit data follows the same pattern — it appears as an additional data source toggle in the proposal settings, not as a separate feature area. When enabled, the proposal editor shows the "SEO audit available" badge for clients with completed audits.
+The Proposal Settings page becomes the single location for all external data source toggles — granular, per-source control over what gets pulled into proposals.
 
-This keeps all external data sources (PageSpeed, SEO audit, future integrations) in a single settings location rather than scattered across the app.
+**Granular Data Source Toggles:**
+
+```
+Proposal Data Sources
+─────────────────────────────────────────────
+☑ SEO Audit
+  ├── ☑ Technical Summary (score + top issues)
+  ├── ☑ Content Issues (thin content, missing meta)
+  ├── ☑ Keyword Gaps (competitor opportunities)
+  ├── ☑ Backlink Profile (domain rank, referring domains)
+  └── ☑ Competitor Comparison (side-by-side metrics)
+
+☑ PageSpeed (standalone, from consultation)
+  ├── ☑ Performance Score
+  ├── ☑ Core Web Vitals
+  └── ☑ Key Recommendations
+
+☐ [Future data sources appear here]
+─────────────────────────────────────────────
+```
+
+Each toggle is independent — an agency can include the SEO keyword gaps and backlink profile but exclude the technical summary, for example. When a data source is enabled, the proposal editor shows a badge ("SEO audit available" / "PageSpeed data available") for clients that have the relevant data.
+
+**PageSpeed Location:**
+
+PageSpeed currently lives on the consultation page as a quick "run this check" action. With the dedicated SEO audit that includes technical performance data from DataForSEO, there's overlap. The approach:
+
+- **Keep** the quick PageSpeed check on the consultation page for convenience — it's lightweight, free (Google API), and useful even without a full audit
+- **SEO audit is the canonical source** for proposal data when both exist — it's more comprehensive (DataForSEO covers speed metrics + hundreds of other technical checks)
+- **Proposal settings lists both** as separate toggleable sources: "SEO Audit" (comprehensive, from content intelligence) and "PageSpeed standalone" (quick check, from consultation)
+- If a client has both, agencies choose which to include — no automatic merging, no confusion about which numbers are "correct"
+- Agencies who haven't run a full audit can still pull in PageSpeed data from the consultation
 
 ---
 
@@ -1445,9 +1476,16 @@ The SEO audit dashboard (`/content/[clientId]/audit`) presents data in a structu
 - Uses the existing DaisyUI component library — stats, cards, tables, badges, progress bars
 - Color-coded severity throughout (red = critical, amber = warning, green = passed, blue = opportunity)
 - Every data point links to the relevant page or action
-- Charts use Recharts (already available in the stack for React artifacts, but for Svelte use simple SVG-based gauges or DaisyUI progress bars)
+- Charts use simple SVG-based gauges or DaisyUI progress bars (no heavy chart library needed for most views)
 - Mobile-responsive: tables collapse to card layouts on mobile
 - All data loads from the existing `seo_audits`, `seo_issues`, `backlink_profiles`, `keyword_profiles`, `competitor_analyses` tables — no new data fetching needed
+- **Design reference:** The SOH SEO Visual Analysis component (`docs/plans/soh-seo-visual-analysis.tsx`) demonstrates the target UX pattern — collapsible sections with chevron toggles, circular score indicators with color-coded borders, per-page breakdown with issues + recommendations, "current value vs recommended" presentation, and color-coded heading hierarchy (H1/H2/H3 blocks). Apply the same patterns to the broader audit categories (technical, content, backlinks, keywords, competitors)
+
+#### Export to PDF
+
+The audit dashboard includes an "Export PDF Report" button that generates a standalone SEO health report via Gotenberg — not as part of a proposal, but as its own document. This serves as a sales tool: agencies hand a client a professional "here's your SEO health" report to demonstrate value and justify engagement.
+
+The PDF includes: overall score with category breakdown, top critical issues with recommended fixes, keyword opportunity summary, backlink profile highlights, and competitor positioning. Generated via `POST /api/content/audit/:auditId/report` (already in the API spec).
 
 ---
 
@@ -1756,7 +1794,7 @@ All questions from the initial V2 draft have been resolved:
 | 8 | Client overview UX | Option C — Smart Landing Page (overview dashboard) replaces redirect at `/content/[clientId]`. Shows feature status cards, AI context sources panel, recent activity timeline, and post-crawl wizard. |
 | 9 | Re-crawl / generation history | Crawl history from `content_crawl_jobs`, generation history from `content_copy` rows (no overwrite). Brand profiles versioned with `version` + `is_active`. Activity timeline on overview. |
 | 10 | AI context visibility | Overview dashboard shows which data sources are available per client (brand profile, crawled pages, SEO audit, consultation, questionnaire) with counts and missing-data prompts. |
-| 11 | SEO data in proposals | Appears as toggle in existing Proposal Settings page alongside PageSpeed. When enabled, proposal editor shows "SEO audit available" badge for clients with completed audits. |
+| 11 | SEO data in proposals | Granular per-source toggles in Proposal Settings page. SEO Audit has sub-toggles (technical, content, keywords, backlinks, competitors). PageSpeed standalone remains as separate source from consultation. Agencies choose which to include per-proposal. SEO audit is canonical when both exist. |
 | 12 | Audit data presentation | Section-by-section dashboard: main scores → issues (filterable) → keywords (rankings + gaps) → backlinks (profile + trends) → competitors (comparison matrix). DaisyUI components, color-coded severity, mobile-responsive. |
 
 ---
