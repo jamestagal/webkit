@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from "$app/state";
 	import { goto, invalidateAll } from "$app/navigation";
-	import { Plus, FileText, Trash2 } from "lucide-svelte";
+	import { Plus, FileText, Trash2, Download } from "lucide-svelte";
 	import { COPY_TYPES } from "$lib/api/content-copy.types";
 	import { deleteCopy } from "$lib/api/content-copy.remote";
 	import { formatDate } from "$lib/utils/formatting";
@@ -20,6 +20,14 @@
 	let showDeleteModal = $state(false);
 	let deletingItem: (typeof data.copies)[number] | null = $state(null);
 	let isDeleting = $state(false);
+
+	// Export modal state
+	let showExportModal = $state(false);
+	let exportFormat = $state<"markdown" | "txt" | "pdf">("markdown");
+	let exportScope = $state<"final_only" | "all" | "selected">("final_only");
+	let selectedCopyIds = $state<Set<string>>(new Set());
+	let isExporting = $state(false);
+	let exportError = $state("");
 
 	function formatCopyType(type: string): string {
 		return type
@@ -64,6 +72,90 @@
 			isDeleting = false;
 		}
 	}
+
+	// Export functions
+	function openExportModal() {
+		exportFormat = "markdown";
+		exportScope = "final_only";
+		selectedCopyIds = new Set();
+		exportError = "";
+		showExportModal = true;
+	}
+
+	function closeExportModal() {
+		showExportModal = false;
+		exportError = "";
+	}
+
+	function toggleCopySelection(copyId: string) {
+		const next = new Set(selectedCopyIds);
+		if (next.has(copyId)) {
+			next.delete(copyId);
+		} else {
+			next.add(copyId);
+		}
+		selectedCopyIds = next;
+	}
+
+	function formatExtension(format: string): string {
+		switch (format) {
+			case "pdf":
+				return ".pdf";
+			case "markdown":
+			case "txt":
+				return ".zip";
+			default:
+				return "";
+		}
+	}
+
+	let canExport = $derived(
+		exportScope !== "selected" || selectedCopyIds.size > 0,
+	);
+
+	async function handleExport() {
+		if (!canExport) return;
+		isExporting = true;
+		exportError = "";
+
+		try {
+			const res = await fetch(`/api/content/copy/export/${clientId}`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					format: exportFormat,
+					scope: exportScope,
+					selectedCopyIds: exportScope === "selected" ? [...selectedCopyIds] : undefined,
+				}),
+			});
+
+			if (!res.ok) {
+				const errBody = await res.json().catch(() => ({ error: "Export failed" }));
+				exportError = errBody.error || "Export failed";
+				return;
+			}
+
+			const blob = await res.blob();
+			const disposition = res.headers.get("Content-Disposition") || "";
+			const filenameMatch = disposition.match(/filename="?([^";\s]+)"?/);
+			const filename = filenameMatch?.[1] || `copy-export${formatExtension(exportFormat)}`;
+
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = filename;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+
+			closeExportModal();
+		} catch {
+			exportError = "An unexpected error occurred during export.";
+		} finally {
+			isExporting = false;
+		}
+	}
 </script>
 
 <div class="space-y-4">
@@ -73,13 +165,21 @@
 			<h2 class="text-xl font-semibold">Copy</h2>
 			<span class="badge badge-neutral badge-sm">{data.copies.length}</span>
 		</div>
-		<a
-			href="/{agencySlug}/content/{clientId}/copy/generate"
-			class="btn btn-primary btn-sm"
-		>
-			<Plus class="h-4 w-4" />
-			Generate New
-		</a>
+		<div class="flex items-center gap-2">
+			{#if data.copies.length > 0}
+				<button type="button" class="btn btn-outline btn-sm" onclick={openExportModal}>
+					<Download class="h-4 w-4" />
+					Export
+				</button>
+			{/if}
+			<a
+				href="/{agencySlug}/content/{clientId}/copy/generate"
+				class="btn btn-primary btn-sm"
+			>
+				<Plus class="h-4 w-4" />
+				Generate New
+			</a>
+		</div>
 	</div>
 
 	<!-- Filters -->
@@ -167,27 +267,39 @@
 		<div class="space-y-3 md:hidden">
 			{#each data.copies as copy (copy.id)}
 				<div class="card bg-base-100 border border-base-300 hover:border-base-content/20 transition-colors">
-					<a
-						href="/{agencySlug}/content/{clientId}/copy/{copy.id}"
-						class="card-body p-4"
-					>
-						<div class="flex items-start justify-between gap-2">
-							<div class="flex-1 min-w-0">
-								<div class="font-medium truncate">{copy.title}</div>
-								<div class="flex items-center gap-2 mt-1">
-									<span class="badge badge-sm badge-outline">{formatCopyType(copy.copy_type)}</span>
-									<span class="badge badge-sm {statusBadgeClass(copy.status)}">{copy.status}</span>
+					<div class="flex items-start">
+						{#if exportScope === "selected" && showExportModal}
+							<div class="flex items-center pl-4 pt-4">
+								<input
+									type="checkbox"
+									class="checkbox checkbox-sm"
+									checked={selectedCopyIds.has(copy.id)}
+									onchange={() => toggleCopySelection(copy.id)}
+								/>
+							</div>
+						{/if}
+						<a
+							href="/{agencySlug}/content/{clientId}/copy/{copy.id}"
+							class="card-body p-4 flex-1"
+						>
+							<div class="flex items-start justify-between gap-2">
+								<div class="flex-1 min-w-0">
+									<div class="font-medium truncate">{copy.title}</div>
+									<div class="flex items-center gap-2 mt-1">
+										<span class="badge badge-sm badge-outline">{formatCopyType(copy.copy_type)}</span>
+										<span class="badge badge-sm {statusBadgeClass(copy.status)}">{copy.status}</span>
+									</div>
 								</div>
 							</div>
-						</div>
-						<div class="flex items-center gap-4 mt-2 pt-2 border-t border-base-200 text-xs text-base-content/50">
-							<span>{copy.actual_word_count.toLocaleString()} words</span>
-							{#if copy.target_keyword}
-								<span class="truncate">{copy.target_keyword}</span>
-							{/if}
-							<span>{formatDate(copy.created_at, "short")}</span>
-						</div>
-					</a>
+							<div class="flex items-center gap-4 mt-2 pt-2 border-t border-base-200 text-xs text-base-content/50">
+								<span>{copy.actual_word_count.toLocaleString()} words</span>
+								{#if copy.target_keyword}
+									<span class="truncate">{copy.target_keyword}</span>
+								{/if}
+								<span>{formatDate(copy.created_at, "short")}</span>
+							</div>
+						</a>
+					</div>
 					{#if copy.status === "draft"}
 						<div class="px-4 pb-3">
 							<button
@@ -209,6 +321,9 @@
 			<table class="table">
 				<thead>
 					<tr class="bg-base-200">
+						{#if exportScope === "selected" && showExportModal}
+							<th class="w-10"></th>
+						{/if}
 						<th>Title</th>
 						<th>Type</th>
 						<th>Target Keyword</th>
@@ -224,6 +339,17 @@
 							class="hover:bg-base-50 cursor-pointer group"
 							onclick={() => goto(`/${agencySlug}/content/${clientId}/copy/${copy.id}`)}
 						>
+							{#if exportScope === "selected" && showExportModal}
+								<td>
+									<input
+										type="checkbox"
+										class="checkbox checkbox-sm"
+										checked={selectedCopyIds.has(copy.id)}
+										onchange={() => toggleCopySelection(copy.id)}
+										onclick={(e) => e.stopPropagation()}
+									/>
+								</td>
+							{/if}
 							<td>
 								<span class="text-sm font-medium truncate block max-w-xs">{copy.title}</span>
 							</td>
@@ -299,6 +425,151 @@
 					deletingItem = null;
 				}}>close</button
 			>
+		</form>
+	</dialog>
+{/if}
+
+<!-- Export Modal -->
+{#if showExportModal}
+	<dialog class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="font-bold text-lg">Export Copy</h3>
+
+			<div class="py-4 space-y-5">
+				<!-- Format selection -->
+				<div class="form-control">
+					<label class="label">
+						<span class="label-text font-medium">Format</span>
+					</label>
+					<div class="flex flex-col gap-2">
+						<label class="flex items-center gap-3 cursor-pointer">
+							<input
+								type="radio"
+								name="export-format"
+								class="radio radio-sm radio-primary"
+								value="markdown"
+								checked={exportFormat === "markdown"}
+								onchange={() => (exportFormat = "markdown")}
+							/>
+							<span class="text-sm">Markdown (.zip)</span>
+						</label>
+						<label class="flex items-center gap-3 cursor-pointer">
+							<input
+								type="radio"
+								name="export-format"
+								class="radio radio-sm radio-primary"
+								value="txt"
+								checked={exportFormat === "txt"}
+								onchange={() => (exportFormat = "txt")}
+							/>
+							<span class="text-sm">Plain Text (.zip)</span>
+						</label>
+						<label class="flex items-center gap-3 cursor-pointer">
+							<input
+								type="radio"
+								name="export-format"
+								class="radio radio-sm radio-primary"
+								value="pdf"
+								checked={exportFormat === "pdf"}
+								onchange={() => (exportFormat = "pdf")}
+							/>
+							<span class="text-sm">PDF</span>
+						</label>
+					</div>
+				</div>
+
+				<!-- Scope selection -->
+				<div class="form-control">
+					<label class="label">
+						<span class="label-text font-medium">Scope</span>
+					</label>
+					<div class="flex flex-col gap-2">
+						<label class="flex items-center gap-3 cursor-pointer">
+							<input
+								type="radio"
+								name="export-scope"
+								class="radio radio-sm radio-primary"
+								value="final_only"
+								checked={exportScope === "final_only"}
+								onchange={() => (exportScope = "final_only")}
+							/>
+							<span class="text-sm">Final Only</span>
+						</label>
+						<label class="flex items-center gap-3 cursor-pointer">
+							<input
+								type="radio"
+								name="export-scope"
+								class="radio radio-sm radio-primary"
+								value="all"
+								checked={exportScope === "all"}
+								onchange={() => (exportScope = "all")}
+							/>
+							<span class="text-sm">All</span>
+						</label>
+						<label class="flex items-center gap-3 cursor-pointer">
+							<input
+								type="radio"
+								name="export-scope"
+								class="radio radio-sm radio-primary"
+								value="selected"
+								checked={exportScope === "selected"}
+								onchange={() => (exportScope = "selected")}
+							/>
+							<span class="text-sm">Selected</span>
+						</label>
+					</div>
+				</div>
+
+				{#if exportScope === "selected"}
+					<div class="bg-base-200 rounded-lg p-3">
+						<p class="text-xs text-base-content/60 mb-2">
+							{selectedCopyIds.size} of {data.copies.length} selected.
+							Use the checkboxes in the list behind this modal to select copy items.
+						</p>
+						<div class="max-h-40 overflow-y-auto space-y-1">
+							{#each data.copies as copy (copy.id)}
+								<label class="flex items-center gap-2 cursor-pointer py-1">
+									<input
+										type="checkbox"
+										class="checkbox checkbox-xs"
+										checked={selectedCopyIds.has(copy.id)}
+										onchange={() => toggleCopySelection(copy.id)}
+									/>
+									<span class="text-xs truncate">{copy.title}</span>
+									<span class="badge badge-xs {statusBadgeClass(copy.status)}">{copy.status}</span>
+								</label>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				{#if exportError}
+					<div class="alert alert-error text-sm">
+						<span>{exportError}</span>
+					</div>
+				{/if}
+			</div>
+
+			<div class="modal-action">
+				<button
+					class="btn btn-ghost"
+					onclick={closeExportModal}
+					disabled={isExporting}
+				>
+					Cancel
+				</button>
+				<button
+					class="btn btn-primary"
+					onclick={handleExport}
+					disabled={isExporting || !canExport}
+				>
+					{#if isExporting}<span class="loading loading-spinner loading-sm"></span>{/if}
+					Export
+				</button>
+			</div>
+		</div>
+		<form method="dialog" class="modal-backdrop">
+			<button type="button" onclick={closeExportModal}>close</button>
 		</form>
 	</dialog>
 {/if}

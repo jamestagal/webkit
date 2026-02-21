@@ -32,6 +32,9 @@ type Config struct {
 	CFAccountID string
 	CFAPIToken  string
 
+	// Gotenberg (HTML→PDF conversion)
+	GotenbergURL string
+
 	// Timeouts
 	HTTPTimeout    time.Duration
 	ContextTimeout time.Duration
@@ -71,6 +74,7 @@ func LoadConfig() *Config {
 		AnthropicAPIKey:    os.Getenv("ANTHROPIC_API_KEY"),
 		CFAccountID:        os.Getenv("CF_ACCOUNT_ID"),
 		CFAPIToken:         os.Getenv("CF_API_TOKEN"),
+		GotenbergURL:       os.Getenv("GOTENBERG_URL"),
 
 		HTTPTimeout:    HTTPTimeout,
 		ContextTimeout: ContextTimeout,

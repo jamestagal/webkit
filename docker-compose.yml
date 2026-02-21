@@ -186,6 +186,7 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       CF_ACCOUNT_ID: ${CF_ACCOUNT_ID:-}
       CF_API_TOKEN: ${CF_API_TOKEN:-}
+      GOTENBERG_URL: http://gotenberg:3000
     depends_on:
       postgres:
         condition: service_healthy

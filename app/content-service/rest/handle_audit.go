@@ -3,12 +3,14 @@ package rest
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"content-service/internal/jobs"
+	"content-service/internal/report"
 
 	"github.com/google/uuid"
 )
@@ -576,7 +578,50 @@ func (h *Handler) handleGetAuditCompetitors(w http.ResponseWriter, r *http.Reque
 
 // handleGenerateAuditReport generates a PDF report for an audit.
 // POST /api/content/audit/{auditId}/report
-// Deferred: Gotenberg integration pending.
 func (h *Handler) handleGenerateAuditReport(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusNotImplemented, errorResponse("PDF report generation not yet implemented"))
+	if h.cfg.GotenbergURL == "" {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse("PDF generation is not configured"))
+		return
+	}
+
+	agencyID := getAgencyID(r)
+
+	auditID, err := uuid.Parse(r.PathValue("auditId"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse("invalid audit ID format"))
+		return
+	}
+
+	// Verify audit exists, belongs to agency, and is complete.
+	var auditStatus string
+	err = h.db.QueryRowContext(r.Context(),
+		"SELECT status FROM seo_audits WHERE id = $1 AND agency_id = $2",
+		auditID, agencyID,
+	).Scan(&auditStatus)
+	if err == sql.ErrNoRows {
+		writeJSON(w, http.StatusNotFound, errorResponse("audit not found"))
+		return
+	}
+	if err != nil {
+		slog.Error("Error checking audit for report", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse("internal error"))
+		return
+	}
+	if auditStatus != "complete" {
+		writeJSON(w, http.StatusBadRequest, errorResponse(fmt.Sprintf("audit is not complete (status: %s)", auditStatus)))
+		return
+	}
+
+	pdfBytes, err := report.GenerateAuditPDF(r.Context(), h.db, h.cfg.GotenbergURL, agencyID, auditID)
+	if err != nil {
+		slog.Error("Error generating audit PDF", "audit_id", auditID, "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse("failed to generate PDF report"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `attachment; filename="seo-audit-report.pdf"`)
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(pdfBytes)))
+	w.WriteHeader(http.StatusOK)
+	w.Write(pdfBytes)
 }

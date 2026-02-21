@@ -19,6 +19,8 @@ import {
 	contracts,
 	users,
 	agencyMemberships,
+	seoAudits,
+	seoIssues,
 } from "$lib/server/schema";
 import { getAgencyContext } from "$lib/server/agency";
 import { getOrCreateClient } from "$lib/api/clients.remote";
@@ -1292,3 +1294,60 @@ export const generateProposalWithAI = command(GenerateProposalAISchema, async (d
 		isPartial: result.isPartial,
 	};
 });
+
+// =============================================================================
+// SEO Audit Integration
+// =============================================================================
+
+/** Get SEO summary data for a client (for proposal integration) */
+export const getClientSEOSummary = query(
+	v.pipe(v.string(), v.uuid()),
+	async (clientId: string) => {
+		const context = await getAgencyContext();
+
+		// Get latest completed audit
+		const [audit] = await db
+			.select()
+			.from(seoAudits)
+			.where(
+				and(
+					eq(seoAudits.clientId, clientId),
+					eq(seoAudits.agencyId, context.agencyId),
+					eq(seoAudits.status, "completed"),
+				),
+			)
+			.orderBy(desc(seoAudits.completedAt))
+			.limit(1);
+
+		if (!audit) return null;
+
+		// Get top critical issues (limit 5)
+		const topIssues = await db
+			.select({
+				title: seoIssues.title,
+				description: seoIssues.description,
+				category: seoIssues.category,
+				severity: seoIssues.severity,
+				impact: seoIssues.impact,
+			})
+			.from(seoIssues)
+			.where(and(eq(seoIssues.auditId, audit.id), eq(seoIssues.severity, "critical")))
+			.limit(5);
+
+		return {
+			auditId: audit.id,
+			completedAt: audit.completedAt,
+			overallScore: audit.overallScore,
+			technicalScore: audit.technicalScore,
+			contentScore: audit.contentScore,
+			backlinkScore: audit.backlinkScore,
+			keywordScore: audit.keywordScore,
+			totalPages: audit.totalPages,
+			criticalIssues: audit.criticalIssues,
+			warningIssues: audit.warningIssues,
+			passedChecks: audit.passedChecks,
+			opportunities: audit.opportunities,
+			topIssues,
+		};
+	},
+);

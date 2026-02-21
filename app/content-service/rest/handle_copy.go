@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"content-service/internal/export"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -270,5 +271,33 @@ func (h *Handler) handleDeleteCopy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleExportCopy(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusNotImplemented, errorResponse("export not yet implemented"))
+	agencyID := getAgencyID(r)
+
+	clientID, err := uuid.Parse(r.PathValue("clientId"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse("invalid client ID format"))
+		return
+	}
+
+	var req export.ExportRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse("invalid request body"))
+		return
+	}
+
+	result, err := export.Export(r.Context(), h.db, h.cfg.GotenbergURL, agencyID, clientID, req)
+	if err != nil {
+		slog.Error("Error exporting copy", "error", err, "format", req.Format, "scope", req.Scope)
+		writeJSON(w, http.StatusInternalServerError, errorResponse("export failed: "+err.Error()))
+		return
+	}
+
+	w.Header().Set("Content-Type", result.ContentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, result.Filename))
+	w.Header().Set("Content-Length", strconv.Itoa(len(result.Data)))
+	w.WriteHeader(http.StatusOK)
+
+	if _, err := w.Write(result.Data); err != nil {
+		slog.Error("Error writing export response", "error", err)
+	}
 }

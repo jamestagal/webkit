@@ -37,10 +37,12 @@
 		Lightbulb,
 		CheckCircle2,
 		MoreHorizontal,
-		Sparkles
+		Sparkles,
+		Search
 	} from 'lucide-svelte';
 	import AutoResizeTextarea from '$lib/components/AutoResizeTextarea.svelte';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
+	import SEOSummarySection from '$lib/components/proposals/SEOSummarySection.svelte';
 	import { ALL_SECTIONS, SECTION_DISPLAY_NAMES } from '$lib/constants/proposal-sections';
 	import type { AIErrorCode } from '$lib/constants/ai-errors';
 	import type { AIProposalOutput } from '$lib/types/ai-proposal';
@@ -68,6 +70,7 @@
 	const proposal = $derived(data.proposal);
 	const packages = $derived(data.packages);
 	const addons = $derived(data.addons);
+	const seoSummary = $derived(data.seoSummary);
 
 	// Form state
 	let formData = $state({
@@ -162,7 +165,8 @@
 		{ id: 'nextsteps', label: 'Next Steps', icon: ListChecks },
 		{ id: 'closing', label: 'Closing', icon: MessageSquare },
 		...(hasClientFeedback ? [{ id: 'feedback', label: 'Feedback', icon: MessageSquare }] : []),
-		...(hasConsultationInsights ? [{ id: 'insights', label: 'Insights', icon: Lightbulb }] : [])
+		...(hasConsultationInsights ? [{ id: 'insights', label: 'Insights', icon: Lightbulb }] : []),
+		{ id: 'seo', label: 'SEO Audit', icon: Search }
 	];
 
 	// Helper for checklist items
@@ -1376,6 +1380,18 @@
 							{/if}
 						</div>
 					</section>
+				{/if}
+
+				<!-- SEO Audit Section -->
+				{#if activeSection === 'seo'}
+					<SEOSummarySection
+						seoSummary={seoSummary}
+						onInsert={(html) => {
+							formData.executiveSummary = (formData.executiveSummary || '') + '\n\n' + html;
+							toast.success('SEO summary added to Executive Summary');
+							activeSection = 'summary';
+						}}
+					/>
 				{/if}
 
 				<!-- Email History - Always visible -->
