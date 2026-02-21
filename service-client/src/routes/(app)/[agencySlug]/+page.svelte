@@ -20,7 +20,8 @@
 		Loader2,
 		AlertTriangle,
 		ScrollText,
-		UserPlus
+		UserPlus,
+		Brain
 	} from 'lucide-svelte';
 	import { loadDemoData, clearDemoData } from '$lib/api/demo.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
@@ -35,8 +36,28 @@
 	let showLoadModal = $state(false);
 	let showClearModal = $state(false);
 
-	// Core features for the dashboard
+	// Core features for the dashboard — ordered to match sidebar navigation
 	let coreFeatures = $derived([
+		{
+			title: 'Clients',
+			description: 'Central hub for managing client relationships. View all linked documents in one place.',
+			icon: Users,
+			color: FEATURES.clients.color,
+			viewHref: `/${data.agency.slug}/clients`,
+			createHref: `/${data.agency.slug}/clients?new=true`,
+			viewLabel: 'View All',
+			createLabel: 'New Client'
+		},
+		{
+			title: 'Content Intelligence',
+			description: 'Crawl websites, build brand profiles, run SEO audits, and generate AI-powered copy.',
+			icon: Brain,
+			color: FEATURES.content.color,
+			viewHref: `/${data.agency.slug}/content`,
+			createHref: `/${data.agency.slug}/content/import`,
+			viewLabel: 'View All',
+			createLabel: 'Import Site'
+		},
 		{
 			title: 'Consultations',
 			description: 'Discover client needs through guided discovery sessions. Capture pain points, goals, and requirements.',
@@ -78,24 +99,34 @@
 			createLabel: 'New Invoice'
 		},
 		{
+			title: 'Quotations',
+			description: 'Build detailed quotations with scope of work, pricing breakdowns, and client acceptance.',
+			icon: ClipboardCheck,
+			color: FEATURES.quotations.color,
+			viewHref: `/${data.agency.slug}/quotations`,
+			createHref: `/${data.agency.slug}/quotations/new`,
+			viewLabel: 'View All',
+			createLabel: 'New Quotation'
+		},
+		{
 			title: 'Forms',
 			description: 'Send customizable forms to clients. Collect project requirements and business details.',
-			icon: ClipboardCheck,
-			color: '#f59e0b', // Amber
+			icon: FEATURES.forms.icon,
+			color: FEATURES.forms.color,
 			viewHref: `/${data.agency.slug}/forms`,
 			createHref: `/${data.agency.slug}/forms/new`,
 			viewLabel: 'View All',
 			createLabel: 'New Form'
 		},
 		{
-			title: 'Clients',
-			description: 'Central hub for managing client relationships. View all linked documents in one place.',
-			icon: Users,
-			color: FEATURES.clients.color,
-			viewHref: `/${data.agency.slug}/clients`,
-			createHref: `/${data.agency.slug}/clients?new=true`,
+			title: 'Reports',
+			description: 'Track revenue, pipeline health, conversion rates, and team performance at a glance.',
+			icon: FEATURES.reports.icon,
+			color: FEATURES.reports.color,
+			viewHref: `/${data.agency.slug}/reports`,
+			createHref: `/${data.agency.slug}/reports`,
 			viewLabel: 'View All',
-			createLabel: 'New Client'
+			createLabel: 'View Reports'
 		}
 	]);
 
