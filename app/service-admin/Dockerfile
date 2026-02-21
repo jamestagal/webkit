@@ -21,6 +21,7 @@ COPY go.work go.work.sum ./
 COPY go.mod go.sum ./
 COPY ./service-admin/go.mod ./service-admin/go.sum ./service-admin/
 COPY ./service-core/go.mod ./service-core/go.sum ./service-core/
+COPY ./content-service/go.mod ./content-service/go.sum ./content-service/
 
 COPY ./service-admin/public.pem /public.pem
 
@@ -45,6 +46,7 @@ COPY go.work go.work.sum ./
 COPY go.mod go.sum ./
 COPY ./service-admin/go.mod ./service-admin/go.sum ./service-admin/
 COPY ./service-core/go.mod ./service-core/go.sum ./service-core/
+COPY ./content-service/go.mod ./content-service/go.sum ./content-service/
 RUN go work sync
 RUN cd service-admin && go mod download
 

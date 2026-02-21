@@ -1749,27 +1749,27 @@ Content Intelligence features justify tier increases:
 #### Wave 9: SvelteKit UI — Social + Overview + Import Improvements (3 parallel agents)
 
 **Agent A: Social Media UI**
-- [ ] `/content/[clientId]/social/+page.svelte` — social post list with platform filter + status filter
-- [ ] `/content/[clientId]/social/generate/+page.svelte` — generation form (platform picker, topic, goal, tone override)
-- [ ] Three-variation display with select → edit → copy-to-clipboard flow
-- [ ] `/content/[clientId]/social/[postId]/+page.svelte` — post editor with save/status toggle
-- [ ] `content-social.remote.ts` — remote functions (generateSocial, getSocialPosts)
-- [ ] Add "Social" tab to `[clientId]/+layout.svelte` navigation
+- [x] `/content/[clientId]/social/+page.svelte` — social post list with platform filter + status filter
+- [x] `/content/[clientId]/social/generate/+page.svelte` — generation form (platform picker, topic, goal, tone override)
+- [x] Three-variation display with select → edit → copy-to-clipboard flow
+- [x] `/content/[clientId]/social/[postId]/+page.svelte` — post editor with save/status toggle
+- [x] `content-social.remote.ts` — remote functions (generateSocial, getSocialPosts)
+- [x] Add "Social" tab to `[clientId]/+layout.svelte` navigation
 
 **Agent B: Client Overview Dashboard**
-- [ ] Replace `content/[clientId]/+page.svelte` redirect with overview dashboard
-- [ ] Feature status cards (Pages, Brand, Audit, Copy, Social) — clickable, derived from overview endpoint data
-- [ ] AI Context Sources panel — checklist of available/missing data sources with action links
-- [ ] Recent Activity timeline — last 20 items with relative timestamps
-- [ ] Post-crawl wizard banner (dismissible, localStorage state, auto-detects step completion)
-- [ ] `content-overview.remote.ts` — `getClientContentOverview(clientId)` remote function
-- [ ] Update `[clientId]/+page.server.ts` to load overview data
+- [x] Replace `content/[clientId]/+page.svelte` redirect with overview dashboard
+- [x] Feature status cards (Pages, Brand, Audit, Copy, Social) — clickable, derived from overview endpoint data
+- [x] AI Context Sources panel — checklist of available/missing data sources with action links
+- [x] Recent Activity timeline — last 20 items with relative timestamps
+- [x] Post-crawl wizard banner (dismissible, localStorage state, auto-detects step completion)
+- [x] `content-overview.remote.ts` — `getClientContentOverview(clientId)` remote function
+- [x] Update `[clientId]/+page.server.ts` to load overview data
 
 **Agent C: Import Page UX Improvements**
-- [ ] Auto-populate URL field when selecting existing client with a `website` value
+- [x] Auto-populate URL field when selecting existing client with a `website` value
   - Watch `selectedClientId` changes via `$effect`, lookup client from list, set URL if non-empty
   - User can still override (different domain, subdomain, etc.)
-- [ ] Inline client creation — "Quick Create" option when client doesn't exist
+- [x] Inline client creation — "Quick Create" option when client doesn't exist
   - Minimal form: business name + website URL (both required)
   - Creates client via existing `createClient` remote function
   - Auto-selects the new client and populates URL field

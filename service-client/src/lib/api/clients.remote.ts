@@ -30,6 +30,7 @@ const CreateClientSchema = v.object({
 	phone: v.optional(v.nullable(v.pipe(v.string(), v.maxLength(50)))),
 	contactName: v.optional(v.nullable(v.pipe(v.string(), v.maxLength(255)))),
 	notes: v.optional(v.nullable(v.string())),
+	website: v.optional(v.string()),
 });
 
 const UpdateClientSchema = v.object({
@@ -39,6 +40,7 @@ const UpdateClientSchema = v.object({
 	phone: v.optional(v.nullable(v.pipe(v.string(), v.maxLength(50)))),
 	contactName: v.optional(v.nullable(v.pipe(v.string(), v.maxLength(255)))),
 	notes: v.optional(v.nullable(v.string())),
+	website: v.optional(v.string()),
 });
 
 const ClientStatusSchema = v.union([v.literal("active"), v.literal("archived")]);
@@ -209,6 +211,7 @@ export const createClient = command(CreateClientSchema, async (data) => {
 			phone: data.phone || null,
 			contactName: data.contactName || null,
 			notes: data.notes || null,
+			website: data.website || "",
 		})
 		.returning();
 
@@ -302,6 +305,7 @@ export const updateClient = command(UpdateClientSchema, async (data) => {
 	if (data.phone !== undefined) updates["phone"] = data.phone;
 	if (data.contactName !== undefined) updates["contactName"] = data.contactName;
 	if (data.notes !== undefined) updates["notes"] = data.notes;
+	if (data.website !== undefined) updates["website"] = data.website;
 
 	const [client] = await db
 		.update(clients)

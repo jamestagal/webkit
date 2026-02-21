@@ -519,6 +519,7 @@ export const clients = pgTable(
 		phone: varchar("phone", { length: 50 }),
 		contactName: text("contact_name"),
 		notes: text("notes"),
+		website: text("website").notNull().default(""),
 
 		// Status: 'active' | 'archived'
 		status: varchar("status", { length: 20 }).notNull().default("active"),

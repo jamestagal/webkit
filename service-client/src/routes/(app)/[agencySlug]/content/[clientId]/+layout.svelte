@@ -12,6 +12,16 @@
 
 	let tabs = $derived([
 		{
+			label: "Overview",
+			href: `/${agencySlug}/content/${clientId}`,
+			active:
+				!current.includes("/pages") &&
+				!current.includes("/brand") &&
+				!current.includes("/audit") &&
+				!current.includes("/copy") &&
+				!current.includes("/social"),
+		},
+		{
 			label: "Pages",
 			href: `/${agencySlug}/content/${clientId}/pages`,
 			active: current.includes("/pages"),
@@ -30,6 +40,11 @@
 			label: "Copy",
 			href: `/${agencySlug}/content/${clientId}/copy`,
 			active: current.includes("/copy"),
+		},
+		{
+			label: "Social",
+			href: `/${agencySlug}/content/${clientId}/social`,
+			active: current.includes("/social"),
 		},
 	]);
 </script>

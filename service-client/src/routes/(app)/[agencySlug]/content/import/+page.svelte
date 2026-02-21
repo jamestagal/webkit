@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { page } from "$app/state";
+	import { invalidateAll } from "$app/navigation";
 	import { FEATURES } from "$lib/config/features";
 	import { Brain, ArrowLeft, Loader2, Globe, X, CheckCircle, AlertTriangle, XCircle } from "lucide-svelte";
 	import { startCrawl, getCrawlStatus, cancelCrawl } from "$lib/api/content.remote";
+	import { createClient } from "$lib/api/clients.remote";
 	import type { CrawlJob } from "$lib/api/content.types";
 	import type { PageData } from "./$types";
 
@@ -17,6 +19,48 @@
 	let crawlJob = $state<CrawlJob | null>(null);
 	let isStarting = $state(false);
 	let isCancelling = $state(false);
+
+	// Quick Create client state
+	let showQuickCreate = $state(false);
+	let qcBusinessName = $state("");
+	let qcEmail = $state("");
+	let qcWebsite = $state("");
+	let isCreatingClient = $state(false);
+	let createClientError = $state("");
+
+	// Auto-populate URL from client's saved website
+	$effect(() => {
+		if (!selectedClientId) return;
+		const client = data.clients.find((c: any) => c.id === selectedClientId);
+		if (client?.website && !sourceUrl) {
+			sourceUrl = client.website;
+		}
+	});
+
+	async function handleQuickCreateClient() {
+		if (!qcBusinessName || !qcEmail) return;
+		isCreatingClient = true;
+		createClientError = "";
+		try {
+			const client = await createClient({
+				businessName: qcBusinessName,
+				email: qcEmail,
+				website: qcWebsite || undefined,
+			});
+			if (!client) throw new Error("Failed to create client.");
+			selectedClientId = client.id;
+			if (qcWebsite) sourceUrl = qcWebsite;
+			showQuickCreate = false;
+			qcBusinessName = "";
+			qcEmail = "";
+			qcWebsite = "";
+			await invalidateAll();
+		} catch (err: unknown) {
+			createClientError = err instanceof Error ? err.message : "Failed to create client.";
+		} finally {
+			isCreatingClient = false;
+		}
+	}
 
 	// Derived terminal status check
 	let isTerminal = $derived(
@@ -147,6 +191,72 @@
 									<option value={client.id}>{client.businessName}</option>
 								{/each}
 							</select>
+							<!-- Quick Create toggle -->
+							<div class="mt-2">
+								{#if !showQuickCreate}
+									<button
+										type="button"
+										class="btn btn-ghost btn-xs text-primary"
+										onclick={() => (showQuickCreate = true)}
+									>
+										Client not listed? Create one →
+									</button>
+								{:else}
+									<div class="card bg-base-200 border border-base-300 mt-2">
+										<div class="card-body p-4 space-y-3">
+											<div class="flex items-center justify-between">
+												<span class="font-medium text-sm">Quick Create Client</span>
+												<button
+													type="button"
+													class="btn btn-ghost btn-xs btn-circle"
+													onclick={() => (showQuickCreate = false)}
+												>
+													<X class="h-3 w-3" />
+												</button>
+											</div>
+
+											{#if createClientError}
+												<div class="alert alert-error text-sm py-2">
+													<span>{createClientError}</span>
+												</div>
+											{/if}
+
+											<input
+												type="text"
+												class="input input-bordered input-sm w-full"
+												placeholder="Business name *"
+												bind:value={qcBusinessName}
+												disabled={isCreatingClient}
+											/>
+											<input
+												type="email"
+												class="input input-bordered input-sm w-full"
+												placeholder="Email *"
+												bind:value={qcEmail}
+												disabled={isCreatingClient}
+											/>
+											<input
+												type="url"
+												class="input input-bordered input-sm w-full"
+												placeholder="Website URL"
+												bind:value={qcWebsite}
+												disabled={isCreatingClient}
+											/>
+											<button
+												type="button"
+												class="btn btn-primary btn-sm w-full"
+												onclick={handleQuickCreateClient}
+												disabled={isCreatingClient || !qcBusinessName || !qcEmail}
+											>
+												{#if isCreatingClient}
+													<span class="loading loading-spinner loading-sm"></span>
+												{/if}
+												Create & Select
+											</button>
+										</div>
+									</div>
+								{/if}
+							</div>
 						</div>
 
 						<!-- Website URL -->
