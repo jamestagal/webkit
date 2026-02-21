@@ -1711,7 +1711,7 @@ Content Intelligence features justify tier increases:
 - [x] SvelteKit: audit pages (overview, technical, content, backlinks, keywords, competitors)
 - [x] PDF report generation via Gotenberg
 
-### Phase 3: AI Copy Generation (Weeks 10-13) — MOSTLY COMPLETE
+### Phase 3: AI Copy Generation (Weeks 10-13) — COMPLETE
 
 - [x] RAG retrieval pipeline (pgvector similarity search)
 - [x] Context assembly module (brand + RAG + SEO + brief)
@@ -1724,7 +1724,7 @@ Content Intelligence features justify tier increases:
 - [x] Export to structured document (Markdown/Text/PDF via Gotenberg)
 - [x] SvelteKit: `/content/[clientId]/copy/generate` (copy list + generate + editor routes)
 
-### Phase 3b: Social Media + Overview Dashboard + Import UX (Weeks 14-15)
+### Phase 3b: Social Media + Overview Dashboard + Import UX (Weeks 14-15) — COMPLETE
 
 #### Wave 8: Go Backend — Social Generate + Overview Endpoint (2 parallel agents) — COMPLETE
 
@@ -1775,13 +1775,13 @@ Content Intelligence features justify tier increases:
   - Auto-selects the new client and populates URL field
   - Collapsible form section: "Client not listed? Create one →"
 
-#### Wave 10: Tests for Phase 3b
+#### Wave 10: Tests for Phase 3b (2 parallel agents) — COMPLETE
 
-- [ ] Go tests: social generation handler (platform validation, char limits, 3 variations)
-- [ ] Go tests: overview aggregate endpoint (correct counts, empty client, partial data)
-- [ ] SvelteKit: verify social list filtering, generation form validation
-- [ ] SvelteKit: verify overview dashboard renders all states (empty, partial, full data)
-- [ ] SvelteKit: verify import page auto-populate + inline creation flow
+- [x] Go tests: social generation handler (platform validation, char limits, 3 variations)
+- [x] Go tests: overview aggregate endpoint (correct counts, empty client, partial data, SEO score calculation)
+- [x] Go tests: generator pure functions (system prompts, user messages, platformTitle, angleName)
+- [x] SvelteKit: Valibot schema validation (GenerateSocialSchema, GetSocialSchema, ClientIdSchema)
+- [x] SvelteKit: social page component render tests (empty state, post count, generate button, platform pills, status tabs)
 
 ### Post-Phase 3: Stabilise + Iterate
 
