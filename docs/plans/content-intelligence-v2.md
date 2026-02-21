@@ -1675,67 +1675,110 @@ Content Intelligence features justify tier increases:
 
 ## Development Roadmap (Revised)
 
-### Phase 1: Foundation + Crawl (Weeks 1-5)
+### Phase 1: Foundation + Crawl (Weeks 1-5) — COMPLETE
 
-- [ ] `content-service` Go microservice scaffolding
-- [ ] Database migration (all tables above)
-- [ ] Colly integration with CF Browser Rendering custom transport
-- [ ] CF Browser Rendering `/markdown` + `/links` client (`pkg/cfbrowser/`)
-- [ ] Jina Reader fallback client (`pkg/jina/`)
-- [ ] Sitemap.xml parser
-- [ ] Three-layer page classification pipeline
-- [ ] Content chunking (400-600 tokens, 15% overlap)
-- [ ] Workers AI embedding pipeline (pgvector)
-- [ ] NATS job queue for crawl pipeline
-- [ ] Brand voice profile generation
-  - [ ] Path A: from scraped content
-  - [ ] Path B: from questionnaire + consultation data
-  - [ ] Hybrid: merged inputs
-- [ ] Questionnaire extensions (optional content strategy fields)
-- [ ] R2 storage for markdown snapshots
-- [ ] SvelteKit: `/content/import` (both paths)
-- [ ] SvelteKit: `/content/[clientId]/pages`
-- [ ] SvelteKit: `/content/[clientId]/brand` profile viewer/editor
+- [x] `content-service` Go microservice scaffolding
+- [x] Database migration (all tables above)
+- [x] Colly integration with CF Browser Rendering custom transport
+- [x] CF Browser Rendering `/markdown` + `/links` client (`pkg/cfbrowser/`)
+- [x] Jina Reader fallback client (`pkg/jina/`)
+- [x] Sitemap.xml parser
+- [x] Three-layer page classification pipeline
+- [x] Content chunking (400-600 tokens, 15% overlap)
+- [x] Workers AI embedding pipeline (pgvector)
+- [x] NATS job queue for crawl pipeline
+- [x] Brand voice profile generation
+  - [x] Path A: from scraped content
+  - [x] Path B: from questionnaire + consultation data
+  - [x] Hybrid: merged inputs
+- [ ] Questionnaire extensions (optional content strategy fields) — deferred, system works without them
+- [x] ~~R2 storage for markdown snapshots~~ — stored in `content_pages.markdown_content` column instead (simpler)
+- [x] SvelteKit: `/content/import` (both paths)
+- [x] SvelteKit: `/content/[clientId]/pages`
+- [x] SvelteKit: `/content/[clientId]/brand` profile viewer/editor
 
-### Phase 2: SEO Audit (Weeks 6-9)
+### Phase 2: SEO Audit (Weeks 6-9) — COMPLETE
 
-- [ ] DataForSEO Go client (`pkg/dataforseo/`)
-- [ ] On-Page API integration
-- [ ] Backlinks API integration
-- [ ] DataForSEO Labs integration (keywords + gaps)
-- [ ] Content SEO checks (from scraped content — no API needed)
-- [ ] Competitor crawl pipeline (crawl competitors, analyse themes)
-- [ ] Competitor comparison (DataForSEO + content analysis)
-- [ ] SEO score calculation engine
-- [ ] NATS job queue for audit pipeline
-- [ ] SvelteKit: audit pages (overview, technical, content, backlinks, keywords, competitors)
-- [ ] PDF report generation via Gotenberg
+- [x] DataForSEO Go client (`pkg/dataforseo/`)
+- [x] On-Page API integration
+- [x] Backlinks API integration
+- [x] DataForSEO Labs integration (keywords + gaps)
+- [x] Content SEO checks (from scraped content — no API needed)
+- [x] Competitor crawl pipeline (crawl competitors, analyse themes)
+- [x] Competitor comparison (DataForSEO + content analysis)
+- [x] SEO score calculation engine
+- [x] NATS job queue for audit pipeline
+- [x] SvelteKit: audit pages (overview, technical, content, backlinks, keywords, competitors)
+- [x] PDF report generation via Gotenberg
 
-### Phase 3: AI Copy Generation (Weeks 10-13)
+### Phase 3: AI Copy Generation (Weeks 10-13) — MOSTLY COMPLETE
 
-- [ ] RAG retrieval pipeline (pgvector similarity search)
-- [ ] Context assembly module (brand + RAG + SEO + brief)
-- [ ] Copy generation prompts (all types in capability matrix)
-- [ ] Path A: page-by-page copy audit + rewrite
-- [ ] Path B: site structure generation + new page copy
-- [ ] Side-by-side diff view (Path A)
-- [ ] In-place editing + status tracking
-- [ ] Bulk generation
-- [ ] Export to structured document (Word/PDF via Gotenberg)
-- [ ] SvelteKit: `/content/[clientId]/copy/audit` and `/copy/generate`
+- [x] RAG retrieval pipeline (pgvector similarity search)
+- [x] Context assembly module (brand + RAG + SEO + brief)
+- [x] Copy generation prompts (all types in capability matrix)
+- [x] Path A: page-by-page copy audit + rewrite
+- [x] Path B: site structure generation + new page copy
+- [ ] Side-by-side diff view (Path A) — deferred to post-Phase 3
+- [x] In-place editing + status tracking
+- [ ] Bulk generation — deferred to post-Phase 3
+- [x] Export to structured document (Markdown/Text/PDF via Gotenberg)
+- [x] SvelteKit: `/content/[clientId]/copy/generate` (copy list + generate + editor routes)
 
-### Phase 3b: Social Media + Overview Dashboard (Weeks 14-15)
+### Phase 3b: Social Media + Overview Dashboard + Import UX (Weeks 14-15)
 
-- [ ] Social media generate endpoint (`/api/content/generate/social`)
+#### Wave 8: Go Backend — Social Generate + Overview Endpoint (2 parallel agents)
+
+**Agent A: Social Media Generation Endpoint**
+- [ ] `POST /api/content/generate/social` handler in `handle_generate.go`
 - [ ] Platform-specific prompt templates (Facebook, Instagram, LinkedIn, X)
-- [ ] Three-variation generation pattern
-- [ ] SvelteKit: `/content/[clientId]/social` list + generate + editor
-- [ ] Client Overview Dashboard replacing redirect at `/content/[clientId]`
-- [ ] Feature status cards (pages, brand, audit, copy, social)
-- [ ] AI Context Sources panel (data availability + missing prompts)
-- [ ] Recent Activity timeline (aggregated from all content tables)
-- [ ] Post-crawl wizard banner (dismissible, localStorage state)
-- [ ] Overview aggregate endpoint (`/api/content/overview/:clientId`)
+- [ ] Three-variation generation pattern (informative, engaging, story-driven)
+- [ ] Character limit enforcement per platform (280/500/1300/2200)
+- [ ] Reuse existing 4-tier context assembly from `generator/context.go`
+- [ ] `GET /api/content/social/:clientId` — list social posts (filter content_copy by copy_type=social_post)
+- [ ] NATS subject `content.generate.social` for async generation
+
+**Agent B: Overview Aggregate Endpoint**
+- [ ] `GET /api/content/overview/:clientId` — single endpoint returning all status counts
+- [ ] Aggregate: latest crawl job status + page count, active brand profile version + source_type, latest audit score + status + issue count, copy count by status (excluding social), social post count by status
+- [ ] Include recent activity feed (last 20 items from crawl_jobs, brand_profiles, seo_audits, content_copy ordered by created_at)
+- [ ] Include AI context sources availability (brand profile, pages, audit, consultation, questionnaire)
+
+#### Wave 9: SvelteKit UI — Social + Overview + Import Improvements (3 parallel agents)
+
+**Agent A: Social Media UI**
+- [ ] `/content/[clientId]/social/+page.svelte` — social post list with platform filter + status filter
+- [ ] `/content/[clientId]/social/generate/+page.svelte` — generation form (platform picker, topic, goal, tone override)
+- [ ] Three-variation display with select → edit → copy-to-clipboard flow
+- [ ] `/content/[clientId]/social/[postId]/+page.svelte` — post editor with save/status toggle
+- [ ] `content-social.remote.ts` — remote functions (generateSocial, getSocialPosts)
+- [ ] Add "Social" tab to `[clientId]/+layout.svelte` navigation
+
+**Agent B: Client Overview Dashboard**
+- [ ] Replace `content/[clientId]/+page.svelte` redirect with overview dashboard
+- [ ] Feature status cards (Pages, Brand, Audit, Copy, Social) — clickable, derived from overview endpoint data
+- [ ] AI Context Sources panel — checklist of available/missing data sources with action links
+- [ ] Recent Activity timeline — last 20 items with relative timestamps
+- [ ] Post-crawl wizard banner (dismissible, localStorage state, auto-detects step completion)
+- [ ] `content-overview.remote.ts` — `getClientContentOverview(clientId)` remote function
+- [ ] Update `[clientId]/+page.server.ts` to load overview data
+
+**Agent C: Import Page UX Improvements**
+- [ ] Auto-populate URL field when selecting existing client with a `website` value
+  - Watch `selectedClientId` changes via `$effect`, lookup client from list, set URL if non-empty
+  - User can still override (different domain, subdomain, etc.)
+- [ ] Inline client creation — "Quick Create" option when client doesn't exist
+  - Minimal form: business name + website URL (both required)
+  - Creates client via existing `createClient` remote function
+  - Auto-selects the new client and populates URL field
+  - Collapsible form section: "Client not listed? Create one →"
+
+#### Wave 10: Tests for Phase 3b
+
+- [ ] Go tests: social generation handler (platform validation, char limits, 3 variations)
+- [ ] Go tests: overview aggregate endpoint (correct counts, empty client, partial data)
+- [ ] SvelteKit: verify social list filtering, generation form validation
+- [ ] SvelteKit: verify overview dashboard renders all states (empty, partial, full data)
+- [ ] SvelteKit: verify import page auto-populate + inline creation flow
 
 ### Post-Phase 3: Stabilise + Iterate
 
@@ -1809,11 +1852,11 @@ All 5 foundation pieces built and committed (`11d3db9` on `feature/content-intel
 - **Agent D**: `app/pkg/dataforseo/` Go client (on-page, backlinks, keywords, labs)
 - **Agent E**: `workers/browser-rendering/` Cloudflare Worker (Puppeteer)
 
-### Follow-ups before Wave 2
+### Follow-ups before Wave 2 — ALL COMPLETE
 
-- [ ] Add `content` service block to `docker-compose.production.yml` before deploying
-- [ ] Add unit tests for `app/pkg/cfbrowser/` and `app/pkg/dataforseo/` packages
-- [ ] Generate `public.pem` via setup script for JWT validation in content-service
+- [x] Add `content` service block to `docker-compose.production.yml` before deploying
+- [x] Add unit tests for `app/pkg/cfbrowser/` and `app/pkg/dataforseo/` packages (Wave 7)
+- [x] Generate `public.pem` via setup script for JWT validation in content-service (`scripts/run_keys.sh` line 11)
 
 ---
 
