@@ -70,7 +70,8 @@
 <SvelteSeo
 	title="Invoice #{invoice.invoiceNumber} — {agency.name}"
 	description="Invoice from {agency.name}"
-	robots="noindex, nofollow"
+	noindex={true}
+	nofollow={true}
 />
 
 <svelte:head>

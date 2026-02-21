@@ -29,7 +29,8 @@
 <SvelteSeo
 	title="Log In — Webkit"
 	description="Sign in to your Webkit agency account. Manage consultations, proposals, quotations, contracts and invoices."
-	robots="noindex, nofollow"
+	noindex={true}
+	nofollow={true}
 />
 
 {#if loading}

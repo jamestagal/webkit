@@ -164,7 +164,8 @@
 			? proposal.executiveSummary.substring(0, 160)
 			: `Proposal from ${agency?.name}`
 	}}
-	robots="noindex, nofollow"
+	noindex={true}
+	nofollow={true}
 />
 
 <svelte:head>

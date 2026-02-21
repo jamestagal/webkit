@@ -86,7 +86,8 @@
 <SvelteSeo
 	title="Quotation — {agency?.name || 'Quotation'}"
 	description="Quotation from {agency?.name || 'Agency'}"
-	robots="noindex, nofollow"
+	noindex={true}
+	nofollow={true}
 />
 
 <svelte:head>
