@@ -8,7 +8,7 @@ Sentry.init({
 	replaysSessionSampleRate: 0,
 	replaysOnErrorSampleRate: 0,
 	integrations: [Sentry.browserTracingIntegration()],
-	beforeSend(event, hint) {
+	beforeSend(event, _hint) {
 		// Filter out auth-related fetch errors that occur during session expiry/redirects
 		// These happen when SvelteKit client-side navigation tries to fetch __data.json
 		// but gets redirected to login (returns HTML instead of JSON)

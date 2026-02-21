@@ -6,7 +6,6 @@ import { building } from "$app/environment";
 import { verifyJWT } from "./lib/server/jwt";
 import { refresh, TokenRefreshError } from "./lib/server/refresh";
 import type { Session, User } from "./lib/types";
-import { env } from "$env/dynamic/private";
 
 /**
  * Check if this is a remote function (RPC) request.
