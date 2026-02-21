@@ -1726,22 +1726,25 @@ Content Intelligence features justify tier increases:
 
 ### Phase 3b: Social Media + Overview Dashboard + Import UX (Weeks 14-15)
 
-#### Wave 8: Go Backend — Social Generate + Overview Endpoint (2 parallel agents)
+#### Wave 8: Go Backend — Social Generate + Overview Endpoint (2 parallel agents) — COMPLETE
 
 **Agent A: Social Media Generation Endpoint**
-- [ ] `POST /api/content/generate/social` handler in `handle_generate.go`
-- [ ] Platform-specific prompt templates (Facebook, Instagram, LinkedIn, X)
-- [ ] Three-variation generation pattern (informative, engaging, story-driven)
-- [ ] Character limit enforcement per platform (280/500/1300/2200)
-- [ ] Reuse existing 4-tier context assembly from `generator/context.go`
-- [ ] `GET /api/content/social/:clientId` — list social posts (filter content_copy by copy_type=social_post)
-- [ ] NATS subject `content.generate.social` for async generation
+- [x] `POST /api/content/generate/social` — sync handler in `rest/handle_social.go` + `generator/social.go`
+- [x] Platform-specific prompt templates (Facebook, Instagram, LinkedIn, X)
+- [x] Three-variation generation pattern (informative, engaging, story-driven)
+- [x] Character limit enforcement per platform (280/500/1300/2200)
+- [x] Reuse existing 4-tier context assembly from `generator/context.go`
+- [x] `GET /api/content/social/:clientId` — list social posts with `?platform=` and `?page_id=` filters
+- [x] ~~NATS subject~~ Synchronous endpoint (Haiku ~2-3s, no async needed)
+- [x] Migration `022_add_social_post_copy_type.sql` — adds `social_post` to CHECK constraint
+- [x] Request fields: topic (required), post_goal (optional), tone_override (optional), page_id (optional)
+- [x] Hashtags + all config persisted in `generation_config` JSONB
 
 **Agent B: Overview Aggregate Endpoint**
-- [ ] `GET /api/content/overview/:clientId` — single endpoint returning all status counts
-- [ ] Aggregate: latest crawl job status + page count, active brand profile version + source_type, latest audit score + status + issue count, copy count by status (excluding social), social post count by status
-- [ ] Include recent activity feed (last 20 items from crawl_jobs, brand_profiles, seo_audits, content_copy ordered by created_at)
-- [ ] Include AI context sources availability (brand profile, pages, audit, consultation, questionnaire)
+- [x] `GET /api/content/overview/:clientId` — single endpoint in `rest/handle_overview.go`
+- [x] Aggregate: crawl stats (page count + last crawled + job status), SEO issue counts by severity + calculated score, copy counts by type/status, brand profile status, questionnaire completion
+- [x] Recent activity feed (last 20 items from content_copy, content_pages, brand_profiles sorted by recency)
+- [x] 6 parallel goroutines via sync.WaitGroup, partial data on individual query failure
 
 #### Wave 9: SvelteKit UI — Social + Overview + Import Improvements (3 parallel agents)
 

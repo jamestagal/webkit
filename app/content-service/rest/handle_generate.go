@@ -51,6 +51,7 @@ var validCopyTypes = map[string]bool{
 	"product_description": true,
 	"cta":                 true,
 	"site_structure":      true,
+	"social_post":        true,
 }
 
 func (h *Handler) handleGenerateCopy(w http.ResponseWriter, r *http.Request) {

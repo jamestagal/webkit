@@ -37,12 +37,19 @@ func Run(h *Handler) *http.Server {
 	mux.HandleFunc("POST /api/content/generate/meta", h.authMiddleware(h.handleGenerateMeta))
 	mux.HandleFunc("POST /api/content/generate/structure", h.authMiddleware(h.handleGenerateStructure))
 	mux.HandleFunc("POST /api/content/generate/bulk", h.authMiddleware(h.handleGenerateBulk))
+	mux.HandleFunc("POST /api/content/generate/social", h.authMiddleware(h.handleGenerateSocial))
+
+	// Social media routes
+	mux.HandleFunc("GET /api/content/social/{clientId}", h.authMiddleware(h.handleGetSocialPosts))
 
 	// Copy management routes
 	mux.HandleFunc("GET /api/content/copy/{clientId}", h.authMiddleware(h.handleGetCopyVersions))
 	mux.HandleFunc("PATCH /api/content/copy/{copyId}", h.authMiddleware(h.handleUpdateCopy))
 	mux.HandleFunc("DELETE /api/content/copy/{copyId}", h.authMiddleware(h.handleDeleteCopy))
 	mux.HandleFunc("POST /api/content/copy/export/{clientId}", h.authMiddleware(h.handleExportCopy))
+
+	// Overview routes
+	mux.HandleFunc("GET /api/content/overview/{clientId}", h.authMiddleware(h.handleGetOverview))
 
 	// Health checks
 	mux.HandleFunc("GET /health", h.handleHealth)
