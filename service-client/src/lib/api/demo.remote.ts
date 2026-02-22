@@ -21,6 +21,13 @@ import {
 	agencyPackages,
 	agencyAddons,
 	clients,
+	contentCrawlJobs,
+	contentPages,
+	contentChunks,
+	brandProfiles,
+	seoAudits,
+	seoIssues,
+	contentCopy,
 } from "$lib/server/schema";
 import { getAgencyContext } from "$lib/server/agency";
 import { eq, and, inArray, like, desc } from "drizzle-orm";
@@ -32,6 +39,14 @@ import {
 	DEMO_INVOICE,
 	DEMO_QUOTATION,
 	DEMO_QUOTATION_SECTIONS,
+	DEMO_CRAWL_JOB,
+	DEMO_CONTENT_PAGES,
+	generateChunksForPage,
+	DEMO_BRAND_PROFILE,
+	DEMO_SEO_AUDIT,
+	DEMO_SEO_ISSUES,
+	DEMO_WEB_COPY,
+	DEMO_SOCIAL_POSTS,
 } from "./demo-data";
 
 // =============================================================================
@@ -52,6 +67,21 @@ export const getDemoDataStatus = query(async () => {
 		.limit(1);
 
 	return { hasDemoData: !!demo };
+});
+
+/**
+ * Get the demo client ID for the current agency (for content intelligence explore link).
+ */
+export const getDemoClientId = query(async () => {
+	const { agencyId } = await getAgencyContext();
+
+	const [demo] = await db
+		.select({ id: clients.id })
+		.from(clients)
+		.where(and(eq(clients.agencyId, agencyId), like(clients.businessName, "Demo:%")))
+		.limit(1);
+
+	return demo?.id ?? null;
 });
 
 // =============================================================================
@@ -100,6 +130,7 @@ export const loadDemoData = command(async () => {
 		email: DEMO_CONSULTATION.email,
 		phone: DEMO_CONSULTATION.phone,
 		contactName: DEMO_CONSULTATION.contactPerson,
+		website: DEMO_CONSULTATION.website,
 		notes: "Demo client for Murray's Plumbing scenario",
 	});
 
@@ -335,6 +366,172 @@ export const loadDemoData = command(async () => {
 		});
 	}
 
+	// =========================================================================
+	// CONTENT INTELLIGENCE (Steps 8-15)
+	// =========================================================================
+
+	// 8. Create crawl job
+	const [crawlJob] = await db
+		.insert(contentCrawlJobs)
+		.values({
+			agencyId,
+			clientId,
+			status: DEMO_CRAWL_JOB.status,
+			sourceUrl: DEMO_CRAWL_JOB.sourceUrl,
+			crawlTarget: DEMO_CRAWL_JOB.crawlTarget,
+			pagesDiscovered: DEMO_CRAWL_JOB.pagesDiscovered,
+			pagesProcessed: DEMO_CRAWL_JOB.pagesProcessed,
+			pagesChanged: DEMO_CRAWL_JOB.pagesChanged,
+			maxDepth: DEMO_CRAWL_JOB.maxDepth,
+			crawlType: DEMO_CRAWL_JOB.crawlType,
+			startedAt: DEMO_CRAWL_JOB.startedAt,
+			completedAt: DEMO_CRAWL_JOB.completedAt,
+		})
+		.returning({ id: contentCrawlJobs.id });
+	const crawlJobId = crawlJob!.id;
+
+	// 9. Insert 16 content pages
+	const pageIdMap = new Map<string, string>(); // path → id
+	for (const page of DEMO_CONTENT_PAGES) {
+		const pageUrl = `https://www.murrayplumbinggroup.com.au${page.path}`;
+		const [inserted] = await db
+			.insert(contentPages)
+			.values({
+				clientId,
+				crawlJobId,
+				url: pageUrl,
+				sourceType: "client",
+				pageType: page.pageType,
+				title: page.title,
+				metaDescription: page.metaDescription,
+				markdownContent: page.markdownContent,
+				wordCount: page.wordCount,
+				httpStatus: 200,
+				contentHash: crypto.randomUUID().replace(/-/g, "").slice(0, 32),
+			})
+			.returning({ id: contentPages.id });
+		pageIdMap.set(page.path, inserted!.id);
+	}
+
+	// 10. Insert 48 chunks (3 per page)
+	for (const page of DEMO_CONTENT_PAGES) {
+		const pageId = pageIdMap.get(page.path)!;
+		const chunks = generateChunksForPage(page.pageType, page.title);
+		for (const chunk of chunks) {
+			await db.insert(contentChunks).values({
+				pageId,
+				clientId,
+				chunkIndex: chunk.chunkIndex,
+				chunkText: chunk.chunkText,
+				tokenCount: chunk.tokenCount,
+				embedding: null,
+				embeddingModel: "bge-base-en-v1.5",
+				metadata: chunk.metadata,
+			});
+		}
+	}
+
+	// 11. Insert brand profile
+	const [brandProfile] = await db
+		.insert(brandProfiles)
+		.values({
+			clientId,
+			agencyId,
+			version: DEMO_BRAND_PROFILE.version,
+			isActive: DEMO_BRAND_PROFILE.isActive,
+			profile: DEMO_BRAND_PROFILE.profile,
+			sourceType: DEMO_BRAND_PROFILE.sourceType,
+			sourcePageCount: DEMO_BRAND_PROFILE.sourcePageCount,
+			consultationId,
+		})
+		.returning({ id: brandProfiles.id });
+	const brandProfileId = brandProfile!.id;
+
+	// 12. Insert SEO audit
+	const [audit] = await db
+		.insert(seoAudits)
+		.values({
+			agencyId,
+			clientId,
+			crawlJobId,
+			status: DEMO_SEO_AUDIT.status,
+			overallScore: DEMO_SEO_AUDIT.overallScore,
+			technicalScore: DEMO_SEO_AUDIT.technicalScore,
+			contentScore: DEMO_SEO_AUDIT.contentScore,
+			backlinkScore: DEMO_SEO_AUDIT.backlinkScore,
+			keywordScore: DEMO_SEO_AUDIT.keywordScore,
+			totalPages: DEMO_SEO_AUDIT.totalPages,
+			criticalIssues: DEMO_SEO_AUDIT.criticalIssues,
+			warningIssues: DEMO_SEO_AUDIT.warningIssues,
+			passedChecks: DEMO_SEO_AUDIT.passedChecks,
+			opportunities: DEMO_SEO_AUDIT.opportunities,
+			startedAt: DEMO_SEO_AUDIT.startedAt,
+			completedAt: DEMO_SEO_AUDIT.completedAt,
+		})
+		.returning({ id: seoAudits.id });
+	const auditId = audit!.id;
+
+	// 13. Insert 17 SEO issues
+	for (const issue of DEMO_SEO_ISSUES) {
+		const resolvedPageId = issue.pagePath ? (pageIdMap.get(issue.pagePath) ?? null) : null;
+		await db.insert(seoIssues).values({
+			auditId,
+			clientId,
+			...(resolvedPageId ? { pageId: resolvedPageId } : {}),
+			category: issue.category,
+			severity: issue.severity,
+			checkName: issue.checkName,
+			title: issue.title,
+			description: issue.description,
+			currentValue: issue.currentValue,
+			recommendedValue: issue.recommendedValue,
+			impact: issue.impact,
+		});
+	}
+
+	// 14. Insert 6 web copy pieces
+	for (const copy of DEMO_WEB_COPY) {
+		await db.insert(contentCopy).values({
+			clientId,
+			agencyId,
+			generatedBy: userId,
+			copyType: copy.copyType,
+			title: copy.title,
+			content: copy.content,
+			targetKeyword: copy.targetKeyword,
+			targetWordCount: copy.targetWordCount,
+			actualWordCount: copy.actualWordCount,
+			status: copy.status,
+			promptTokens: copy.promptTokens,
+			completionTokens: copy.completionTokens,
+			modelUsed: copy.modelUsed,
+			generationConfig: copy.generationConfig,
+			contextSources: { brand_profile_id: brandProfileId },
+			createdAt: copy.createdAt,
+		});
+	}
+
+	// 15. Insert 4 social posts
+	for (const post of DEMO_SOCIAL_POSTS) {
+		await db.insert(contentCopy).values({
+			clientId,
+			agencyId,
+			generatedBy: userId,
+			copyType: post.copyType,
+			title: post.title,
+			content: post.content,
+			targetKeyword: post.targetKeyword,
+			actualWordCount: post.actualWordCount,
+			status: post.status,
+			promptTokens: post.promptTokens,
+			completionTokens: post.completionTokens,
+			modelUsed: post.modelUsed,
+			generationConfig: post.generationConfig,
+			contextSources: { brand_profile_id: brandProfileId },
+			createdAt: post.createdAt,
+		});
+	}
+
 	return {
 		success: true,
 		created: {
@@ -422,6 +619,17 @@ export const clearDemoData = command(async () => {
 	}
 
 	// Delete in reverse order of foreign key dependencies
+
+	// Content intelligence cleanup (before entity deletions)
+	if (clientIds.length > 0) {
+		await db.delete(contentCopy).where(inArray(contentCopy.clientId, clientIds));
+		await db.delete(seoIssues).where(inArray(seoIssues.clientId, clientIds));
+		await db.delete(seoAudits).where(inArray(seoAudits.clientId, clientIds));
+		await db.delete(brandProfiles).where(inArray(brandProfiles.clientId, clientIds));
+		await db.delete(contentChunks).where(inArray(contentChunks.clientId, clientIds));
+		await db.delete(contentPages).where(inArray(contentPages.clientId, clientIds));
+		await db.delete(contentCrawlJobs).where(inArray(contentCrawlJobs.clientId, clientIds));
+	}
 
 	// 1. Delete quotation scope sections (child of quotations)
 	if (quotationIds.length > 0) {

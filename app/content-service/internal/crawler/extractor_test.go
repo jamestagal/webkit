@@ -272,3 +272,58 @@ func TestExtractPageData_LargeWordCount(t *testing.T) {
 	assert.Equal(t, 1000, result.WordCount)
 	assert.Equal(t, 5, result.ReadingTimeMinutes)
 }
+
+// --- HTML title extraction tests ---
+
+func TestExtractPageData_HTMLTitlePreferred(t *testing.T) {
+	markdown := `# H1 Heading From Markdown
+
+Some body content here.`
+
+	result := ExtractPageData(
+		"https://example.com/page",
+		markdown, nil, Classification{}, "https://example.com",
+		"HTML Title From Browser",
+	)
+
+	assert.Equal(t, "HTML Title From Browser", result.Title, "HTML <title> should be preferred over H1")
+	assert.Equal(t, []string{"H1 Heading From Markdown"}, result.H1Tags, "H1 tags should still be extracted")
+}
+
+func TestExtractPageData_FallsBackToH1WhenNoHTMLTitle(t *testing.T) {
+	markdown := `# Fallback H1 Title
+
+Some body content.`
+
+	// No htmlTitle argument
+	result := ExtractPageData("https://example.com/page", markdown, nil, Classification{}, "https://example.com")
+
+	assert.Equal(t, "Fallback H1 Title", result.Title, "should fall back to H1 when no HTML title")
+}
+
+func TestExtractPageData_HTMLTitleWithNoH1(t *testing.T) {
+	markdown := "Just some plain text without any headings."
+
+	result := ExtractPageData(
+		"https://example.com/page",
+		markdown, nil, Classification{}, "https://example.com",
+		"Page Title From HTML",
+	)
+
+	assert.Equal(t, "Page Title From HTML", result.Title, "HTML title should work even with no H1")
+	assert.Empty(t, result.H1Tags)
+}
+
+func TestExtractPageData_EmptyHTMLTitleFallsBackToH1(t *testing.T) {
+	markdown := `# H1 As Fallback
+
+Content here.`
+
+	result := ExtractPageData(
+		"https://example.com/page",
+		markdown, nil, Classification{}, "https://example.com",
+		"", // empty HTML title
+	)
+
+	assert.Equal(t, "H1 As Fallback", result.Title, "empty HTML title should fall back to H1")
+}

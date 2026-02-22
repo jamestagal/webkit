@@ -14,6 +14,7 @@
 		ChevronRight,
 	} from "lucide-svelte";
 	import { ISSUE_CATEGORIES, ISSUE_SEVERITIES } from "$lib/api/content-audit.types";
+	import type { IssueResponse } from "$lib/api/content-audit.types";
 	import type { PageData } from "./$types";
 
 	let { data }: { data: PageData } = $props();
@@ -63,6 +64,21 @@
 
 	function formatCategory(cat: string): string {
 		return cat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+	}
+
+	/** Get the page URL for an issue — from page_url (content issues) or current_value (technical issues). */
+	function getIssuePageUrl(issue: IssueResponse): string | null {
+		if (issue.page_url) return issue.page_url;
+		// Technical issues from DataForSEO store the URL in current_value
+		if (issue.category === "technical" && issue.current_value?.startsWith("http")) {
+			return issue.current_value;
+		}
+		return null;
+	}
+
+	/** Shorten a URL for display (remove protocol, trim trailing slash). */
+	function shortenUrl(url: string): string {
+		return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
 	}
 </script>
 
@@ -155,6 +171,7 @@
 			<!-- Mobile Card Layout -->
 			<div class="space-y-3 md:hidden">
 				{#each data.issues.items as issue (issue.id)}
+					{@const pageUrl = getIssuePageUrl(issue)}
 					<div class="card bg-base-100 border border-base-300">
 						<div class="card-body p-4">
 							<div class="flex items-start justify-between gap-2">
@@ -182,6 +199,17 @@
 									</span>
 								</div>
 							</div>
+							{#if pageUrl}
+								<a
+									href={pageUrl}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="text-xs text-primary/70 hover:text-primary truncate mt-1 block"
+									onclick={(e) => e.stopPropagation()}
+								>
+									{shortenUrl(pageUrl)}
+								</a>
+							{/if}
 							<div class="flex items-center gap-2 mt-2">
 								<span class="badge badge-sm badge-outline">{formatCategory(issue.category)}</span>
 							</div>
@@ -262,6 +290,17 @@
 									<div class="text-xs text-base-content/50 mt-0.5 line-clamp-1">
 										{issue.description}
 									</div>
+									{#if getIssuePageUrl(issue)}
+										<a
+											href={getIssuePageUrl(issue)}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="text-xs text-primary/70 hover:text-primary truncate mt-0.5 block max-w-xs"
+											onclick={(e) => e.stopPropagation()}
+										>
+											{shortenUrl(getIssuePageUrl(issue) ?? '')}
+										</a>
+									{/if}
 								</td>
 								<td>
 									<span class="badge badge-sm badge-outline">{formatCategory(issue.category)}</span>
@@ -293,8 +332,21 @@
 								<tr>
 									<td colspan="6" class="bg-base-200/50 p-0">
 										<div class="p-4 space-y-2 text-sm">
+											{#if getIssuePageUrl(issue)}
+												<div class="flex gap-2">
+													<span class="font-medium shrink-0">Page:</span>
+													<a
+														href={getIssuePageUrl(issue)}
+														target="_blank"
+														rel="noopener noreferrer"
+														class="text-primary hover:underline break-all"
+													>
+														{getIssuePageUrl(issue)}
+													</a>
+												</div>
+											{/if}
 											<p class="text-base-content/70">{issue.description}</p>
-											{#if issue.current_value}
+											{#if issue.current_value && issue.current_value !== getIssuePageUrl(issue)}
 												<div class="flex gap-2">
 													<span class="font-medium text-error shrink-0">Current:</span>
 													<span class="text-base-content/70 break-all">{issue.current_value}</span>

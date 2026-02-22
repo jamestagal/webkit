@@ -14,6 +14,11 @@ import (
 // RunCompetitorAnalysis discovers competitor domains and performs keyword gap
 // analysis for each, inserting competitor_analyses rows.
 func (e *AuditEngine) RunCompetitorAnalysis(ctx context.Context, auditID, clientID uuid.UUID, domain string) error {
+	if e.dfs == nil {
+		slog.Info("Skipping competitor analysis — DataForSEO client not configured", "audit_id", auditID)
+		return nil
+	}
+
 	// Get top 5 competitor domains (we'll use the top 3).
 	competitors, err := e.dfs.GetCompetitorDomains(ctx, domain, 2036, "en", 5)
 	if err != nil {

@@ -158,8 +158,9 @@ func (c *Crawler) Run(ctx context.Context) CrawlResult {
 		pageURL := r.Request.URL.String()
 		markdownContent := string(r.Body)
 
-		// Get stored links from transport
+		// Get stored links and HTML title from transport
 		links := c.transport.GetStoredLinks(pageURL)
+		htmlTitle := c.transport.GetStoredTitle(pageURL)
 
 		// Visit discovered links
 		for _, link := range links {
@@ -177,12 +178,16 @@ func (c *Crawler) Run(ctx context.Context) CrawlResult {
 			}
 		}
 
-		// Classify the page
-		title := extractTitleFromMarkdown(markdownContent)
+		// Classify the page — prefer HTML title, fall back to H1/Jina markdown
+		title := htmlTitle
+		if title == "" {
+			title = extractTitleFromMarkdown(markdownContent)
+		}
+		slog.Debug("Page title resolved", "url", pageURL, "title", title, "html_title", htmlTitle)
 		classification := c.classifier.Classify(ctx, pageURL, title, markdownContent)
 
-		// Extract page data
-		pageData := ExtractPageData(pageURL, markdownContent, links, classification, c.cfg.SourceURL)
+		// Extract page data — pass resolved title (HTML title or markdown fallback)
+		pageData := ExtractPageData(pageURL, markdownContent, links, classification, c.cfg.SourceURL, title)
 
 		// Upsert into content_pages
 		changed, upsertErr := c.upsertPage(ctx, pageData)
@@ -373,10 +378,11 @@ func formatPGArray(vals []string) string {
 }
 
 // extractTitleFromMarkdown extracts the first H1 heading from markdown.
+// Falls back to "Title: ..." metadata line (Jina Reader format).
 func extractTitleFromMarkdown(markdown string) string {
 	reader := strings.NewReader(markdown)
-	buf := make([]byte, 0, 512)
-	// Read line by line looking for # heading
+	var jinaTitle string
+	// Read line by line looking for # heading or Title: metadata
 	for {
 		b, err := readLine(reader)
 		if err != nil {
@@ -386,9 +392,11 @@ func extractTitleFromMarkdown(markdown string) string {
 		if strings.HasPrefix(line, "# ") {
 			return strings.TrimSpace(line[2:])
 		}
+		if jinaTitle == "" && strings.HasPrefix(line, "Title:") {
+			jinaTitle = strings.TrimSpace(line[len("Title:"):])
+		}
 	}
-	_ = buf
-	return ""
+	return jinaTitle
 }
 
 // readLine reads a single line from a reader.

@@ -19,6 +19,7 @@ type BrowserTransport struct {
 	cfClient   *cfbrowser.Client
 	jinaClient *jina.Client
 	links      sync.Map // url string → []cfbrowser.Link
+	titles     sync.Map // url string → string (HTML <title>)
 }
 
 // NewBrowserTransport creates a new transport that fetches pages via browser rendering.
@@ -54,15 +55,23 @@ func (t *BrowserTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 			}
 			return nil, fmt.Errorf("jina rendering failed for %s: %w", pageURL, jinaErr)
 		}
-		md = &cfbrowser.MarkdownResponse{Content: content, URL: pageURL}
-		slog.Debug("Used Jina fallback", "url", pageURL)
+		// Jina Reader returns metadata header lines like "Title: ...\nURL Source: ...\n\n"
+		// Extract the title from the header before treating the rest as content.
+		title, cleanContent := extractJinaTitle(content)
+		md = &cfbrowser.MarkdownResponse{Content: cleanContent, Title: title, URL: pageURL}
+		slog.Debug("Used Jina fallback", "url", pageURL, "title", title)
 	}
 
 	if md == nil {
 		return nil, fmt.Errorf("no rendering service available for %s", pageURL)
 	}
 
-	// 2. Get links (best-effort, only via CF Browser since it has GetLinks)
+	// 2. Store HTML <title> if available
+	if md.Title != "" {
+		t.titles.Store(pageURL, md.Title)
+	}
+
+	// 3. Get links (best-effort, only via CF Browser since it has GetLinks)
 	if t.cfClient != nil {
 		links, linkErr := t.cfClient.GetLinks(req.Context(), pageURL)
 		if linkErr == nil && links != nil {
@@ -72,7 +81,7 @@ func (t *BrowserTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 		}
 	}
 
-	// 3. Return synthetic response with markdown as body
+	// 4. Return synthetic response with markdown as body
 	return &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     http.Header{"Content-Type": []string{"text/markdown"}},
@@ -87,4 +96,54 @@ func (t *BrowserTransport) GetStoredLinks(pageURL string) []cfbrowser.Link {
 		return v.([]cfbrowser.Link)
 	}
 	return nil
+}
+
+// GetStoredTitle retrieves and removes the HTML <title> for a given URL.
+func (t *BrowserTransport) GetStoredTitle(pageURL string) string {
+	if v, ok := t.titles.LoadAndDelete(pageURL); ok {
+		return v.(string)
+	}
+	return ""
+}
+
+// extractJinaTitle extracts the "Title: ..." line from Jina Reader output.
+// Jina returns a header block like:
+//
+//	Title: Page Title Here
+//	URL Source: https://example.com
+//	Published Time: ...
+//	(blank line)
+//	Markdown content...
+//
+// Returns the extracted title and the content with the header stripped.
+func extractJinaTitle(raw string) (title, content string) {
+	// Find the first blank line — it separates the Jina metadata from content.
+	// Scan at most 2000 bytes to avoid processing huge content.
+	scanLimit := len(raw)
+	if scanLimit > 2000 {
+		scanLimit = 2000
+	}
+	headerEnd := -1
+	pos := 0
+	for pos < scanLimit {
+		nlIdx := strings.IndexByte(raw[pos:], '\n')
+		if nlIdx < 0 {
+			break
+		}
+		line := raw[pos : pos+nlIdx]
+		trimmed := strings.TrimSpace(line)
+
+		if trimmed == "" && pos > 0 {
+			headerEnd = pos + nlIdx + 1 // byte offset right after the blank line
+			break
+		}
+		if strings.HasPrefix(trimmed, "Title:") {
+			title = strings.TrimSpace(trimmed[len("Title:"):])
+		}
+		pos += nlIdx + 1
+	}
+	if headerEnd > 0 && title != "" {
+		return title, strings.TrimSpace(raw[headerEnd:])
+	}
+	return "", raw
 }

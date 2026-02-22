@@ -27,6 +27,7 @@
 		Loader2,
 		StickyNote,
 		RefreshCw,
+		Brain,
 	} from "lucide-svelte";
 	import { FEATURES } from "$lib/config/features";
 	import type { PageProps } from "./$types";
@@ -289,6 +290,11 @@
 			<Receipt class="h-4 w-4" style="color: {FEATURES.invoices.color}" />
 			Invoice
 		</a>
+		<span class="border-l border-base-300 self-stretch mx-1"></span>
+		<a href="/{agencySlug}/content/{client.id}" class="btn btn-outline btn-sm">
+			<Brain class="h-4 w-4" style="color: {FEATURES.content.color}" />
+			Content Intelligence
+		</a>
 	</div>
 
 	<!-- Document Tabs -->
@@ -340,6 +346,14 @@
 			<ClipboardCheck class="h-3 w-3 mr-1" />
 			Quotations ({data.counts.quotations})
 		</button>
+		<span class="border-l border-base-300 self-stretch mx-1"></span>
+		<a
+			href="/{agencySlug}/content/{client.id}"
+			class="tab hover:text-primary"
+		>
+			<Brain class="h-3 w-3 mr-1" style="color: {FEATURES.content.color}" />
+			Content Intelligence
+		</a>
 	</div>
 
 	<!-- Documents List -->

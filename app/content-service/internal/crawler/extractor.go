@@ -18,7 +18,8 @@ var (
 )
 
 // ExtractPageData extracts structured page data from markdown content and discovered links.
-func ExtractPageData(pageURL string, markdownContent string, links []cfbrowser.Link, classification Classification, sourceURL string) PageData {
+// An optional htmlTitle (from the HTML <title> tag) is preferred over H1 headings.
+func ExtractPageData(pageURL string, markdownContent string, links []cfbrowser.Link, classification Classification, sourceURL string, htmlTitle ...string) PageData {
 	// Extract headings
 	h1Matches := h1Regex.FindAllStringSubmatch(markdownContent, -1)
 	h1Tags := make([]string, 0, len(h1Matches))
@@ -32,9 +33,11 @@ func ExtractPageData(pageURL string, markdownContent string, links []cfbrowser.L
 		h2Tags = append(h2Tags, strings.TrimSpace(m[1]))
 	}
 
-	// Title: first H1 heading, or empty
+	// Title: prefer HTML <title>, fall back to first H1 heading
 	title := ""
-	if len(h1Tags) > 0 {
+	if len(htmlTitle) > 0 && htmlTitle[0] != "" {
+		title = htmlTitle[0]
+	} else if len(h1Tags) > 0 {
 		title = h1Tags[0]
 	}
 

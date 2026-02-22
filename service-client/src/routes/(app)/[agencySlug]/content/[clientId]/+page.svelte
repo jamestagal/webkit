@@ -13,8 +13,11 @@
 		Sparkles,
 		Clock,
 		ClipboardList,
+		RefreshCw,
 	} from "lucide-svelte";
 	import { formatRelativeTime } from "$lib/utils/formatting";
+	import { invalidateAll } from "$app/navigation";
+	import { startCrawl, getCrawlStatus } from "$lib/api/content.remote";
 	import type { PageData } from "./$types";
 
 	let { data }: { data: PageData } = $props();
@@ -22,6 +25,37 @@
 	let agencySlug = $derived(page.params.agencySlug);
 	let clientId = $derived(page.params.clientId);
 	let overview = $derived(data.overview);
+
+	// Re-crawl state
+	let isCrawling = $state(false);
+
+	async function handleRecrawl(e: Event) {
+		e.preventDefault();
+		e.stopPropagation();
+		const sourceUrl = overview?.crawl?.source_url;
+		if (!sourceUrl || isCrawling) return;
+
+		isCrawling = true;
+		try {
+			const result = await startCrawl({ clientId, sourceUrl, maxDepth: 3 });
+			// Poll until done — refresh overview on each tick
+			let done = false;
+			let pollCount = 0;
+			while (!done) {
+				await new Promise((r) => setTimeout(r, 3000));
+				const status = await getCrawlStatus(result.id);
+				if (status.status === "complete" || status.status === "failed") {
+					done = true;
+				}
+				pollCount++;
+				if (pollCount % 3 === 0 || done) {
+					await invalidateAll();
+				}
+			}
+		} finally {
+			isCrawling = false;
+		}
+	}
 
 	// Wizard dismiss state (localStorage)
 	let wizardDismissed = $state(false);
@@ -162,9 +196,22 @@
 							<Globe class="h-4 w-4 text-primary" />
 							<span class="text-sm font-medium">Pages</span>
 						</div>
-						<span class="badge badge-sm {statusBadge(overview.crawl.status)}">
-							{overview.crawl.status}
-						</span>
+						<div class="flex items-center gap-2">
+							{#if overview.crawl.source_url && overview.crawl.total_pages > 0}
+								<button
+									type="button"
+									class="btn btn-ghost btn-xs gap-1"
+									onclick={handleRecrawl}
+									disabled={isCrawling}
+									title="Re-crawl website"
+								>
+									<RefreshCw class="h-3 w-3 {isCrawling ? 'animate-spin' : ''}" />
+								</button>
+							{/if}
+							<span class="badge badge-sm {statusBadge(overview.crawl.status)}">
+								{isCrawling ? "crawling" : overview.crawl.status}
+							</span>
+						</div>
 					</div>
 					<div class="stat p-0">
 						<div class="stat-value text-2xl">{overview.crawl.total_pages}</div>

@@ -29,6 +29,7 @@ export type IssueResponse = {
 	id: string;
 	audit_id: string;
 	page_id?: string | null;
+	page_url?: string | null;
 	client_id: string;
 	category: string;
 	severity: string;

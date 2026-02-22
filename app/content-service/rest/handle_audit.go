@@ -43,6 +43,7 @@ type issueResponse struct {
 	ID               string    `json:"id"`
 	AuditID          string    `json:"audit_id"`
 	PageID           *string   `json:"page_id,omitempty"`
+	PageURL          *string   `json:"page_url,omitempty"`
 	ClientID         string    `json:"client_id"`
 	Category         string    `json:"category"`
 	Severity         string    `json:"severity"`
@@ -332,24 +333,24 @@ func (h *Handler) handleGetAuditIssues(w http.ResponseWriter, r *http.Request) {
 	offset := (page - 1) * perPage
 
 	// Build dynamic query with filters.
-	baseQuery := "FROM seo_issues WHERE audit_id = $1"
+	baseWhere := "WHERE si.audit_id = $1"
 	args := []any{auditID}
 	argIdx := 2
 
 	if category != "" {
-		baseQuery += " AND category = $" + strconv.Itoa(argIdx)
+		baseWhere += " AND si.category = $" + strconv.Itoa(argIdx)
 		args = append(args, category)
 		argIdx++
 	}
 	if severity != "" {
-		baseQuery += " AND severity = $" + strconv.Itoa(argIdx)
+		baseWhere += " AND si.severity = $" + strconv.Itoa(argIdx)
 		args = append(args, severity)
 		argIdx++
 	}
 
 	// Get total count.
 	var total int
-	countQuery := "SELECT COUNT(*) " + baseQuery
+	countQuery := "SELECT COUNT(*) FROM seo_issues si " + baseWhere
 	err = h.db.QueryRowContext(r.Context(), countQuery, args...).Scan(&total)
 	if err != nil {
 		slog.Error("Error counting audit issues", "error", err)
@@ -357,9 +358,13 @@ func (h *Handler) handleGetAuditIssues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get paginated results.
-	selectQuery := "SELECT id, audit_id, page_id, client_id, category, severity, check_name, title, description, current_value, recommended_value, impact, ai_fix_available, created_at " + baseQuery +
-		" ORDER BY CASE severity WHEN 'critical' THEN 1 WHEN 'warning' THEN 2 WHEN 'info' THEN 3 ELSE 4 END, created_at DESC" +
+	// Get paginated results with page URL from content_pages join.
+	selectQuery := `SELECT si.id, si.audit_id, si.page_id, cp.url, si.client_id,
+		si.category, si.severity, si.check_name, si.title, si.description,
+		si.current_value, si.recommended_value, si.impact, si.ai_fix_available, si.created_at
+		FROM seo_issues si
+		LEFT JOIN content_pages cp ON si.page_id = cp.id ` + baseWhere +
+		" ORDER BY CASE si.severity WHEN 'critical' THEN 1 WHEN 'warning' THEN 2 WHEN 'info' THEN 3 ELSE 4 END, si.created_at DESC" +
 		" LIMIT $" + strconv.Itoa(argIdx) + " OFFSET $" + strconv.Itoa(argIdx+1)
 	args = append(args, perPage, offset)
 
@@ -374,10 +379,10 @@ func (h *Handler) handleGetAuditIssues(w http.ResponseWriter, r *http.Request) {
 	issues := make([]issueResponse, 0)
 	for rows.Next() {
 		var issue issueResponse
-		var pageID, currentValue, recommendedValue, impact sql.NullString
+		var pageID, pageURL, currentValue, recommendedValue, impact sql.NullString
 
 		err := rows.Scan(
-			&issue.ID, &issue.AuditID, &pageID, &issue.ClientID,
+			&issue.ID, &issue.AuditID, &pageID, &pageURL, &issue.ClientID,
 			&issue.Category, &issue.Severity, &issue.CheckName,
 			&issue.Title, &issue.Description,
 			&currentValue, &recommendedValue, &impact,
@@ -390,6 +395,9 @@ func (h *Handler) handleGetAuditIssues(w http.ResponseWriter, r *http.Request) {
 
 		if pageID.Valid && pageID.String != "00000000-0000-0000-0000-000000000000" {
 			issue.PageID = &pageID.String
+		}
+		if pageURL.Valid {
+			issue.PageURL = &pageURL.String
 		}
 		if currentValue.Valid {
 			issue.CurrentValue = &currentValue.String

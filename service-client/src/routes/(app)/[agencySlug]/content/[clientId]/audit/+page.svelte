@@ -41,7 +41,7 @@
 			try {
 				const result = await getAudit(auditId);
 				polledAudit = result;
-				if (result.status === "completed" || result.status === "failed") {
+				if (result.status === "complete" || result.status === "failed") {
 					polling = false;
 					await invalidateAll();
 				}
@@ -148,7 +148,7 @@
 				<span class="loading loading-spinner loading-lg text-primary mb-4"></span>
 				<h2 class="text-xl font-semibold mb-2">Audit in Progress</h2>
 				<p class="text-base-content/60 max-w-md mb-4">
-					Crawling pages, analyzing SEO factors, and generating recommendations.
+					Analyzing your crawled pages for SEO issues and generating recommendations.
 					This may take a few minutes.
 				</p>
 				<span class="badge {statusBadgeClass(latestAudit.status)} badge-lg capitalize">

@@ -77,10 +77,10 @@ func TestHandleGetOverview_EmptyClient(t *testing.T) {
 		WithArgs(clientID).
 		WillReturnError(sql.ErrNoRows)
 
-	// fetchSEOOverview: severity, COUNT(*) from seo_issues (empty)
-	mock.ExpectQuery("SELECT severity").
+	// fetchSEOOverview: check if completed audit exists (none)
+	mock.ExpectQuery("SELECT EXISTS").
 		WithArgs(clientID).
-		WillReturnRows(sqlmock.NewRows([]string{"severity", "count"}))
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 	// fetchCopyOverview: copy_type, status, COUNT(*) (empty)
 	mock.ExpectQuery("SELECT copy_type").
@@ -138,7 +138,7 @@ func TestHandleGetOverview_EmptyClient(t *testing.T) {
 	assert.Equal(t, 0, overview.SEO.Critical)
 	assert.Equal(t, 0, overview.SEO.Warnings)
 	assert.Equal(t, 0, overview.SEO.Notices)
-	assert.Equal(t, 100, overview.SEO.Score) // no issues = perfect score
+	assert.Equal(t, 0, overview.SEO.Score) // no audit exists = zero score
 
 	assert.Equal(t, 0, overview.Copy.Total)
 	assert.Equal(t, 0, overview.Copy.Drafts)
@@ -211,6 +211,11 @@ func TestHandleGetOverview_SEOScoreCalculation(t *testing.T) {
 			mock.ExpectQuery("SELECT status FROM content_crawl_jobs").
 				WithArgs(clientID).
 				WillReturnError(sql.ErrNoRows)
+
+			// fetchSEOOverview: audit exists
+			mock.ExpectQuery("SELECT EXISTS").
+				WithArgs(clientID).
+				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 
 			// fetchSEOOverview: return severity rows
 			seoRows := sqlmock.NewRows([]string{"severity", "count"})
@@ -297,7 +302,10 @@ func TestHandleGetOverview_WithData(t *testing.T) {
 		WithArgs(clientID).
 		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("completed"))
 
-	// fetchSEOOverview: some issues
+	// fetchSEOOverview: audit exists, some issues
+	mock.ExpectQuery("SELECT EXISTS").
+		WithArgs(clientID).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 	mock.ExpectQuery("SELECT severity").
 		WithArgs(clientID).
 		WillReturnRows(sqlmock.NewRows([]string{"severity", "count"}).

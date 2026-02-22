@@ -2,6 +2,7 @@ package dataforseo
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 )
 
@@ -47,17 +48,17 @@ type OnPageDomainInfo struct {
 	SSLInfo      *OnPageSSLInfo  `json:"ssl_info"`
 	Checks       map[string]bool `json:"checks"`
 	TotalPages   int             `json:"total_pages"`
-	PageNotFound []string        `json:"page_not_found_status_code"`
+	PageNotFound json.RawMessage `json:"page_not_found_status_code"` // API returns number, array, or null
 }
 
 // OnPageSSLInfo contains SSL certificate details.
 type OnPageSSLInfo struct {
-	ValidCertificate bool   `json:"valid_certificate"`
-	CertificateIssuer string `json:"certificate_issuer"`
-	CertificateSubject string `json:"certificate_subject"`
-	CertificateVersion string `json:"certificate_version"`
-	CertificateHash    string `json:"certificate_hash"`
-	CertificateExpDate string `json:"certificate_expiration_date"`
+	ValidCertificate   bool            `json:"valid_certificate"`
+	CertificateIssuer  string          `json:"certificate_issuer"`
+	CertificateSubject string          `json:"certificate_subject"`
+	CertificateVersion json.RawMessage `json:"certificate_version"` // API returns string or number
+	CertificateHash    string          `json:"certificate_hash"`
+	CertificateExpDate string          `json:"certificate_expiration_date"`
 }
 
 // OnPagePageMetrics contains aggregated page-level metrics.
@@ -132,18 +133,27 @@ func (c *Client) CreateOnPageTask(ctx context.Context, req OnPageTaskPostRequest
 		return "", fmt.Errorf("dataforseo: no tasks in response")
 	}
 	task := resp.Tasks[0]
-	if task.StatusCode != 20000 {
+	// 20000 = Ok, 20100 = Task Created (async task accepted)
+	if task.StatusCode != 20000 && task.StatusCode != 20100 {
 		return "", fmt.Errorf("dataforseo: task error %d: %s", task.StatusCode, task.StatusMessage)
 	}
 	return task.ID, nil
 }
 
 // GetOnPageSummary retrieves the summary of an on-page audit task.
+// Returns ErrTaskNotReady if the task hasn't been processed yet.
+// Uses GET as per DataForSEO docs: GET /v3/on_page/summary/{task_id}
 func (c *Client) GetOnPageSummary(ctx context.Context, taskID string) (*OnPageSummary, error) {
-	payload := []map[string]string{{"id": taskID}}
-	resp, err := c.post(ctx, "/on_page/summary/"+taskID, payload)
+	resp, err := c.getRaw(ctx, "/on_page/summary/"+taskID)
 	if err != nil {
 		return nil, err
+	}
+	// 40400 = Not Found — task is still being processed
+	if resp.StatusCode == 40400 {
+		return nil, ErrTaskNotReady
+	}
+	if resp.StatusCode != 20000 {
+		return nil, fmt.Errorf("dataforseo: API error %d: %s", resp.StatusCode, resp.StatusMessage)
 	}
 	var results []OnPageSummary
 	if err := c.firstResult(resp, &results); err != nil {

@@ -1,15 +1,89 @@
 <script lang="ts">
 	import { page } from "$app/state";
-	import { goto } from "$app/navigation";
-	import { Search, X, FileText } from "lucide-svelte";
+	import { goto, invalidateAll } from "$app/navigation";
+	import { Search, X, FileText, RefreshCw } from "lucide-svelte";
 	import { PAGE_TYPES } from "$lib/api/content.types";
 	import { formatDate } from "$lib/utils/formatting";
+	import { startCrawl, getCrawlStatus } from "$lib/api/content.remote";
 	import type { PageData } from "./$types";
 
 	let { data }: { data: PageData } = $props();
 
 	let agencySlug = $derived(page.params.agencySlug);
 	let clientId = $derived(page.params.clientId);
+
+	// Re-crawl state
+	let isCrawling = $state(false);
+	let crawlProgress = $state("");
+
+	async function handleRecrawl() {
+		if (!data.sourceUrl || isCrawling) return;
+
+		isCrawling = true;
+		crawlProgress = "Starting crawl...";
+
+		try {
+			const result = await startCrawl({
+				clientId,
+				sourceUrl: data.sourceUrl,
+				maxDepth: 3,
+			});
+
+			// Poll for completion — refresh page list on each tick
+			const jobId = result.id;
+			let done = false;
+			let pollCount = 0;
+			while (!done) {
+				await new Promise((r) => setTimeout(r, 3000));
+				const status = await getCrawlStatus(jobId);
+				const phase = status.status ?? "crawling";
+				const pages = status.pages_processed ?? 0;
+				const discovered = status.pages_discovered ?? 0;
+
+				// Show phase + progress
+				if (phase === "pending") {
+					crawlProgress = "Queued, waiting to start...";
+				} else if (phase === "crawling") {
+					crawlProgress = `Crawling... ${discovered} pages discovered`;
+				} else if (phase === "extracting") {
+					crawlProgress = `Extracting content... ${pages}/${discovered} pages`;
+				} else if (phase === "classifying") {
+					crawlProgress = `Classifying pages... ${pages}/${discovered}`;
+				} else if (phase === "embedding") {
+					crawlProgress = `Generating embeddings... ${pages}/${discovered}`;
+				} else if (phase === "profiling") {
+					crawlProgress = `Building brand profile...`;
+				}
+
+				// Terminal states
+				if (phase === "complete" || phase === "failed") {
+					done = true;
+					if (phase === "complete") {
+						crawlProgress = `Done! ${pages} pages processed`;
+					} else {
+						crawlProgress = status.error_message ? `Failed: ${status.error_message}` : "Crawl failed";
+					}
+				}
+
+				// Refresh page list every 3 polls (~9s) so new pages appear live
+				pollCount++;
+				if (pollCount % 3 === 0 || done) {
+					await invalidateAll();
+				}
+			}
+
+			setTimeout(() => {
+				isCrawling = false;
+				crawlProgress = "";
+			}, 2000);
+		} catch (err) {
+			crawlProgress = "Error starting crawl";
+			setTimeout(() => {
+				isCrawling = false;
+				crawlProgress = "";
+			}, 3000);
+		}
+	}
 
 	let search = $state("");
 	let typeFilter = $state("");
@@ -74,6 +148,22 @@
 		<div class="flex items-center gap-2">
 			<h2 class="text-xl font-semibold">Pages</h2>
 			<span class="badge badge-neutral badge-sm">{data.pages.length}</span>
+		</div>
+		<div class="flex items-center gap-2">
+			{#if crawlProgress}
+				<span class="text-sm text-base-content/60">{crawlProgress}</span>
+			{/if}
+			{#if data.sourceUrl}
+				<button
+					type="button"
+					class="btn btn-outline btn-sm gap-2"
+					onclick={handleRecrawl}
+					disabled={isCrawling}
+				>
+					<RefreshCw class="h-4 w-4 {isCrawling ? 'animate-spin' : ''}" />
+					{isCrawling ? "Crawling..." : "Re-crawl"}
+				</button>
+			{/if}
 		</div>
 	</div>
 

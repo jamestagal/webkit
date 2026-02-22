@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { loadDemoData, clearDemoData, getDemoDataStatus } from '$lib/api/demo.remote';
+	import { loadDemoData, clearDemoData, getDemoDataStatus, getDemoClientId } from '$lib/api/demo.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
-	import { Sparkles, Trash2, Play, CheckCircle, FileText, MessageCircle, Receipt, ScrollText, ClipboardCheck, AlertTriangle, X, Loader2, Users } from 'lucide-svelte';
+	import { Sparkles, Trash2, Play, CheckCircle, FileText, MessageCircle, Receipt, ScrollText, ClipboardCheck, AlertTriangle, X, Loader2, Users, Brain } from 'lucide-svelte';
 
 	let { data } = $props();
 
 	const toast = getToast();
 	let isLoading = $state(false);
 	let hasDemoData = $state(false);
+	let demoClientId = $state<string | null>(null);
 	let showClearModal = $state(false);
 	let showLoadModal = $state(false);
 
@@ -17,6 +18,9 @@
 	$effect(() => {
 		getDemoDataStatus().then((status) => {
 			hasDemoData = status.hasDemoData;
+		});
+		getDemoClientId().then((id) => {
+			demoClientId = id;
 		});
 	});
 
@@ -27,6 +31,7 @@
 			const result = await loadDemoData();
 			if (result.success) {
 				hasDemoData = true;
+				demoClientId = result.created.clientId;
 				toast.success('Demo data loaded successfully!');
 				await invalidateAll();
 			} else {
@@ -46,6 +51,7 @@
 		try {
 			await clearDemoData();
 			hasDemoData = false;
+			demoClientId = null;
 			toast.success('Demo data cleared');
 			await invalidateAll();
 		} catch (err) {
@@ -120,6 +126,19 @@
 					<p class="text-xs text-base-content/60">Demo: Bathroom Shower Retile</p>
 				</div>
 			</div>
+			<div class="sm:col-span-2 p-4 rounded-lg bg-base-200 border border-base-300">
+				<div class="flex items-center gap-3 mb-3">
+					<Brain class="h-5 w-5 text-primary" />
+					<p class="font-medium text-sm">Content Intelligence</p>
+				</div>
+				<div class="flex flex-wrap gap-2">
+					<span class="badge badge-sm badge-ghost">16 pages crawled</span>
+					<span class="badge badge-sm badge-ghost">Brand profile</span>
+					<span class="badge badge-sm badge-ghost">SEO audit 58/100</span>
+					<span class="badge badge-sm badge-ghost">6 copy pieces</span>
+					<span class="badge badge-sm badge-ghost">4 social posts</span>
+				</div>
+			</div>
 		</div>
 
 		<div class="flex items-center gap-4">
@@ -172,6 +191,12 @@
 					<ClipboardCheck class="h-4 w-4" />
 					View Quotations
 				</a>
+				{#if demoClientId}
+					<a href="/{data.agency.slug}/content/{demoClientId}" class="btn btn-outline btn-sm">
+						<Brain class="h-4 w-4" />
+						View Content Intelligence
+					</a>
+				{/if}
 			</div>
 		</SettingsSection>
 	{/if}
@@ -220,6 +245,10 @@
 			<div class="flex items-center gap-2 text-sm p-2 bg-base-200 rounded">
 				<ClipboardCheck class="h-4 w-4 text-primary" />
 				<span>Quotation</span>
+			</div>
+			<div class="flex items-center gap-2 text-sm p-2 bg-base-200 rounded">
+				<Brain class="h-4 w-4 text-primary" />
+				<span>Content Intelligence</span>
 			</div>
 		</div>
 
@@ -274,6 +303,7 @@
 			<li>All linked contracts</li>
 			<li>All linked invoices</li>
 			<li>All linked quotations</li>
+			<li>All content intelligence data (pages, brand profile, SEO audit, copy, social posts)</li>
 		</ul>
 
 		<div class="alert alert-warning py-2">

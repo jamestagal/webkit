@@ -2,6 +2,7 @@ package seo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -47,6 +48,11 @@ var technicalChecks = []technicalCheckMapping{
 // RunTechnicalAudit runs a DataForSEO On-Page audit on the domain.
 // Returns the average on-page score (0-100) and any error.
 func (e *AuditEngine) RunTechnicalAudit(ctx context.Context, auditID, clientID uuid.UUID, domain string) (float64, error) {
+	if e.dfs == nil {
+		slog.Info("Skipping technical audit — DataForSEO client not configured", "audit_id", auditID)
+		return 0, nil
+	}
+
 	// Step 1: Create the on-page task.
 	taskID, err := e.dfs.CreateOnPageTask(ctx, dataforseo.OnPageTaskPostRequest{
 		Target:           domain,
@@ -63,23 +69,32 @@ func (e *AuditEngine) RunTechnicalAudit(ctx context.Context, auditID, clientID u
 		"domain", domain,
 	)
 
-	// Step 2: Poll for completion (every 10s, max 10 retries).
+	// Step 2: Poll for completion.
+	// DataForSEO on-page crawl with JS rendering typically takes 2-8 minutes.
+	// Wait 60s initially, then poll every 20s for up to ~8 minutes total.
 	var summary *dataforseo.OnPageSummary
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 20; i++ {
+		delay := 20 * time.Second
+		if i == 0 {
+			delay = 60 * time.Second // longer initial wait for crawl to start
+		}
 		select {
 		case <-ctx.Done():
 			return 0, ctx.Err()
-		case <-time.After(10 * time.Second):
+		case <-time.After(delay):
 		}
 
 		summary, err = e.dfs.GetOnPageSummary(ctx, taskID)
 		if err != nil {
-			slog.Warn("Failed to get on-page summary, retrying",
-				"task_id", taskID,
-				"attempt", i+1,
-				"error", err,
-			)
-			continue
+			if errors.Is(err, dataforseo.ErrTaskNotReady) {
+				slog.Info("On-page task still processing, waiting...",
+					"task_id", taskID,
+					"attempt", i+1,
+				)
+				continue
+			}
+			// Real error — fail immediately
+			return 0, fmt.Errorf("get on-page summary: %w", err)
 		}
 
 		if summary.CrawlProgress == "finished" {

@@ -8,6 +8,7 @@ export type ContentOverview = {
 		total_pages: number;
 		last_crawled_at: string | null;
 		status: string;
+		source_url?: string;
 	};
 	seo: {
 		critical: number;

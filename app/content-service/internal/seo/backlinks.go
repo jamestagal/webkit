@@ -29,6 +29,11 @@ type anchorEntry struct {
 // RunBacklinkAnalysis fetches backlink data from DataForSEO and inserts
 // a backlink_profiles row for the audit.
 func (e *AuditEngine) RunBacklinkAnalysis(ctx context.Context, auditID, clientID uuid.UUID, domain string) error {
+	if e.dfs == nil {
+		slog.Info("Skipping backlink analysis — DataForSEO client not configured", "audit_id", auditID)
+		return nil
+	}
+
 	// Get backlinks summary.
 	summary, err := e.dfs.GetBacklinksSummary(ctx, domain)
 	if err != nil {

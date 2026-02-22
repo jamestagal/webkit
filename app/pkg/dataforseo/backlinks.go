@@ -2,6 +2,7 @@ package dataforseo
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 )
 
@@ -36,12 +37,12 @@ type BacklinksSummary struct {
 
 // BacklinksInfo contains meta-information about the target.
 type BacklinksInfo struct {
-	Server    string  `json:"server"`
-	CMS       string  `json:"cms"`
-	Platform  string  `json:"platform_type"`
-	IP        string  `json:"ip_address"`
-	Country   string  `json:"country"`
-	SpamScore int     `json:"spam_score"`
+	Server    string          `json:"server"`
+	CMS       string          `json:"cms"`
+	Platform  json.RawMessage `json:"platform_type"` // API returns string or array
+	IP        string          `json:"ip_address"`
+	Country   string          `json:"country"`
+	SpamScore int             `json:"spam_score"`
 }
 
 // ReferringDomain represents a single referring domain.

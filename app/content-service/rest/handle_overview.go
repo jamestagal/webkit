@@ -27,6 +27,7 @@ type crawlOverview struct {
 	TotalPages    int        `json:"total_pages"`
 	LastCrawledAt *time.Time `json:"last_crawled_at"`
 	Status        string     `json:"status"`
+	SourceURL     string     `json:"source_url,omitempty"`
 }
 
 type seoOverview struct {
@@ -171,12 +172,13 @@ func (h *Handler) fetchCrawlOverview(ctx context.Context, clientID uuid.UUID, ou
 		out.LastCrawledAt = &lastCrawledAt.Time
 	}
 
-	// Get latest crawl job status
+	// Get latest crawl job status and source URL
 	var status sql.NullString
+	var sourceURL sql.NullString
 	err = h.db.QueryRowContext(ctx,
-		"SELECT status FROM content_crawl_jobs WHERE client_id = $1 ORDER BY created_at DESC LIMIT 1",
+		"SELECT status, source_url FROM content_crawl_jobs WHERE client_id = $1 ORDER BY created_at DESC LIMIT 1",
 		clientID,
-	).Scan(&status)
+	).Scan(&status, &sourceURL)
 	if err == sql.ErrNoRows {
 		out.Status = "none"
 		return nil
@@ -189,11 +191,29 @@ func (h *Handler) fetchCrawlOverview(ctx context.Context, clientID uuid.UUID, ou
 	} else {
 		out.Status = "none"
 	}
+	if sourceURL.Valid {
+		out.SourceURL = sourceURL.String
+	}
 
 	return nil
 }
 
 func (h *Handler) fetchSEOOverview(ctx context.Context, clientID uuid.UUID, out *seoOverview) error {
+	// First check if a completed audit exists at all
+	var auditExists bool
+	err := h.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM seo_audits WHERE client_id = $1 AND status = 'complete')`,
+		clientID,
+	).Scan(&auditExists)
+	if err != nil {
+		return err
+	}
+
+	// No audit run yet — return zeroes (not "perfect score")
+	if !auditExists {
+		return nil
+	}
+
 	rows, err := h.db.QueryContext(ctx,
 		`SELECT severity, COUNT(*) FROM seo_issues si
 		 JOIN seo_audits sa ON si.audit_id = sa.id
