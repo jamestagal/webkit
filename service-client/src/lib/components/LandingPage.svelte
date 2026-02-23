@@ -17,6 +17,7 @@
 		Globe,
 		BarChart3,
 		ChevronRight,
+		Search,
 	} from "lucide-svelte";
 
 	const features = [
@@ -63,10 +64,10 @@
 				"Centralized client directory with contact details, communication history, and linked documents across all workflows.",
 		},
 		{
-			icon: Sparkles,
-			title: "AI Generation",
+			icon: Search,
+			title: "Content Intelligence",
 			description:
-				"Generate proposal content, executive summaries, and scope recommendations powered by AI. Save hours on every project.",
+				"SEO audits with technical analysis, keyword rankings, competitor insights, and PageSpeed performance. Generate branded PDF reports for clients.",
 		},
 	];
 
@@ -115,6 +116,7 @@
 				"3 team members",
 				"25 consultations/month",
 				"25 AI generations/month",
+				"5 SEO audits/month",
 				"5 templates",
 				"PDF export",
 				"Email delivery",
@@ -131,6 +133,8 @@
 				"10 team members",
 				"100 consultations/month",
 				"100 AI generations/month",
+				"15 SEO audits/month",
+				"Backlink analysis",
 				"20 templates",
 				"Custom branding",
 				"Analytics & white-label",
@@ -141,19 +145,21 @@
 		},
 		{
 			name: "Enterprise",
-			price: "Custom",
-			period: "",
+			price: "$199",
+			period: "/month",
 			description: "For established agencies with advanced needs",
 			features: [
 				"Unlimited members",
 				"Unlimited consultations",
 				"Unlimited AI generations",
+				"Unlimited SEO audits",
+				"Backlink analysis",
 				"Unlimited templates",
 				"Priority support",
 				"Custom domain & SSO",
 				"Everything in Growth",
 			],
-			cta: "Contact Us",
+			cta: "Get Started",
 			highlighted: false,
 		},
 	];
@@ -161,7 +167,7 @@
 
 <SvelteSeo
 	title="Webkit — Client Consultation & Proposal Platform for Web Agencies"
-	description="Create professional consultations, proposals, quotations, contracts and invoices for your web agency. Customizable forms, agency branding, and AI-powered generation. Free tier available."
+	description="Create professional consultations, proposals, quotations, contracts and invoices for your web agency. Customizable forms, agency branding, AI-powered generation, and Content Intelligence with SEO audits. Free tier available."
 	canonical="https://app.webkit.au"
 	openGraph={{
 		title: "Webkit — Proposals & Consultations for Web Agencies",
@@ -195,12 +201,12 @@
 		offers: {
 			"@type": "AggregateOffer",
 			lowPrice: "0",
-			highPrice: "79",
+			highPrice: "199",
 			priceCurrency: "AUD",
 			offerCount: "4",
 		},
 		featureList:
-			"Consultations, Proposals, Quotations, Contracts, Invoices, Custom Forms, Client Management, AI Generation",
+			"Consultations, Proposals, Quotations, Contracts, Invoices, Custom Forms, Client Management, AI Generation, Content Intelligence, SEO Audits",
 	}}
 />
 
@@ -302,6 +308,62 @@
 						</div>
 					</div>
 				{/each}
+			</div>
+		</div>
+	</section>
+
+	<!-- AI-Powered Section -->
+	<section class="relative px-4 py-20 lg:py-28 overflow-hidden">
+		<!-- Gradient background -->
+		<div class="absolute inset-0 bg-gradient-to-br from-primary/5 via-base-100 to-secondary/5"></div>
+		<div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent"></div>
+		<div class="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-secondary/20 to-transparent"></div>
+
+		<div class="relative mx-auto max-w-7xl">
+			<div class="mx-auto max-w-2xl text-center">
+				<div class="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+					<Sparkles class="h-4 w-4" />
+					AI-Powered Platform
+				</div>
+				<h2 class="text-3xl font-bold tracking-tight sm:text-4xl">
+					AI that works across your entire workflow
+				</h2>
+				<p class="mt-4 text-base-content/60 text-lg leading-relaxed">
+					From generating proposals to analyzing SEO performance, AI is woven into every
+					tool — saving your team hours on every project.
+				</p>
+			</div>
+
+			<div class="mt-14 grid gap-6 lg:grid-cols-3">
+				<div class="rounded-2xl border border-base-200 bg-base-100/80 p-6 backdrop-blur-sm">
+					<div class="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 text-primary">
+						<FileText class="h-5 w-5" />
+					</div>
+					<h3 class="text-lg font-bold">Proposal Generation</h3>
+					<p class="mt-2 text-sm text-base-content/60 leading-relaxed">
+						AI-generated executive summaries, scope recommendations, and pricing suggestions based on your consultation data.
+					</p>
+				</div>
+
+				<div class="rounded-2xl border border-base-200 bg-base-100/80 p-6 backdrop-blur-sm">
+					<div class="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-secondary/10 to-secondary/5 text-secondary">
+						<Sparkles class="h-5 w-5" />
+					</div>
+					<h3 class="text-lg font-bold">Content Enhancement</h3>
+					<p class="mt-2 text-sm text-base-content/60 leading-relaxed">
+						Smart content analysis and optimization suggestions that help you deliver polished, professional deliverables.
+					</p>
+				</div>
+
+				<div class="rounded-2xl border border-base-200 bg-base-100/80 p-6 backdrop-blur-sm">
+					<div class="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-accent/10 to-accent/5 text-accent">
+						<Search class="h-5 w-5" />
+					</div>
+					<h3 class="text-lg font-bold">SEO Intelligence</h3>
+					<p class="mt-2 text-sm text-base-content/60 leading-relaxed">
+						Automated technical audits, keyword research, and competitor analysis. Generate branded PDF reports for clients.
+					</p>
+				</div>
 			</div>
 		</div>
 	</section>

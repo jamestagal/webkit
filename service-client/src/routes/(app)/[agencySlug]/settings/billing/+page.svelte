@@ -8,6 +8,7 @@
 		Users,
 		FileText,
 		Zap,
+		Search,
 		Check,
 		ExternalLink
 	} from 'lucide-svelte';
@@ -70,6 +71,7 @@
 				'3 team members',
 				'25 consultations/month',
 				'25 AI generations/month',
+				'5 SEO audits/month',
 				'5 templates',
 				'PDF export',
 				'Email delivery'
@@ -86,6 +88,8 @@
 				'10 team members',
 				'100 consultations/month',
 				'100 AI generations/month',
+				'15 SEO audits/month',
+				'Backlink analysis',
 				'20 templates',
 				'Custom branding',
 				'Analytics',
@@ -103,6 +107,8 @@
 				'Unlimited team members',
 				'Unlimited consultations',
 				'Unlimited AI generations',
+				'Unlimited SEO audits',
+				'Backlink analysis',
 				'Unlimited templates',
 				'Priority support',
 				'Custom domain',
@@ -268,7 +274,7 @@
 		<div class="card-body">
 			<h2 class="card-title text-lg mb-4">Usage This Month</h2>
 
-			<div class="grid gap-4 sm:grid-cols-3">
+			<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 				<!-- Members -->
 				<div class="space-y-2">
 					<div class="flex items-center justify-between text-sm">
@@ -325,6 +331,27 @@
 					<progress
 						class="progress progress-primary w-full"
 						value={usageStats.usage.aiGenerationsThisMonth.percentage}
+						max="100"
+					></progress>
+				</div>
+
+				<!-- SEO Audits -->
+				<div class="space-y-2">
+					<div class="flex items-center justify-between text-sm">
+						<span class="flex items-center gap-2">
+							<Search class="h-4 w-4 text-base-content/60" />
+							SEO Audits
+						</span>
+						<span class="font-medium">
+							{formatUsage(
+								usageStats.usage.seoAuditsThisMonth.current,
+								usageStats.usage.seoAuditsThisMonth.limit
+							)}
+						</span>
+					</div>
+					<progress
+						class="progress progress-primary w-full"
+						value={usageStats.usage.seoAuditsThisMonth.percentage}
 						max="100"
 					></progress>
 				</div>

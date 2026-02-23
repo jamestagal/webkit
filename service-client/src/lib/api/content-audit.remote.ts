@@ -8,7 +8,10 @@ import { contentFetch } from "$lib/server/content-fetch";
 import { db } from "$lib/server/db";
 import { seoAudits } from "$lib/server/schema";
 import { getAgencyContext } from "$lib/server/agency";
+import { canRunSeoAudit, incrementSeoAuditCount } from "$lib/server/subscription";
 import { eq, and, desc } from "drizzle-orm";
+import { error } from "@sveltejs/kit";
+import { formatDate } from "$lib/utils/formatting";
 import type {
 	AuditResponse,
 	PaginatedIssuesResponse,
@@ -30,9 +33,27 @@ const AuditIssuesSchema = v.object({
 
 /** Start a new SEO audit for a client */
 export const startAudit = command(ClientIdSchema, async (clientId) => {
-	return contentFetch<{ id: string }>(`/api/content/audit/${clientId}`, {
+	const context = await getAgencyContext();
+
+	// Check + enforce quota (handles re-audit logic internally)
+	const auditCheck = await canRunSeoAudit(context.agencyId, clientId);
+	if (!auditCheck.allowed) {
+		throw error(
+			403,
+			`Monthly SEO audit limit reached (${auditCheck.current}/${auditCheck.limit}). Limit resets on ${formatDate(auditCheck.resetsAt)}. Upgrade your plan for more audits.`,
+		);
+	}
+
+	const result = await contentFetch<{ id: string }>(`/api/content/audit/${clientId}`, {
 		method: "POST",
 	});
+
+	// Only increment agency counter if this wasn't a free re-audit
+	if (!auditCheck.isReaudit) {
+		await incrementSeoAuditCount(context.agencyId);
+	}
+
+	return result;
 });
 
 /** Get audit details by ID */
