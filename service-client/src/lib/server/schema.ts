@@ -88,6 +88,10 @@ export const agencies = pgTable("agencies", {
 	aiGenerationsThisMonth: integer("ai_generations_this_month").notNull().default(0),
 	aiGenerationsResetAt: timestamp("ai_generations_reset_at", { withTimezone: true }),
 
+	// SEO Audit Rate Limiting
+	seoAuditsThisMonth: integer("seo_audits_this_month").notNull().default(0),
+	seoAuditsResetAt: timestamp("seo_audits_reset_at", { withTimezone: true }),
+
 	// Freemium access (beta/partner programs)
 	isFreemium: boolean("is_freemium").notNull().default(false),
 	freemiumReason: varchar("freemium_reason", { length: 50 }), // beta_tester, partner, promotional, early_signup, referral_reward, internal
@@ -1722,6 +1726,8 @@ export const seoAudits = pgTable("seo_audits", {
 
 	auditConfig: jsonb("audit_config").default({}),
 	competitorDomains: text("competitor_domains").array(),
+	progress: jsonb("progress").default({}),
+	performanceData: jsonb("performance_data").default({}),
 
 	startedAt: timestamp("started_at", { withTimezone: true }),
 	completedAt: timestamp("completed_at", { withTimezone: true }),
