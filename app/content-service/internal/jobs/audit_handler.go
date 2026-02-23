@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 
+	"app/pkg/pagespeed"
 	"content-service/internal/seo"
 
 	"github.com/google/uuid"
@@ -41,7 +42,11 @@ func (m *Manager) handleAuditStart(msg *nats.Msg) {
 		"client_id", clientID,
 	)
 
-	engine := seo.New(m.db, m.dfsClient, m.cfg.AnthropicAPIKey)
+	var psiClient *pagespeed.Client
+	if m.cfg.PageSpeedAPIKey != "" {
+		psiClient = pagespeed.NewClient(m.cfg.PageSpeedAPIKey)
+	}
+	engine := seo.New(m.db, m.dfsClient, psiClient, m.cfg.AnthropicAPIKey)
 
 	m.wg.Add(1)
 	go func() {

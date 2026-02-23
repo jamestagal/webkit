@@ -95,18 +95,39 @@ type OnPagePage struct {
 
 // OnPagePageMeta contains metadata for a crawled page.
 type OnPagePageMeta struct {
-	Title             string   `json:"title"`
-	Description       string   `json:"description"`
-	Charset           string   `json:"charset"`
-	Favicon           string   `json:"favicon"`
-	Canonical         string   `json:"canonical"`
-	InternalLinksCount int     `json:"internal_links_count"`
-	ExternalLinksCount int     `json:"external_links_count"`
-	InboundLinksCount  int     `json:"inbound_links_count"`
-	ImagesCount        int     `json:"images_count"`
-	ImagesSize         int     `json:"images_size"`
-	WordCount          int     `json:"content.plain_text_word_count"`
+	Title              string              `json:"title"`
+	Description        string              `json:"description"`
+	Charset            json.RawMessage     `json:"charset"` // API returns string or number
+	Favicon            string              `json:"favicon"`
+	Canonical          string              `json:"canonical"`
+	InternalLinksCount int                 `json:"internal_links_count"`
+	ExternalLinksCount int                 `json:"external_links_count"`
+	InboundLinksCount  int                 `json:"inbound_links_count"`
+	ImagesCount        int                 `json:"images_count"`
+	ImagesSize         int                 `json:"images_size"`
+	Content            *OnPageContentMeta  `json:"content"`
 	HTags              map[string][]string `json:"htags"`
+}
+
+// WordCount returns the plain text word count from the nested content object.
+// Returns 0 if content metadata is not available.
+func (m *OnPagePageMeta) WordCount() int {
+	if m.Content == nil {
+		return 0
+	}
+	return m.Content.PlainTextWordCount
+}
+
+// OnPageContentMeta contains content-level metadata from DataForSEO's on-page analysis.
+// This is a nested object within the page meta: meta.content.plain_text_word_count, etc.
+type OnPageContentMeta struct {
+	PlainTextWordCount int `json:"plain_text_word_count"`
+	PlainTextSize      int `json:"plain_text_size"`
+	AutomatedReadability float64 `json:"automated_readability_index"`
+	ColemanLiau        float64 `json:"coleman_liau_readability_index"`
+	DaleChall          float64 `json:"dale_chall_readability_index"`
+	FleschKincaid      float64 `json:"flesch_kincaid_readability_index"`
+	SmogReadability    float64 `json:"smog_readability_index"`
 }
 
 // OnPagePageTiming contains page load timing metrics.

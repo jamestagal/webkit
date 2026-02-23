@@ -348,10 +348,18 @@ func batchInsertIssues(ctx context.Context, db *sql.DB, issues []seoIssue) error
 	defer stmt.Close()
 
 	for _, issue := range issues {
+		// Pass SQL NULL for page_id when it's uuid.Nil (DFS-sourced issues
+		// don't have a content_pages row). The FK constraint allows NULL but
+		// rejects a zero UUID since no such row exists in content_pages.
+		var pageID interface{}
+		if issue.PageID != uuid.Nil {
+			pageID = issue.PageID
+		}
+
 		_, err := stmt.ExecContext(ctx,
 			uuid.New(),
 			issue.AuditID,
-			issue.PageID,
+			pageID,
 			issue.ClientID,
 			issue.Category,
 			issue.Severity,
@@ -368,7 +376,9 @@ func batchInsertIssues(ctx context.Context, db *sql.DB, issues []seoIssue) error
 				"page_id", issue.PageID,
 				"error", err,
 			)
-			// Continue inserting remaining issues.
+			// In a transaction, once any statement fails all subsequent ones
+			// will also fail. Return early so the caller sees the real error.
+			return fmt.Errorf("insert issue %s: %w", issue.CheckName, err)
 		}
 	}
 

@@ -41,6 +41,9 @@ type auditData struct {
 
 	// Competitors (nil/empty if unavailable)
 	Competitors []competitorData
+
+	// Performance data from Google PageSpeed Insights (nil if unavailable)
+	Performance *performanceData
 }
 
 type issueData struct {
@@ -75,6 +78,22 @@ type competitorData struct {
 	ReferringDomains int
 	RankingKeywords  int
 	EstimatedTraffic float64
+}
+
+type performanceData struct {
+	PerformanceScore int
+	Accessibility    int
+	BestPractices    int
+	SEOScore         int
+	LoadTime         string
+	Metrics          []webVitalMetric
+	Recommendations  []string
+}
+
+type webVitalMetric struct {
+	Name     string // "LCP", "CLS", etc.
+	Value    string // "1.2s", "0.01"
+	Category string // "good", "needs-improvement", "poor"
 }
 
 // scoreColor returns a CSS color based on traffic-light scoring.
@@ -189,34 +208,31 @@ func RenderHTML(d auditData) string {
 	th { background: #f8fafc; color: #374151; font-weight: 600; text-align: left; padding: 10px 12px; border-bottom: 2px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
 	td { padding: 10px 12px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
 	tr:nth-child(even) td { background: #f9fafb; }
-	.section { margin-bottom: 32px; }
+	.section { margin-bottom: 32px; page-break-inside: avoid; }
 </style>
 </head>
 <body>
 `)
 
-	// --- Cover section ---
+	// --- Cover + Overall score (combined to save vertical space) ---
 	b.WriteString(fmt.Sprintf(`
-<div style="text-align:center;padding:40px 0 30px;">
+<div style="text-align:center;padding:24px 0 16px;">
 	<h1>SEO Audit Report</h1>
 	<p style="font-size:18px;color:#6b7280;margin-top:4px;">%s</p>
 	<p style="font-size:14px;color:#9ca3af;">%s &middot; %s</p>
+	<div style="margin-top:20px;">
+		<div style="display:inline-block;width:110px;height:110px;border-radius:50%%;border:5px solid %s;line-height:100px;text-align:center;">
+			<span style="font-size:42px;font-weight:800;color:%s;">%s</span>
+		</div>
+		<p style="margin-top:6px;font-size:13px;font-weight:600;color:#6b7280;">Overall Score</p>
+	</div>
 </div>
 `,
 		html.EscapeString(d.BusinessName),
 		html.EscapeString(d.WebsiteURL),
 		d.AuditDate.Format("2 January 2006"),
+		overallColor, overallColor, overallScoreStr,
 	))
-
-	// --- Overall score ---
-	b.WriteString(fmt.Sprintf(`
-<div style="text-align:center;margin-bottom:36px;">
-	<div style="display:inline-block;width:140px;height:140px;border-radius:50%%;border:6px solid %s;line-height:128px;text-align:center;">
-		<span style="font-size:48px;font-weight:800;color:%s;">%s</span>
-	</div>
-	<p style="margin-top:8px;font-size:14px;font-weight:600;color:#6b7280;">Overall Score</p>
-</div>
-`, overallColor, overallColor, overallScoreStr))
 
 	// --- Score breakdown ---
 	b.WriteString(`<div class="section">`)
@@ -226,6 +242,78 @@ func RenderHTML(d auditData) string {
 	b.WriteString(renderScoreBar("Backlinks", d.BacklinkScore))
 	b.WriteString(renderScoreBar("Keywords", d.KeywordScore))
 	b.WriteString(`</div>`)
+
+	// --- Website Performance (Google PageSpeed Insights) ---
+	if d.Performance != nil {
+		perf := d.Performance
+		b.WriteString(`<div style="margin-bottom:32px;">`)
+		b.WriteString(`<h2>Website Performance</h2>`)
+		b.WriteString(`<p style="font-size:12px;color:#6b7280;margin-bottom:16px;">Powered by Google PageSpeed Insights (Mobile)</p>`)
+
+		// 4 Lighthouse score cards
+		b.WriteString(`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">`)
+		lighthouseScores := []struct {
+			Label string
+			Score int
+		}{
+			{"Performance", perf.PerformanceScore},
+			{"Accessibility", perf.Accessibility},
+			{"Best Practices", perf.BestPractices},
+			{"SEO", perf.SEOScore},
+		}
+		for _, ls := range lighthouseScores {
+			color := scoreColor(ls.Score)
+			bgColor := scoreBgColor(ls.Score)
+			b.WriteString(fmt.Sprintf(`
+			<div style="flex:1;min-width:90px;background:%s;border-radius:8px;padding:12px 8px;text-align:center;border:2px solid %s;">
+				<div style="font-size:28px;font-weight:800;color:%s;">%d</div>
+				<div style="font-size:10px;color:#374151;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">%s</div>
+			</div>`, bgColor, color, color, ls.Score, ls.Label))
+		}
+		b.WriteString(`</div>`)
+
+		// Core Web Vitals
+		if len(perf.Metrics) > 0 {
+			b.WriteString(`<h3>Core Web Vitals</h3>`)
+			b.WriteString(`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">`)
+			for _, m := range perf.Metrics {
+				badgeColor := "#22c55e"
+				badgeBg := "#dcfce7"
+				badgeLabel := "Good"
+				if m.Category == "needs-improvement" {
+					badgeColor = "#f59e0b"
+					badgeBg = "#fef3c7"
+					badgeLabel = "Needs Work"
+				} else if m.Category == "poor" {
+					badgeColor = "#ef4444"
+					badgeBg = "#fee2e2"
+					badgeLabel = "Poor"
+				}
+				b.WriteString(fmt.Sprintf(`
+				<div style="flex:1;min-width:80px;background:#f9fafb;border-radius:8px;padding:10px;text-align:center;border:1px solid #e5e7eb;">
+					<div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">%s</div>
+					<div style="font-size:20px;font-weight:700;color:#1f2937;margin:4px 0;">%s</div>
+					<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;color:%s;background:%s;">%s</span>
+				</div>`,
+					html.EscapeString(m.Name),
+					html.EscapeString(m.Value),
+					badgeColor, badgeBg, badgeLabel))
+			}
+			b.WriteString(`</div>`)
+		}
+
+		// PageSpeed Recommendations
+		if len(perf.Recommendations) > 0 {
+			b.WriteString(`<h3 style="margin-top:12px;">PageSpeed Recommendations</h3>`)
+			b.WriteString(`<ol style="margin-left:20px;">`)
+			for _, rec := range perf.Recommendations {
+				b.WriteString(fmt.Sprintf(`<li style="margin-bottom:4px;font-size:12px;color:#4b5563;">%s</li>`, html.EscapeString(rec)))
+			}
+			b.WriteString(`</ol>`)
+		}
+
+		b.WriteString(`</div>`)
+	}
 
 	// --- Quick stats ---
 	b.WriteString(`

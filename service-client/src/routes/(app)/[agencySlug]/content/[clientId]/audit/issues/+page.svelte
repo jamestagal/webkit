@@ -12,6 +12,7 @@
 		ChevronUp,
 		ChevronLeft,
 		ChevronRight,
+		Download,
 	} from "lucide-svelte";
 	import { ISSUE_CATEGORIES, ISSUE_SEVERITIES } from "$lib/api/content-audit.types";
 	import type { IssueResponse } from "$lib/api/content-audit.types";
@@ -66,11 +67,11 @@
 		return cat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 	}
 
-	/** Get the page URL for an issue — from page_url (content issues) or current_value (technical issues). */
+	/** Get the page URL for an issue — from page_url (content_pages join) or current_value (DFS-sourced issues). */
 	function getIssuePageUrl(issue: IssueResponse): string | null {
 		if (issue.page_url) return issue.page_url;
-		// Technical issues from DataForSEO store the URL in current_value
-		if (issue.category === "technical" && issue.current_value?.startsWith("http")) {
+		// DataForSEO-sourced issues (technical + content) store the page URL in current_value
+		if (issue.current_value?.startsWith("http")) {
 			return issue.current_value;
 		}
 		return null;
@@ -79,6 +80,34 @@
 	/** Shorten a URL for display (remove protocol, trim trailing slash). */
 	function shortenUrl(url: string): string {
 		return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+	}
+
+	let downloading = $state(false);
+
+	async function downloadReport() {
+		if (!data.auditId) return;
+		downloading = true;
+		try {
+			const res = await fetch(`/api/content/audit/${data.auditId}/report`, {
+				method: "POST",
+			});
+			if (!res.ok) throw new Error("Failed to generate report");
+			const blob = await res.blob();
+			// Extract filename from Content-Disposition header if available
+			const disposition = res.headers.get("Content-Disposition") || "";
+			const filenameMatch = disposition.match(/filename="(.+?)"/);
+			const filename = filenameMatch?.[1] || "seo-audit-report.pdf";
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = filename;
+			a.click();
+			URL.revokeObjectURL(url);
+		} catch (err) {
+			console.error("Download report error:", err);
+		} finally {
+			downloading = false;
+		}
 	}
 </script>
 
@@ -95,6 +124,23 @@
 		{#if data.issues}
 			<span class="badge badge-neutral badge-sm">{data.issues.total}</span>
 		{/if}
+		<div class="ml-auto">
+			{#if data.auditId}
+				<button
+					type="button"
+					class="btn btn-outline btn-sm"
+					disabled={downloading}
+					onclick={downloadReport}
+				>
+					{#if downloading}
+						<span class="loading loading-spinner loading-sm"></span>
+					{:else}
+						<Download class="h-4 w-4" />
+					{/if}
+					Download Report
+				</button>
+			{/if}
+		</div>
 	</div>
 
 	{#if !data.issues}

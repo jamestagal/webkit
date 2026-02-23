@@ -32,6 +32,9 @@ type Config struct {
 	CFAccountID string
 	CFAPIToken  string
 
+	// Google PageSpeed Insights
+	PageSpeedAPIKey string
+
 	// Gotenberg (HTML→PDF conversion)
 	GotenbergURL string
 
@@ -74,6 +77,7 @@ func LoadConfig() *Config {
 		AnthropicAPIKey:    os.Getenv("ANTHROPIC_API_KEY"),
 		CFAccountID:        os.Getenv("CF_ACCOUNT_ID"),
 		CFAPIToken:         os.Getenv("CF_API_TOKEN"),
+		PageSpeedAPIKey:    os.Getenv("PAGESPEED_API_KEY"),
 		GotenbergURL:       os.Getenv("GOTENBERG_URL"),
 
 		HTTPTimeout:    HTTPTimeout,

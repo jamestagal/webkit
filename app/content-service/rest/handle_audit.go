@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"content-service/internal/jobs"
@@ -18,25 +19,27 @@ import (
 // --- Request/Response types ---
 
 type auditResponse struct {
-	ID             string     `json:"id"`
-	AgencyID       string     `json:"agency_id"`
-	ClientID       string     `json:"client_id"`
-	CrawlJobID     string     `json:"crawl_job_id"`
-	Status         string     `json:"status"`
-	OverallScore   *int       `json:"overall_score"`
-	TechnicalScore *int       `json:"technical_score"`
-	ContentScore   *int       `json:"content_score"`
-	BacklinkScore  *int       `json:"backlink_score"`
-	KeywordScore   *int       `json:"keyword_score"`
-	TotalPages     int        `json:"total_pages"`
-	CriticalIssues int        `json:"critical_issues"`
-	WarningIssues  int        `json:"warning_issues"`
-	PassedChecks   int        `json:"passed_checks"`
-	Opportunities  int        `json:"opportunities"`
-	StartedAt      *time.Time `json:"started_at,omitempty"`
-	CompletedAt    *time.Time `json:"completed_at,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID             string          `json:"id"`
+	AgencyID       string          `json:"agency_id"`
+	ClientID       string          `json:"client_id"`
+	CrawlJobID     string          `json:"crawl_job_id"`
+	Status         string          `json:"status"`
+	OverallScore   *int            `json:"overall_score"`
+	TechnicalScore *int            `json:"technical_score"`
+	ContentScore   *int            `json:"content_score"`
+	BacklinkScore  *int            `json:"backlink_score"`
+	KeywordScore   *int            `json:"keyword_score"`
+	TotalPages     int             `json:"total_pages"`
+	CriticalIssues int             `json:"critical_issues"`
+	WarningIssues  int             `json:"warning_issues"`
+	PassedChecks   int             `json:"passed_checks"`
+	Opportunities  int             `json:"opportunities"`
+	Progress        json.RawMessage `json:"progress,omitempty"`
+	PerformanceData json.RawMessage `json:"performance_data,omitempty"`
+	StartedAt       *time.Time      `json:"started_at,omitempty"`
+	CompletedAt    *time.Time      `json:"completed_at,omitempty"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
 }
 
 type issueResponse struct {
@@ -232,11 +235,13 @@ func (h *Handler) handleGetAudit(w http.ResponseWriter, r *http.Request) {
 	var audit auditResponse
 	var overallScore, technicalScore, contentScore, backlinkScore, keywordScore sql.NullInt32
 	var startedAt, completedAt sql.NullTime
+	var progressJSON, performanceJSON []byte
 
 	err = h.db.QueryRowContext(r.Context(),
 		`SELECT id, agency_id, client_id, crawl_job_id, status,
 			overall_score, technical_score, content_score, backlink_score, keyword_score,
 			total_pages, critical_issues, warning_issues, passed_checks, opportunities,
+			progress, performance_data,
 			started_at, completed_at, created_at, updated_at
 		 FROM seo_audits WHERE id = $1 AND agency_id = $2`,
 		auditID, agencyID,
@@ -244,6 +249,7 @@ func (h *Handler) handleGetAudit(w http.ResponseWriter, r *http.Request) {
 		&audit.ID, &audit.AgencyID, &audit.ClientID, &audit.CrawlJobID, &audit.Status,
 		&overallScore, &technicalScore, &contentScore, &backlinkScore, &keywordScore,
 		&audit.TotalPages, &audit.CriticalIssues, &audit.WarningIssues, &audit.PassedChecks, &audit.Opportunities,
+		&progressJSON, &performanceJSON,
 		&startedAt, &completedAt, &audit.CreatedAt, &audit.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -275,6 +281,12 @@ func (h *Handler) handleGetAudit(w http.ResponseWriter, r *http.Request) {
 	if keywordScore.Valid {
 		v := int(keywordScore.Int32)
 		audit.KeywordScore = &v
+	}
+	if len(progressJSON) > 0 {
+		audit.Progress = progressJSON
+	}
+	if len(performanceJSON) > 0 && string(performanceJSON) != "{}" {
+		audit.PerformanceData = performanceJSON
 	}
 	if startedAt.Valid {
 		audit.StartedAt = &startedAt.Time
@@ -600,12 +612,13 @@ func (h *Handler) handleGenerateAuditReport(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Verify audit exists, belongs to agency, and is complete.
+	// Verify audit exists, belongs to agency, and is complete. Also fetch client name for filename.
 	var auditStatus string
+	var clientID uuid.UUID
 	err = h.db.QueryRowContext(r.Context(),
-		"SELECT status FROM seo_audits WHERE id = $1 AND agency_id = $2",
+		"SELECT status, client_id FROM seo_audits WHERE id = $1 AND agency_id = $2",
 		auditID, agencyID,
-	).Scan(&auditStatus)
+	).Scan(&auditStatus, &clientID)
 	if err == sql.ErrNoRows {
 		writeJSON(w, http.StatusNotFound, errorResponse("audit not found"))
 		return
@@ -620,6 +633,13 @@ func (h *Handler) handleGenerateAuditReport(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Fetch client name for the filename.
+	var clientName string
+	_ = h.db.QueryRowContext(r.Context(),
+		"SELECT business_name FROM clients WHERE id = $1",
+		clientID,
+	).Scan(&clientName)
+
 	pdfBytes, err := report.GenerateAuditPDF(r.Context(), h.db, h.cfg.GotenbergURL, agencyID, auditID)
 	if err != nil {
 		slog.Error("Error generating audit PDF", "audit_id", auditID, "error", err)
@@ -627,8 +647,26 @@ func (h *Handler) handleGenerateAuditReport(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Build filename: "seo-audit-plentify.pdf" or "seo-audit-report.pdf" as fallback.
+	filename := "seo-audit-report.pdf"
+	if clientName != "" {
+		// Sanitise: lowercase, replace spaces with hyphens, remove non-alphanumeric chars.
+		safe := strings.ToLower(strings.TrimSpace(clientName))
+		safe = strings.ReplaceAll(safe, " ", "-")
+		safeBuf := make([]byte, 0, len(safe))
+		for i := 0; i < len(safe); i++ {
+			c := safe[i]
+			if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' {
+				safeBuf = append(safeBuf, c)
+			}
+		}
+		if len(safeBuf) > 0 {
+			filename = fmt.Sprintf("seo-audit-%s.pdf", string(safeBuf))
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Disposition", `attachment; filename="seo-audit-report.pdf"`)
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(pdfBytes)))
 	w.WriteHeader(http.StatusOK)
 	w.Write(pdfBytes)

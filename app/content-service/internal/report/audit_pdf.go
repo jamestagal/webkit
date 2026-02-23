@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -40,17 +41,20 @@ func fetchAuditData(ctx context.Context, db *sql.DB, agencyID, auditID uuid.UUID
 	var overallScore, technicalScore, contentScore, backlinkScore, keywordScore sql.NullInt32
 	var startedAt, completedAt sql.NullTime
 	var clientID uuid.UUID
+	var performanceJSON []byte
 
 	err := db.QueryRowContext(ctx,
 		`SELECT client_id, overall_score, technical_score, content_score,
 			backlink_score, keyword_score, total_pages, critical_issues,
-			warning_issues, passed_checks, opportunities, started_at, completed_at
+			warning_issues, passed_checks, opportunities, started_at, completed_at,
+			performance_data
 		 FROM seo_audits WHERE id = $1 AND agency_id = $2`,
 		auditID, agencyID,
 	).Scan(
 		&clientID, &overallScore, &technicalScore, &contentScore,
 		&backlinkScore, &keywordScore, &d.TotalPages, &d.CriticalIssues,
 		&d.WarningIssues, &d.PassedChecks, &d.Opportunities, &startedAt, &completedAt,
+		&performanceJSON,
 	)
 	if err != nil {
 		return d, fmt.Errorf("query audit: %w", err)
@@ -85,9 +89,49 @@ func fetchAuditData(ctx context.Context, db *sql.DB, agencyID, auditID uuid.UUID
 		d.AuditDate = time.Now()
 	}
 
+	// --- Parse performance data ---
+	if len(performanceJSON) > 0 && string(performanceJSON) != "{}" {
+		var psiResult struct {
+			Performance   int                          `json:"performance"`
+			Accessibility int                          `json:"accessibility"`
+			BestPractices int                          `json:"bestPractices"`
+			SEO           int                          `json:"seo"`
+			LoadTime      string                       `json:"loadTime"`
+			Metrics       map[string]struct {
+				Value    string `json:"value"`
+				Category string `json:"category"`
+			} `json:"metrics"`
+			Recs []string `json:"recommendations"`
+		}
+		if err := json.Unmarshal(performanceJSON, &psiResult); err != nil {
+			slog.Warn("Could not parse performance_data for report", "audit_id", auditID, "error", err)
+		} else if psiResult.Performance > 0 {
+			perf := &performanceData{
+				PerformanceScore: psiResult.Performance,
+				Accessibility:    psiResult.Accessibility,
+				BestPractices:    psiResult.BestPractices,
+				SEOScore:         psiResult.SEO,
+				LoadTime:         psiResult.LoadTime,
+				Recommendations:  psiResult.Recs,
+			}
+			// Convert metrics map to ordered slice.
+			metricOrder := []string{"LCP", "CLS", "FCP", "TBT", "SI"}
+			for _, key := range metricOrder {
+				if m, ok := psiResult.Metrics[key]; ok {
+					perf.Metrics = append(perf.Metrics, webVitalMetric{
+						Name:     key,
+						Value:    m.Value,
+						Category: m.Category,
+					})
+				}
+			}
+			d.Performance = perf
+		}
+	}
+
 	// --- Fetch client info ---
 	err = db.QueryRowContext(ctx,
-		`SELECT business_name, website_url FROM clients WHERE id = $1`,
+		`SELECT business_name, website FROM clients WHERE id = $1`,
 		clientID,
 	).Scan(&d.BusinessName, &d.WebsiteURL)
 	if err != nil {

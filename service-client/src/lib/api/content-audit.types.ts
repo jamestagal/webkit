@@ -3,6 +3,30 @@
  * Matches Go content-service audit handler JSON responses.
  */
 
+export type AuditSectionProgress = {
+	status: "waiting" | "running" | "complete" | "skipped" | "failed";
+	message: string;
+};
+
+export type AuditProgress = Record<string, AuditSectionProgress>;
+
+export type WebVitalMetric = {
+	value: string;
+	category: "good" | "needs-improvement" | "poor";
+};
+
+export type PerformanceData = {
+	performance: number;
+	accessibility: number;
+	bestPractices: number;
+	seo: number;
+	loadTime: string;
+	metrics: Record<string, WebVitalMetric>;
+	recommendations: string[];
+	auditedUrl: string;
+	auditedAt: string;
+};
+
 export type AuditResponse = {
 	id: string;
 	agency_id: string;
@@ -19,6 +43,8 @@ export type AuditResponse = {
 	warning_issues: number;
 	passed_checks: number;
 	opportunities: number;
+	progress?: AuditProgress;
+	performance_data?: PerformanceData;
 	started_at?: string | null;
 	completed_at?: string | null;
 	created_at: string;

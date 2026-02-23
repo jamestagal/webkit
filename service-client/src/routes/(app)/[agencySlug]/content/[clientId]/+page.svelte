@@ -23,7 +23,7 @@
 	let { data }: { data: PageData } = $props();
 
 	let agencySlug = $derived(page.params.agencySlug);
-	let clientId = $derived(page.params.clientId);
+	let clientId = $derived(page.params.clientId!);
 	let overview = $derived(data.overview);
 
 	// Re-crawl state

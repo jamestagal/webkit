@@ -33,6 +33,16 @@ func (e *AuditEngine) RunKeywordAnalysis(ctx context.Context, auditID, clientID 
 		return fmt.Errorf("get domain ranking keywords: %w", err)
 	}
 
+	// If DataForSEO has no keyword data for this domain, skip inserting a profile.
+	// This lets the scoring system recognize the data is unavailable (not zero).
+	if totalCount == 0 && len(keywords) == 0 {
+		slog.Info("Keyword analysis complete — no data available for domain",
+			"audit_id", auditID,
+			"domain", domain,
+		)
+		return nil
+	}
+
 	// Count distribution by position buckets and sum traffic.
 	var (
 		top3Count  int

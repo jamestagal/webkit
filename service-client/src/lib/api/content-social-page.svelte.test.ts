@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/svelte";
+import type { SocialCopyResponse } from "$lib/api/content-social.types";
 
 // Mock SvelteKit modules
 vi.mock("$app/state", () => ({
@@ -48,6 +49,39 @@ vi.mock("$lib/api/content-social.types", () => ({
 	SOCIAL_PLATFORMS: ["twitter", "linkedin", "facebook", "instagram"],
 }));
 
+/**
+ * Build mock page data. Uses `as any` because PageData inherits from
+ * multiple parent layouts (agency, content) and fully satisfying the
+ * type here would be brittle and add no test value.
+ */
+function mockPageData(overrides: { posts: SocialCopyResponse[] }): any {
+	return {
+		...overrides,
+		clientId: "550e8400-e29b-41d4-a716-446655440000",
+	};
+}
+
+/** Helper to build a minimal mock SocialCopyResponse */
+function mockSocialPost(overrides: Partial<SocialCopyResponse> = {}): SocialCopyResponse {
+	return {
+		id: "post-1",
+		client_id: "550e8400-e29b-41d4-a716-446655440000",
+		agency_id: "agency-1",
+		generated_by: "claude-3-5-haiku-20241022",
+		copy_type: "social_post",
+		title: "Test Post",
+		content: "Test content",
+		status: "draft",
+		actual_word_count: 50,
+		prompt_tokens: 100,
+		completion_tokens: 50,
+		generation_config: JSON.stringify({ platform: "twitter", angle: "promotional" }),
+		created_at: "2026-02-22T00:00:00Z",
+		updated_at: "2026-02-22T00:00:00Z",
+		...overrides,
+	};
+}
+
 describe("Social Posts Page", () => {
 	async function importPage() {
 		const mod = await import(
@@ -62,7 +96,7 @@ describe("Social Posts Page", () => {
 
 		render(SocialPage, {
 			props: {
-				data: { posts: [] },
+				data: mockPageData({ posts: [] }),
 			},
 		});
 
@@ -73,20 +107,17 @@ describe("Social Posts Page", () => {
 	it("renders post count badge", async () => {
 		const SocialPage = await importPage();
 
-		const mockPosts = [
-			{
-				id: "post-1",
-				title: "Test Post Alpha",
-				content: "Hello world content here",
-				status: "draft",
-				generation_config: JSON.stringify({ platform: "twitter", angle: "promotional" }),
-				created_at: "2026-02-22T00:00:00Z",
-			},
-		];
-
 		render(SocialPage, {
 			props: {
-				data: { posts: mockPosts },
+				data: mockPageData({
+					posts: [
+						mockSocialPost({
+							id: "post-1",
+							title: "Test Post Alpha",
+							content: "Hello world content here",
+						}),
+					],
+				}),
 			},
 		});
 
@@ -102,7 +133,7 @@ describe("Social Posts Page", () => {
 
 		render(SocialPage, {
 			props: {
-				data: { posts: [] },
+				data: mockPageData({ posts: [] }),
 			},
 		});
 
@@ -115,7 +146,7 @@ describe("Social Posts Page", () => {
 
 		render(SocialPage, {
 			props: {
-				data: { posts: [] },
+				data: mockPageData({ posts: [] }),
 			},
 		});
 
@@ -135,7 +166,7 @@ describe("Social Posts Page", () => {
 
 		render(SocialPage, {
 			props: {
-				data: { posts: [] },
+				data: mockPageData({ posts: [] }),
 			},
 		});
 

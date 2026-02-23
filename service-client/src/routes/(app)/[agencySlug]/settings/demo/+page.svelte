@@ -31,7 +31,7 @@
 			const result = await loadDemoData();
 			if (result.success) {
 				hasDemoData = true;
-				demoClientId = result.created.clientId;
+				demoClientId = result.created?.clientId ?? null;
 				toast.success('Demo data loaded successfully!');
 				await invalidateAll();
 			} else {

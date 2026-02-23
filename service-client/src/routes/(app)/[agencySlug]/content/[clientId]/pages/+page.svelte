@@ -10,7 +10,7 @@
 	let { data }: { data: PageData } = $props();
 
 	let agencySlug = $derived(page.params.agencySlug);
-	let clientId = $derived(page.params.clientId);
+	let clientId = $derived(page.params.clientId!);
 
 	// Re-crawl state
 	let isCrawling = $state(false);
