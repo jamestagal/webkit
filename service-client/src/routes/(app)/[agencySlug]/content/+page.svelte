@@ -72,7 +72,7 @@
 				<button
 					type="button"
 					class="card bg-base-100 border border-base-300 w-full text-left"
-					onclick={() => goto(`/${agencySlug}/content/${client.id}/pages`)}
+					onclick={() => goto(`/${agencySlug}/content/${client.id}`)}
 				>
 					<div class="card-body p-4">
 						<div class="flex items-start justify-between gap-2">
@@ -120,7 +120,7 @@
 						{#each data.clientsWithCrawls as { client, latestCrawl } (client.id)}
 							<tr
 								class="hover:bg-base-50 cursor-pointer"
-								onclick={() => goto(`/${agencySlug}/content/${client.id}/pages`)}
+								onclick={() => goto(`/${agencySlug}/content/${client.id}`)}
 							>
 								<td>
 									<span class="font-medium">{client.businessName}</span>

@@ -88,6 +88,20 @@ The old `high_loading_time` entry was removed from `technicalChecks` slice and r
 
 **CRITICAL**: DFS `DOMComplete` is reported in **milliseconds** (e.g. 599 = 599ms = 0.599s), while `LargestContentfulPaint` appears to be in **seconds** (e.g. 2.5 = 2.5s). When falling back to DOMComplete, MUST divide by 1000 to convert to seconds before comparing against thresholds. Without this, a 599ms load time gets reported as "599.0s (warning)" — clearly wrong.
 
+## DFS URL Checks Are Overly Aggressive — Excluded
+
+**Problem**: DataForSEO's boolean flags `seo_friendly_url_characters_check`, `seo_friendly_url_keywords_check`, and `seo_friendly_url_relative_length_check` fire false positives on perfectly normal URLs. For example, `/about/` triggers "URL too long" and `/contact/` triggers "Non-SEO-friendly URL". These flood the report with meaningless INFO issues.
+
+**Solution**: Removed all three from `technicalChecks` slice. Only kept `seo_friendly_url_dynamic_check` which catches actual query-string parameters (a legitimate concern). Added comment in code explaining why.
+
+## PDF Quick Stats Pushed to Empty Page 2
+
+**Problem**: The Quick Stats section used `class="section"` which has `page-break-inside: avoid`. When preceded by the Performance section (which is long with Lighthouse cards + Core Web Vitals + Recommendations), Chromium's layout engine pushed the entire Quick Stats block to page 2, leaving 70% of the page blank.
+
+**Solution**: Changed Quick Stats to `<div style="margin-bottom:32px;">` (inline style, no page-break-inside). This allows it to flow naturally after the Performance section. The Performance section already uses inline style for the same reason.
+
+**Rule of thumb**: Only use `class="section"` (page-break-inside: avoid) for sections where splitting mid-block would look bad (Score Breakdown, Backlink Overview). For sections that follow long content, use inline margin instead to allow natural flow.
+
 ## Technical Score Logging
 
 Added comprehensive `slog` output for debugging technical scores:

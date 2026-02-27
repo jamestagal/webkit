@@ -37,10 +37,11 @@ var technicalChecks = []technicalCheckMapping{
 	{CheckName: "no_content_encoding", Title: "No content encoding", Description: "Page response is not compressed (no gzip/brotli)", Severity: "info", Impact: "low"},
 	// NOTE: high_loading_time is handled separately with actual timing data
 	// so we don't blindly trust DFS's boolean flag. See processPageTiming().
-	{CheckName: "seo_friendly_url_characters_check", Title: "Non-SEO-friendly URL", Description: "URL contains characters that are not SEO-friendly", Severity: "info", Impact: "low"},
+	// NOTE: seo_friendly_url_characters_check, seo_friendly_url_keywords_check, and
+	// seo_friendly_url_relative_length_check are intentionally excluded — DataForSEO
+	// flags these too aggressively (e.g. "/about/" as "too long", "/contact/" as "non-SEO-friendly").
+	// Only keep the dynamic URL check which catches actual query-string parameters.
 	{CheckName: "seo_friendly_url_dynamic_check", Title: "Dynamic URL parameters", Description: "URL contains dynamic query parameters", Severity: "info", Impact: "low"},
-	{CheckName: "seo_friendly_url_keywords_check", Title: "URL lacks keywords", Description: "URL does not contain relevant keywords", Severity: "info", Impact: "low"},
-	{CheckName: "seo_friendly_url_relative_length_check", Title: "URL too long", Description: "URL path is excessively long", Severity: "info", Impact: "low"},
 	{CheckName: "canonical", Title: "Canonical tag issue", Description: "Page has a canonical tag pointing elsewhere", Severity: "info", Impact: "low"},
 }
 

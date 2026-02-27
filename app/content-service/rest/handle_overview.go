@@ -199,21 +199,27 @@ func (h *Handler) fetchCrawlOverview(ctx context.Context, clientID uuid.UUID, ou
 }
 
 func (h *Handler) fetchSEOOverview(ctx context.Context, clientID uuid.UUID, out *seoOverview) error {
-	// First check if a completed audit exists at all
-	var auditExists bool
+	// Read stored overall_score and issue counts from the latest completed audit
+	var overallScore sql.NullInt32
 	err := h.db.QueryRowContext(ctx,
-		`SELECT EXISTS(SELECT 1 FROM seo_audits WHERE client_id = $1 AND status = 'complete')`,
+		`SELECT overall_score FROM seo_audits
+		 WHERE client_id = $1 AND status = 'complete'
+		 ORDER BY completed_at DESC LIMIT 1`,
 		clientID,
-	).Scan(&auditExists)
+	).Scan(&overallScore)
+	if err == sql.ErrNoRows {
+		// No audit run yet — return zeroes
+		return nil
+	}
 	if err != nil {
 		return err
 	}
 
-	// No audit run yet — return zeroes (not "perfect score")
-	if !auditExists {
-		return nil
+	if overallScore.Valid {
+		out.Score = int(overallScore.Int32)
 	}
 
+	// Fetch issue counts by severity for the same audit
 	rows, err := h.db.QueryContext(ctx,
 		`SELECT severity, COUNT(*) FROM seo_issues si
 		 JOIN seo_audits sa ON si.audit_id = sa.id
@@ -242,21 +248,8 @@ func (h *Handler) fetchSEOOverview(ctx context.Context, clientID uuid.UUID, out 
 			out.Notices = count
 		}
 	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
 
-	// Score = 100 - (critical*10 + warnings*3 + notices*1), clamped 0-100
-	score := 100 - (out.Critical*10 + out.Warnings*3 + out.Notices*1)
-	if score < 0 {
-		score = 0
-	}
-	if score > 100 {
-		score = 100
-	}
-	out.Score = score
-
-	return nil
+	return rows.Err()
 }
 
 func (h *Handler) fetchCopyOverview(ctx context.Context, clientID, agencyID uuid.UUID, out *copyOverview) error {

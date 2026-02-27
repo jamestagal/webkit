@@ -190,7 +190,7 @@ func RenderHTML(d auditData) string {
 <style>
 	@page {
 		size: A4;
-		margin: 20mm 15mm;
+		margin: 12mm 15mm;
 	}
 	* { margin: 0; padding: 0; box-sizing: border-box; }
 	body {
@@ -216,15 +216,15 @@ func RenderHTML(d auditData) string {
 
 	// --- Cover + Overall score (combined to save vertical space) ---
 	b.WriteString(fmt.Sprintf(`
-<div style="text-align:center;padding:24px 0 16px;">
+<div style="text-align:center;padding:4px 0 10px;">
 	<h1>SEO Audit Report</h1>
-	<p style="font-size:18px;color:#6b7280;margin-top:4px;">%s</p>
+	<p style="font-size:18px;color:#6b7280;margin-top:2px;">%s</p>
 	<p style="font-size:14px;color:#9ca3af;">%s &middot; %s</p>
-	<div style="margin-top:20px;">
-		<div style="display:inline-block;width:110px;height:110px;border-radius:50%%;border:5px solid %s;line-height:100px;text-align:center;">
-			<span style="font-size:42px;font-weight:800;color:%s;">%s</span>
+	<div style="margin-top:10px;">
+		<div style="display:inline-block;width:90px;height:90px;border-radius:50%%;border:4px solid %s;line-height:82px;text-align:center;">
+			<span style="font-size:36px;font-weight:800;color:%s;">%s</span>
 		</div>
-		<p style="margin-top:6px;font-size:13px;font-weight:600;color:#6b7280;">Overall Score</p>
+		<p style="margin-top:4px;font-size:13px;font-weight:600;color:#6b7280;">Overall Score</p>
 	</div>
 </div>
 `,
@@ -315,9 +315,9 @@ func RenderHTML(d auditData) string {
 		b.WriteString(`</div>`)
 	}
 
-	// --- Quick stats ---
+	// --- Quick stats (no section class — allow flow without forced page break) ---
 	b.WriteString(`
-<div class="section">
+<div style="margin-bottom:32px;">
 	<h2>Quick Stats</h2>
 	<div style="display:flex;gap:12px;flex-wrap:wrap;">
 `)
@@ -346,8 +346,7 @@ func RenderHTML(d auditData) string {
 
 	// --- Top Issues ---
 	if len(d.Issues) > 0 {
-		b.WriteString(`<div class="page-break"></div>`)
-		b.WriteString(`<div class="section">`)
+		b.WriteString(`<div style="margin-bottom:32px;">`)
 		b.WriteString(`<h2>Top Issues</h2>`)
 		b.WriteString(`<table>
 			<thead><tr>
