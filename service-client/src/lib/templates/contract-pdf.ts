@@ -8,6 +8,8 @@
 import type { Contract, ContractSchedule, Agency, AgencyProfile } from "$lib/server/schema";
 import type { EffectiveBranding } from "$lib/server/document-branding";
 import { formatCurrency, formatDate } from "$lib/utils/formatting";
+import { escapeHtml, sanitizeLogoUrl } from "$lib/templates/shared/escape";
+import { sanitizeHtml } from "$lib/templates/shared/sanitize-html";
 
 export interface ContractPdfData {
 	contract: Contract;
@@ -54,16 +56,21 @@ function buildAgencyAddress(agency: Agency, profile: AgencyProfile | null): stri
 	const parts: string[] = [];
 
 	if (profile?.tradingName || agency.name) {
-		parts.push(`<strong>${profile?.tradingName || agency.name}</strong>`);
+		parts.push(`<strong>${escapeHtml(profile?.tradingName || agency.name)}</strong>`);
 	}
-	if (profile?.addressLine1) parts.push(profile.addressLine1);
-	if (profile?.addressLine2) parts.push(profile.addressLine2);
+	if (profile?.addressLine1) parts.push(escapeHtml(profile.addressLine1));
+	if (profile?.addressLine2) parts.push(escapeHtml(profile.addressLine2));
 	if (profile?.city || profile?.state || profile?.postcode) {
-		parts.push([profile?.city, profile?.state, profile?.postcode].filter(Boolean).join(" "));
+		parts.push(
+			[profile?.city, profile?.state, profile?.postcode]
+				.filter(Boolean)
+				.map((s) => escapeHtml(s as string))
+				.join(" "),
+		);
 	}
-	if (agency.email) parts.push(agency.email);
-	if (agency.phone) parts.push(agency.phone);
-	if (profile?.abn) parts.push(`ABN: ${profile.abn}`);
+	if (agency.email) parts.push(escapeHtml(agency.email));
+	if (agency.phone) parts.push(escapeHtml(agency.phone));
+	if (profile?.abn) parts.push(`ABN: ${escapeHtml(profile.abn)}`);
 
 	return parts.join("<br>");
 }
@@ -75,26 +82,14 @@ function buildClientAddress(contract: Contract): string {
 	const parts: string[] = [];
 
 	if (contract.clientBusinessName) {
-		parts.push(`<strong>${contract.clientBusinessName}</strong>`);
+		parts.push(`<strong>${escapeHtml(contract.clientBusinessName)}</strong>`);
 	}
-	if (contract.clientContactName) parts.push(contract.clientContactName);
-	if (contract.clientAddress) parts.push(contract.clientAddress);
-	if (contract.clientEmail) parts.push(contract.clientEmail);
-	if (contract.clientPhone) parts.push(contract.clientPhone);
+	if (contract.clientContactName) parts.push(escapeHtml(contract.clientContactName));
+	if (contract.clientAddress) parts.push(escapeHtml(contract.clientAddress));
+	if (contract.clientEmail) parts.push(escapeHtml(contract.clientEmail));
+	if (contract.clientPhone) parts.push(escapeHtml(contract.clientPhone));
 
 	return parts.join("<br>");
-}
-
-/**
- * Escape HTML for safe rendering
- */
-function escapeHtml(text: string): string {
-	return text
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#039;");
 }
 
 /**
@@ -106,7 +101,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 	const isSigned = contract.status === "signed" || contract.status === "completed";
 
 	// Use branding override if provided, otherwise fall back to agency branding
-	const logoUrl = brandingOverride?.logoUrl || agency.logoUrl;
+	const logoUrl = sanitizeLogoUrl(brandingOverride?.logoUrl || agency.logoUrl);
 	const accentColor = brandingOverride?.primaryColor || agency.primaryColor || "#6366f1";
 
 	// Get visible fields
@@ -129,7 +124,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 					${escapeHtml(schedule.name)}
 				</h3>
 				<div class="schedule-content" style="font-size: 13px; line-height: 1.7; color: #374151;">
-					${schedule.content}
+					${sanitizeHtml(schedule.content)}
 				</div>
 			</div>
 		`,
@@ -212,7 +207,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 		<div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 3px solid ${accentColor};">
 			<div style="flex: 1; min-width: 0;">
 				${
-					logoUrl && logoUrl.trim()
+					logoUrl
 						? `<img src="${logoUrl}" alt="${escapeHtml(agency.name)}" style="max-height: 60px; max-width: 200px; object-fit: contain;">`
 						: `<div style="font-size: 24px; font-weight: bold; color: ${accentColor};">${escapeHtml(agency.name)}</div>`
 				}
@@ -322,7 +317,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 		<div style="margin: 32px 0; page-break-inside: avoid;">
 			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Terms & Conditions</h2>
 			<div class="schedule-content" style="font-size: 13px; line-height: 1.7; color: #374151;">
-				${contract.generatedTermsHtml}
+				${sanitizeHtml(contract.generatedTermsHtml)}
 			</div>
 		</div>
 		`
@@ -343,7 +338,7 @@ export function generateContractPdfHtml(data: ContractPdfData): string {
 		<div style="margin: 32px 0;">
 			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Schedule A</h2>
 			<div class="schedule-content" style="font-size: 13px; line-height: 1.7; color: #374151;">
-				${contract.generatedScheduleHtml}
+				${sanitizeHtml(contract.generatedScheduleHtml)}
 			</div>
 		</div>
 		`

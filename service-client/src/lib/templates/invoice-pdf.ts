@@ -8,6 +8,7 @@
 import type { Invoice, InvoiceLineItem, Agency, AgencyProfile } from "$lib/server/schema";
 import type { EffectiveBranding } from "$lib/server/document-branding";
 import { formatCurrency, formatDate } from "$lib/utils/formatting";
+import { escapeHtml, sanitizeLogoUrl } from "$lib/templates/shared/escape";
 
 export interface InvoicePdfData {
 	invoice: Invoice;
@@ -48,16 +49,21 @@ function buildAgencyAddress(agency: Agency, profile: AgencyProfile | null): stri
 	const parts: string[] = [];
 
 	if (profile?.tradingName || agency.name) {
-		parts.push(`<strong>${profile?.tradingName || agency.name}</strong>`);
+		parts.push(`<strong>${escapeHtml(profile?.tradingName || agency.name)}</strong>`);
 	}
-	if (profile?.addressLine1) parts.push(profile.addressLine1);
-	if (profile?.addressLine2) parts.push(profile.addressLine2);
+	if (profile?.addressLine1) parts.push(escapeHtml(profile.addressLine1));
+	if (profile?.addressLine2) parts.push(escapeHtml(profile.addressLine2));
 	if (profile?.city || profile?.state || profile?.postcode) {
-		parts.push([profile?.city, profile?.state, profile?.postcode].filter(Boolean).join(" "));
+		parts.push(
+			[profile?.city, profile?.state, profile?.postcode]
+				.filter(Boolean)
+				.map((s) => escapeHtml(s as string))
+				.join(" "),
+		);
 	}
-	if (agency.email) parts.push(agency.email);
-	if (agency.phone) parts.push(agency.phone);
-	if (profile?.abn) parts.push(`ABN: ${profile.abn}`);
+	if (agency.email) parts.push(escapeHtml(agency.email));
+	if (agency.phone) parts.push(escapeHtml(agency.phone));
+	if (profile?.abn) parts.push(`ABN: ${escapeHtml(profile.abn)}`);
 
 	return parts.join("<br>");
 }
@@ -69,13 +75,13 @@ function buildClientAddress(invoice: Invoice): string {
 	const parts: string[] = [];
 
 	if (invoice.clientBusinessName) {
-		parts.push(`<strong>${invoice.clientBusinessName}</strong>`);
+		parts.push(`<strong>${escapeHtml(invoice.clientBusinessName)}</strong>`);
 	}
-	if (invoice.clientContactName) parts.push(invoice.clientContactName);
-	if (invoice.clientAddress) parts.push(invoice.clientAddress);
-	if (invoice.clientEmail) parts.push(invoice.clientEmail);
-	if (invoice.clientPhone) parts.push(invoice.clientPhone);
-	if (invoice.clientAbn) parts.push(`ABN: ${invoice.clientAbn}`);
+	if (invoice.clientContactName) parts.push(escapeHtml(invoice.clientContactName));
+	if (invoice.clientAddress) parts.push(escapeHtml(invoice.clientAddress));
+	if (invoice.clientEmail) parts.push(escapeHtml(invoice.clientEmail));
+	if (invoice.clientPhone) parts.push(escapeHtml(invoice.clientPhone));
+	if (invoice.clientAbn) parts.push(`ABN: ${escapeHtml(invoice.clientAbn)}`);
 
 	return parts.join("<br>");
 }
@@ -89,7 +95,7 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 	const isPaid = invoice.status === "paid";
 
 	// Use branding override if provided, otherwise fall back to agency branding
-	const logoUrl = brandingOverride?.logoUrl || agency.logoUrl;
+	const logoUrl = sanitizeLogoUrl(brandingOverride?.logoUrl || agency.logoUrl);
 	const primaryColor = brandingOverride?.primaryColor || agency.primaryColor || "#111827";
 
 	// Calculate line item display values
@@ -99,8 +105,8 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 			(item) => `
 		<tr>
 			<td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
-				<div style="font-weight: 500; color: #111827;">${item.description}</div>
-				${item.category ? `<div style="font-size: 12px; color: #6b7280; margin-top: 2px;">${item.category}</div>` : ""}
+				<div style="font-weight: 500; color: #111827;">${escapeHtml(item.description)}</div>
+				${item.category ? `<div style="font-size: 12px; color: #6b7280; margin-top: 2px;">${escapeHtml(item.category)}</div>` : ""}
 			</td>
 			<td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280;">
 				${parseFloat(item.quantity as string).toFixed(2)}
@@ -127,10 +133,10 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 			</h3>
 			<div style="background: #f9fafb; padding: 16px; border-radius: 8px;">
 				<table style="width: 100%; font-size: 13px;">
-					${profile.bankName ? `<tr><td style="color: #6b7280; padding: 4px 0;">Bank</td><td style="text-align: right; font-weight: 500;">${profile.bankName}</td></tr>` : ""}
-					${profile.accountName ? `<tr><td style="color: #6b7280; padding: 4px 0;">Account Name</td><td style="text-align: right; font-weight: 500;">${profile.accountName}</td></tr>` : ""}
-					${profile.bsb ? `<tr><td style="color: #6b7280; padding: 4px 0;">BSB</td><td style="text-align: right; font-weight: 500; font-family: monospace;">${profile.bsb}</td></tr>` : ""}
-					${profile.accountNumber ? `<tr><td style="color: #6b7280; padding: 4px 0;">Account Number</td><td style="text-align: right; font-weight: 500; font-family: monospace;">${profile.accountNumber}</td></tr>` : ""}
+					${profile.bankName ? `<tr><td style="color: #6b7280; padding: 4px 0;">Bank</td><td style="text-align: right; font-weight: 500;">${escapeHtml(profile.bankName)}</td></tr>` : ""}
+					${profile.accountName ? `<tr><td style="color: #6b7280; padding: 4px 0;">Account Name</td><td style="text-align: right; font-weight: 500;">${escapeHtml(profile.accountName)}</td></tr>` : ""}
+					${profile.bsb ? `<tr><td style="color: #6b7280; padding: 4px 0;">BSB</td><td style="text-align: right; font-weight: 500; font-family: monospace;">${escapeHtml(profile.bsb)}</td></tr>` : ""}
+					${profile.accountNumber ? `<tr><td style="color: #6b7280; padding: 4px 0;">Account Number</td><td style="text-align: right; font-weight: 500; font-family: monospace;">${escapeHtml(profile.accountNumber)}</td></tr>` : ""}
 					<tr><td style="color: #6b7280; padding: 4px 0;">Reference</td><td style="text-align: right; font-weight: 500; font-family: monospace;">${invoice.invoiceNumber}</td></tr>
 				</table>
 			</div>
@@ -193,9 +199,9 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 		<div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 2px solid #111827;">
 			<div style="flex: 1; min-width: 0;">
 				${
-					logoUrl && logoUrl.trim()
-						? `<img src="${logoUrl}" alt="${agency.name}" style="max-height: 60px; max-width: 200px; object-fit: contain; margin-bottom: 8px;">`
-						: `<div style="font-size: 24px; font-weight: bold; color: ${primaryColor};">${agency.name}</div>`
+					logoUrl
+						? `<img src="${logoUrl}" alt="${escapeHtml(agency.name)}" style="max-height: 60px; max-width: 200px; object-fit: contain; margin-bottom: 8px;">`
+						: `<div style="font-size: 24px; font-weight: bold; color: ${primaryColor};">${escapeHtml(agency.name)}</div>`
 				}
 			</div>
 			<div style="text-align: right;">
@@ -237,7 +243,7 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 			</div>
 			<div>
 				<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Payment Terms</div>
-				<div style="font-weight: 500;">${invoice.paymentTerms === "CUSTOM" ? invoice.paymentTermsCustom : invoice.paymentTerms.replace("_", " ")}</div>
+				<div style="font-weight: 500;">${invoice.paymentTerms === "CUSTOM" ? escapeHtml(invoice.paymentTermsCustom || "") : escapeHtml(invoice.paymentTerms.replace("_", " "))}</div>
 			</div>
 		</div>
 
@@ -269,7 +275,7 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 					parseFloat(invoice.discountAmount as string) > 0
 						? `
 				<div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; color: #059669;">
-					<span>Discount${invoice.discountDescription ? ` (${invoice.discountDescription})` : ""}</span>
+					<span>Discount${invoice.discountDescription ? ` (${escapeHtml(invoice.discountDescription)})` : ""}</span>
 					<span>-${formatCurrency(invoice.discountAmount)}</span>
 				</div>
 				`
@@ -310,7 +316,7 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 				? `
 		<div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
 			<h3 style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">Notes</h3>
-			<div style="font-size: 13px; color: #6b7280; line-height: 1.7;">${invoice.publicNotes}</div>
+			<div style="font-size: 13px; color: #6b7280; line-height: 1.7;">${escapeHtml(invoice.publicNotes)}</div>
 		</div>
 		`
 				: ""
@@ -321,7 +327,7 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 			profile?.invoiceFooter
 				? `
 		<div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #9ca3af;">
-			${profile.invoiceFooter}
+			${escapeHtml(profile.invoiceFooter)}
 		</div>
 		`
 				: ""

@@ -4,7 +4,7 @@
  * GET /api/quotations/[quotationId]/pdf - Download quotation as PDF
  *
  * Uses Gotenberg for HTML-to-PDF conversion with professional template.
- * Requires agency membership and quotation view permission.
+ * Requires authentication and agency membership.
  */
 
 import { json } from "@sveltejs/kit";
@@ -15,19 +15,23 @@ import {
 	quotationScopeSections,
 	agencies,
 	agencyProfiles,
+	agencyMemberships,
 } from "$lib/server/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { generateQuotationPdfHtml } from "$lib/templates/quotation-pdf";
-import { env } from "$env/dynamic/private";
 import { decryptProfileFields } from "$lib/server/crypto";
+import { convertHtmlToPdf, RateLimitError } from "$lib/server/gotenberg";
 
-const GOTENBERG_URL = env["GOTENBERG_URL"] || "http://localhost:3003";
-
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, locals }) => {
 	const { quotationId } = params;
 
 	if (!quotationId) {
 		return json({ error: "Quotation ID is required" }, { status: 400 });
+	}
+
+	// Auth: require logged-in user
+	if (!locals.user?.id) {
+		return json({ error: "Authentication required" }, { status: 401 });
 	}
 
 	try {
@@ -40,6 +44,18 @@ export const GET: RequestHandler = async ({ params }) => {
 
 		if (!quotation) {
 			return json({ error: "Quotation not found" }, { status: 404 });
+		}
+
+		// Auth: verify user has membership in this agency
+		const membership = await db.query.agencyMemberships.findFirst({
+			where: and(
+				eq(agencyMemberships.userId, locals.user.id),
+				eq(agencyMemberships.agencyId, quotation.agencyId),
+			),
+		});
+
+		if (!membership) {
+			return json({ error: "Access denied" }, { status: 403 });
 		}
 
 		// Fetch related data in parallel
@@ -77,32 +93,8 @@ export const GET: RequestHandler = async ({ params }) => {
 			profile,
 		});
 
-		// Convert to PDF using Gotenberg
-		const formData = new FormData();
-		formData.append("files", new Blob([html], { type: "text/html" }), "index.html");
-
-		// Gotenberg options
-		formData.append("paperWidth", "8.27"); // A4 width in inches
-		formData.append("paperHeight", "11.69"); // A4 height in inches
-		formData.append("marginTop", "0.4");
-		formData.append("marginBottom", "0.4");
-		formData.append("marginLeft", "0.4");
-		formData.append("marginRight", "0.4");
-		formData.append("printBackground", "true");
-		formData.append("preferCssPageSize", "true");
-
-		const pdfResponse = await fetch(`${GOTENBERG_URL}/forms/chromium/convert/html`, {
-			method: "POST",
-			body: formData,
-		});
-
-		if (!pdfResponse.ok) {
-			const errorText = await pdfResponse.text();
-			console.error("Gotenberg error:", errorText);
-			return json({ error: "Failed to generate PDF" }, { status: 500 });
-		}
-
-		const pdfBuffer = await pdfResponse.arrayBuffer();
+		// Convert to PDF
+		const pdfBuffer = await convertHtmlToPdf(html, locals.user.id);
 		const filename = `${quotation.quotationNumber}.pdf`;
 
 		return new Response(pdfBuffer, {
@@ -115,6 +107,9 @@ export const GET: RequestHandler = async ({ params }) => {
 			},
 		});
 	} catch (err) {
+		if (err instanceof RateLimitError) {
+			return json({ error: err.message }, { status: 429 });
+		}
 		console.error("PDF generation error:", err);
 		const message = err instanceof Error ? err.message : "PDF generation failed";
 		return json({ error: message }, { status: 500 });

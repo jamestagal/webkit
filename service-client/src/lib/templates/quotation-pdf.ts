@@ -13,6 +13,8 @@ import type {
 } from "$lib/server/schema";
 import type { EffectiveBranding } from "$lib/server/document-branding";
 import { formatCurrency, formatDate } from "$lib/utils/formatting";
+import { escapeHtml, sanitizeLogoUrl } from "$lib/templates/shared/escape";
+import { sanitizeHtml } from "$lib/templates/shared/sanitize-html";
 
 interface TermsBlock {
 	title: string;
@@ -43,18 +45,6 @@ function getStatusColor(status: string): { bg: string; text: string } {
 		default:
 			return { bg: "#e0e7ff", text: "#3730a3" };
 	}
-}
-
-/**
- * Escape HTML for safe rendering
- */
-function escapeHtml(text: string): string {
-	return text
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#039;");
 }
 
 function buildAgencyAddress(agency: Agency, profile: AgencyProfile | null): string {
@@ -137,7 +127,7 @@ function buildWorkItemsHtml(items: string[]): string {
 export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 	const { quotation, sections, agency, profile, brandingOverride } = data;
 
-	const logoUrl = brandingOverride?.logoUrl || agency.logoUrl;
+	const logoUrl = sanitizeLogoUrl(brandingOverride?.logoUrl || agency.logoUrl);
 	const accentColor = brandingOverride?.primaryColor || agency.primaryColor || "#6366f1";
 	const statusColor = getStatusColor(quotation.status);
 
@@ -179,7 +169,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 					(term) => `
 				<div style="margin-bottom: 12px;">
 					<h3 style="font-size: 12px; font-weight: 600; margin: 0 0 4px 0; color: #374151;">${escapeHtml(term.title)}</h3>
-					<div style="font-size: 12px; color: #6b7280; line-height: 1.5;">${term.content}</div>
+					<div style="font-size: 12px; color: #6b7280; line-height: 1.5;">${sanitizeHtml(term.content)}</div>
 				</div>
 			`,
 				)
@@ -306,7 +296,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 		<div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 3px solid ${accentColor};">
 			<div style="flex: 1; min-width: 0;">
 				${
-					logoUrl && logoUrl.trim()
+					logoUrl
 						? `<img src="${logoUrl}" alt="${escapeHtml(agency.name)}" style="max-height: 60px; max-width: 200px; object-fit: contain;">`
 						: `<div style="font-size: 24px; font-weight: bold; color: ${accentColor};">${escapeHtml(agency.name)}</div>`
 				}
@@ -420,7 +410,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 				? `
 		<div style="margin: 32px 0; page-break-inside: avoid;">
 			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Options & Notes</h2>
-			<div style="font-size: 13px; color: #6b7280; line-height: 1.7;">${quotation.optionsNotes}</div>
+			<div style="font-size: 13px; color: #6b7280; line-height: 1.7;">${escapeHtml(quotation.optionsNotes)}</div>
 		</div>
 		`
 				: ""

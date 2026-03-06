@@ -9,6 +9,7 @@
 import type { Agency, AgencyProfile } from "$lib/server/schema";
 import type { FormSchema, FormStep, FormField } from "$lib/types/form-builder";
 import { formatDate as _formatDate } from "$lib/utils/formatting";
+import { escapeHtml, sanitizeLogoUrl } from "$lib/templates/shared/escape";
 
 export interface FormSubmissionPdfData {
 	submission: {
@@ -211,7 +212,7 @@ export function generateFormSubmissionPdfHtml(
 	const statusStyle = getStatusStyle(submission.status);
 
 	// Use agency branding
-	const logoUrl = agency.logoUrl;
+	const logoUrl = sanitizeLogoUrl(agency.logoUrl);
 	const accentColor = agency.primaryColor || "#6366f1";
 
 	// Render all sections from schema
@@ -229,7 +230,7 @@ export function generateFormSubmissionPdfHtml(
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>${form.name} - ${submission.clientBusinessName || "Response"}</title>
+	<title>${escapeHtml(form.name)} - ${escapeHtml(submission.clientBusinessName || "Response")}</title>
 	<style>
 		@page {
 			size: A4;
@@ -260,12 +261,12 @@ export function generateFormSubmissionPdfHtml(
 			<div>
 				${
 					logoUrl
-						? `<img src="${logoUrl}" alt="${agency.name}" style="max-height: 50px; max-width: 180px; object-fit: contain; margin-bottom: 8px;">`
-						: `<div style="font-size: 22px; font-weight: bold; color: ${accentColor};">${agency.name}</div>`
+						? `<img src="${logoUrl}" alt="${escapeHtml(agency.name)}" style="max-height: 50px; max-width: 180px; object-fit: contain; margin-bottom: 8px;">`
+						: `<div style="font-size: 22px; font-weight: bold; color: ${accentColor};">${escapeHtml(agency.name)}</div>`
 				}
 			</div>
 			<div style="text-align: right;">
-				<div style="font-size: 22px; font-weight: bold; color: #111827; margin-bottom: 4px;">${form.name}</div>
+				<div style="font-size: 22px; font-weight: bold; color: #111827; margin-bottom: 4px;">${escapeHtml(form.name)}</div>
 				<div style="font-size: 14px; color: #6b7280;">Form Submission</div>
 			</div>
 		</div>
@@ -275,17 +276,17 @@ export function generateFormSubmissionPdfHtml(
 			<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
 				<div>
 					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Client</div>
-					<div style="font-size: 16px; font-weight: 600; color: #111827;">${submission.clientBusinessName || "Not provided"}</div>
+					<div style="font-size: 16px; font-weight: 600; color: #111827;">${escapeHtml(submission.clientBusinessName || "Not provided")}</div>
 				</div>
 				<div style="text-align: right;">
 					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Status</div>
 					<span style="display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; background: ${statusStyle.bg}; color: ${statusStyle.text}; text-transform: capitalize;">
-						${statusLabel}
+						${escapeHtml(statusLabel)}
 					</span>
 				</div>
 				<div>
 					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Email</div>
-					<div style="font-size: 14px; color: #374151;">${submission.clientEmail || "Not provided"}</div>
+					<div style="font-size: 14px; color: #374151;">${escapeHtml(submission.clientEmail || "Not provided")}</div>
 				</div>
 				<div style="text-align: right;">
 					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Submitted</div>
@@ -299,8 +300,8 @@ export function generateFormSubmissionPdfHtml(
 
 		<!-- Footer -->
 		<div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #9ca3af;">
-			<div>Generated on ${formatDate(new Date())} by ${agency.name}</div>
-			${agency.website ? `<div style="margin-top: 4px;">${agency.website}</div>` : ""}
+			<div>Generated on ${formatDate(new Date())} by ${escapeHtml(agency.name)}</div>
+			${agency.website ? `<div style="margin-top: 4px;">${escapeHtml(agency.website)}</div>` : ""}
 		</div>
 	</div>
 </body>
