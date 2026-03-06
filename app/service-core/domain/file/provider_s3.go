@@ -7,6 +7,7 @@ import (
 	"service-core/config"
 	"sync"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	s3Config "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -30,15 +31,25 @@ func newS3Provider(cfg *config.Config) *s3Provider {
 
 func (p *s3Provider) getClient(ctx context.Context) (*s3.Client, error) {
 	p.initOnce.Do(func() {
+		region := p.cfg.S3Region
+		if region == "" {
+			region = "auto"
+		}
+
 		s3Cfg, err := s3Config.LoadDefaultConfig(ctx,
-			s3Config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(p.cfg.S3AccessKey, p.cfg.S3SecretKey, "")),
-			s3Config.WithRegion(p.cfg.S3Region),
+			s3Config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(p.cfg.S3AccessKeyID, p.cfg.S3SecretAccessKey, "")),
+			s3Config.WithRegion(region),
 		)
 		if err != nil {
 			p.initErr = fmt.Errorf("error loading S3 configuration: %w", err)
 			return
 		}
-		p.client = s3.NewFromConfig(s3Cfg)
+
+		p.client = s3.NewFromConfig(s3Cfg, func(o *s3.Options) {
+			if p.cfg.S3Endpoint != "" {
+				o.BaseEndpoint = aws.String(p.cfg.S3Endpoint)
+			}
+		})
 	})
 	if p.initErr != nil {
 		return nil, p.initErr

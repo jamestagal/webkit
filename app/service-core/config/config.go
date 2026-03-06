@@ -107,14 +107,11 @@ type Config struct {
 	FileProvider string
 	LocalFileDir string
 	BucketName   string
-	// AWS S3
-	S3Region    string
-	S3AccessKey string
-	S3SecretKey string
-	// Cloudfare R2
-	R2AccessKey string
-	R2SecretKey string
-	R2Endpoint  string
+	// S3-compatible Storage (AWS S3, R2, MinIO, etc)
+	S3Region          string
+	S3AccessKeyID     string
+	S3SecretAccessKey string
+	S3Endpoint        string
 	// Google Cloud Storage
 	GoogleApplicationCredentials string
 	// Azure Blob Storage
@@ -189,12 +186,10 @@ func LoadConfig() *Config {
 		FileProvider:                 MustSetEnv(true, "FILE_PROVIDER"),
 		LocalFileDir:                 MustSetEnv(os.Getenv("FILE_PROVIDER") == "local", "LOCAL_FILE_DIR"),
 		BucketName:                   MustSetEnv(os.Getenv("FILE_PROVIDER") != "local", "BUCKET_NAME"),
-		S3Region:                     MustSetEnv(os.Getenv("FILE_PROVIDER") == "s3", "S3_REGION"),
-		S3AccessKey:                  MustSetEnv(os.Getenv("FILE_PROVIDER") == "s3", "S3_ACCESS_KEY"),
-		S3SecretKey:                  MustSetEnv(os.Getenv("FILE_PROVIDER") == "s3", "S3_SECRET_KEY"),
-		R2AccessKey:                  MustSetEnv(os.Getenv("FILE_PROVIDER") == "r2", "R2_ACCESS_KEY"),
-		R2SecretKey:                  MustSetEnv(os.Getenv("FILE_PROVIDER") == "r2", "R2_SECRET_KEY"),
-		R2Endpoint:                   MustSetEnv(os.Getenv("FILE_PROVIDER") == "r2", "R2_ENDPOINT"),
+		S3Region:                     os.Getenv("S3_REGION"),
+		S3AccessKeyID:                MustSetEnv(os.Getenv("FILE_PROVIDER") == "s3", "S3_ACCESS_KEY_ID"),
+		S3SecretAccessKey:            MustSetEnv(os.Getenv("FILE_PROVIDER") == "s3", "S3_SECRET_ACCESS_KEY"),
+		S3Endpoint:                   os.Getenv("S3_ENDPOINT"),
 		GoogleApplicationCredentials: MustSetEnv(os.Getenv("FILE_PROVIDER") == "gcs", "GOOGLE_APPLICATION_CREDENTIALS"),
 		AzblobAccountName:            MustSetEnv(os.Getenv("FILE_PROVIDER") == "azblob", "AZBLOB_ACCOUNT_NAME"),
 		AzblobAccountKey:             MustSetEnv(os.Getenv("FILE_PROVIDER") == "azblob", "AZBLOB_ACCOUNT_KEY"),
@@ -264,11 +259,9 @@ func LoadTestConfig() *Config {
 		LocalFileDir:                 "file_dir",
 		BucketName:                   "bucket_name",
 		S3Region:                     "s3_region",
-		S3AccessKey:                  "s3_access_key",
-		S3SecretKey:                  "s3_secret_key",
-		R2AccessKey:                  "r2_access_key",
-		R2SecretKey:                  "r2_secret_key",
-		R2Endpoint:                   "r2_endpoint",
+		S3AccessKeyID:                "s3_access_key_id",
+		S3SecretAccessKey:            "s3_secret_access_key",
+		S3Endpoint:                   "s3_endpoint",
 		GoogleApplicationCredentials: "google_application_credentials",
 		AzblobAccountName:            "azblob_account_name",
 		AzblobAccountKey:             "azblob_account_key",

@@ -108,12 +108,10 @@ spec:
             - { name: "FILE_PROVIDER", value: "${FILE_PROVIDER}" }
             - { name: "FILE_DIR", value: "${FILE_DIR}" }
             - { name: "BUCKET_NAME", value: "${BUCKET_NAME}" }
-            - { name: "R2_ENDPOINT", value: "${R2_ENDPOINT}" }
-            - { name: "R2_ACCESS_KEY", value: "${R2_ACCESS_KEY}" }
-            - { name: "R2_SECRET_KEY", value: "${R2_SECRET_KEY}" }
+            - { name: "S3_ENDPOINT", value: "${S3_ENDPOINT}" }
             - { name: "S3_REGION", value: "${S3_REGION}" }
-            - { name: "S3_ACCESS_KEY", value: "${S3_ACCESS_KEY}" }
-            - { name: "S3_SECRET_KEY", value: "${S3_SECRET_KEY}" }
+            - { name: "S3_ACCESS_KEY_ID", value: "${S3_ACCESS_KEY_ID}" }
+            - { name: "S3_SECRET_ACCESS_KEY", value: "${S3_SECRET_ACCESS_KEY}" }
             - { name: "GOOGLE_APPLICATION_CREDENTIALS", value: "${GOOGLE_APPLICATION_CREDENTIALS}" }
             - { name: "AZBLOB_ACCOUNT_NAME", value: "${AZBLOB_ACCOUNT_NAME}" }
             - { name: "AZBLOB_ACCOUNT_KEY", value: "${AZBLOB_ACCOUNT_KEY}" }
