@@ -2111,7 +2111,8 @@ export type CopyType =
 	| "blog_post"
 	| "product_description"
 	| "cta"
-	| "site_structure";
+	| "site_structure"
+	| "social_post";
 
 export type SeoIssueSeverity = "critical" | "warning" | "info" | "opportunity";
 
