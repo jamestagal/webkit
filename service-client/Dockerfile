@@ -4,8 +4,8 @@ WORKDIR /service
 
 COPY package.json /service/package.json
 COPY package-lock.json /service/package-lock.json
-RUN npm ci --prefer-offline --no-audit || (rm -rf node_modules package-lock.json && npm install) && \
-    npm install --no-save @rollup/rollup-linux-arm64-gnu@latest
+RUN npm ci --prefer-offline --no-audit --legacy-peer-deps || (rm -rf node_modules package-lock.json && npm install --legacy-peer-deps)
+RUN npm install --no-save --legacy-peer-deps @rollup/rollup-linux-arm64-gnu@latest
 
 COPY ./public.pem /public.pem
 COPY . /service

@@ -19,8 +19,8 @@
 		"@eslint/compat": "^1.2.5",
 		"@eslint/js": "^9.18.0",
 		"@playwright/test": "^1.49.1",
-		"@sveltejs/adapter-cloudflare": "^7.2.4",
-		"@sveltejs/kit": "^2.46.4",
+		"@sveltejs/adapter-cloudflare": "^7.2.8",
+		"@sveltejs/kit": "^2.55.0",
 		"@sveltejs/vite-plugin-svelte": "^6.2.1",
 		"@tailwindcss/vite": "^4.1.16",
 		"@testing-library/jest-dom": "^6.6.3",
@@ -44,13 +44,14 @@
 		"typescript": "^5.0.0",
 		"typescript-eslint": "^8.20.0",
 		"vite": "^7.1.9",
-		"vitest": "^3.0.0"
+		"vitest": "^3.0.0",
+		"wrangler": "^4.75.0"
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.71.2",
 		"@floating-ui/dom": "^1.6.5",
-		"@sentry/sveltekit": "^10.38.0",
-		"@sveltejs/adapter-node": "^5.4.0",
+		"@sentry/sveltekit": "^8.55.0",
+		"@sveltejs/adapter-node": "^5.5.4",
 		"@tiptap/core": "^3.15.1",
 		"@tiptap/extension-link": "^3.15.1",
 		"@tiptap/extension-placeholder": "^3.15.1",
