@@ -2,10 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Shared Context
+
+This project shares patterns with other projects. **Read `~/Workspaces/shared-context/standards/conventions.md` at session start** — it contains auto-capture rules for learnings and gotchas. Before duplicating knowledge here, check:
+- **Svelte 5 rules:** `~/Workspaces/shared-context/stack/svelte5-rules.md`
+- **SvelteKit patterns:** `~/Workspaces/shared-context/stack/sveltekit-patterns.md`
+- **Go backend patterns:** `~/Workspaces/shared-context/stack/go-patterns.md`
+- **Drizzle patterns:** `~/Workspaces/shared-context/stack/drizzle-patterns.md`
+- **Deployment patterns:** `~/Workspaces/shared-context/stack/deployment.md`
+- **Deployment gotchas:** `~/Workspaces/shared-context/learnings/deployment-gotchas.md`
+- **SvelteKit gotchas:** `~/Workspaces/shared-context/learnings/sveltekit-gotchas.md`
+- **Conventions:** `~/Workspaces/shared-context/standards/conventions.md`
+
+Downstream fork: leap-learn (`~/Projects/personal/leap-learn/`)
+
 ## Plan Mode
 
 - Make the plan extremely concise. Sacrifice grammar for the sake of concision.
-- Create new planning documents for each new feature. Don't append them to pervious plan files 
+- Create new planning documents for each new feature. Don't append them to pervious plan files
 - At the end of each plan, give me a list of unresolved questions to answer, if any.
 
 ## Project Overview
