@@ -12,6 +12,7 @@ export interface AIProposalOutput {
 	opportunityContent?: string;
 	currentIssues?: CurrentIssue[];
 	performanceStandards?: PerformanceStandard[];
+	seoSummary?: string;
 	roiAnalysis?: ROIAnalysis;
 	proposedPages?: ProposedPage[];
 	timeline?: TimelinePhase[];
@@ -27,7 +28,7 @@ export interface CurrentIssue {
 	/** Severity level */
 	impact: "high" | "medium" | "low";
 	/** Where this issue was identified */
-	source: "pagespeed" | "consultation" | "inferred";
+	source: "pagespeed" | "seo-audit" | "consultation" | "inferred";
 	/** Optional: specific metric or data point */
 	metric?: string;
 }
@@ -116,7 +117,7 @@ export const AI_PROPOSAL_SCHEMA = {
 					title: { type: "string" },
 					description: { type: "string" },
 					impact: { enum: ["high", "medium", "low"] },
-					source: { enum: ["pagespeed", "consultation", "inferred"] },
+					source: { enum: ["pagespeed", "seo-audit", "consultation", "inferred"] },
 					metric: { type: "string" },
 				},
 			},
@@ -210,6 +211,7 @@ export const AI_PROPOSAL_SCHEMA = {
 			minItems: 3,
 			maxItems: 7,
 		},
+		seoSummary: { type: "string", minLength: 50, maxLength: 3000 },
 		closingContent: { type: "string", minLength: 30, maxLength: 500 },
 	},
 } as const;

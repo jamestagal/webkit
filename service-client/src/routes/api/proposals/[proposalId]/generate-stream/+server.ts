@@ -23,15 +23,18 @@ import {
 	consultations,
 	agencies,
 	agencyMemberships,
+	seoAudits,
+	seoIssues,
 	type AgencyRole,
 } from "$lib/server/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { canModifyResource } from "$lib/server/permissions";
 import { canGenerateWithAI, incrementAIGenerationCount } from "$lib/server/subscription";
 import { streamProposalContent, validateContext } from "$lib/server/services/claude.service";
 import {
 	buildContextFromProposal,
 	type PerformanceDataContext,
+	type SEOAuditContext,
 } from "$lib/server/prompts/prompt-builder";
 import { ALL_SECTIONS, type ProposalSection } from "$lib/server/prompts/proposal-sections";
 import { AIServiceError, AIErrorCode } from "$lib/server/services/ai-errors";
@@ -48,9 +51,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	// Parse request body
 	let sections: string[];
+	let includeSEOData = true;
 	try {
 		const body = await request.json();
 		sections = body.sections;
+		if (body.includeSEOData === false) includeSEOData = false;
 
 		if (!Array.isArray(sections) || sections.length === 0) {
 			return json({ error: "sections array required" }, { status: 400 });
@@ -124,6 +129,51 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		consultation = c || null;
 	}
 
+	// Fetch SEO audit data if proposal has a linked client and SEO data is requested
+	let seoAuditData: SEOAuditContext | null = null;
+	if (includeSEOData && proposal.clientId) {
+		const [audit] = await db
+			.select()
+			.from(seoAudits)
+			.where(
+				and(
+					eq(seoAudits.clientId, proposal.clientId),
+					eq(seoAudits.agencyId, proposal.agencyId),
+					eq(seoAudits.status, "complete"),
+				),
+			)
+			.orderBy(desc(seoAudits.completedAt))
+			.limit(1);
+
+		if (audit) {
+			const topIssues = await db
+				.select({
+					title: seoIssues.title,
+					description: seoIssues.description,
+					category: seoIssues.category,
+					severity: seoIssues.severity,
+					impact: seoIssues.impact,
+				})
+				.from(seoIssues)
+				.where(and(eq(seoIssues.auditId, audit.id), eq(seoIssues.severity, "critical")))
+				.limit(5);
+
+			seoAuditData = {
+				overallScore: audit.overallScore,
+				technicalScore: audit.technicalScore,
+				contentScore: audit.contentScore,
+				backlinkScore: audit.backlinkScore,
+				keywordScore: audit.keywordScore,
+				totalPages: audit.totalPages,
+				criticalIssues: audit.criticalIssues,
+				warningIssues: audit.warningIssues,
+				passedChecks: audit.passedChecks,
+				topIssues,
+				completedAt: audit.completedAt?.toISOString() ?? null,
+			};
+		}
+	}
+
 	// Get agency for branding context
 	const [agency] = await db
 		.select({ name: agencies.name })
@@ -161,6 +211,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 				urgency_level?: string;
 			} | null,
 			performanceData,
+			seoAuditData,
 		},
 		consultation
 			? {
@@ -251,6 +302,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 								text: `${step.action}: ${step.description}`,
 								completed: false,
 							}));
+						}
+						if (content.seoSummary) {
+							transformed["seoSummary"] = content.seoSummary;
 						}
 						if (content.closingContent) {
 							transformed["closingContent"] = content.closingContent;

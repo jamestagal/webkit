@@ -20,6 +20,29 @@ export interface PerformanceDataContext {
 }
 
 /**
+ * SEO audit data for enriching proposal generation
+ */
+export interface SEOAuditContext {
+	overallScore: number | null;
+	technicalScore: number | null;
+	contentScore: number | null;
+	backlinkScore: number | null;
+	keywordScore: number | null;
+	totalPages: number | null;
+	criticalIssues: number | null;
+	warningIssues: number | null;
+	passedChecks: number | null;
+	topIssues: Array<{
+		title: string;
+		description: string;
+		category: string;
+		severity: string;
+		impact: string | null;
+	}>;
+	completedAt: string | null;
+}
+
+/**
  * Agency context for customising tone and content
  */
 export interface AgencyContext {
@@ -56,6 +79,9 @@ export interface PromptContext {
 
 	// PageSpeed data (optional)
 	performanceData?: PerformanceDataContext | undefined;
+
+	// SEO audit data (optional — canonical source when both exist)
+	seoAuditData?: SEOAuditContext | undefined;
 
 	// Agency context
 	agency: AgencyContext;
@@ -103,6 +129,9 @@ ${context.admiredWebsites ? `- Admired Websites: ${context.admiredWebsites}` : "
 ${context.consultationNotes ? `- Additional Notes: ${context.consultationNotes}` : ""}
 
 ${context.performanceData ? buildPerformanceSection(context.performanceData) : "## PageSpeed Data\nNo audit data available. Use industry-standard benchmarks for performance targets."}
+
+${context.seoAuditData ? buildSEOAuditSection(context.seoAuditData) : ""}
+${context.seoAuditData && context.performanceData ? "Note: Both PageSpeed and SEO audit data are available. The SEO audit is the more comprehensive and authoritative source. Use PageSpeed metrics for Core Web Vitals specifics; use SEO audit data for overall SEO health assessment." : ""}
 
 ## Agency Context
 - Agency Name: ${context.agency.name}
@@ -156,6 +185,63 @@ ${
 }
 
 /**
+ * Build the SEO audit section of the prompt
+ */
+function buildSEOAuditSection(data: SEOAuditContext): string {
+	const scoreIndicator = (score: number | null): string => {
+		if (score === null) return "N/A";
+		if (score >= 80) return `${score}/100 (GREEN - strong)`;
+		if (score >= 50) return `${score}/100 (YELLOW - needs improvement)`;
+		return `${score}/100 (RED - critical)`;
+	};
+
+	const issuesText =
+		data.topIssues.length > 0
+			? data.topIssues
+					.map(
+						(i) =>
+							`- [${i.severity.toUpperCase()}] ${i.title}: ${i.description} (Category: ${i.category})`,
+					)
+					.join("\n")
+			: "- No critical issues found";
+
+	const auditAge = data.completedAt ? getAuditAgeLabel(data.completedAt) : null;
+
+	return `## SEO Audit Data
+- Audit Completed: ${data.completedAt || "Unknown"}${auditAge ? ` (${auditAge})` : ""}
+- Overall SEO Score: ${scoreIndicator(data.overallScore)}
+
+### Category Scores (Traffic Light)
+- Technical SEO: ${scoreIndicator(data.technicalScore)}
+- Content Quality: ${scoreIndicator(data.contentScore)}
+- Backlink Profile: ${scoreIndicator(data.backlinkScore)}
+- Keyword Performance: ${scoreIndicator(data.keywordScore)}
+
+### Audit Statistics
+- Pages Audited: ${data.totalPages ?? 0}
+- Critical Issues: ${data.criticalIssues ?? 0}
+- Warnings: ${data.warningIssues ?? 0}
+- Passed Checks: ${data.passedChecks ?? 0}
+
+### Top Critical SEO Issues
+${issuesText}`;
+}
+
+/**
+ * Get a human-readable label for audit age, with staleness warning
+ */
+function getAuditAgeLabel(completedAt: string): string | null {
+	const completed = new Date(completedAt);
+	if (isNaN(completed.getTime())) return null;
+	const days = Math.floor((Date.now() - completed.getTime()) / (1000 * 60 * 60 * 24));
+	if (days < 7) return "recent";
+	if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+	const months = Math.floor(days / 30);
+	if (months >= 3) return `${months} months ago - findings may not reflect current state`;
+	return `${months} month${months > 1 ? "s" : ""} ago`;
+}
+
+/**
  * Build the packages context section
  */
 function buildPackagesContext(packages: NonNullable<AgencyContext["packages"]>): string {
@@ -190,7 +276,7 @@ function buildOutputSchema(sections: ProposalSection[]): Record<string, unknown>
 					title: "string",
 					description: "string",
 					impact: "high|medium|low",
-					source: "pagespeed|consultation|inferred",
+					source: "pagespeed|seo-audit|consultation|inferred",
 				},
 			];
 		} else if (s === "performanceStandards") {
@@ -209,6 +295,8 @@ function buildOutputSchema(sections: ProposalSection[]): Record<string, unknown>
 			schema[s] = [
 				{ order: "number", action: "string", description: "string", owner: "client|agency|both" },
 			];
+		} else if (s === "seoSummary") {
+			schema[s] = "<string content with traffic-light indicators (GREEN/YELLOW/RED)>";
 		} else {
 			// String sections
 			schema[s] = "<string content>";
@@ -245,6 +333,7 @@ export function buildContextFromProposal(
 			urgency_level?: string;
 		} | null;
 		performanceData?: PerformanceDataContext | null;
+		seoAuditData?: SEOAuditContext | null;
 	},
 	consultation: {
 		industry?: string | null;
@@ -290,6 +379,7 @@ export function buildContextFromProposal(
 		performanceData: isValidPerformanceData(proposal.performanceData)
 			? proposal.performanceData
 			: undefined,
+		seoAuditData: proposal.seoAuditData ?? undefined,
 		agency: {
 			name: agency.businessName,
 			brandVoice,

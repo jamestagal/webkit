@@ -32,15 +32,16 @@ export const SECTION_PROMPTS: Record<string, string> = {
 	currentIssues: `Analyze and list current website issues based on:
 - Their stated primaryChallenges
 - PageSpeed audit data (if provided)
+- SEO audit data (if provided) — include relevant SEO issues with source "seo-audit"
 - Common issues for {websiteStatus} websites
 
 For each issue, provide:
 - A clear, non-technical title
 - A business-impact focused description (how it affects their customers/revenue)
 - Impact level (high/medium/low)
-- Source (pagespeed/consultation/inferred)
+- Source (pagespeed/seo-audit/consultation/inferred)
 
-Generate 3-6 issues, prioritized by impact.`,
+Generate 3-8 issues, prioritized by impact.`,
 
 	performanceStandards: `Generate website performance improvement targets:
 
@@ -56,6 +57,22 @@ If NO PageSpeed data is provided:
 - Focus on metrics most relevant to {businessType} websites
 
 Always express improvements in business terms where possible (e.g., "faster load = lower bounce rate").`,
+
+	seoSummary: `Generate an SEO health summary section based on the SEO audit data provided.
+
+If SEO audit data is available:
+- Lead with the overall SEO score and a plain-English assessment of what it means for the business
+- For each category (Technical, Content, Backlinks, Keywords), include a traffic-light indicator (GREEN/YELLOW/RED) and a 1-2 sentence explanation of what the score means in business terms
+- Reference specific critical issues by name and explain their business impact
+- End with 2-3 prioritised recommendations for improvement
+- Length: 200-400 words
+
+If NO SEO audit data is available:
+- Generate a brief placeholder noting that a comprehensive SEO audit has not yet been conducted
+- Suggest running an audit as a first step
+- Length: 50-100 words
+
+IMPORTANT: Plain text only, no markdown formatting. Use the traffic-light labels (GREEN/YELLOW/RED) inline.`,
 
 	proposedPages: `Based on the business type ({businessType}), industry ({industry}), and goals, suggest appropriate website pages:
 - Include essential pages for this type of business

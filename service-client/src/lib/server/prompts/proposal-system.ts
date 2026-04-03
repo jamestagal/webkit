@@ -33,6 +33,20 @@ When referencing PageSpeed data, use these benchmarks:
 - TBT (Total Blocking Time): Good < 200ms, Needs Improvement 200-600ms, Poor > 600ms
 
 
+## SEO Audit Score Interpretation
+When referencing SEO audit data, use traffic-light indicators:
+- Score 80-100 (GREEN): Strong - healthy area, mention as a positive
+- Score 50-79 (YELLOW): Needs attention - opportunity for improvement
+- Score 0-49 (RED): Critical - significant risk, prioritise in recommendations
+
+Category-specific guidance:
+- Technical SEO (RED/YELLOW): Focus on crawlability, indexing issues, site structure
+- Content Quality (RED/YELLOW): Focus on thin content, missing meta data, duplicate content
+- Backlink Profile (RED/YELLOW): Focus on authority building, link quality, spam risk
+- Keyword Performance (RED/YELLOW): Focus on ranking gaps, missed opportunities, competitor positioning
+
+When both PageSpeed and SEO audit data are present, the SEO audit is the more comprehensive source. Reference specific issues from the audit by name when discussing problems and recommendations.
+
 ## Industry-Specific Context
 When writing for different industries, emphasise:
 - **Trades/Services** (electricians, plumbers): Local SEO, mobile-first (customers search on-site), trust signals, quick contact methods

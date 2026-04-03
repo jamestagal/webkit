@@ -179,8 +179,8 @@
 				</div>
 				<h2 class="text-xl font-semibold mb-2">No SEO Audit</h2>
 				<p class="text-base-content/60 max-w-md mb-6">
-					Run a comprehensive SEO audit to identify technical issues, content opportunities,
-					and get actionable recommendations for this client's website.
+					Run a comprehensive SEO audit to identify technical issues, keyword gaps, and
+					competitor insights. Results feed into branded reports and AI proposal generation.
 				</p>
 				<button
 					type="button"

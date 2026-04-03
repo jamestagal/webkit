@@ -17,6 +17,7 @@ import {
 	agencyAddons,
 	consultations,
 	contracts,
+	clients,
 	users,
 	agencyMemberships,
 	seoAudits,
@@ -92,6 +93,7 @@ const NextStepItemSchema = v.object({
 
 const CreateProposalSchema = v.object({
 	consultationId: v.optional(v.pipe(v.string(), v.uuid())),
+	clientId: v.optional(v.pipe(v.string(), v.uuid())),
 	selectedPackageId: v.optional(v.pipe(v.string(), v.uuid())),
 	title: v.optional(v.string()),
 });
@@ -126,6 +128,7 @@ const UpdateProposalSchema = v.object({
 
 	// New content sections (PART 2: Proposal Improvements)
 	executiveSummary: v.optional(v.string()),
+	seoSummary: v.optional(v.string()),
 	nextSteps: v.optional(v.array(NextStepItemSchema)),
 
 	// Package selection
@@ -462,6 +465,24 @@ export const createProposal = command(CreateProposalSchema, async (data) => {
 				}
 			}
 		}
+	} else if (data.clientId) {
+		// Standalone with existing client — pre-fill from client record
+		const [client] = await db
+			.select()
+			.from(clients)
+			.where(and(eq(clients.id, data.clientId), eq(clients.agencyId, context.agencyId)))
+			.limit(1);
+
+		if (client) {
+			clientId = client.id;
+			clientData = {
+				clientBusinessName: client.businessName || "",
+				clientContactName: client.contactName || "",
+				clientEmail: client.email || "",
+				clientPhone: client.phone || "",
+				clientWebsite: client.website || "",
+			};
+		}
 	}
 
 	// Create proposal
@@ -546,6 +567,7 @@ export const updateProposal = command(UpdateProposalSchema, async (data) => {
 
 	// New content sections (PART 2: Proposal Improvements)
 	if (data.executiveSummary !== undefined) updates["executiveSummary"] = data.executiveSummary;
+	if (data.seoSummary !== undefined) updates["seoSummary"] = data.seoSummary;
 	if (data.nextSteps !== undefined) updates["nextSteps"] = data.nextSteps;
 
 	// Package selection
@@ -1313,7 +1335,7 @@ export const getClientSEOSummary = query(
 				and(
 					eq(seoAudits.clientId, clientId),
 					eq(seoAudits.agencyId, context.agencyId),
-					eq(seoAudits.status, "completed"),
+					eq(seoAudits.status, "complete"),
 				),
 			)
 			.orderBy(desc(seoAudits.completedAt))

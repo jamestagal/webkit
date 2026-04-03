@@ -14,6 +14,7 @@
 	interface Props {
 		proposalId: string;
 		sections: string[];
+		includeSEOData?: boolean;
 		onComplete: (
 			content: AIProposalOutput,
 			transformed: Record<string, unknown>,
@@ -25,7 +26,7 @@
 		onCancel: () => void;
 	}
 
-	let { proposalId, sections, onComplete, onError, onCancel }: Props = $props();
+	let { proposalId, sections, includeSEOData = true, onComplete, onError, onCancel }: Props = $props();
 
 	let streamingText = $state('');
 	let isStreaming = $state(true);
@@ -59,7 +60,7 @@
 				headers: {
 					'Content-Type': 'application/json'
 				},
-				body: JSON.stringify({ sections }),
+				body: JSON.stringify({ sections, includeSEOData }),
 				signal: abortController.signal
 			});
 
