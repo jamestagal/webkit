@@ -107,6 +107,9 @@ function validateSectionTypes(
 	if (typeof data["opportunityContent"] === "string") {
 		result.opportunityContent = data["opportunityContent"];
 	}
+	if (typeof data["seoSummary"] === "string") {
+		result.seoSummary = data["seoSummary"];
+	}
 	if (typeof data["closingContent"] === "string") {
 		result.closingContent = data["closingContent"];
 	}
@@ -173,11 +176,15 @@ function normalizeImpact(value: unknown): "high" | "medium" | "low" | null {
 	return "medium"; // Default to medium if unclear
 }
 
-function normalizeSource(value: unknown): "pagespeed" | "consultation" | "inferred" {
+function normalizeSource(
+	value: unknown,
+): "pagespeed" | "seo-audit" | "consultation" | "inferred" {
 	if (typeof value !== "string") return "inferred";
 	const lower = value.toLowerCase();
-	if (lower.includes("pagespeed") || lower.includes("audit") || lower.includes("performance"))
-		return "pagespeed";
+	if (lower.includes("seo-audit") || lower.includes("seo audit") || lower.includes("seo_audit"))
+		return "seo-audit";
+	if (lower.includes("pagespeed") || lower.includes("performance")) return "pagespeed";
+	if (lower.includes("audit")) return "seo-audit";
 	if (lower.includes("consultation") || lower.includes("client") || lower.includes("meeting"))
 		return "consultation";
 	return "inferred";

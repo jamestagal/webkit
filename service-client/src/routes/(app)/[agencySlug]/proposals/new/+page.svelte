@@ -13,6 +13,7 @@
 	import { page } from '$app/state';
 	import { getCompletedConsultations } from '$lib/api/consultation.remote';
 	import { getActivePackages } from '$lib/api/agency-packages.remote';
+	import { getClients } from '$lib/api/clients.remote';
 	import { createProposal } from '$lib/api/proposals.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { FileText, Users, ArrowRight, Package, UserCircle } from 'lucide-svelte';
@@ -30,14 +31,16 @@
 
 	// State
 	let selectedConsultationId = $state<string | null>(null);
+	let selectedClientId = $state<string | null>(null);
 	let selectedPackageId = $state<string | null>(null);
 	let proposalTitle = $state('Website Proposal');
 	let isCreating = $state(false);
 	let step = $state<'consultation' | 'package' | 'confirm'>('consultation');
 
-	// Load data - getCompletedConsultations returns only completed consultations
+	// Load data
 	const allConsultations = await getCompletedConsultations();
 	const packages = await getActivePackages();
+	const agencyClients = await getClients({ status: 'active' });
 
 	// Sort consultations: those matching prefillClientId first
 	const completedConsultations = prefillClientId
@@ -52,6 +55,7 @@
 	let selectedConsultation = $derived(
 		completedConsultations.find((c) => c.id === selectedConsultationId)
 	);
+	let selectedClient = $derived(agencyClients.find((c) => c.id === selectedClientId));
 	let selectedPackage = $derived(packages.find((p) => p.id === selectedPackageId));
 
 	function selectConsultation(id: string | null) {
@@ -77,6 +81,7 @@
 		try {
 			const proposal = await createProposal({
 				consultationId: selectedConsultationId || undefined,
+				clientId: selectedClientId || undefined,
 				selectedPackageId: selectedPackageId || undefined,
 				title: proposalTitle
 			});
@@ -136,23 +141,44 @@
 	<!-- Step 1: Select Consultation -->
 	{#if step === 'consultation'}
 		<div class="space-y-4">
-			<!-- Standalone Option -->
-			<button
-				type="button"
-				class="card bg-base-100 w-full cursor-pointer shadow transition-all hover:shadow-md {selectedConsultationId === null ? 'ring-2 ring-primary' : ''}"
-				onclick={() => selectConsultation(null)}
-			>
-				<div class="card-body flex-row items-center gap-4">
-					<div class="rounded-lg bg-base-200 p-3">
-						<FileText class="h-6 w-6" />
-					</div>
-					<div class="flex-1 text-left">
-						<h3 class="font-semibold">Standalone Proposal</h3>
-						<p class="text-base-content/60 text-sm">Create without linking to a consultation</p>
-					</div>
-					<ArrowRight class="h-5 w-5 text-base-content/40" />
+			<!-- Standalone Options -->
+			<div class="card bg-base-100 shadow">
+				<div class="card-body">
+					<h3 class="font-semibold flex items-center gap-2">
+						<FileText class="h-5 w-5" />
+						Standalone Proposal
+					</h3>
+					<p class="text-base-content/60 text-sm">Create without linking to a consultation</p>
+
+					{#if agencyClients.length > 0}
+						<div class="form-control mt-2">
+							<label class="label" for="client-select">
+								<span class="label-text">Select an existing client (optional)</span>
+							</label>
+							<select
+								id="client-select"
+								class="select select-bordered"
+								value={selectedClientId ?? ''}
+								onchange={(e) => { selectedClientId = e.currentTarget.value || null; }}
+							>
+								<option value="">No client — enter details manually</option>
+								{#each agencyClients as client}
+									<option value={client.id}>{client.businessName}{client.contactName ? ` (${client.contactName})` : ''}</option>
+								{/each}
+							</select>
+						</div>
+					{/if}
+
+					<button
+						type="button"
+						class="btn btn-primary btn-sm mt-3 w-fit"
+						onclick={() => selectConsultation(null)}
+					>
+						{selectedClientId ? 'Continue with selected client' : 'Start from scratch'}
+						<ArrowRight class="h-4 w-4" />
+					</button>
 				</div>
-			</button>
+			</div>
 
 			{#if completedConsultations.length > 0}
 				<div class="divider">Or select from consultations</div>
@@ -286,7 +312,9 @@
 							<dd class="font-medium">
 								{selectedConsultation
 									? selectedConsultation.businessName || 'Untitled'
-									: 'Standalone (manual entry)'}
+									: selectedClient
+										? selectedClient.businessName
+										: 'Standalone (manual entry)'}
 							</dd>
 						</div>
 						<div class="flex justify-between">

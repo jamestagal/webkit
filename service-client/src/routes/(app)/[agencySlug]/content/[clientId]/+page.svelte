@@ -79,7 +79,7 @@
 		overview
 			? [
 					{
-						label: "Crawl website",
+						label: "Crawl for AI copy",
 						done: overview.crawl.total_pages > 0,
 						href: `/${agencySlug}/content/import`,
 					},
@@ -366,7 +366,7 @@
 								{:else}
 									<Circle class="h-4 w-4 text-base-content/20" />
 								{/if}
-								<span class="text-sm">Crawled pages</span>
+								<span class="text-sm">Crawled pages (AI copy)</span>
 							</div>
 							{#if overview.crawl.total_pages > 0}
 								<span class="text-xs text-base-content/50">{overview.crawl.total_pages} pages</span>
@@ -404,7 +404,7 @@
 								{:else}
 									<Circle class="h-4 w-4 text-base-content/20" />
 								{/if}
-								<span class="text-sm">SEO audit</span>
+								<span class="text-sm">SEO audit (reports & proposals)</span>
 							</div>
 							{#if overview.seo.score === 0}
 								<a

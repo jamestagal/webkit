@@ -758,6 +758,7 @@ export const proposals = pgTable(
 
 		// New content sections (PART 2: Proposal Improvements)
 		executiveSummary: text("executive_summary").notNull().default(""), // Brief proposal overview
+		seoSummary: text("seo_summary").notNull().default(""), // AI-generated SEO health summary
 		nextSteps: jsonb("next_steps").notNull().default([]), // Array of {text, completed} items
 
 		// Consultation data cache (PART 2: Proposal Improvements)

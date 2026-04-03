@@ -101,6 +101,7 @@
 
 		// New sections (PART 2: Proposal Improvements)
 		executiveSummary: proposal.executiveSummary || '',
+		seoSummary: proposal.seoSummary || '',
 		nextSteps: (proposal.nextSteps as NextStepItem[]) || [],
 
 		// Package
@@ -132,6 +133,7 @@
 	let generatedSections = $state<string[]>([]);
 	let showPreviewModal = $state(false);
 	let syncedPerformanceData = $state<Record<string, unknown> | null>(null); // Fresh data from consultation
+	let includeSEOData = $state(true); // Include SEO audit data in AI context
 
 	// Section selection for AI generation (default all selected)
 	let selectedSections = $state<Record<string, boolean>>(
@@ -394,6 +396,8 @@
 					formData.timeline = transformedContent[key] as TimelinePhase[];
 				} else if (key === 'nextSteps') {
 					formData.nextSteps = transformedContent[key] as NextStepItem[];
+				} else if (key === 'seoSummary') {
+					formData.seoSummary = transformedContent[key] as string;
 				} else if (key === 'closingContent') {
 					formData.closingContent = transformedContent[key] as string;
 				}
@@ -448,6 +452,8 @@
 				return formData.timeline.length > 0;
 			case 'nextSteps':
 				return formData.nextSteps.length > 0;
+			case 'seoSummary':
+				return !!formData.seoSummary;
 			case 'closingContent':
 				return !!formData.closingContent;
 			default:
@@ -1392,6 +1398,24 @@
 							activeSection = 'summary';
 						}}
 					/>
+
+					<!-- AI-Generated SEO Health Summary (editable) -->
+					{#if formData.seoSummary}
+						<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+							<div class="card-body p-4 sm:p-6">
+								<h2 class="card-title">SEO Health Summary</h2>
+								<p class="text-base-content/60 text-sm">
+									AI-generated SEO summary for this proposal. Edit below or regenerate from the AI modal.
+								</p>
+								<RichTextEditor
+									content={formData.seoSummary}
+									placeholder="AI-generated SEO health summary will appear here..."
+									minHeight="120px"
+									onUpdate={(html) => { formData.seoSummary = html; }}
+								/>
+							</div>
+						</section>
+					{/if}
 				{/if}
 
 				<!-- Email History - Always visible -->
@@ -1435,6 +1459,21 @@
 				</svg>
 				<span class="text-sm">Selected sections will be replaced. Review before applying.</span>
 			</div>
+
+			<!-- SEO audit data badge + toggle -->
+			{#if seoSummary}
+				<div class="alert alert-info mt-3">
+					<Search class="h-4 w-4 shrink-0" />
+					<div class="flex-1">
+						<p class="font-medium text-sm">SEO audit available</p>
+						<p class="text-xs">Score: {seoSummary.overallScore}/100 with {seoSummary.criticalIssues} critical issues</p>
+					</div>
+					<label class="flex items-center gap-2 cursor-pointer">
+						<span class="text-xs">Include</span>
+						<input type="checkbox" bind:checked={includeSEOData} class="toggle toggle-sm toggle-info" />
+					</label>
+				</div>
+			{/if}
 
 			<div class="mt-4 flex flex-col gap-1">
 				{#each ALL_SECTIONS as sectionKey}
@@ -1504,6 +1543,7 @@
 		sections={Object.entries(selectedSections)
 			.filter(([_, selected]) => selected)
 			.map(([key]) => key)}
+		{includeSEOData}
 		onComplete={handleStreamingComplete}
 		onError={handleStreamingError}
 		onCancel={handleStreamingCancel}
@@ -1520,6 +1560,7 @@
 			opportunityContent: formData.opportunityContent || '',
 			currentIssues: formData.currentIssues,
 			performanceStandards: formData.performanceStandards,
+			seoSummary: formData.seoSummary || '',
 			proposedPages: formData.proposedPages,
 			timeline: formData.timeline,
 			nextSteps: formData.nextSteps,

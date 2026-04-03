@@ -160,7 +160,7 @@
 				<Brain class="h-7 w-7" style="color: {FEATURES.content.color}" />
 				Import Website
 			</h1>
-			<p class="text-base-content/70 mt-1">Crawl a client website to analyze its content</p>
+			<p class="text-base-content/70 mt-1">Crawl a client website to extract content for AI copy generation and brand voice analysis</p>
 		</div>
 	</div>
 
