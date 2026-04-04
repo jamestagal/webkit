@@ -606,6 +606,24 @@
 			</section>
 		{/if}
 
+		<!-- SEO Health Summary -->
+		{#if proposal.seoSummary}
+			<section class="relative px-8 py-20 bg-base-100">
+				<div class="mx-auto max-w-4xl">
+					<div class="flex items-center gap-4 mb-10">
+						<div class="w-1.5 h-12 rounded-full bg-gradient-to-b from-info to-info/30"></div>
+						<h2 class="text-3xl md:text-4xl font-bold tracking-tight">SEO Health Summary</h2>
+					</div>
+					<div class="relative">
+						<div class="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-info/50 via-info/20 to-transparent rounded-full"></div>
+						<div class="pl-6 text-base-content/80 text-lg leading-relaxed space-y-1">
+							{@html parseMarkdown(proposal.seoSummary)}
+						</div>
+					</div>
+				</div>
+			</section>
+		{/if}
+
 		<!-- Local Advantage -->
 		{#if proposal.localAdvantageContent}
 			<section class="relative px-8 py-20 bg-base-100">

@@ -59,20 +59,30 @@ If NO PageSpeed data is provided:
 Always express improvements in business terms where possible (e.g., "faster load = lower bounce rate").`,
 
 	seoSummary: `Generate an SEO health summary section based on the SEO audit data provided.
+Output as structured HTML (not plain text, not markdown).
 
-If SEO audit data is available:
-- Lead with the overall SEO score and a plain-English assessment of what it means for the business
-- For each category (Technical, Content, Backlinks, Keywords), include a traffic-light indicator (GREEN/YELLOW/RED) and a 1-2 sentence explanation of what the score means in business terms
-- Reference specific critical issues by name and explain their business impact
-- End with 2-3 prioritised recommendations for improvement
-- Length: 200-400 words
+If SEO audit data is available, structure the output as follows:
+
+1. **Overall score** — An <h3> with the score (e.g. "Overall SEO Score: 85/100") and a one-sentence business assessment in a <p>.
+
+2. **Category breakdown** — One <h4> per category (Technical SEO, Content Quality, Backlink Profile, Keyword Performance). Each <h4> should include the score with a colored <span> indicating status:
+   - Score 80-100 (GREEN): <span style="color: #16a34a">GREEN 93/100</span>
+   - Score 50-79 (YELLOW): <span style="color: #ca8a04">YELLOW 70/100</span>
+   - Score 0-49 (RED): <span style="color: #dc2626">RED 35/100</span>
+   Follow each heading with a <p> containing 1-2 sentences explaining what the score means in business terms.
+
+3. **Critical issues** — An <h4>Critical Issues</h4> followed by a <ul> listing specific issues by name with their business impact.
+
+4. **Recommendations** — An <h4>Recommended Actions</h4> followed by an <ol> of 2-3 prioritised improvement actions.
+
+Length: 200-400 words of content.
 
 If NO SEO audit data is available:
-- Generate a brief placeholder noting that a comprehensive SEO audit has not yet been conducted
-- Suggest running an audit as a first step
-- Length: 50-100 words
+- Output a single <p> noting that a comprehensive SEO audit has not yet been conducted and suggesting running one as a first step.
 
-IMPORTANT: Plain text only, no markdown formatting. Use the traffic-light labels (GREEN/YELLOW/RED) inline.`,
+IMPORTANT: Use only these HTML tags: h3, h4, p, ul, ol, li, strong, em, span.
+Use inline style="color: ..." on <span> for score colors. Do NOT use class attributes.
+Do NOT use markdown formatting.`,
 
 	proposedPages: `Based on the business type ({businessType}), industry ({industry}), and goals, suggest appropriate website pages:
 - Include essential pages for this type of business

@@ -296,7 +296,7 @@ function buildOutputSchema(sections: ProposalSection[]): Record<string, unknown>
 				{ order: "number", action: "string", description: "string", owner: "client|agency|both" },
 			];
 		} else if (s === "seoSummary") {
-			schema[s] = "<string content with traffic-light indicators (GREEN/YELLOW/RED)>";
+			schema[s] = "<HTML string with h3/h4 headings, colored score spans, ul/ol lists — see section prompt>";
 		} else {
 			// String sections
 			schema[s] = "<string content>";
