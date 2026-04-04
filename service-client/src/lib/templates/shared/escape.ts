@@ -17,16 +17,29 @@ export function escapeHtml(text: string): string {
 
 /**
  * Validate that a logo URL is safe for embedding in PDFs.
- * Only allows data:image/ URIs (current storage pattern).
+ * Allows data:image/ URIs and HTTPS URLs pointing to image files.
  * Returns empty string for unsafe URLs.
  */
 export function sanitizeLogoUrl(url: string | null | undefined): string {
 	if (!url || !url.trim()) return "";
 	const trimmed = url.trim();
 
-	// Allow data:image/ URIs (base64 encoded images — current pattern)
+	// Allow data:image/ URIs (base64 encoded images)
 	if (trimmed.startsWith("data:image/")) return trimmed;
 
-	// Reject everything else: https://, javascript:, data:text/html, etc.
+	// Allow HTTPS URLs to image files
+	if (trimmed.startsWith("https://")) {
+		try {
+			const parsed = new URL(trimmed);
+			const path = parsed.pathname.toLowerCase();
+			if (/\.(png|jpg|jpeg|gif|svg|webp)$/.test(path)) {
+				return trimmed;
+			}
+		} catch {
+			// Invalid URL
+		}
+	}
+
+	// Reject everything else: http://, javascript:, data:text/html, etc.
 	return "";
 }
