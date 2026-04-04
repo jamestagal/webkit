@@ -58,31 +58,46 @@ If NO PageSpeed data is provided:
 
 Always express improvements in business terms where possible (e.g., "faster load = lower bounce rate").`,
 
-	seoSummary: `Generate an SEO health summary section based on the SEO audit data provided.
-Output as structured HTML (not plain text, not markdown).
+	seoSummary: `Generate an SEO health summary as a structured JSON object based on the SEO audit data provided.
 
-If SEO audit data is available, structure the output as follows:
+If SEO audit data is available, return a JSON object with this exact structure:
+{
+  "overallScore": <number 0-100>,
+  "overallAssessment": "<1-2 sentence plain-text business assessment of what the overall score means>",
+  "categories": [
+    {
+      "name": "Technical SEO",
+      "score": <number 0-100>,
+      "status": "<green if 80-100, yellow if 50-79, red if 0-49>",
+      "description": "<1-2 sentence plain-text explanation of what this score means for the business>"
+    },
+    { "name": "Content Quality", "score": ..., "status": ..., "description": ... },
+    { "name": "Backlink Profile", "score": ..., "status": ..., "description": ... },
+    { "name": "Keyword Performance", "score": ..., "status": ..., "description": ... }
+  ],
+  "criticalIssues": [
+    { "title": "<issue name from audit>", "impact": "<1 sentence business impact>" }
+  ],
+  "recommendations": [
+    { "action": "<bold action title>", "detail": "<1-2 sentence explanation>" }
+  ]
+}
 
-1. **Overall score** — An <h3> with the score (e.g. "Overall SEO Score: 85/100") and a one-sentence business assessment in a <p>.
+Guidelines:
+- overallAssessment: Focus on business impact, not technical jargon
+- categories: Always include all 4 categories. Use scores from audit data. Status must be "green", "yellow", or "red"
+- criticalIssues: Reference specific issues from the audit by name. Include 2-5 issues
+- recommendations: 2-3 prioritised actions. Lead with the highest-impact recommendation
+- All text values should be plain text (no HTML, no markdown)
 
-2. **Category breakdown** — One <h4> per category (Technical SEO, Content Quality, Backlink Profile, Keyword Performance). Each <h4> should include the score with a colored <span> indicating status:
-   - Score 80-100 (GREEN): <span style="color: #16a34a">GREEN 93/100</span>
-   - Score 50-79 (YELLOW): <span style="color: #ca8a04">YELLOW 70/100</span>
-   - Score 0-49 (RED): <span style="color: #dc2626">RED 35/100</span>
-   Follow each heading with a <p> containing 1-2 sentences explaining what the score means in business terms.
-
-3. **Critical issues** — An <h4>Critical Issues</h4> followed by a <ul> listing specific issues by name with their business impact.
-
-4. **Recommendations** — An <h4>Recommended Actions</h4> followed by an <ol> of 2-3 prioritised improvement actions.
-
-Length: 200-400 words of content.
-
-If NO SEO audit data is available:
-- Output a single <p> noting that a comprehensive SEO audit has not yet been conducted and suggesting running one as a first step.
-
-IMPORTANT: Use only these HTML tags: h3, h4, p, ul, ol, li, strong, em, span.
-Use inline style="color: ..." on <span> for score colors. Do NOT use class attributes.
-Do NOT use markdown formatting.`,
+If NO SEO audit data is available, return:
+{
+  "overallScore": 0,
+  "overallAssessment": "A comprehensive SEO audit has not yet been conducted for this website. We recommend running a full audit as the first step to identify opportunities for improvement.",
+  "categories": [],
+  "criticalIssues": [],
+  "recommendations": [{ "action": "Run a comprehensive SEO audit", "detail": "This will identify technical issues, content gaps, and keyword opportunities specific to your business." }]
+}`,
 
 	proposedPages: `Based on the business type ({businessType}), industry ({industry}), and goals, suggest appropriate website pages:
 - Include essential pages for this type of business

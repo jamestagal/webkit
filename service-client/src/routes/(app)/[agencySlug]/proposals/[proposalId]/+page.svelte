@@ -43,6 +43,7 @@
 	import AutoResizeTextarea from '$lib/components/AutoResizeTextarea.svelte';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import SEOSummarySection from '$lib/components/proposals/SEOSummarySection.svelte';
+	import { parseSEOSummary, getStatusColorClass } from '$lib/types/seo-summary';
 	import { ALL_SECTIONS, SECTION_DISPLAY_NAMES } from '$lib/constants/proposal-sections';
 	import type { AIErrorCode } from '$lib/constants/ai-errors';
 	import type { AIProposalOutput } from '$lib/types/ai-proposal';
@@ -116,6 +117,7 @@
 	});
 
 	let isSaving = $state(false);
+	let isDirty = $state(false);
 	let activeSection = $state('client');
 
 	// Send email modal state
@@ -134,6 +136,7 @@
 	let showPreviewModal = $state(false);
 	let syncedPerformanceData = $state<Record<string, unknown> | null>(null); // Fresh data from consultation
 	let includeSEOData = $state(true); // Include SEO audit data in AI context
+	let manualEditSEO = $state(false); // Toggle manual edit mode for SEO summary
 
 	// Section selection for AI generation (default all selected)
 	let selectedSections = $state<Record<string, boolean>>(
@@ -240,6 +243,7 @@
 				selectedPackageId: formData.selectedPackageId || null,
 				validUntil: formData.validUntil || null
 			});
+			isDirty = false;
 			if (showToast) toast.success('Proposal saved');
 		} catch (err) {
 			toast.error('Failed to save', err instanceof Error ? err.message : 'Unknown error');
@@ -413,6 +417,7 @@
 		generatedContent = null;
 		transformedContent = null;
 		syncedPerformanceData = null;
+		isDirty = true;
 		toast.success('Content applied', 'AI-generated content has been applied. Click Save to persist changes.');
 	}
 
@@ -485,7 +490,7 @@
 					<div class="flex flex-wrap items-center justify-center gap-2">
 						<button
 							type="button"
-							class="btn btn-outline btn-sm"
+							class="btn btn-sm {isDirty ? 'btn-primary animate-pulse' : 'btn-outline'}"
 							onclick={() => handleSave()}
 							disabled={isSaving}
 						>
@@ -494,7 +499,7 @@
 							{:else}
 								<Save class="h-4 w-4" />
 							{/if}
-							Save
+							{isDirty ? 'Save Changes' : 'Save'}
 						</button>
 						<button
 							type="button"
@@ -1399,20 +1404,89 @@
 						}}
 					/>
 
-					<!-- AI-Generated SEO Health Summary (editable) -->
+					<!-- AI-Generated SEO Health Summary -->
 					{#if formData.seoSummary}
+						{@const parsedSEO = parseSEOSummary(formData.seoSummary)}
 						<section class="card bg-base-100 shadow mx-2 lg:mx-0">
 							<div class="card-body p-4 sm:p-6">
-								<h2 class="card-title">SEO Health Summary</h2>
-								<p class="text-base-content/60 text-sm">
-									AI-generated SEO summary for this proposal. Edit below or regenerate from the AI modal.
+								<div class="flex items-center justify-between">
+									<h2 class="card-title">SEO Health Summary</h2>
+									<button
+										type="button"
+										class="btn btn-ghost btn-xs"
+										onclick={() => { manualEditSEO = !manualEditSEO; }}
+									>
+										{manualEditSEO ? 'Show preview' : 'Edit manually'}
+									</button>
+								</div>
+
+								{#if manualEditSEO}
+									<p class="text-warning/80 text-xs">
+										Manual edits will replace the structured data. Regenerate with AI to restore the visual layout.
+									</p>
+									<RichTextEditor
+										content={formData.seoSummary}
+										placeholder="SEO health summary..."
+										minHeight="120px"
+										onUpdate={(html) => { formData.seoSummary = html; }}
+									/>
+								{:else if parsedSEO}
+									<!-- Structured preview -->
+									<div class="space-y-4 mt-2">
+										<!-- Overall score -->
+										<div class="flex items-start gap-4">
+											<div class="shrink-0 text-3xl font-bold {parsedSEO.overallScore >= 80 ? 'text-success' : parsedSEO.overallScore >= 50 ? 'text-warning' : 'text-error'}">
+												{parsedSEO.overallScore}/100
+											</div>
+											<p class="text-sm text-base-content/60 pt-1">{parsedSEO.overallAssessment}</p>
+										</div>
+
+										<!-- Category scores -->
+										{#if parsedSEO.categories.length > 0}
+											<div class="grid grid-cols-2 gap-2">
+												{#each parsedSEO.categories as cat}
+													<div class="rounded-lg bg-base-200 p-3">
+														<div class="flex items-center justify-between mb-1">
+															<span class="text-xs font-medium text-base-content/50 uppercase">{cat.name}</span>
+															<span class="text-sm font-bold {getStatusColorClass(cat.status)}">{cat.score}</span>
+														</div>
+														<div class="w-full h-1 rounded-full bg-base-300">
+															<div
+																class="h-full rounded-full {cat.status === 'green' ? 'bg-success' : cat.status === 'yellow' ? 'bg-warning' : 'bg-error'}"
+																style="width: {cat.score}%"
+															></div>
+														</div>
+													</div>
+												{/each}
+											</div>
+										{/if}
+
+										<!-- Issues + Recommendations count -->
+										<p class="text-xs text-base-content/50">
+											{parsedSEO.criticalIssues.length} critical issue{parsedSEO.criticalIssues.length !== 1 ? 's' : ''}
+											&middot; {parsedSEO.recommendations.length} recommendation{parsedSEO.recommendations.length !== 1 ? 's' : ''}
+										</p>
+									</div>
+									<p class="text-base-content/40 text-xs mt-2">
+										Regenerate with AI to update. Full visual layout shown in proposal preview.
+									</p>
+								{:else}
+									<!-- Legacy HTML content — show in editor -->
+									<RichTextEditor
+										content={formData.seoSummary}
+										placeholder="SEO health summary..."
+										minHeight="120px"
+										onUpdate={(html) => { formData.seoSummary = html; }}
+									/>
+								{/if}
+							</div>
+						</section>
+					{:else}
+						<section class="card bg-base-100 shadow mx-2 lg:mx-0">
+							<div class="card-body p-4 sm:p-6 text-center">
+								<p class="text-base-content/50 text-sm">
+									No SEO Health Summary yet. Use "Generate with AI" with SEO data enabled to create one.
 								</p>
-								<RichTextEditor
-									content={formData.seoSummary}
-									placeholder="AI-generated SEO health summary will appear here..."
-									minHeight="120px"
-									onUpdate={(html) => { formData.seoSummary = html; }}
-								/>
 							</div>
 						</section>
 					{/if}

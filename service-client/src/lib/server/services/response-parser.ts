@@ -107,7 +107,9 @@ function validateSectionTypes(
 	if (typeof data["opportunityContent"] === "string") {
 		result.opportunityContent = data["opportunityContent"];
 	}
-	if (typeof data["seoSummary"] === "string") {
+	if (typeof data["seoSummary"] === "object" && data["seoSummary"] !== null) {
+		result.seoSummary = JSON.stringify(data["seoSummary"]);
+	} else if (typeof data["seoSummary"] === "string") {
 		result.seoSummary = data["seoSummary"];
 	}
 	if (typeof data["closingContent"] === "string") {

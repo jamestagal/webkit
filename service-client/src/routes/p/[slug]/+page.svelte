@@ -41,6 +41,8 @@
 	} from '$lib/server/schema';
 	import { formatDate } from '$lib/utils/formatting';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
+	import { parseSEOSummary, getStatusColorClass } from '$lib/types/seo-summary';
+	import { AlertTriangle, TrendingUp } from 'lucide-svelte';
 	import SvelteSeo from 'svelte-seo';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -608,20 +610,124 @@
 
 		<!-- SEO Health Summary -->
 		{#if proposal.seoSummary}
-			<section class="relative px-8 py-20 bg-base-100">
-				<div class="mx-auto max-w-4xl">
-					<div class="flex items-center gap-4 mb-10">
-						<div class="w-1.5 h-12 rounded-full bg-gradient-to-b from-info to-info/30"></div>
-						<h2 class="text-3xl md:text-4xl font-bold tracking-tight">SEO Health Summary</h2>
+			{@const seoData = parseSEOSummary(proposal.seoSummary)}
+			{#if seoData}
+				{@const scoreColor = seoData.overallScore >= 80 ? 'text-success' : seoData.overallScore >= 50 ? 'text-warning' : 'text-error'}
+				{@const ringStroke = seoData.overallScore >= 80 ? 'stroke-success' : seoData.overallScore >= 50 ? 'stroke-warning' : 'stroke-error'}
+				{@const circumference = 2 * Math.PI * 54}
+				{@const offset = circumference - (seoData.overallScore / 100) * circumference}
+				<section class="px-8 py-20 bg-gradient-to-b from-base-100 to-base-200">
+					<div class="mx-auto max-w-4xl">
+						<!-- Header + Overall Score -->
+						<div class="flex flex-col md:flex-row items-center gap-8 mb-12">
+							<div class="shrink-0">
+								<svg viewBox="0 0 120 120" class="w-36 h-36">
+									<circle cx="60" cy="60" r="54" fill="none" stroke="currentColor"
+										stroke-width="7" class="text-base-300" />
+									<circle cx="60" cy="60" r="54" fill="none"
+										stroke-width="7" stroke-linecap="round"
+										stroke-dasharray={circumference} stroke-dashoffset={offset}
+										class={ringStroke} transform="rotate(-90 60 60)"
+										style="transition: stroke-dashoffset 1s ease-out" />
+									<text x="60" y="54" text-anchor="middle" dominant-baseline="central"
+										class="text-3xl font-bold fill-current {scoreColor}">{seoData.overallScore}</text>
+									<text x="60" y="76" text-anchor="middle" dominant-baseline="central"
+										class="text-xs fill-current text-base-content/40">out of 100</text>
+								</svg>
+							</div>
+							<div>
+								<h2 class="text-3xl md:text-4xl font-bold tracking-tight mb-3">SEO Health Summary</h2>
+								<p class="text-base-content/70 text-lg leading-relaxed">{seoData.overallAssessment}</p>
+							</div>
+						</div>
+
+						<!-- Category Cards -->
+						{#if seoData.categories.length > 0}
+							<div class="grid gap-4 sm:grid-cols-2 mb-12">
+								{#each seoData.categories as cat}
+									<div class="card bg-base-100 shadow-sm border border-base-300/50">
+										<div class="card-body p-5">
+											<div class="flex items-center justify-between mb-3">
+												<p class="text-sm font-medium text-base-content/50 uppercase tracking-wide">{cat.name}</p>
+												<span class="text-2xl font-bold {getStatusColorClass(cat.status)}">{cat.score}</span>
+											</div>
+											<!-- Progress bar -->
+											<div class="w-full h-1.5 rounded-full bg-base-300">
+												<div
+													class="h-full rounded-full transition-all duration-700 {cat.status === 'green' ? 'bg-success' : cat.status === 'yellow' ? 'bg-warning' : 'bg-error'}"
+													style="width: {cat.score}%"
+												></div>
+											</div>
+											<p class="text-sm text-base-content/60 mt-2 leading-relaxed">{cat.description}</p>
+										</div>
+									</div>
+								{/each}
+							</div>
+						{/if}
+
+						<!-- Critical Issues -->
+						{#if seoData.criticalIssues.length > 0}
+							<div class="mb-12">
+								<h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+									<AlertTriangle class="h-5 w-5 text-warning" />
+									Critical Issues Found
+								</h3>
+								<div class="space-y-3">
+									{#each seoData.criticalIssues as issue}
+										<div class="flex gap-4 rounded-xl bg-warning/5 border border-warning/20 p-4">
+											<div class="shrink-0 mt-0.5">
+												<div class="w-2 h-2 rounded-full bg-warning mt-2"></div>
+											</div>
+											<div>
+												<p class="font-semibold text-base-content">{issue.title}</p>
+												<p class="text-sm text-base-content/60 mt-1">{issue.impact}</p>
+											</div>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
+
+						<!-- Recommendations -->
+						{#if seoData.recommendations.length > 0}
+							<div>
+								<h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+									<TrendingUp class="h-5 w-5 text-success" />
+									Recommended Actions
+								</h3>
+								<div class="space-y-3">
+									{#each seoData.recommendations as rec, i}
+										<div class="flex gap-4 rounded-xl bg-success/5 border border-success/20 p-4">
+											<div class="shrink-0">
+												<div class="w-7 h-7 rounded-full bg-success/20 flex items-center justify-center">
+													<span class="text-xs font-bold text-success">{i + 1}</span>
+												</div>
+											</div>
+											<div>
+												<p class="font-semibold text-base-content">{rec.action}</p>
+												<p class="text-sm text-base-content/60 mt-1">{rec.detail}</p>
+											</div>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
 					</div>
-					<div class="relative">
-						<div class="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-info/50 via-info/20 to-transparent rounded-full"></div>
-						<div class="pl-6 text-base-content/80 text-lg leading-relaxed space-y-1">
+				</section>
+			{:else}
+				<!-- Fallback: legacy HTML content -->
+				<section class="relative px-8 py-20 bg-base-100">
+					<div class="mx-auto max-w-4xl">
+						<div class="flex items-center gap-4 mb-10">
+							<div class="w-1.5 h-12 rounded-full bg-gradient-to-b from-info to-info/30"></div>
+							<h2 class="text-3xl md:text-4xl font-bold tracking-tight">SEO Health Summary</h2>
+						</div>
+						<div class="text-base-content/80 text-lg leading-relaxed space-y-1">
 							{@html parseMarkdown(proposal.seoSummary)}
 						</div>
 					</div>
-				</div>
-			</section>
+				</section>
+			{/if}
 		{/if}
 
 		<!-- Local Advantage -->

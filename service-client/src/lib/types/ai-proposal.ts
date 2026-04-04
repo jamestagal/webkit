@@ -211,7 +211,49 @@ export const AI_PROPOSAL_SCHEMA = {
 			minItems: 3,
 			maxItems: 7,
 		},
-		seoSummary: { type: "string", minLength: 50, maxLength: 3000 },
+		seoSummary: {
+			type: "object",
+			required: ["overallScore", "overallAssessment", "categories", "criticalIssues", "recommendations"],
+			properties: {
+				overallScore: { type: "number" },
+				overallAssessment: { type: "string" },
+				categories: {
+					type: "array",
+					items: {
+						type: "object",
+						required: ["name", "score", "status", "description"],
+						properties: {
+							name: { type: "string" },
+							score: { type: "number" },
+							status: { enum: ["green", "yellow", "red"] },
+							description: { type: "string" },
+						},
+					},
+				},
+				criticalIssues: {
+					type: "array",
+					items: {
+						type: "object",
+						required: ["title", "impact"],
+						properties: {
+							title: { type: "string" },
+							impact: { type: "string" },
+						},
+					},
+				},
+				recommendations: {
+					type: "array",
+					items: {
+						type: "object",
+						required: ["action", "detail"],
+						properties: {
+							action: { type: "string" },
+							detail: { type: "string" },
+						},
+					},
+				},
+			},
+		},
 		closingContent: { type: "string", minLength: 30, maxLength: 500 },
 	},
 } as const;

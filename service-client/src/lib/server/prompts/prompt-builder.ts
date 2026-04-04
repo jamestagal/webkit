@@ -296,7 +296,15 @@ function buildOutputSchema(sections: ProposalSection[]): Record<string, unknown>
 				{ order: "number", action: "string", description: "string", owner: "client|agency|both" },
 			];
 		} else if (s === "seoSummary") {
-			schema[s] = "<HTML string with h3/h4 headings, colored score spans, ul/ol lists — see section prompt>";
+			schema[s] = {
+				overallScore: "<number 0-100>",
+				overallAssessment: "<string>",
+				categories: [
+					{ name: "<string>", score: "<number>", status: "<green|yellow|red>", description: "<string>" },
+				],
+				criticalIssues: [{ title: "<string>", impact: "<string>" }],
+				recommendations: [{ action: "<string>", detail: "<string>" }],
+			};
 		} else {
 			// String sections
 			schema[s] = "<string content>";
