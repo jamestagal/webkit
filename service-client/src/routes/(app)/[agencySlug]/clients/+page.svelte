@@ -20,7 +20,6 @@
 		FileText,
 		X,
 		Loader2,
-		Globe,
 	} from "lucide-svelte";
 	import { FEATURES } from "$lib/config/features";
 	import type { PageProps } from "./$types";

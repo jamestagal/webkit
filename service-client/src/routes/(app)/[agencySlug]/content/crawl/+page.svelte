@@ -12,8 +12,8 @@
 
 	let agencySlug = $derived(page.params.agencySlug);
 
-	// Form state
-	let selectedClientId = $state("");
+	// Form state — pre-select client from URL param if present
+	let selectedClientId = $state(page.url.searchParams.get('clientId') || "");
 	let sourceUrl = $state("");
 	let maxDepth = $state(3);
 	let crawlJob = $state<CrawlJob | null>(null);

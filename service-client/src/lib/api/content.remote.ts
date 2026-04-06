@@ -10,7 +10,7 @@ import * as v from "valibot";
 import { db } from "$lib/server/db";
 import { clients, contentCrawlJobs } from "$lib/server/schema";
 import { getAgencyContext } from "$lib/server/agency";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { contentFetch } from "$lib/server/content-fetch";
 import type { CrawlJob, ContentPage } from "./content.types";
 
@@ -132,4 +132,118 @@ export const getClientsWithCrawls = query(async () => {
 		clientsWithoutCrawls,
 		totalClients: agencyClients.length,
 	};
+});
+
+/**
+ * Content status per client for the Content Intelligence hub.
+ */
+export interface ClientContentStatus {
+	client: {
+		id: string;
+		businessName: string;
+		email: string;
+		website: string;
+		contactName: string | null;
+		createdAt: Date;
+	};
+	crawl: {
+		status: string | null;
+		totalPages: number;
+		lastCrawledAt: Date | null;
+	};
+	audit: {
+		status: string | null;
+		score: number | null;
+		lastAuditedAt: Date | null;
+	};
+	brand: {
+		hasProfile: boolean;
+	};
+	copy: {
+		total: number;
+	};
+}
+
+/**
+ * Get all clients with aggregated content status (crawl, audit, brand, copy).
+ * Single efficient query using lateral subqueries.
+ */
+export const getClientsWithContentStatus = query(async () => {
+	const context = await getAgencyContext();
+
+	const result = await db.execute<{
+		id: string;
+		business_name: string;
+		email: string;
+		website: string;
+		contact_name: string | null;
+		created_at: Date;
+		crawl_status: string | null;
+		crawl_pages: number | null;
+		crawl_completed_at: Date | null;
+		audit_status: string | null;
+		audit_score: number | null;
+		audit_completed_at: Date | null;
+		has_brand: boolean;
+		copy_count: number;
+	}>(sql`
+		SELECT
+			c.id, c.business_name, c.email, COALESCE(c.website, '') AS website,
+			c.contact_name, c.created_at,
+			crawl.status AS crawl_status,
+			crawl.pages_discovered AS crawl_pages,
+			crawl.completed_at AS crawl_completed_at,
+			audit.status AS audit_status,
+			audit.overall_score AS audit_score,
+			audit.completed_at AS audit_completed_at,
+			(SELECT EXISTS(
+				SELECT 1 FROM brand_profiles WHERE client_id = c.id AND is_active = true
+			)) AS has_brand,
+			(SELECT COUNT(*)::int FROM content_copy WHERE client_id = c.id) AS copy_count
+		FROM clients c
+		LEFT JOIN LATERAL (
+			SELECT status, pages_discovered, completed_at
+			FROM content_crawl_jobs
+			WHERE client_id = c.id AND crawl_target = 'client'
+			ORDER BY created_at DESC LIMIT 1
+		) crawl ON true
+		LEFT JOIN LATERAL (
+			SELECT status, overall_score, completed_at
+			FROM seo_audits
+			WHERE client_id = c.id
+			ORDER BY created_at DESC LIMIT 1
+		) audit ON true
+		WHERE c.agency_id = ${context.agencyId} AND c.status = 'active'
+		ORDER BY GREATEST(
+			crawl.completed_at, audit.completed_at, c.created_at
+		) DESC NULLS LAST
+	`);
+
+	const rows = result.rows;
+	return rows.map((row: typeof result.rows[number]): ClientContentStatus => ({
+		client: {
+			id: row.id,
+			businessName: row.business_name,
+			email: row.email,
+			website: row.website,
+			contactName: row.contact_name,
+			createdAt: row.created_at,
+		},
+		crawl: {
+			status: row.crawl_status,
+			totalPages: row.crawl_pages ?? 0,
+			lastCrawledAt: row.crawl_completed_at,
+		},
+		audit: {
+			status: row.audit_status,
+			score: row.audit_score,
+			lastAuditedAt: row.audit_completed_at,
+		},
+		brand: {
+			hasProfile: row.has_brand,
+		},
+		copy: {
+			total: row.copy_count ?? 0,
+		},
+	}));
 });
