@@ -73,7 +73,7 @@ func (e *AuditEngine) Run(ctx context.Context, auditID, clientID, agencyID uuid.
 		return fmt.Errorf("update audit status to running: %w", err)
 	}
 
-	// Get the source domain from the latest completed client crawl.
+	// Get the source domain: try crawl job first, then fall back to client's website field.
 	var sourceURL string
 	err = e.db.QueryRowContext(ctx,
 		`SELECT source_url FROM content_crawl_jobs
@@ -81,6 +81,13 @@ func (e *AuditEngine) Run(ctx context.Context, auditID, clientID, agencyID uuid.
 		 ORDER BY completed_at DESC LIMIT 1`,
 		clientID,
 	).Scan(&sourceURL)
+	if err == sql.ErrNoRows {
+		// No crawl — fall back to the client's website URL
+		err = e.db.QueryRowContext(ctx,
+			`SELECT website FROM clients WHERE id = $1 AND website != ''`,
+			clientID,
+		).Scan(&sourceURL)
+	}
 	if err != nil {
 		return fmt.Errorf("get source url: %w", err)
 	}
