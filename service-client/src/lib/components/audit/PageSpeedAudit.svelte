@@ -13,10 +13,14 @@
 
 	let { consultationId, websiteUrl, existingData = null, auditData = null, auditDate = null }: Props = $props();
 
+	// Check if performance data has actual content (not just empty {} default)
+	const hasContent = (d: PerformanceData | null | undefined): boolean =>
+		!!d && typeof d === 'object' && Object.keys(d).length > 0 && 'performance' in d;
+
 	let isLoading = $state(false);
 	let error = $state<string | null>(null);
-	let performanceData = $state<PerformanceData | null>(existingData || auditData);
-	let showingAuditData = $state(!existingData && !!auditData);
+	let performanceData = $state<PerformanceData | null>(hasContent(existingData) ? existingData : (hasContent(auditData) ? auditData : null));
+	let showingAuditData = $state(!hasContent(existingData) && hasContent(auditData));
 
 	// Derived score from data
 	let score = $derived(performanceData?.performance ?? 0);

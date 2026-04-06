@@ -195,9 +195,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	};
 
 	// Use fresh consultation performanceData if available, fall back to proposal's cached copy, then audit's
-	const performanceData = (consultation?.performanceData ||
-		proposal.performanceData ||
-		auditPerformanceData) as PerformanceDataContext | null;
+	// Note: empty {} defaults are truthy, so check for actual content
+	const hasData = (d: unknown) => d && typeof d === "object" && Object.keys(d as object).length > 0;
+	const performanceData = (
+		(hasData(consultation?.performanceData) ? consultation?.performanceData : null) ||
+		(hasData(proposal.performanceData) ? proposal.performanceData : null) ||
+		(hasData(auditPerformanceData) ? auditPerformanceData : null)
+	) as PerformanceDataContext | null;
 
 	const promptContext = buildContextFromProposal(
 		{

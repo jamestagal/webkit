@@ -771,6 +771,14 @@
 							<p class="text-base-content/60 text-sm">
 								Enter PageSpeed Insights scores from analyzing the client's current website.
 							</p>
+							{#if !formData.performanceData?.performance}
+								<div class="flex items-start gap-2 rounded-lg bg-base-200/50 px-3 py-2 mt-1">
+									<Search class="h-3.5 w-3.5 text-base-content/40 mt-0.5 shrink-0" />
+									<p class="text-xs text-base-content/40">
+										When you generate content with AI, PageSpeed data from the SEO Audit will be synced here automatically.
+									</p>
+								</div>
+							{/if}
 
 							<div class="grid gap-4 sm:grid-cols-2">
 								<div class="form-control">
@@ -1512,8 +1520,11 @@
 				Generate with AI
 			</h3>
 			<p class="text-base-content/60 text-sm mt-2">
-				Select the sections you want to generate. Latest PageSpeed audit data from the consultation
-				will be synced automatically.
+				Select the sections you want to generate.
+			</p>
+			<p class="text-base-content/40 text-xs mt-1 flex items-center gap-1">
+				<Search class="h-3 w-3 shrink-0" />
+				PageSpeed data from the SEO Audit will be synced automatically to the Performance tab.
 			</p>
 
 			<!-- Warning banner -->
