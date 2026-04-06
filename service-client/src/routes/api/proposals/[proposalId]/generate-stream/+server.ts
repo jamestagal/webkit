@@ -131,6 +131,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	// Fetch SEO audit data if proposal has a linked client and SEO data is requested
 	let seoAuditData: SEOAuditContext | null = null;
+	let auditPerformanceData: unknown = null;
 	if (includeSEOData && proposal.clientId) {
 		const [audit] = await db
 			.select()
@@ -146,6 +147,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			.limit(1);
 
 		if (audit) {
+			auditPerformanceData = audit.performanceData;
 			const topIssues = await db
 				.select({
 					title: seoIssues.title,
@@ -192,9 +194,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		usps: null as string[] | null,
 	};
 
-	// Use fresh consultation performanceData if available, fall back to proposal's cached copy
+	// Use fresh consultation performanceData if available, fall back to proposal's cached copy, then audit's
 	const performanceData = (consultation?.performanceData ||
-		proposal.performanceData) as PerformanceDataContext | null;
+		proposal.performanceData ||
+		auditPerformanceData) as PerformanceDataContext | null;
 
 	const promptContext = buildContextFromProposal(
 		{

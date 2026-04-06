@@ -195,6 +195,8 @@
 						consultationId={consultation.id}
 						websiteUrl={consultation.website}
 						existingData={consultation.performanceData as PerformanceData | null}
+						auditData={data.auditPerformanceData as PerformanceData | null}
+						auditDate={data.auditCompletedAt}
 					/>
 				</div>
 			</div>

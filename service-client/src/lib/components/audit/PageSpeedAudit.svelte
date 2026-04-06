@@ -7,13 +7,16 @@
 		consultationId: string;
 		websiteUrl: string | null;
 		existingData?: PerformanceData | null;
+		auditData?: PerformanceData | null;
+		auditDate?: Date | null;
 	}
 
-	let { consultationId, websiteUrl, existingData = null }: Props = $props();
+	let { consultationId, websiteUrl, existingData = null, auditData = null, auditDate = null }: Props = $props();
 
 	let isLoading = $state(false);
 	let error = $state<string | null>(null);
-	let performanceData = $state<PerformanceData | null>(existingData);
+	let performanceData = $state<PerformanceData | null>(existingData || auditData);
+	let showingAuditData = $state(!existingData && !!auditData);
 
 	// Derived score from data
 	let score = $derived(performanceData?.performance ?? 0);
@@ -49,6 +52,7 @@
 		try {
 			const result = await runPageSpeedAudit({ consultationId });
 			performanceData = result;
+			showingAuditData = false;
 		} catch (err: unknown) {
 			if (err instanceof Error) {
 				error = err.message;
@@ -195,7 +199,11 @@
 
 				<!-- Footer -->
 				<div class="audit-footer">
-					{#if performanceData.auditedAt}
+					{#if showingAuditData && auditDate}
+						<span class="audit-time audit-source">
+							From SEO audit — {formatAuditTime(auditDate.toISOString())}
+						</span>
+					{:else if performanceData.auditedAt}
 						<span class="audit-time">
 							Analyzed {formatAuditTime(performanceData.auditedAt)}
 						</span>
@@ -665,6 +673,11 @@
 	.audit-time {
 		font-size: 0.75rem;
 		color: var(--color-text-muted);
+	}
+
+	.audit-source {
+		color: var(--color-accent);
+		font-weight: 500;
 	}
 
 	.rerun-btn {
