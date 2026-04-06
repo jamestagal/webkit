@@ -68,12 +68,13 @@ type PageData struct {
 
 // Crawler coordinates a Colly-based crawl of a website.
 type Crawler struct {
-	cfg        CrawlConfig
-	db         *sql.DB
-	transport  *BrowserTransport
-	classifier *Classifier
-	mu         sync.Mutex
-	result     CrawlResult
+	cfg          CrawlConfig
+	db           *sql.DB
+	transport    *BrowserTransport
+	classifier   *Classifier
+	mu           sync.Mutex
+	result       CrawlResult
+	failedVisits int
 }
 
 // New creates a new Crawler instance.
@@ -224,6 +225,9 @@ func (c *Crawler) Run(ctx context.Context) CrawlResult {
 
 	collector.OnError(func(r *colly.Response, err error) {
 		slog.Warn("Crawl error", "url", r.Request.URL.String(), "error", err)
+		c.mu.Lock()
+		c.failedVisits++
+		c.mu.Unlock()
 	})
 
 	// 5. Start crawling
@@ -249,7 +253,17 @@ func (c *Crawler) Run(ctx context.Context) CrawlResult {
 		"discovered", c.result.PagesDiscovered,
 		"processed", c.result.PagesProcessed,
 		"changed", c.result.PagesChanged,
+		"failed", c.failedVisits,
 	)
+
+	// 7. Detect silent failures — if we attempted pages but discovered none,
+	// the crawl should report an error rather than "success with 0 pages".
+	if c.result.PagesDiscovered == 0 && c.failedVisits > 0 {
+		c.result.Error = fmt.Errorf(
+			"crawl discovered 0 pages but %d page fetch(es) failed — the site may be blocking automated access (Cloudflare, rate limiting, etc.)",
+			c.failedVisits,
+		)
+	}
 
 	return c.result
 }

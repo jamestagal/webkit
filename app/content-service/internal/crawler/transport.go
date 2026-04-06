@@ -1,15 +1,20 @@
 package crawler
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"app/pkg/cfbrowser"
 	"app/pkg/jina"
+
+	"golang.org/x/net/html"
 )
 
 // BrowserTransport is a custom http.RoundTripper that uses Cloudflare Browser
@@ -50,29 +55,42 @@ func (t *BrowserTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	if md == nil && t.jinaClient != nil {
 		content, jinaErr := t.jinaClient.GetMarkdown(req.Context(), pageURL)
 		if jinaErr != nil {
-			if t.cfClient != nil {
-				return nil, fmt.Errorf("both rendering services failed for %s: %v", pageURL, jinaErr)
-			}
-			return nil, fmt.Errorf("jina rendering failed for %s: %w", pageURL, jinaErr)
+			// Don't return early — fall through to direct HTTP fallback.
+			slog.Debug("Jina rendering failed, will try direct HTTP", "url", pageURL, "error", jinaErr)
+		} else {
+			// Jina Reader returns metadata header lines like "Title: ...\nURL Source: ...\n\n"
+			// Extract the title from the header before treating the rest as content.
+			title, cleanContent := extractJinaTitle(content)
+			md = &cfbrowser.MarkdownResponse{Content: cleanContent, Title: title, URL: pageURL}
+			slog.Debug("Used Jina fallback", "url", pageURL, "title", title)
 		}
-		// Jina Reader returns metadata header lines like "Title: ...\nURL Source: ...\n\n"
-		// Extract the title from the header before treating the rest as content.
-		title, cleanContent := extractJinaTitle(content)
-		md = &cfbrowser.MarkdownResponse{Content: cleanContent, Title: title, URL: pageURL}
-		slog.Debug("Used Jina fallback", "url", pageURL, "title", title)
 	}
 
+	// 2. Direct HTTP fallback — many sites serve fully rendered HTML and don't need
+	// a browser rendering service. This is especially useful when Jina/CF timeout
+	// on Cloudflare-protected sites that actually serve static HTML.
+	var directLinks []cfbrowser.Link
 	if md == nil {
-		return nil, fmt.Errorf("no rendering service available for %s", pageURL)
+		slog.Debug("Rendering services unavailable, trying direct HTTP", "url", pageURL)
+		directMD, links, directErr := t.fetchDirect(req.Context(), pageURL)
+		if directErr != nil {
+			return nil, fmt.Errorf("all fetch methods failed for %s (direct: %v)", pageURL, directErr)
+		}
+		md = directMD
+		directLinks = links
+		slog.Debug("Used direct HTTP fallback", "url", pageURL, "title", md.Title)
 	}
 
-	// 2. Store HTML <title> if available
+	// 3. Store HTML <title> if available
 	if md.Title != "" {
 		t.titles.Store(pageURL, md.Title)
 	}
 
-	// 3. Get links (best-effort, only via CF Browser since it has GetLinks)
-	if t.cfClient != nil {
+	// 4. Get links (CF Browser → direct HTML extraction fallback)
+	if directLinks != nil {
+		// Already extracted from direct HTTP fallback
+		t.links.Store(pageURL, directLinks)
+	} else if t.cfClient != nil {
 		links, linkErr := t.cfClient.GetLinks(req.Context(), pageURL)
 		if linkErr == nil && links != nil {
 			t.links.Store(pageURL, links.Links)
@@ -81,7 +99,7 @@ func (t *BrowserTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 		}
 	}
 
-	// 4. Return synthetic response with markdown as body
+	// 5. Return synthetic response with markdown as body
 	return &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     http.Header{"Content-Type": []string{"text/markdown"}},
@@ -102,6 +120,180 @@ func (t *BrowserTransport) GetStoredLinks(pageURL string) []cfbrowser.Link {
 func (t *BrowserTransport) GetStoredTitle(pageURL string) string {
 	if v, ok := t.titles.LoadAndDelete(pageURL); ok {
 		return v.(string)
+	}
+	return ""
+}
+
+// directHTTPClient is a shared client for direct HTTP fallback requests.
+var directHTTPClient = &http.Client{
+	Timeout: 15 * time.Second,
+}
+
+// fetchDirect performs a plain HTTP GET and extracts content from the raw HTML.
+// Returns a MarkdownResponse (with body text converted to simple markdown),
+// extracted links, or an error.
+func (t *BrowserTransport) fetchDirect(ctx context.Context, pageURL string) (*cfbrowser.MarkdownResponse, []cfbrowser.Link, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; WebkitBot/1.0)")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml")
+
+	resp, err := directHTTPClient.Do(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("HTTP GET: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return nil, nil, fmt.Errorf("HTTP %d from %s", resp.StatusCode, pageURL)
+	}
+
+	// Limit read to 2MB to avoid huge pages.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	if err != nil {
+		return nil, nil, fmt.Errorf("read body: %w", err)
+	}
+
+	title, content, links := parseHTML(string(body), pageURL)
+
+	return &cfbrowser.MarkdownResponse{
+		Content: content,
+		Title:   title,
+		URL:     pageURL,
+	}, links, nil
+}
+
+// parseHTML does a lightweight extraction of title, body text, and links from raw HTML.
+// Body text is returned as simple markdown (headings prefixed with #, paragraphs separated by newlines).
+func parseHTML(rawHTML, baseURL string) (title, markdown string, links []cfbrowser.Link) {
+	doc, err := html.Parse(strings.NewReader(rawHTML))
+	if err != nil {
+		// If parsing fails, return raw text stripped of tags.
+		return "", rawHTML, nil
+	}
+
+	var (
+		titleBuf   strings.Builder
+		bodyBuf    strings.Builder
+		inTitle    bool
+		inScript   bool
+		inStyle    bool
+		inHeading  int // 1-6 for h1-h6, 0 otherwise
+	)
+
+	base, _ := (&url.URL{}).Parse(baseURL)
+
+	var walk func(*html.Node)
+	walk = func(n *html.Node) {
+		switch n.Type {
+		case html.ElementNode:
+			tag := strings.ToLower(n.Data)
+
+			switch tag {
+			case "title":
+				inTitle = true
+			case "script", "noscript":
+				inScript = true
+			case "style":
+				inStyle = true
+			case "h1":
+				inHeading = 1
+			case "h2":
+				inHeading = 2
+			case "h3":
+				inHeading = 3
+			case "h4":
+				inHeading = 4
+			case "h5":
+				inHeading = 5
+			case "h6":
+				inHeading = 6
+			case "p", "div", "section", "article", "main", "li":
+				bodyBuf.WriteString("\n")
+			case "br":
+				bodyBuf.WriteString("\n")
+			case "a":
+				href := getAttr(n, "href")
+				if href != "" && !strings.HasPrefix(href, "#") && !strings.HasPrefix(href, "javascript:") {
+					linkText := extractText(n)
+					if base != nil {
+						if resolved, err := base.Parse(href); err == nil {
+							href = resolved.String()
+						}
+					}
+					links = append(links, cfbrowser.Link{URL: href, Text: linkText})
+				}
+			}
+
+		case html.TextNode:
+			if inScript || inStyle {
+				break
+			}
+			text := strings.TrimSpace(n.Data)
+			if text == "" {
+				break
+			}
+			if inTitle {
+				titleBuf.WriteString(text)
+			}
+			if inHeading > 0 {
+				bodyBuf.WriteString("\n" + strings.Repeat("#", inHeading) + " " + text + "\n")
+			} else {
+				bodyBuf.WriteString(text + " ")
+			}
+		}
+
+		for child := n.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+
+		// Close tags
+		if n.Type == html.ElementNode {
+			tag := strings.ToLower(n.Data)
+			switch tag {
+			case "title":
+				inTitle = false
+			case "script", "noscript":
+				inScript = false
+			case "style":
+				inStyle = false
+			case "h1", "h2", "h3", "h4", "h5", "h6":
+				inHeading = 0
+			case "p", "div", "section", "article", "main", "li":
+				bodyBuf.WriteString("\n")
+			}
+		}
+	}
+
+	walk(doc)
+
+	return strings.TrimSpace(titleBuf.String()), strings.TrimSpace(bodyBuf.String()), links
+}
+
+// extractText returns all text content from a node and its children.
+func extractText(n *html.Node) string {
+	var buf strings.Builder
+	var walk func(*html.Node)
+	walk = func(n *html.Node) {
+		if n.Type == html.TextNode {
+			buf.WriteString(n.Data)
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+	}
+	walk(n)
+	return strings.TrimSpace(buf.String())
+}
+
+// getAttr returns the value of an attribute on an HTML node, or empty string.
+func getAttr(n *html.Node, key string) string {
+	for _, a := range n.Attr {
+		if a.Key == key {
+			return a.Val
+		}
 	}
 	return ""
 }
