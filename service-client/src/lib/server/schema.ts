@@ -1461,6 +1461,9 @@ export const consultations = pgTable("consultations", {
 	// Link to unified client (optional - populated via getOrCreateClient)
 	clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),
 
+	// Optional custom name for disambiguation (falls back to businessName)
+	name: varchar("name", { length: 255 }),
+
 	// Step 1: Contact & Business
 	businessName: text("business_name"),
 	contactPerson: text("contact_person"),

@@ -17,7 +17,7 @@
 	import { createProposal } from '$lib/api/proposals.remote';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { FileText, Users, ArrowRight, Package, UserCircle } from 'lucide-svelte';
-	import { formatDate } from '$lib/utils/formatting';
+	import { formatDateTime } from '$lib/utils/formatting';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -195,11 +195,14 @@
 							</div>
 							<div class="flex-1 text-left">
 								<h3 class="font-semibold">
-									{consultation.businessName || 'Untitled'}
+									{consultation.name || consultation.businessName || 'Untitled'}
 								</h3>
 								<p class="text-base-content/60 text-sm">
+									{#if consultation.name && consultation.businessName}
+										{consultation.businessName} &bull;
+									{/if}
 									{consultation.contactPerson || 'No contact'} &bull;
-									{formatDate(consultation.createdAt)}
+									{formatDateTime(consultation.createdAt)}
 								</p>
 							</div>
 							<div class="badge badge-success">Completed</div>

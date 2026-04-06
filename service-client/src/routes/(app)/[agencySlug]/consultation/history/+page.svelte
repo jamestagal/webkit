@@ -8,11 +8,11 @@
 
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { deleteConsultation } from '$lib/api/consultation.remote';
+	import { deleteConsultation, updateDynamicConsultation } from '$lib/api/consultation.remote';
 	import { FEATURES } from '$lib/config/features';
 	import { INDUSTRY_OPTIONS, URGENCY_COLORS } from '$lib/config/consultation-options';
 	import { formatDateTime } from '$lib/utils/formatting';
-	import { Plus, Trash2, User } from 'lucide-svelte';
+	import { Plus, Trash2, User, Pencil } from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -27,6 +27,26 @@
 
 	// Consultations from server load (reactive — updates when invalidateAll() runs)
 	let consultations = $derived(data.consultations);
+
+	// Inline rename state
+	let renamingId = $state<string | null>(null);
+	let renameValue = $state('');
+
+	function startRename(id: string, currentName: string) {
+		renamingId = id;
+		renameValue = currentName;
+	}
+
+	async function saveRename(consultationId: string) {
+		const trimmed = renameValue.trim();
+		await updateDynamicConsultation({ consultationId, name: trimmed || null });
+		renamingId = null;
+		await invalidateAll();
+	}
+
+	function cancelRename() {
+		renamingId = null;
+	}
 
 	// Delete modal state
 	let deleteModalOpen = $state(false);
@@ -147,23 +167,53 @@
 		<div class="space-y-4">
 			{#each consultations as consultation}
 				{@const canEdit = canModify(consultation.createdBy)}
-				<div class="card bg-base-100 border border-base-300 transition-shadow hover:shadow-md">
+				<div class="card bg-base-100 border border-base-300 transition-shadow hover:shadow-md group">
 					<div class="card-body p-4 sm:p-6">
 						<!-- Header with title and badge -->
 						<div class="flex flex-wrap items-center gap-2">
-							<h3 class="text-lg font-semibold">
-								{#if consultation.clientId}
-									<a
-										href="/{agencySlug}/clients/{consultation.clientId}"
-										class="link link-hover"
-										title="View client hub"
-									>
-										{consultation.businessName || 'Untitled Consultation'}
-									</a>
-								{:else}
-									{consultation.businessName || 'Untitled Consultation'}
+							{#if renamingId === consultation.id}
+								<div class="flex items-center gap-2">
+									<input
+										type="text"
+										class="input input-sm input-bordered w-64"
+										bind:value={renameValue}
+										placeholder={consultation.businessName || 'Consultation name'}
+										onkeydown={(e) => {
+											if (e.key === 'Enter') saveRename(consultation.id);
+											if (e.key === 'Escape') cancelRename();
+										}}
+									/>
+									<button class="btn btn-sm btn-primary" onclick={() => saveRename(consultation.id)}>Save</button>
+									<button class="btn btn-sm btn-ghost" onclick={cancelRename}>Cancel</button>
+								</div>
+							{:else}
+								<h3 class="text-lg font-semibold">
+									{#if consultation.clientId}
+										<a
+											href="/{agencySlug}/clients/{consultation.clientId}"
+											class="link link-hover"
+											title="View client hub"
+										>
+											{consultation.name || consultation.businessName || 'Untitled Consultation'}
+										</a>
+									{:else}
+										{consultation.name || consultation.businessName || 'Untitled Consultation'}
+									{/if}
+								</h3>
+								{#if consultation.name && consultation.businessName}
+									<span class="text-xs text-base-content/40">{consultation.businessName}</span>
 								{/if}
-							</h3>
+								<button
+									class="btn btn-ghost btn-xs opacity-0 group-hover:opacity-100 transition-opacity"
+									title="Rename consultation"
+									onclick={() => startRename(consultation.id, consultation.name || consultation.businessName || '')}
+								>
+									<Pencil class="h-3 w-3" />
+								</button>
+								<span class="text-xs text-base-content/50">
+									{formatDateTime(consultation.createdAt)}
+								</span>
+							{/if}
 							<span class="badge {getStatusBadgeClass(consultation.status)} whitespace-nowrap">
 								{consultation.status === 'completed'
 									? 'Completed'

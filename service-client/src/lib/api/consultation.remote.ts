@@ -77,6 +77,7 @@ export const getAgencyConsultations = query(async () => {
 			agencyId: consultations.agencyId,
 			clientId: consultations.clientId,
 			businessName: consultations.businessName,
+			name: consultations.name,
 			contactPerson: consultations.contactPerson,
 			email: consultations.email,
 			phone: consultations.phone,
@@ -125,7 +126,18 @@ export const getCompletedConsultations = query(async () => {
 	const agencyId = await getAgencyId();
 
 	return await db
-		.select()
+		.select({
+			id: consultations.id,
+			clientId: consultations.clientId,
+			name: consultations.name,
+			businessName: consultations.businessName,
+			contactPerson: consultations.contactPerson,
+			email: consultations.email,
+			website: consultations.website,
+			status: consultations.status,
+			createdAt: consultations.createdAt,
+			updatedAt: consultations.updatedAt,
+		})
 		.from(consultations)
 		.where(and(eq(consultations.agencyId, agencyId), eq(consultations.status, "completed")))
 		.orderBy(desc(consultations.updatedAt));
@@ -270,7 +282,9 @@ export const createDynamicConsultation = command(DynamicCreateSchema, async (dat
 			budgetRange: data.budgetRange || "tbd",
 			timeline: data.timeline || null,
 			designStyles: data.designStyles || null,
-			admiredWebsites: data.admiredWebsites ? [data.admiredWebsites] : [],
+			admiredWebsites: data.admiredWebsites
+				? Array.isArray(data.admiredWebsites) ? data.admiredWebsites : [data.admiredWebsites]
+				: [],
 			consultationNotes: data.consultationNotes || null,
 			status: data.status || "draft",
 		})
@@ -290,6 +304,8 @@ const DynamicUpdateSchema = v.object({
 	consultationId: v.pipe(v.string(), v.uuid()),
 	customData: v.optional(v.any()),
 	status: v.optional(v.picklist(["draft", "completed"])),
+	// Custom name for disambiguation
+	name: v.optional(v.nullable(v.string())),
 	// All mapped fields optional
 	businessName: v.optional(v.nullable(v.string())),
 	contactPerson: v.optional(v.nullable(v.string())),
@@ -500,7 +516,9 @@ export const updatePreferencesNotes = command(UpdatePreferencesNotesSchema, asyn
 		.update(consultations)
 		.set({
 			designStyles: data.design_styles || null,
-			admiredWebsites: data.admired_websites ? [data.admired_websites] : [],
+			admiredWebsites: data.admired_websites
+				? Array.isArray(data.admired_websites) ? data.admired_websites : [data.admired_websites]
+				: [],
 			consultationNotes: data.consultation_notes || null,
 			updatedAt: new Date(),
 		})

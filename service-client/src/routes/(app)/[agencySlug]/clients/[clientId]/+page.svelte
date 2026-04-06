@@ -430,7 +430,7 @@
 								</td>
 								<td>
 									<span class="text-sm text-base-content/70">
-										{formatDate(doc.createdAt)}
+										{formatDateTime(doc.createdAt)}
 									</span>
 								</td>
 								<td>

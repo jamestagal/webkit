@@ -86,7 +86,10 @@ export type GoalsBudgetOutput = v.InferOutput<typeof GoalsBudgetSchema>;
 
 export const PreferencesNotesSchema = v.object({
 	design_styles: v.optional(v.array(v.string())),
-	admired_websites: v.optional(v.pipe(v.string(), v.maxLength(2000))),
+	admired_websites: v.optional(v.union([
+		v.pipe(v.string(), v.maxLength(2000)),
+		v.array(v.string()),
+	])),
 	consultation_notes: v.optional(v.pipe(v.string(), v.maxLength(5000))),
 });
 
