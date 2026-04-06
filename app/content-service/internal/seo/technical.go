@@ -72,11 +72,13 @@ func (e *AuditEngine) RunTechnicalAudit(ctx context.Context, auditID, clientID u
 	)
 
 	// Step 2: Poll for completion.
+	// DataForSEO on-page crawl typically finishes in 1-3 minutes for small sites.
+	// Initial wait of 30s, then 10s intervals to balance responsiveness vs API load.
 	var summary *dataforseo.OnPageSummary
-	for i := 0; i < 20; i++ {
-		delay := 20 * time.Second
+	for i := 0; i < 30; i++ {
+		delay := 10 * time.Second
 		if i == 0 {
-			delay = 60 * time.Second
+			delay = 30 * time.Second
 		}
 		select {
 		case <-ctx.Done():
@@ -112,7 +114,7 @@ func (e *AuditEngine) RunTechnicalAudit(ctx context.Context, auditID, clientID u
 	}
 
 	if summary == nil || summary.CrawlProgress != "finished" {
-		return 0, fmt.Errorf("on-page task %s did not finish after polling", taskID)
+		return 0, fmt.Errorf("on-page task %s did not finish after 5 minutes of polling", taskID)
 	}
 
 	// Log summary metrics for debugging.

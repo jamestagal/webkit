@@ -46,6 +46,7 @@
 		email: "",
 		phone: "",
 		contactName: "",
+		website: "",
 		notes: "",
 	});
 
@@ -108,6 +109,7 @@
 			email: client.email,
 			phone: client.phone || "",
 			contactName: client.contactName || "",
+			website: client.website || "",
 			notes: client.notes || "",
 		};
 		showEditModal = true;
@@ -127,6 +129,7 @@
 				email: formData.email.trim(),
 				phone: formData.phone.trim() || null,
 				contactName: formData.contactName.trim() || null,
+				website: formData.website.trim() || undefined,
 				notes: formData.notes.trim() || null,
 			});
 			showEditModal = false;
@@ -594,6 +597,22 @@
 							bind:value={formData.phone}
 						/>
 					</div>
+				</div>
+
+				<div class="form-control">
+					<label class="label" for="edit-website">
+						<span class="label-text">Website</span>
+					</label>
+					<input
+						type="url"
+						id="edit-website"
+						class="input input-bordered"
+						bind:value={formData.website}
+						placeholder="https://example.com"
+					/>
+					<label class="label">
+						<span class="label-text-alt text-base-content/50">Required for SEO Audits</span>
+					</label>
 				</div>
 
 				<div class="form-control">

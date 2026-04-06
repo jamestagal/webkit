@@ -88,6 +88,9 @@ func (e *AuditEngine) Run(ctx context.Context, auditID, clientID, agencyID uuid.
 			clientID,
 		).Scan(&sourceURL)
 	}
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("no website URL found for this client — please add a website URL in the client settings before running an SEO audit")
+	}
 	if err != nil {
 		return fmt.Errorf("get source url: %w", err)
 	}
