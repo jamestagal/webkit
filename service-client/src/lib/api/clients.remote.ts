@@ -418,7 +418,7 @@ export const getClientDocuments = query(v.pipe(v.string(), v.uuid()), async (cli
 			.select({
 				id: consultations.id,
 				type: sql<string>`'consultation'`.as("type"),
-				title: consultations.businessName,
+				title: sql<string>`COALESCE(NULLIF(${consultations.name}, ''), ${consultations.businessName})`.as("title"),
 				status: consultations.status,
 				createdAt: consultations.createdAt,
 				updatedAt: consultations.updatedAt,
