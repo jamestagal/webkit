@@ -2,7 +2,7 @@
 	import { invalidateAll, goto } from "$app/navigation";
 	import { getToast } from "$lib/ui/toast_store.svelte";
 	import { updateClient, archiveClient, restoreClient } from "$lib/api/clients.remote";
-	import { formatDate, formatDateTime } from '$lib/utils/formatting';
+	import { formatDateTime } from '$lib/utils/formatting';
 	import {
 		ArrowLeft,
 		Users,

@@ -15,6 +15,7 @@
 	let starting = $state(false);
 	let polling = $state(false);
 	let polledAudit = $state<AuditResponse | null>(null);
+	let errorMessage = $state<string | null>(null);
 
 	let latestAudit = $derived(polledAudit ?? data.latestAudit);
 	let isRunning = $derived(
@@ -54,6 +55,7 @@
 
 	async function handleStartAudit() {
 		starting = true;
+		errorMessage = null;
 		try {
 			const cid = data.clientId;
 			const result = await startAudit(cid);
@@ -62,7 +64,7 @@
 				id: result.id,
 				agency_id: "",
 				client_id: cid,
-				crawl_job_id: "",
+				crawl_job_id: null,
 				status: "pending",
 				overall_score: null,
 				technical_score: null,
@@ -78,8 +80,9 @@
 				updated_at: new Date().toISOString(),
 			};
 			polling = true;
-		} catch {
-			// Error starting audit
+		} catch (err) {
+			errorMessage =
+				err instanceof Error ? err.message : "Failed to start audit. Please try again.";
 		} finally {
 			starting = false;
 		}
@@ -148,6 +151,7 @@
 			URL.revokeObjectURL(url);
 		} catch (err) {
 			console.error("Download report error:", err);
+			errorMessage = "Failed to download report. Please try again.";
 		} finally {
 			downloading = false;
 		}
@@ -170,6 +174,14 @@
 </script>
 
 <div class="space-y-6">
+	{#if errorMessage}
+		<div class="alert alert-error">
+			<AlertTriangle class="h-5 w-5 shrink-0" />
+			<span>{errorMessage}</span>
+			<button type="button" class="btn btn-ghost btn-sm" onclick={() => (errorMessage = null)}>Dismiss</button>
+		</div>
+	{/if}
+
 	{#if !latestAudit}
 		<!-- No Audit — Empty State -->
 		<div class="card bg-base-100 border border-base-300">
@@ -364,8 +376,16 @@
 		<div class="grid grid-cols-2 md:grid-cols-5 gap-3">
 			<div class="card bg-base-100 border border-base-300">
 				<div class="card-body p-4">
-					<div class="text-xs text-base-content/50 uppercase tracking-wide">Pages</div>
-					<div class="text-2xl font-bold">{latestAudit.total_pages}</div>
+					<div class="text-xs text-base-content/50 uppercase tracking-wide">
+						{latestAudit.total_pages > 0 ? 'Pages Crawled' : 'Analysis'}
+					</div>
+					<div class="text-2xl font-bold">
+						{#if latestAudit.total_pages > 0}
+							{latestAudit.total_pages}
+						{:else}
+							<span class="text-sm font-normal text-base-content/50">Via DataForSEO</span>
+						{/if}
+					</div>
 				</div>
 			</div>
 			<div class="card bg-base-100 border border-base-300">

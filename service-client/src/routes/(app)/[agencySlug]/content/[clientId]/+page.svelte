@@ -79,22 +79,22 @@
 		overview
 			? [
 					{
-						label: "Crawl for AI copy",
-						done: overview.crawl.total_pages > 0,
-						href: `/${agencySlug}/content/import`,
-					},
-					{
-						label: "Brand profile",
-						done: overview.brand.has_profile,
-						href: `/${agencySlug}/content/${clientId}/brand`,
-					},
-					{
-						label: "SEO audit",
+						label: "Run SEO Audit",
 						done: overview.seo.score > 0,
 						href: `/${agencySlug}/content/${clientId}/audit`,
 					},
 					{
-						label: "Generate copy",
+						label: "Crawl for AI Copy",
+						done: overview.crawl.total_pages > 0,
+						href: `/${agencySlug}/content/crawl`,
+					},
+					{
+						label: "Brand Profile",
+						done: overview.brand.has_profile,
+						href: `/${agencySlug}/content/${clientId}/brand`,
+					},
+					{
+						label: "Generate Copy",
 						done: overview.copy.total > 0,
 						href: `/${agencySlug}/content/${clientId}/copy/generate`,
 					},
@@ -185,6 +185,46 @@
 
 		<!-- Feature status cards -->
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+			<!-- SEO Audit card (primary) -->
+			<a
+				href="/{agencySlug}/content/{clientId}/audit"
+				class="card bg-base-100 border-2 border-primary/30 hover:shadow-md transition-shadow"
+			>
+				<div class="card-body p-5">
+					<div class="flex items-center justify-between mb-3">
+						<div class="flex items-center gap-2">
+							<Search class="h-4 w-4 text-primary" />
+							<span class="text-sm font-semibold">SEO Audit</span>
+						</div>
+					</div>
+					<div class="stat p-0">
+						{#if overview.seo.score > 0}
+							<div class="stat-value text-2xl {scoreColor(overview.seo.score)}">
+								{overview.seo.score}
+							</div>
+						{:else}
+							<div class="stat-value text-2xl text-base-content/20">--</div>
+						{/if}
+						<div class="stat-desc">
+							<div class="flex gap-2 mt-1">
+								{#if overview.seo.critical > 0}
+									<span class="badge badge-error badge-xs">{overview.seo.critical} critical</span>
+								{/if}
+								{#if overview.seo.warnings > 0}
+									<span class="badge badge-warning badge-xs">{overview.seo.warnings} warnings</span>
+								{/if}
+								{#if overview.seo.critical === 0 && overview.seo.warnings === 0 && overview.seo.score > 0}
+									<span class="text-success">No issues found</span>
+								{/if}
+								{#if overview.seo.score === 0}
+									<span>Run an audit to get started</span>
+								{/if}
+							</div>
+						</div>
+					</div>
+				</div>
+			</a>
+
 			<!-- Pages card -->
 			<a
 				href="/{agencySlug}/content/{clientId}/pages"
@@ -223,6 +263,7 @@
 							{/if}
 						</div>
 					</div>
+					<p class="text-xs text-base-content/40 mt-2">Required for AI copy and social posts. Not needed for SEO audits.</p>
 				</div>
 			</a>
 
@@ -257,46 +298,6 @@
 							{:else}
 								Set up brand voice and tone
 							{/if}
-						</div>
-					</div>
-				</div>
-			</a>
-
-			<!-- Audit card -->
-			<a
-				href="/{agencySlug}/content/{clientId}/audit"
-				class="card bg-base-100 border border-base-300 hover:shadow-md transition-shadow"
-			>
-				<div class="card-body p-5">
-					<div class="flex items-center justify-between mb-3">
-						<div class="flex items-center gap-2">
-							<Search class="h-4 w-4 text-accent" />
-							<span class="text-sm font-medium">SEO Audit</span>
-						</div>
-					</div>
-					<div class="stat p-0">
-						{#if overview.seo.score > 0}
-							<div class="stat-value text-2xl {scoreColor(overview.seo.score)}">
-								{overview.seo.score}
-							</div>
-						{:else}
-							<div class="stat-value text-2xl text-base-content/20">--</div>
-						{/if}
-						<div class="stat-desc">
-							<div class="flex gap-2 mt-1">
-								{#if overview.seo.critical > 0}
-									<span class="badge badge-error badge-xs">{overview.seo.critical} critical</span>
-								{/if}
-								{#if overview.seo.warnings > 0}
-									<span class="badge badge-warning badge-xs">{overview.seo.warnings} warnings</span>
-								{/if}
-								{#if overview.seo.critical === 0 && overview.seo.warnings === 0 && overview.seo.score > 0}
-									<span class="text-success">No issues found</span>
-								{/if}
-								{#if overview.seo.score === 0}
-									<span>Run an audit to get started</span>
-								{/if}
-							</div>
 						</div>
 					</div>
 				</div>
@@ -372,10 +373,10 @@
 								<span class="text-xs text-base-content/50">{overview.crawl.total_pages} pages</span>
 							{:else}
 								<a
-									href="/{agencySlug}/content/import"
+									href="/{agencySlug}/content/crawl"
 									class="text-xs text-primary hover:underline"
 								>
-									Import
+									Crawl
 								</a>
 							{/if}
 						</div>

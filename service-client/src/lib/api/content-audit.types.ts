@@ -31,7 +31,7 @@ export type AuditResponse = {
 	id: string;
 	agency_id: string;
 	client_id: string;
-	crawl_job_id: string;
+	crawl_job_id: string | null;
 	status: string;
 	overall_score: number | null;
 	technical_score: number | null;

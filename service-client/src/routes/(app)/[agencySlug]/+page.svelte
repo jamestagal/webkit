@@ -50,13 +50,13 @@
 		},
 		{
 			title: 'Content Intelligence',
-			description: 'Crawl websites, build brand profiles, run SEO audits, and generate AI-powered copy.',
+			description: 'Run SEO audits, crawl websites, build brand profiles, and generate AI-powered copy.',
 			icon: Brain,
 			color: FEATURES.content.color,
 			viewHref: `/${data.agency.slug}/content`,
-			createHref: `/${data.agency.slug}/content/import`,
+			createHref: `/${data.agency.slug}/content/crawl`,
 			viewLabel: 'View All',
-			createLabel: 'Import Site'
+			createLabel: 'Crawl Website'
 		},
 		{
 			title: 'Consultations',

@@ -22,7 +22,7 @@ type auditResponse struct {
 	ID             string          `json:"id"`
 	AgencyID       string          `json:"agency_id"`
 	ClientID       string          `json:"client_id"`
-	CrawlJobID     string          `json:"crawl_job_id"`
+	CrawlJobID     *string         `json:"crawl_job_id"`
 	Status         string          `json:"status"`
 	OverallScore   *int            `json:"overall_score"`
 	TechnicalScore *int            `json:"technical_score"`
@@ -146,22 +146,6 @@ func (h *Handler) handleStartAudit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check client has crawled pages.
-	var hasCrawledPages bool
-	err = h.db.QueryRowContext(r.Context(),
-		"SELECT EXISTS(SELECT 1 FROM content_pages WHERE client_id = $1 AND source_type = 'client')",
-		clientID,
-	).Scan(&hasCrawledPages)
-	if err != nil {
-		slog.Error("Error checking crawled pages", "error", err)
-		writeJSON(w, http.StatusInternalServerError, errorResponse("internal error"))
-		return
-	}
-	if !hasCrawledPages {
-		writeJSON(w, http.StatusBadRequest, errorResponse("client has no crawled pages; run a crawl first"))
-		return
-	}
-
 	// Check for active audit (pending or running).
 	var activeAuditID string
 	err = h.db.QueryRowContext(r.Context(),
@@ -178,19 +162,23 @@ func (h *Handler) handleStartAudit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get latest crawl_job_id.
-	var crawlJobID uuid.UUID
+	// Get latest crawl_job_id (optional — audits can run without a prior crawl).
+	var crawlJobID *uuid.UUID
+	var cjid uuid.UUID
 	err = h.db.QueryRowContext(r.Context(),
 		`SELECT id FROM content_crawl_jobs
 		 WHERE client_id = $1 AND status = 'complete' AND crawl_target = 'client'
 		 ORDER BY completed_at DESC LIMIT 1`,
 		clientID,
-	).Scan(&crawlJobID)
-	if err != nil {
+	).Scan(&cjid)
+	if err == nil {
+		crawlJobID = &cjid
+	} else if err != sql.ErrNoRows {
 		slog.Error("Error getting latest crawl job", "error", err)
-		writeJSON(w, http.StatusBadRequest, errorResponse("no completed crawl found for this client"))
+		writeJSON(w, http.StatusInternalServerError, errorResponse("internal error"))
 		return
 	}
+	// If err == sql.ErrNoRows, crawlJobID stays nil — audit proceeds without crawl data.
 
 	// Insert the audit.
 	auditID := uuid.New()
@@ -235,6 +223,7 @@ func (h *Handler) handleGetAudit(w http.ResponseWriter, r *http.Request) {
 	var audit auditResponse
 	var overallScore, technicalScore, contentScore, backlinkScore, keywordScore sql.NullInt32
 	var startedAt, completedAt sql.NullTime
+	var crawlJobID sql.NullString
 	var progressJSON, performanceJSON []byte
 
 	err = h.db.QueryRowContext(r.Context(),
@@ -246,7 +235,7 @@ func (h *Handler) handleGetAudit(w http.ResponseWriter, r *http.Request) {
 		 FROM seo_audits WHERE id = $1 AND agency_id = $2`,
 		auditID, agencyID,
 	).Scan(
-		&audit.ID, &audit.AgencyID, &audit.ClientID, &audit.CrawlJobID, &audit.Status,
+		&audit.ID, &audit.AgencyID, &audit.ClientID, &crawlJobID, &audit.Status,
 		&overallScore, &technicalScore, &contentScore, &backlinkScore, &keywordScore,
 		&audit.TotalPages, &audit.CriticalIssues, &audit.WarningIssues, &audit.PassedChecks, &audit.Opportunities,
 		&progressJSON, &performanceJSON,
@@ -281,6 +270,9 @@ func (h *Handler) handleGetAudit(w http.ResponseWriter, r *http.Request) {
 	if keywordScore.Valid {
 		v := int(keywordScore.Int32)
 		audit.KeywordScore = &v
+	}
+	if crawlJobID.Valid {
+		audit.CrawlJobID = &crawlJobID.String
 	}
 	if len(progressJSON) > 0 {
 		audit.Progress = progressJSON

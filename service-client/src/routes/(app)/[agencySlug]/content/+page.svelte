@@ -39,9 +39,9 @@
 			</h1>
 			<p class="text-base-content/70 mt-1">Analyze client websites and generate optimized content</p>
 		</div>
-		<a href="/{agencySlug}/content/import" class="btn btn-primary">
+		<a href="/{agencySlug}/content/crawl" class="btn btn-primary">
 			<Plus class="h-4 w-4" />
-			Import Website
+			Crawl Website
 		</a>
 	</div>
 
@@ -57,11 +57,11 @@
 				</div>
 				<h3 class="text-lg font-semibold">No content data yet</h3>
 				<p class="text-base-content/60 max-w-sm">
-					Import your first client website to get started with content intelligence.
+					Run an SEO audit or crawl a website to get started with content intelligence.
 				</p>
-				<a href="/{agencySlug}/content/import" class="btn btn-primary mt-4">
+				<a href="/{agencySlug}/content/crawl" class="btn btn-primary mt-4">
 					<Plus class="h-4 w-4" />
-					Import Website
+					Get Started
 				</a>
 			</div>
 		</div>

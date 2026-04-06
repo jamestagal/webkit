@@ -146,7 +146,7 @@
 	<div class="text-sm breadcrumbs">
 		<ul>
 			<li><a href="/{agencySlug}/content">Content</a></li>
-			<li>Import Website</li>
+			<li>Crawl Website</li>
 		</ul>
 	</div>
 
@@ -158,9 +158,9 @@
 		<div>
 			<h1 class="text-2xl font-bold flex items-center gap-2">
 				<Brain class="h-7 w-7" style="color: {FEATURES.content.color}" />
-				Import Website
+				Crawl Website
 			</h1>
-			<p class="text-base-content/70 mt-1">Crawl a client website to extract content for AI copy generation and brand voice analysis</p>
+			<p class="text-base-content/70 mt-1">Extract page content for AI-powered copy generation, social posts, and brand voice analysis</p>
 		</div>
 	</div>
 
