@@ -201,7 +201,8 @@ function calculateInvoiceTotals(
 		.filter((item) => item.isTaxable !== false)
 		.reduce((sum, item) => sum + parseFloat(item.amount || "0"), 0);
 
-	const gstAmount = gstRegistered ? taxableAmount * (gstRate / 100) : 0;
+	// Discount applied before GST (Australian GST requirement)
+	const gstAmount = gstRegistered ? (taxableAmount - discountAmount) * (gstRate / 100) : 0;
 
 	const total = subtotal - discountAmount + gstAmount;
 

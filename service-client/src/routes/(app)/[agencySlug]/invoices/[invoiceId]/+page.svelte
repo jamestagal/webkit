@@ -134,7 +134,8 @@
 			.filter((item) => item.isTaxable)
 			.reduce((sum, item) => sum + parseFloat(item.quantity || '0') * parseFloat(item.unitPrice || '0'), 0);
 		const gstRate = parseFloat(invoice.gstRate as string) / 100;
-		return invoice.gstRegistered ? taxableAmount * gstRate : 0;
+		const discount = parseFloat(editDiscountAmount || '0');
+		return invoice.gstRegistered ? (taxableAmount - discount) * gstRate : 0;
 	});
 
 	let editTotal = $derived(() => {
