@@ -15,6 +15,7 @@ import {
 	consultations,
 	agencyProfiles,
 	agencyMemberships,
+	users,
 	proposals,
 	invoices,
 	agencyActivityLog,
@@ -149,12 +150,17 @@ export const load: PageServerLoad = async ({ parent }) => {
 			.select({
 				userId: agencyMemberships.userId,
 				displayName: agencyMemberships.displayName,
+				email: users.email,
 			})
 			.from(agencyMemberships)
+			.innerJoin(users, eq(users.id, agencyMemberships.userId))
 			.where(eq(agencyMemberships.agencyId, agencyId));
 
 		for (const m of members) {
-			if (m.displayName) userMap.set(m.userId, m.displayName);
+			// Use displayName if set, otherwise derive from email
+			const name = m.displayName?.trim()
+				|| m.email.split("@")[0]!.replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+			userMap.set(m.userId, name);
 		}
 	}
 
