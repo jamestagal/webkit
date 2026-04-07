@@ -89,6 +89,16 @@ function buildClientAddress(invoice: Invoice): string {
 /**
  * Generate invoice PDF HTML
  */
+/**
+ * Check if a notes string has actual content (not just empty HTML tags)
+ */
+function hasContent(text: string | null | undefined): boolean {
+	if (!text) return false;
+	// Strip HTML tags and check if anything remains
+	const stripped = text.replace(/<[^>]*>/g, "").trim();
+	return stripped.length > 0;
+}
+
 export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 	const { invoice, lineItems, agency, profile, brandingOverride } = data;
 	const statusColor = getStatusColor(invoice.status);
@@ -127,8 +137,8 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 	const paymentDetailsHtml =
 		profile?.bankName || profile?.bsb || profile?.accountNumber
 			? `
-		<div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
-			<h3 style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 12px 0;">
+		<div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+			<h3 style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px 0;">
 				Payment Details
 			</h3>
 			<div style="background: #f9fafb; padding: 16px; border-radius: 8px;">
@@ -196,7 +206,7 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 	${isPaid ? '<div class="paid-watermark">PAID</div>' : ""}
 	<div class="container">
 		<!-- Header -->
-		<div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 2px solid #111827;">
+		<div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 16px; border-bottom: 2px solid #111827;">
 			<div style="flex: 1; min-width: 0;">
 				${
 					logoUrl
@@ -216,7 +226,7 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 		</div>
 
 		<!-- Addresses -->
-		<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin: 32px 0;">
+		<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin: 20px 0;">
 			<div>
 				<h3 style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">From</h3>
 				<div style="font-size: 13px; line-height: 1.6;">
@@ -232,7 +242,7 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 		</div>
 
 		<!-- Dates -->
-		<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin: 24px 0; padding: 16px; background: #f9fafb; border-radius: 8px;">
+		<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin: 16px 0; padding: 12px 16px; background: #f9fafb; border-radius: 8px;">
 			<div>
 				<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Issue Date</div>
 				<div style="font-weight: 500;">${formatDate(invoice.issueDate, "long")}</div>
@@ -248,7 +258,7 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 		</div>
 
 		<!-- Line Items Table -->
-		<div style="margin: 32px 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+		<div style="margin: 20px 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
 			<table style="width: 100%; border-collapse: collapse;">
 				<thead>
 					<tr style="background: #f9fafb;">
@@ -312,11 +322,11 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 
 		<!-- Notes -->
 		${
-			invoice.publicNotes
+			hasContent(invoice.publicNotes)
 				? `
-		<div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
-			<h3 style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">Notes</h3>
-			<div style="font-size: 13px; color: #6b7280; line-height: 1.7;">${escapeHtml(invoice.publicNotes)}</div>
+		<div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+			<h3 style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Notes</h3>
+			<div style="font-size: 13px; color: #6b7280; line-height: 1.7;">${escapeHtml(invoice.publicNotes!)}</div>
 		</div>
 		`
 				: ""
@@ -324,10 +334,10 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 
 		<!-- Footer -->
 		${
-			profile?.invoiceFooter
+			hasContent(profile?.invoiceFooter)
 				? `
-		<div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #9ca3af;">
-			${escapeHtml(profile.invoiceFooter)}
+		<div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #9ca3af;">
+			${escapeHtml(profile!.invoiceFooter!)}
 		</div>
 		`
 				: ""
