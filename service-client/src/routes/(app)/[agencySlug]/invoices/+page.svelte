@@ -148,7 +148,7 @@
 			case 'draft':
 				return { class: 'badge-ghost', icon: Clock, label: 'Draft' };
 			case 'sent':
-				return { class: 'badge-info', icon: Send, label: 'Sent' };
+				return { class: 'badge-info', icon: CheckCircle, label: 'Final' };
 			case 'viewed':
 				return { class: 'badge-warning', icon: Eye, label: 'Viewed' };
 			case 'paid':

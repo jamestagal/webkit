@@ -1386,6 +1386,35 @@ export const sendInvoice = command(v.pipe(v.string(), v.uuid()), async (invoiceI
 });
 
 /**
+ * Mark a draft invoice as sent (without sending an email).
+ * For when the invoice is downloaded and sent externally.
+ */
+export const markInvoiceAsSent = command(v.pipe(v.string(), v.uuid()), async (invoiceId) => {
+	const context = await getAgencyContext();
+
+	const [invoice] = await db
+		.select()
+		.from(invoices)
+		.where(and(eq(invoices.id, invoiceId), eq(invoices.agencyId, context.agencyId)))
+		.limit(1);
+
+	if (!invoice) throw new Error("Invoice not found");
+	if (invoice.status !== "draft") throw new Error("Only draft invoices can be marked as final");
+
+	const [updated] = await db
+		.update(invoices)
+		.set({
+			status: "sent",
+			sentAt: new Date(),
+			updatedAt: new Date(),
+		})
+		.where(eq(invoices.id, invoiceId))
+		.returning();
+
+	return updated;
+});
+
+/**
  * Record view of public invoice.
  */
 export const recordInvoiceView = command(v.pipe(v.string(), v.minLength(1)), async (slug) => {

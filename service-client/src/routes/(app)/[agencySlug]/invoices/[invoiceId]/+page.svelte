@@ -6,7 +6,8 @@
 		deleteInvoice,
 		recordPayment,
 		cancelInvoice,
-		duplicateInvoice
+		duplicateInvoice,
+		markInvoiceAsSent
 	} from '$lib/api/invoices.remote';
 	import { sendInvoiceEmail } from '$lib/api/email.remote';
 	import { createPaymentLink } from '$lib/api/stripe.remote';
@@ -299,6 +300,16 @@
 		};
 	}
 
+	async function handleMarkAsFinal() {
+		try {
+			await markInvoiceAsSent(invoice.id);
+			toast.success('Invoice marked as final');
+			await invalidateAll();
+		} catch (err) {
+			toast.error('Failed to update invoice', err instanceof Error ? err.message : '');
+		}
+	}
+
 	async function handleDuplicate() {
 		try {
 			const newInvoice = await duplicateInvoice(invoice.id);
@@ -364,7 +375,7 @@
 			case 'draft':
 				return { class: 'badge-ghost', icon: Clock, label: 'Draft' };
 			case 'sent':
-				return { class: 'badge-info', icon: Send, label: 'Sent' };
+				return { class: 'badge-info', icon: CheckCircle, label: 'Final' };
 			case 'viewed':
 				return { class: 'badge-warning', icon: Eye, label: 'Viewed' };
 			case 'paid':
@@ -538,6 +549,14 @@
 								Download PDF
 							</button>
 						</li>
+						{#if invoice.status === 'draft'}
+							<li>
+								<button type="button" onclick={handleMarkAsFinal}>
+									<CheckCircle class="h-4 w-4" />
+									Mark as Final
+								</button>
+							</li>
+						{/if}
 						{#if ['sent', 'viewed', 'overdue', 'paid'].includes(invoice.status)}
 							<li>
 								<a href="/i/{invoice.slug}" target="_blank">

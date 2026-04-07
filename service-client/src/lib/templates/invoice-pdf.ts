@@ -31,6 +31,7 @@ function getStatusColor(status: string): { bg: string; text: string } {
 			return { bg: "#dcfce7", text: "#166534" };
 		case "sent":
 		case "viewed":
+		case "final":
 			return { bg: "#fef3c7", text: "#92400e" };
 		case "overdue":
 			return { bg: "#fee2e2", text: "#991b1b" };
@@ -219,7 +220,7 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 				<div style="font-family: monospace; font-size: 16px; color: #6b7280;">#${invoice.invoiceNumber}</div>
 				<div style="margin-top: 8px;">
 					<span style="display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; background: ${statusColor.bg}; color: ${statusColor.text}; text-transform: uppercase;">
-						${invoice.status}
+						${invoice.status === "sent" || invoice.status === "viewed" ? "final" : invoice.status}
 					</span>
 				</div>
 			</div>
