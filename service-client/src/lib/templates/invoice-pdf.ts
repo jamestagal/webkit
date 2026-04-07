@@ -114,17 +114,17 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 		.map(
 			(item) => `
 		<tr>
-			<td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
+			<td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">
 				<div style="font-weight: 500; color: #111827;">${escapeHtml(item.description)}</div>
 				${item.category ? `<div style="font-size: 12px; color: #6b7280; margin-top: 2px;">${escapeHtml(item.category)}</div>` : ""}
 			</td>
-			<td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280;">
+			<td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280;">
 				${parseFloat(item.quantity as string).toFixed(2)}
 			</td>
-			<td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #6b7280;">
+			<td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #6b7280;">
 				${formatCurrency(item.unitPrice)}
 			</td>
-			<td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 500;">
+			<td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 500;">
 				${formatCurrency(item.amount)}
 				${!item.isTaxable ? '<span style="font-size: 10px; color: #9ca3af;">(No GST)</span>' : ""}
 			</td>
@@ -137,17 +137,17 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 	const paymentDetailsHtml =
 		profile?.bankName || profile?.bsb || profile?.accountNumber
 			? `
-		<div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-			<h3 style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px 0;">
+		<div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+			<h3 style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 6px 0;">
 				Payment Details
 			</h3>
-			<div style="background: #f9fafb; padding: 16px; border-radius: 8px;">
+			<div style="background: #f9fafb; padding: 10px 16px; border-radius: 8px;">
 				<table style="width: 100%; font-size: 13px;">
-					${profile.bankName ? `<tr><td style="color: #6b7280; padding: 4px 0;">Bank</td><td style="text-align: right; font-weight: 500;">${escapeHtml(profile.bankName)}</td></tr>` : ""}
-					${profile.accountName ? `<tr><td style="color: #6b7280; padding: 4px 0;">Account Name</td><td style="text-align: right; font-weight: 500;">${escapeHtml(profile.accountName)}</td></tr>` : ""}
-					${profile.bsb ? `<tr><td style="color: #6b7280; padding: 4px 0;">BSB</td><td style="text-align: right; font-weight: 500; font-family: monospace;">${escapeHtml(profile.bsb)}</td></tr>` : ""}
-					${profile.accountNumber ? `<tr><td style="color: #6b7280; padding: 4px 0;">Account Number</td><td style="text-align: right; font-weight: 500; font-family: monospace;">${escapeHtml(profile.accountNumber)}</td></tr>` : ""}
-					<tr><td style="color: #6b7280; padding: 4px 0;">Reference</td><td style="text-align: right; font-weight: 500; font-family: monospace;">${invoice.invoiceNumber}</td></tr>
+					${profile.bankName ? `<tr><td style="color: #6b7280; padding: 2px 0;">Bank</td><td style="text-align: right; font-weight: 500;">${escapeHtml(profile.bankName)}</td></tr>` : ""}
+					${profile.accountName ? `<tr><td style="color: #6b7280; padding: 2px 0;">Account Name</td><td style="text-align: right; font-weight: 500;">${escapeHtml(profile.accountName)}</td></tr>` : ""}
+					${profile.bsb ? `<tr><td style="color: #6b7280; padding: 2px 0;">BSB</td><td style="text-align: right; font-weight: 500; font-family: monospace;">${escapeHtml(profile.bsb)}</td></tr>` : ""}
+					${profile.accountNumber ? `<tr><td style="color: #6b7280; padding: 2px 0;">Account Number</td><td style="text-align: right; font-weight: 500; font-family: monospace;">${escapeHtml(profile.accountNumber)}</td></tr>` : ""}
+					<tr><td style="color: #6b7280; padding: 2px 0;">Reference</td><td style="text-align: right; font-weight: 500; font-family: monospace;">${invoice.invoiceNumber}</td></tr>
 				</table>
 			</div>
 		</div>
@@ -262,10 +262,10 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 			<table style="width: 100%; border-collapse: collapse;">
 				<thead>
 					<tr style="background: #f9fafb;">
-						<th style="padding: 12px 16px; text-align: left; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Description</th>
-						<th style="padding: 12px 16px; text-align: center; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Qty</th>
-						<th style="padding: 12px 16px; text-align: right; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Unit Price</th>
-						<th style="padding: 12px 16px; text-align: right; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Amount</th>
+						<th style="padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Description</th>
+						<th style="padding: 8px 12px; text-align: center; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Qty</th>
+						<th style="padding: 8px 12px; text-align: right; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Unit Price</th>
+						<th style="padding: 8px 12px; text-align: right; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Amount</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -277,14 +277,14 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 		<!-- Totals -->
 		<div style="display: flex; justify-content: flex-end;">
 			<div style="width: 280px;">
-				<div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px;">
+				<div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px;">
 					<span style="color: #6b7280;">Subtotal</span>
 					<span style="font-weight: 500;">${formatCurrency(invoice.subtotal)}</span>
 				</div>
 				${
 					parseFloat(invoice.discountAmount as string) > 0
 						? `
-				<div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; color: #059669;">
+				<div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px; color: #059669;">
 					<span>Discount${invoice.discountDescription ? ` (${escapeHtml(invoice.discountDescription)})` : ""}</span>
 					<span>-${formatCurrency(invoice.discountAmount)}</span>
 				</div>
@@ -294,14 +294,14 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 				${
 					invoice.gstRegistered && parseFloat(invoice.gstAmount as string) > 0
 						? `
-				<div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px;">
+				<div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px;">
 					<span style="color: #6b7280;">GST (${parseFloat(invoice.gstRate as string)}%)</span>
 					<span style="font-weight: 500;">${formatCurrency(invoice.gstAmount)}</span>
 				</div>
 				`
 						: ""
 				}
-				<div style="display: flex; justify-content: space-between; padding: 12px 0; margin-top: 8px; border-top: 2px solid #111827; font-size: 18px; font-weight: bold;">
+				<div style="display: flex; justify-content: space-between; padding: 8px 0; margin-top: 4px; border-top: 2px solid #111827; font-size: 18px; font-weight: bold;">
 					<span>Total</span>
 					<span>${formatCurrency(invoice.total)}</span>
 				</div>
@@ -336,7 +336,7 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 		${
 			hasContent(profile?.invoiceFooter)
 				? `
-		<div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #9ca3af;">
+		<div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #9ca3af;">
 			${escapeHtml(profile!.invoiceFooter!)}
 		</div>
 		`
