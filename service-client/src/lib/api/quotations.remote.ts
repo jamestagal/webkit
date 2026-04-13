@@ -621,6 +621,7 @@ export const updateQuotation = command(UpdateQuotationSchema, async (data) => {
 				sectionPrice: section.sectionPrice,
 				sectionGst,
 				sectionTotal,
+				displayType: section.displayType || "priced",
 				sortOrder: section.sortOrder,
 				scopeTemplateId: section.scopeTemplateId || null,
 			});
