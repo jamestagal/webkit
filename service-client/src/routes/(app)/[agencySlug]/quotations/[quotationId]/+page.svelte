@@ -121,67 +121,35 @@
 
 	// =========================================================================
 	// Dirty-state tracking (Rafflekit pattern)
-	// takeSnapshot() uses $state.snapshot() for imperative plain-object copies.
-	// hasChanges uses explicit field reads so $derived.by() tracks each one.
+	// Explicit field reads in $derived.by() so Svelte 5 tracks each dependency.
+	// No $effect — avoids effect_update_depth_exceeded in production builds.
 	// =========================================================================
-	function takeSnapshot(): FormSnapshot {
-		return $state.snapshot({
-			quotationName,
-			manualBusinessName,
-			manualEmail,
-			manualContactName,
-			manualPhone,
-			siteAddress,
-			siteReference,
-			preparedDate,
-			expiryDate,
-			sections,
-			discountAmount,
-			discountDescription,
-			termsBlocks,
-			optionsNotes,
-			notes,
-		}) as FormSnapshot;
-	}
-
 	let hasChanges = $derived.by(() => {
-		if (!loadedForm || !isEditing) {
-			console.log('[dirty] early exit', { loadedForm: !!loadedForm, isEditing });
-			return false;
-		}
+		if (!loadedForm || !isEditing) return false;
 		// Explicit field-by-field comparison (matches Rafflekit pattern)
-		const nameChanged = quotationName !== loadedForm.quotationName;
-		const bizChanged = manualBusinessName !== loadedForm.manualBusinessName;
-		const emailChanged = manualEmail !== loadedForm.manualEmail;
-		const contactChanged = manualContactName !== loadedForm.manualContactName;
-		const phoneChanged = manualPhone !== loadedForm.manualPhone;
-		const siteChanged = siteAddress !== loadedForm.siteAddress;
-		const refChanged = siteReference !== loadedForm.siteReference;
-		const prepChanged = preparedDate !== loadedForm.preparedDate;
-		const expChanged = expiryDate !== loadedForm.expiryDate;
-		const discAmtChanged = discountAmount !== loadedForm.discountAmount;
-		const discDescChanged = discountDescription !== loadedForm.discountDescription;
-		const optNotesChanged = optionsNotes !== loadedForm.optionsNotes;
-		const notesChanged = notes !== loadedForm.notes;
-		const sectionsChanged = JSON.stringify(sections) !== JSON.stringify(loadedForm.sections);
-		const termsChanged = JSON.stringify(termsBlocks) !== JSON.stringify(loadedForm.termsBlocks);
-		const result = nameChanged || bizChanged || emailChanged || contactChanged ||
-			phoneChanged || siteChanged || refChanged || prepChanged || expChanged ||
-			discAmtChanged || discDescChanged || optNotesChanged || notesChanged ||
-			sectionsChanged || termsChanged;
-		console.log('[dirty]', {
-			result,
-			nameChanged,
-			quotationName,
-			loadedQuotationName: loadedForm.quotationName,
-			loadedFormKeys: Object.keys(loadedForm),
-		});
-		return result;
+		// Direct reads ensure Svelte 5 tracks each field as a dependency
+		if (quotationName !== loadedForm.quotationName) return true;
+		if (manualBusinessName !== loadedForm.manualBusinessName) return true;
+		if (manualEmail !== loadedForm.manualEmail) return true;
+		if (manualContactName !== loadedForm.manualContactName) return true;
+		if (manualPhone !== loadedForm.manualPhone) return true;
+		if (siteAddress !== loadedForm.siteAddress) return true;
+		if (siteReference !== loadedForm.siteReference) return true;
+		if (preparedDate !== loadedForm.preparedDate) return true;
+		if (expiryDate !== loadedForm.expiryDate) return true;
+		if (discountAmount !== loadedForm.discountAmount) return true;
+		if (discountDescription !== loadedForm.discountDescription) return true;
+		if (optionsNotes !== loadedForm.optionsNotes) return true;
+		if (notes !== loadedForm.notes) return true;
+		// Deep compare arrays — JSON.stringify reads through Svelte proxies
+		if (JSON.stringify(sections) !== JSON.stringify(loadedForm.sections)) return true;
+		if (JSON.stringify(termsBlocks) !== JSON.stringify(loadedForm.termsBlocks)) return true;
+		return false;
 	});
 
 	// =========================================================================
-	// Helper: build a snapshot directly from server data (no form-state reads)
-	// Used inside $effect to avoid creating reactive dependencies on form fields.
+	// Helper: build a plain snapshot from server data (no form-state reads)
+	// Used by startEditing and syncFormFromServer to populate form + baseline.
 	// =========================================================================
 	function snapshotFromServer(q: typeof data.quotation, s: typeof data.sections): FormSnapshot {
 		return {
@@ -220,18 +188,12 @@
 	}
 
 	// =========================================================================
-	// $effect: sync edit form + snapshot when server data changes
-	// Fires after invalidateAll() re-runs the server load function.
-	// CRITICAL: must NOT read form state variables — only server data + isEditing.
+	// syncFormFromServer — re-populate form + baseline from fresh server data
+	// Called after invalidateAll() in handleSave. No $effect needed — avoids
+	// effect_update_depth_exceeded in production builds.
 	// =========================================================================
-	$effect(() => {
-		const q = data.quotation;
-		const s = data.sections;
-		if (!isEditing) return;
-		console.log('[effect] syncing form from server data — this should only fire on load/invalidate, NOT on user edits');
-		// Build snapshot from server data (no form-state reads!)
-		const snapshot = snapshotFromServer(q, s);
-		// Re-populate form fields
+	function syncFormFromServer() {
+		const snapshot = snapshotFromServer(data.quotation, data.sections);
 		quotationName = snapshot.quotationName;
 		manualBusinessName = snapshot.manualBusinessName;
 		manualEmail = snapshot.manualEmail;
@@ -247,9 +209,8 @@
 		termsBlocks = structuredClone(snapshot.termsBlocks);
 		optionsNotes = snapshot.optionsNotes;
 		notes = snapshot.notes;
-		// Reset baseline — built from server data, not form state
 		loadedForm = snapshot;
-	});
+	}
 
 	// Calculated values (edit mode)
 	let gstRegistered = $derived(data.profile?.gstRegistered ?? true);
@@ -274,9 +235,7 @@
 	// startEditing — uses snapshotFromServer to populate form + baseline
 	// =========================================================================
 	function startEditing() {
-		console.log('[startEditing] called');
 		const snapshot = snapshotFromServer(data.quotation, data.sections);
-		console.log('[startEditing] snapshot:', JSON.stringify(snapshot).slice(0, 200));
 		selectedClient = null;
 		quotationName = snapshot.quotationName;
 		manualBusinessName = snapshot.manualBusinessName;
@@ -433,8 +392,8 @@
 				discountDescription: discountDescription.trim(),
 			});
 			await invalidateAll();
-			// $effect syncs form + snapshot from fresh server data
-			isEditing = false;
+			// Re-sync form + baseline from fresh server data
+			syncFormFromServer();
 			toast.success('Quotation saved');
 		} catch (err) {
 			toast.error('Failed to save', err instanceof Error ? err.message : '');
