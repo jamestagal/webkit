@@ -145,26 +145,38 @@
 	}
 
 	let hasChanges = $derived.by(() => {
-		if (!loadedForm || !isEditing) return false;
+		if (!loadedForm || !isEditing) {
+			console.log('[dirty] early exit', { loadedForm: !!loadedForm, isEditing });
+			return false;
+		}
 		// Explicit field-by-field comparison (matches Rafflekit pattern)
-		// Direct reads ensure Svelte 5 tracks each field as a dependency
-		if (quotationName !== loadedForm.quotationName) return true;
-		if (manualBusinessName !== loadedForm.manualBusinessName) return true;
-		if (manualEmail !== loadedForm.manualEmail) return true;
-		if (manualContactName !== loadedForm.manualContactName) return true;
-		if (manualPhone !== loadedForm.manualPhone) return true;
-		if (siteAddress !== loadedForm.siteAddress) return true;
-		if (siteReference !== loadedForm.siteReference) return true;
-		if (preparedDate !== loadedForm.preparedDate) return true;
-		if (expiryDate !== loadedForm.expiryDate) return true;
-		if (discountAmount !== loadedForm.discountAmount) return true;
-		if (discountDescription !== loadedForm.discountDescription) return true;
-		if (optionsNotes !== loadedForm.optionsNotes) return true;
-		if (notes !== loadedForm.notes) return true;
-		// Deep compare arrays — JSON.stringify reads through Svelte proxies
-		if (JSON.stringify(sections) !== JSON.stringify(loadedForm.sections)) return true;
-		if (JSON.stringify(termsBlocks) !== JSON.stringify(loadedForm.termsBlocks)) return true;
-		return false;
+		const nameChanged = quotationName !== loadedForm.quotationName;
+		const bizChanged = manualBusinessName !== loadedForm.manualBusinessName;
+		const emailChanged = manualEmail !== loadedForm.manualEmail;
+		const contactChanged = manualContactName !== loadedForm.manualContactName;
+		const phoneChanged = manualPhone !== loadedForm.manualPhone;
+		const siteChanged = siteAddress !== loadedForm.siteAddress;
+		const refChanged = siteReference !== loadedForm.siteReference;
+		const prepChanged = preparedDate !== loadedForm.preparedDate;
+		const expChanged = expiryDate !== loadedForm.expiryDate;
+		const discAmtChanged = discountAmount !== loadedForm.discountAmount;
+		const discDescChanged = discountDescription !== loadedForm.discountDescription;
+		const optNotesChanged = optionsNotes !== loadedForm.optionsNotes;
+		const notesChanged = notes !== loadedForm.notes;
+		const sectionsChanged = JSON.stringify(sections) !== JSON.stringify(loadedForm.sections);
+		const termsChanged = JSON.stringify(termsBlocks) !== JSON.stringify(loadedForm.termsBlocks);
+		const result = nameChanged || bizChanged || emailChanged || contactChanged ||
+			phoneChanged || siteChanged || refChanged || prepChanged || expChanged ||
+			discAmtChanged || discDescChanged || optNotesChanged || notesChanged ||
+			sectionsChanged || termsChanged;
+		console.log('[dirty]', {
+			result,
+			nameChanged,
+			quotationName,
+			loadedQuotationName: loadedForm.quotationName,
+			loadedFormKeys: Object.keys(loadedForm),
+		});
+		return result;
 	});
 
 	// =========================================================================
@@ -216,6 +228,7 @@
 		const q = data.quotation;
 		const s = data.sections;
 		if (!isEditing) return;
+		console.log('[effect] syncing form from server data — this should only fire on load/invalidate, NOT on user edits');
 		// Build snapshot from server data (no form-state reads!)
 		const snapshot = snapshotFromServer(q, s);
 		// Re-populate form fields
@@ -261,7 +274,9 @@
 	// startEditing — uses snapshotFromServer to populate form + baseline
 	// =========================================================================
 	function startEditing() {
+		console.log('[startEditing] called');
 		const snapshot = snapshotFromServer(data.quotation, data.sections);
+		console.log('[startEditing] snapshot:', JSON.stringify(snapshot).slice(0, 200));
 		selectedClient = null;
 		quotationName = snapshot.quotationName;
 		manualBusinessName = snapshot.manualBusinessName;
