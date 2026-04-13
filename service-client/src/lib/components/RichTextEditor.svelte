@@ -31,12 +31,13 @@
 	// activeEditor derived re-reads editor state for toolbar buttons.
 	let txCounter = $state(0);
 	let activeEditor = $derived.by(() => { txCounter; return editor; });
-	// Guard flag: suppresses onUpdate during $effect-driven setContent
-	// to prevent the "ping-pong" loop (content prop → setContent → onUpdate
-	// → parent updates state → content prop changes → effect re-runs).
-	let suppressUpdate = false;
+	// Plain (non-reactive) tracker for last known content value.
+	// Prevents infinite loops from tiptap HTML normalisation mismatches
+	// (e.g. "" vs "<p></p>"). Not $state — must NOT trigger $effect.
+	let lastContent = content;
 
 	onMount(() => {
+		lastContent = content;
 		editor = new Editor({
 			element,
 			extensions: [
@@ -63,11 +64,10 @@
 				// synchronous $state writes forbidden (state_unsafe_mutation).
 				queueMicrotask(() => { txCounter++; });
 			},
-			onUpdate: ({ editor }) => {
-				// Only propagate user-initiated changes, not $effect syncs
-				if (!suppressUpdate) {
-					onUpdate?.(editor.getHTML());
-				}
+			onUpdate: ({ editor: ed }) => {
+				const html = ed.getHTML();
+				lastContent = html;       // Track editor-initiated change
+				onUpdate?.(html);
 			}
 		});
 	});
@@ -76,12 +76,13 @@
 		editor?.destroy();
 	});
 
-	// Update editor when content prop changes externally
+	// Sync content prop → editor when parent changes it externally.
+	// Compares against lastContent (plain var) instead of editor.getHTML()
+	// to avoid loops from tiptap normalising HTML (e.g. "" → "<p></p>").
 	$effect(() => {
-		if (editor && content !== editor.getHTML()) {
-			suppressUpdate = true;
+		if (editor && content !== lastContent) {
+			lastContent = content;
 			editor.commands.setContent(content);
-			suppressUpdate = false;
 		}
 	});
 
