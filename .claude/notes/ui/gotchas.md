@@ -140,33 +140,31 @@ async function handleConfirm() {
 - [ ] Backdrop click closes modal (disabled during operation)
 - [ ] Item name shown in bold in confirmation message
 
-## Never Read Form $state Inside $effect That Syncs Server Data
+## Never Use $effect to Write to Form $state Variables
 
-**Bug:** `$effect` that re-populates form from server data after `invalidateAll()` also called `takeSnapshot()` which reads form `$state` variables. This creates a circular dependency:
-1. User edits field → `$state` changes
-2. `$effect` re-runs (depends on form state via `takeSnapshot()`)
-3. Effect overwrites field back to server value
-4. `loadedForm` resets → `hasChanges` stays false
+**Bug:** `$effect` that re-populates form from server data after `invalidateAll()` wrote to multiple `$state` variables. In production builds, Svelte 5 tracks effect dependencies more aggressively, causing `effect_update_depth_exceeded` — an infinite loop. Works in dev mode but crashes in production.
 
-**Symptoms:** 20+ second delay entering edit mode (reactive cascade), changes never detected.
+**Symptoms:** `effect_update_depth_exceeded` error in console (production only), 20+ second delay entering edit mode, changes never detected.
 
-**Fix:** Build the baseline snapshot directly from server data parameters (`data.quotation`, `data.sections`), never from form `$state` variables. Use a `snapshotFromServer(q, s)` helper.
+**Fix:** Remove the `$effect` entirely. Sync form state imperatively in `handleSave()` after `invalidateAll()`:
 
 ```typescript
-// BAD — creates circular dependency
+// BAD — causes effect_update_depth_exceeded in production
 $effect(() => {
     const q = data.quotation;
     if (!isEditing) return;
-    quotationName = q.title;
-    loadedForm = takeSnapshot(); // reads quotationName → circular!
+    quotationName = q.title;        // writes trigger cascading updates
+    loadedForm = snapshot;
 });
 
-// GOOD — only depends on server data + isEditing
-$effect(() => {
-    const q = data.quotation;
-    if (!isEditing) return;
-    const snapshot = snapshotFromServer(q, s);
+// GOOD — imperative sync, no $effect
+function syncFormFromServer() {
+    const snapshot = snapshotFromServer(data.quotation, data.sections);
     quotationName = snapshot.title;
-    loadedForm = snapshot; // built from server data, not form state
-});
+    loadedForm = snapshot;
+}
+
+// In handleSave:
+await invalidateAll();
+syncFormFromServer();  // called imperatively, not reactively
 ```

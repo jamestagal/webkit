@@ -27,6 +27,10 @@
 
 	let element: HTMLDivElement;
 	let editor: Editor | null = $state(null);
+	// Toolbar reactivity: counter increments on each transaction,
+	// activeEditor derived re-reads editor state for toolbar buttons.
+	let txCounter = $state(0);
+	let activeEditor = $derived.by(() => { txCounter; return editor; });
 
 	onMount(() => {
 		editor = new Editor({
@@ -35,7 +39,9 @@
 				StarterKit.configure({
 					heading: {
 						levels: [1, 2, 3]
-					}
+					},
+					// Disable built-in Link — we configure our own below
+					link: false
 				}),
 				Placeholder.configure({ placeholder }),
 				Link.configure({
@@ -48,8 +54,10 @@
 			content,
 			editable: !disabled,
 			onTransaction: () => {
-				// Force Svelte reactivity for toolbar state
-				editor = editor;
+				// Defer state mutation — tiptap fires transactions during Svelte's
+				// render/cleanup cycle (e.g. blur on DOM removal), which makes
+				// synchronous $state writes forbidden (state_unsafe_mutation).
+				queueMicrotask(() => { txCounter++; });
 			},
 			onUpdate: ({ editor }) => {
 				onUpdate?.(editor.getHTML());
@@ -83,14 +91,14 @@
 
 <div class="border border-base-300 rounded-lg overflow-hidden" class:opacity-60={disabled}>
 	{#if editor}
-		<!-- DaisyUI Toolbar -->
+		<!-- DaisyUI Toolbar — activeEditor re-derives on txCounter for button state -->
 		<div class="flex flex-wrap gap-1 p-2 bg-base-200 border-b border-base-300">
 			<!-- Text formatting -->
 			<div class="btn-group">
 				<button
 					type="button"
 					class="btn btn-sm btn-ghost"
-					class:btn-active={editor.isActive('bold')}
+					class:btn-active={activeEditor?.isActive('bold')}
 					onclick={() => editor?.chain().focus().toggleBold().run()}
 					{disabled}
 					title="Bold (Ctrl+B)"
@@ -100,7 +108,7 @@
 				<button
 					type="button"
 					class="btn btn-sm btn-ghost"
-					class:btn-active={editor.isActive('italic')}
+					class:btn-active={activeEditor?.isActive('italic')}
 					onclick={() => editor?.chain().focus().toggleItalic().run()}
 					{disabled}
 					title="Italic (Ctrl+I)"
@@ -110,7 +118,7 @@
 				<button
 					type="button"
 					class="btn btn-sm btn-ghost"
-					class:btn-active={editor.isActive('strike')}
+					class:btn-active={activeEditor?.isActive('strike')}
 					onclick={() => editor?.chain().focus().toggleStrike().run()}
 					{disabled}
 					title="Strikethrough"
@@ -126,7 +134,7 @@
 				<button
 					type="button"
 					class="btn btn-sm btn-ghost"
-					class:btn-active={editor.isActive('heading', { level: 1 })}
+					class:btn-active={activeEditor?.isActive('heading', { level: 1 })}
 					onclick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
 					{disabled}
 					title="Heading 1"
@@ -136,7 +144,7 @@
 				<button
 					type="button"
 					class="btn btn-sm btn-ghost"
-					class:btn-active={editor.isActive('heading', { level: 2 })}
+					class:btn-active={activeEditor?.isActive('heading', { level: 2 })}
 					onclick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
 					{disabled}
 					title="Heading 2"
@@ -146,7 +154,7 @@
 				<button
 					type="button"
 					class="btn btn-sm btn-ghost"
-					class:btn-active={editor.isActive('heading', { level: 3 })}
+					class:btn-active={activeEditor?.isActive('heading', { level: 3 })}
 					onclick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
 					{disabled}
 					title="Heading 3"
@@ -162,7 +170,7 @@
 				<button
 					type="button"
 					class="btn btn-sm btn-ghost"
-					class:btn-active={editor.isActive('bulletList')}
+					class:btn-active={activeEditor?.isActive('bulletList')}
 					onclick={() => editor?.chain().focus().toggleBulletList().run()}
 					{disabled}
 					title="Bullet List"
@@ -185,7 +193,7 @@
 				<button
 					type="button"
 					class="btn btn-sm btn-ghost"
-					class:btn-active={editor.isActive('orderedList')}
+					class:btn-active={activeEditor?.isActive('orderedList')}
 					onclick={() => editor?.chain().focus().toggleOrderedList().run()}
 					{disabled}
 					title="Numbered List"
@@ -214,7 +222,7 @@
 				<button
 					type="button"
 					class="btn btn-sm btn-ghost"
-					class:btn-active={editor.isActive('blockquote')}
+					class:btn-active={activeEditor?.isActive('blockquote')}
 					onclick={() => editor?.chain().focus().toggleBlockquote().run()}
 					{disabled}
 					title="Quote"
@@ -254,7 +262,7 @@
 				<button
 					type="button"
 					class="btn btn-sm btn-ghost"
-					class:btn-active={editor.isActive('link')}
+					class:btn-active={activeEditor?.isActive('link')}
 					onclick={() => {
 						if (editor?.isActive('link')) {
 							editor?.chain().focus().unsetLink().run();
@@ -293,7 +301,7 @@
 					type="button"
 					class="btn btn-sm btn-ghost"
 					onclick={() => editor?.chain().focus().undo().run()}
-					disabled={disabled || !editor.can().undo()}
+					disabled={disabled || !activeEditor?.can().undo()}
 					title="Undo (Ctrl+Z)"
 				>
 					<svg
@@ -315,7 +323,7 @@
 					type="button"
 					class="btn btn-sm btn-ghost"
 					onclick={() => editor?.chain().focus().redo().run()}
-					disabled={disabled || !editor.can().redo()}
+					disabled={disabled || !activeEditor?.can().redo()}
 					title="Redo (Ctrl+Shift+Z)"
 				>
 					<svg
