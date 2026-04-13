@@ -31,6 +31,10 @@
 	// activeEditor derived re-reads editor state for toolbar buttons.
 	let txCounter = $state(0);
 	let activeEditor = $derived.by(() => { txCounter; return editor; });
+	// Guard flag: suppresses onUpdate during $effect-driven setContent
+	// to prevent the "ping-pong" loop (content prop → setContent → onUpdate
+	// → parent updates state → content prop changes → effect re-runs).
+	let suppressUpdate = false;
 
 	onMount(() => {
 		editor = new Editor({
@@ -60,7 +64,10 @@
 				queueMicrotask(() => { txCounter++; });
 			},
 			onUpdate: ({ editor }) => {
-				onUpdate?.(editor.getHTML());
+				// Only propagate user-initiated changes, not $effect syncs
+				if (!suppressUpdate) {
+					onUpdate?.(editor.getHTML());
+				}
 			}
 		});
 	});
@@ -72,7 +79,9 @@
 	// Update editor when content prop changes externally
 	$effect(() => {
 		if (editor && content !== editor.getHTML()) {
+			suppressUpdate = true;
 			editor.commands.setContent(content);
+			suppressUpdate = false;
 		}
 	});
 
