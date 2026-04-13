@@ -47,6 +47,71 @@
 	// View/Edit toggle — default to view mode
 	let isEditing = $state(false);
 
+	// =========================================================================
+	// Form snapshot for dirty-state tracking
+	// =========================================================================
+	interface FormSnapshot {
+		quotationName: string;
+		manualBusinessName: string;
+		manualEmail: string;
+		manualContactName: string;
+		manualPhone: string;
+		siteAddress: string;
+		siteReference: string;
+		preparedDate: string;
+		expiryDate: string;
+		sections: ScopeSectionInput[];
+		discountAmount: string;
+		discountDescription: string;
+		termsBlocks: TermsBlock[];
+		optionsNotes: string;
+		notes: string;
+	}
+
+	let loadedForm = $state<FormSnapshot | null>(null);
+
+	function takeSnapshot(): FormSnapshot {
+		return structuredClone({
+			quotationName,
+			manualBusinessName,
+			manualEmail,
+			manualContactName,
+			manualPhone,
+			siteAddress,
+			siteReference,
+			preparedDate,
+			expiryDate,
+			sections,
+			discountAmount,
+			discountDescription,
+			termsBlocks,
+			optionsNotes,
+			notes,
+		});
+	}
+
+	let hasChanges = $derived.by(() => {
+		if (!loadedForm || !isEditing) return false;
+		// Scalar fields
+		if (quotationName !== loadedForm.quotationName) return true;
+		if (manualBusinessName !== loadedForm.manualBusinessName) return true;
+		if (manualEmail !== loadedForm.manualEmail) return true;
+		if (manualContactName !== loadedForm.manualContactName) return true;
+		if (manualPhone !== loadedForm.manualPhone) return true;
+		if (siteAddress !== loadedForm.siteAddress) return true;
+		if (siteReference !== loadedForm.siteReference) return true;
+		if (preparedDate !== loadedForm.preparedDate) return true;
+		if (expiryDate !== loadedForm.expiryDate) return true;
+		if (discountAmount !== loadedForm.discountAmount) return true;
+		if (discountDescription !== loadedForm.discountDescription) return true;
+		if (optionsNotes !== loadedForm.optionsNotes) return true;
+		if (notes !== loadedForm.notes) return true;
+		// Deep compare sections and terms via JSON
+		if (JSON.stringify(sections) !== JSON.stringify(loadedForm.sections)) return true;
+		if (JSON.stringify(termsBlocks) !== JSON.stringify(loadedForm.termsBlocks)) return true;
+		return false;
+	});
+
 	// Edit form state (populated by startEditing)
 	let isSaving = $state(false);
 	let quotationName = $state('');
@@ -158,6 +223,8 @@
 		optionsNotes = data.quotation.optionsNotes || '';
 		notes = data.quotation.notes || '';
 		isEditing = true;
+		// Capture snapshot of initial state for dirty-tracking
+		loadedForm = takeSnapshot();
 	}
 
 	// Section management
@@ -295,6 +362,8 @@
 				discountDescription: discountDescription.trim(),
 			});
 			await invalidateAll();
+			// Reset snapshot so hasChanges goes false
+			loadedForm = takeSnapshot();
 			isEditing = false;
 			toast.success('Quotation saved');
 		} catch (err) {
@@ -398,18 +467,17 @@
 		<!-- Action Bar -->
 		<div class="flex flex-wrap gap-2 pt-3 border-t border-base-200">
 			{#if isEditing}
-				<!-- Editing: Save + Cancel -->
-				<button type="button" class="btn btn-primary btn-sm" onclick={handleSave} disabled={isSaving}>
-					{#if isSaving}
-						<span class="loading loading-spinner loading-sm"></span>
-					{:else}
-						<Save class="h-4 w-4" />
-					{/if}
-					Save
-				</button>
+				<!-- Editing: Cancel only — Save is in the sticky bar below -->
 				<button type="button" class="btn btn-ghost btn-sm" onclick={() => (isEditing = false)}>
-					Cancel
+					<XCircle class="h-4 w-4" />
+					Cancel Editing
 				</button>
+				{#if hasChanges}
+					<span class="text-sm text-warning flex items-center gap-1">
+						<AlertCircle class="h-3.5 w-3.5" />
+						Unsaved changes
+					</span>
+				{/if}
 			{:else}
 				<!-- View mode actions by status -->
 				{#if isDraft}
@@ -768,17 +836,8 @@
 			</div>
 		</div>
 
-		<!-- Bottom save/cancel -->
-		<div class="flex justify-end gap-4">
-			<button type="button" class="btn btn-ghost" onclick={() => (isEditing = false)}>Cancel</button>
-			<button type="button" class="btn btn-primary" onclick={handleSave} disabled={isSaving}>
-				{#if isSaving}
-					<span class="loading loading-spinner loading-sm"></span>
-				{/if}
-				<Save class="h-4 w-4" />
-				Save Changes
-			</button>
-		</div>
+		<!-- Spacer for sticky save bar clearance -->
+		<div class="h-20"></div>
 	{:else}
 		<!-- ================================================================= -->
 		<!-- VIEW MODE — Formatted Quotation Preview -->
@@ -1045,6 +1104,31 @@
 		{/if}
 	{/if}
 </div>
+
+<!-- Sticky Save Bar — appears when editing with unsaved changes -->
+{#if isEditing && hasChanges}
+	<div class="fixed bottom-0 left-0 right-0 z-40 border-t border-base-300 bg-base-100/95 backdrop-blur-sm shadow-[0_-4px_12px_rgba(0,0,0,0.1)]">
+		<div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+			<div class="flex items-center gap-2 text-sm text-warning">
+				<AlertCircle class="h-4 w-4 shrink-0" />
+				<span>You have unsaved changes</span>
+			</div>
+			<div class="flex items-center gap-2">
+				<button type="button" class="btn btn-ghost btn-sm" onclick={() => (isEditing = false)}>
+					Discard
+				</button>
+				<button type="button" class="btn btn-primary btn-sm" onclick={handleSave} disabled={isSaving}>
+					{#if isSaving}
+						<span class="loading loading-spinner loading-sm"></span>
+					{:else}
+						<Save class="h-4 w-4" />
+					{/if}
+					Save Changes
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <!-- Send Email Modal -->
 <SendEmailModal
