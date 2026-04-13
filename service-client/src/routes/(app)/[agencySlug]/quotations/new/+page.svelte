@@ -67,7 +67,10 @@
 	let gstRate = $derived(parseFloat(data.profile?.gstRate || '10.00'));
 
 	let subtotal = $derived(
-		sections.reduce((sum, s) => sum + parseFloat(s.sectionPrice || '0'), 0)
+		sections.reduce(
+			(sum, s) => s.displayType === 'description' ? sum : sum + parseFloat(s.sectionPrice || '0'),
+			0
+		)
 	);
 	let discount = $derived(parseFloat(discountAmount || '0'));
 	let gstAmount = $derived(gstRegistered ? (subtotal - discount) * (gstRate / 100) : 0);
@@ -114,6 +117,7 @@
 				(t: any) => t.id === selectedScopeTemplateId
 			);
 			if (scopeTemplate) {
+				const displayType = scopeTemplate.displayType === 'description' ? 'description' : 'priced';
 				sections = [
 					...sections,
 					{
@@ -121,7 +125,8 @@
 						workItems: Array.isArray(scopeTemplate.workItems)
 							? [...(scopeTemplate.workItems as string[])]
 							: [],
-						sectionPrice: scopeTemplate.defaultPrice || '0.00',
+						sectionPrice: displayType === 'description' ? '0.00' : (scopeTemplate.defaultPrice || '0.00'),
+						displayType,
 						scopeTemplateId: scopeTemplate.id,
 						sortOrder: sections.length,
 					}
@@ -134,6 +139,7 @@
 					title: newSectionTitle.trim(),
 					workItems: [],
 					sectionPrice: '0.00',
+					displayType: 'priced',
 					scopeTemplateId: null,
 					sortOrder: sections.length,
 				}
@@ -478,40 +484,46 @@
 								{/each}
 							</div>
 
-							<!-- Section Price -->
-							<div class="flex items-center gap-4 pt-3 border-t border-base-200">
-								<div class="form-control flex-1">
-									<label class="label" for="section-price-{sectionIndex}">
-										<span class="label-text text-sm">Price (ex GST)</span>
-									</label>
-									<input
-										id="section-price-{sectionIndex}"
-										type="text"
-										class="input input-bordered input-sm"
-										placeholder="0.00"
-										value={section.sectionPrice}
-										oninput={(e) =>
-											updateSectionPrice(
-												sectionIndex,
-												e.currentTarget.value
-											)}
-									/>
+							<!-- Section Price (hidden for description-only sections) -->
+							{#if section.displayType === 'description'}
+								<div class="pt-3 border-t border-base-200 text-xs text-base-content/50 italic">
+									Description-only section — no price shown in PDF
 								</div>
-								{#if gstRegistered}
-									{@const sectionGst =
-										parseFloat(section.sectionPrice || '0') * (gstRate / 100)}
-									{@const sectionTotal =
-										parseFloat(section.sectionPrice || '0') + sectionGst}
-									<div class="text-right text-sm">
-										<div class="text-base-content/60">
-											GST: {formatCurrency(sectionGst)}
-										</div>
-										<div class="font-semibold">
-											Inc: {formatCurrency(sectionTotal)}
-										</div>
+							{:else}
+								<div class="flex items-center gap-4 pt-3 border-t border-base-200">
+									<div class="form-control flex-1">
+										<label class="label" for="section-price-{sectionIndex}">
+											<span class="label-text text-sm">Price (ex GST)</span>
+										</label>
+										<input
+											id="section-price-{sectionIndex}"
+											type="text"
+											class="input input-bordered input-sm"
+											placeholder="0.00"
+											value={section.sectionPrice}
+											oninput={(e) =>
+												updateSectionPrice(
+													sectionIndex,
+													e.currentTarget.value
+												)}
+										/>
 									</div>
-								{/if}
-							</div>
+									{#if gstRegistered}
+										{@const sectionGst =
+											parseFloat(section.sectionPrice || '0') * (gstRate / 100)}
+										{@const sectionTotal =
+											parseFloat(section.sectionPrice || '0') + sectionGst}
+										<div class="text-right text-sm">
+											<div class="text-base-content/60">
+												GST: {formatCurrency(sectionGst)}
+											</div>
+											<div class="font-semibold">
+												Inc: {formatCurrency(sectionTotal)}
+											</div>
+										</div>
+									{/if}
+								</div>
+							{/if}
 						</div>
 					{/each}
 				</div>

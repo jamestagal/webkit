@@ -124,6 +124,20 @@ function buildWorkItemsHtml(items: string[]): string {
 	`;
 }
 
+/**
+ * Render scope items as full-width paragraphs (no bullets, no 2-column split).
+ * Used for description-only scopes (e.g., findings, commentary).
+ */
+function buildDescriptionItemsHtml(items: string[]): string {
+	if (items.length === 0) return "";
+	return items
+		.map(
+			(item) =>
+				`<p style="margin: 0 0 8px 0; font-size: 12px; color: #374151; line-height: 1.6;">${escapeHtml(item)}</p>`,
+		)
+		.join("");
+}
+
 export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 	const { quotation, sections, agency, profile, brandingOverride } = data;
 
@@ -140,22 +154,30 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 	// Build scope sections HTML
 	const scopeSectionsHtml = sections
 		.sort((a, b) => a.sortOrder - b.sortOrder)
-		.map(
-			(section) => `
-		<div style="margin-bottom: 20px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; page-break-inside: avoid;">
-			<div style="background: #f9fafb; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;">
-				<h3 style="margin: 0; font-size: 14px; font-weight: 600; color: #111827;">${escapeHtml(section.title)}</h3>
+		.map((section) => {
+			const isDescription = section.displayType === "description";
+			const priceBlock = isDescription
+				? ""
+				: `
 				<span style="font-size: 14px; font-weight: 700; color: ${accentColor};">
 					${formatCurrency(section.sectionTotal)}
 					${quotation.gstRegistered ? '<span style="font-size: 10px; color: #6b7280; font-weight: 400;"> inc GST</span>' : ""}
-				</span>
+				</span>`;
+			const itemsHtml = isDescription
+				? buildDescriptionItemsHtml((section.workItems as string[]) || [])
+				: buildWorkItemsHtml((section.workItems as string[]) || []);
+			return `
+		<div style="margin-bottom: 20px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; page-break-inside: avoid;">
+			<div style="background: #f9fafb; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;">
+				<h3 style="margin: 0; font-size: 14px; font-weight: 600; color: #111827;">${escapeHtml(section.title)}</h3>
+				${priceBlock}
 			</div>
 			<div style="padding: 12px 16px;">
-				${buildWorkItemsHtml((section.workItems as string[]) || [])}
+				${itemsHtml}
 			</div>
 		</div>
-	`,
-		)
+	`;
+		})
 		.join("");
 
 	// Build terms HTML
@@ -168,7 +190,6 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 				.map(
 					(term) => `
 				<div style="margin-bottom: 12px;">
-					<h3 style="font-size: 12px; font-weight: 600; margin: 0 0 4px 0; color: #374151;">${escapeHtml(term.title)}</h3>
 					<div style="font-size: 12px; color: #6b7280; line-height: 1.5;">${sanitizeHtml(term.content)}</div>
 				</div>
 			`,

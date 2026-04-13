@@ -46,6 +46,7 @@ const ScopeSectionSchema = v.object({
 	title: v.pipe(v.string(), v.minLength(1)),
 	workItems: v.array(v.string()),
 	sectionPrice: v.string(),
+	displayType: v.optional(v.picklist(["priced", "description"])),
 	scopeTemplateId: v.optional(v.nullable(v.pipe(v.string(), v.uuid()))),
 	sortOrder: v.number(),
 });
@@ -552,6 +553,7 @@ export const createQuotation = command(CreateQuotationSchema, async (data) => {
 			sectionPrice: section.sectionPrice,
 			sectionGst,
 			sectionTotal,
+			displayType: section.displayType || "priced",
 			sortOrder: section.sortOrder,
 			scopeTemplateId: section.scopeTemplateId || null,
 		});
@@ -818,6 +820,7 @@ export const duplicateQuotation = command(
 				sectionPrice: section.sectionPrice,
 				sectionGst: section.sectionGst,
 				sectionTotal: section.sectionTotal,
+				displayType: section.displayType,
 				sortOrder: section.sortOrder,
 				scopeTemplateId: section.scopeTemplateId,
 			});
@@ -1007,6 +1010,7 @@ export const getTemplateForQuotation = query(
 					description: quotationScopeTemplates.description,
 					workItems: quotationScopeTemplates.workItems,
 					defaultPrice: quotationScopeTemplates.defaultPrice,
+					displayType: quotationScopeTemplates.displayType,
 					category: quotationScopeTemplates.category,
 				},
 			})
@@ -1038,13 +1042,21 @@ export const getTemplateForQuotation = query(
 
 		return {
 			template,
-			sections: templateSections.map((s) => ({
-				title: s.scopeTemplate.name,
-				workItems: (s.scopeTemplate.workItems as string[]) || [],
-				sectionPrice: s.defaultSectionPrice || s.scopeTemplate.defaultPrice || "0.00",
-				scopeTemplateId: s.scopeTemplate.id,
-				sortOrder: s.sortOrder,
-			})),
+			sections: templateSections.map((s) => {
+				const displayType: "priced" | "description" =
+					s.scopeTemplate.displayType === "description" ? "description" : "priced";
+				return {
+					title: s.scopeTemplate.name,
+					workItems: (s.scopeTemplate.workItems as string[]) || [],
+					sectionPrice:
+						displayType === "description"
+							? "0.00"
+							: s.defaultSectionPrice || s.scopeTemplate.defaultPrice || "0.00",
+					displayType,
+					scopeTemplateId: s.scopeTemplate.id,
+					sortOrder: s.sortOrder,
+				};
+			}),
 			termsBlocks: templateTerms.map((t) => ({
 				title: t.termsTemplate.title,
 				content: t.termsTemplate.content,

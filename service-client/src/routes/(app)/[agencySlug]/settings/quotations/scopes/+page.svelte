@@ -28,6 +28,7 @@
 	let formCategory = $state('');
 	let formDefaultPrice = $state('');
 	let formWorkItems = $state<string[]>(['']);
+	let formDisplayType = $state<'priced' | 'description'>('priced');
 
 	// Delete modal state
 	let showDeleteModal = $state(false);
@@ -41,6 +42,7 @@
 		formCategory = '';
 		formDefaultPrice = '';
 		formWorkItems = [''];
+		formDisplayType = 'priced';
 		showModal = true;
 	}
 
@@ -52,6 +54,7 @@
 		formDefaultPrice = template.defaultPrice || '';
 		const items = Array.isArray(template.workItems) ? template.workItems : [];
 		formWorkItems = items.length > 0 ? [...items] : [''];
+		formDisplayType = template.displayType === 'description' ? 'description' : 'priced';
 		showModal = true;
 	}
 
@@ -95,7 +98,8 @@
 					description: formDescription.trim(),
 					category: formCategory.trim() || null,
 					workItems,
-					defaultPrice: formDefaultPrice.trim() || null,
+					defaultPrice: formDisplayType === 'description' ? null : (formDefaultPrice.trim() || null),
+					displayType: formDisplayType,
 				});
 				toast.success('Scope template updated');
 			} else {
@@ -104,7 +108,8 @@
 					description: formDescription.trim(),
 					category: formCategory.trim() || null,
 					workItems,
-					defaultPrice: formDefaultPrice.trim() || null,
+					defaultPrice: formDisplayType === 'description' ? null : (formDefaultPrice.trim() || null),
+					displayType: formDisplayType,
 				});
 				toast.success('Scope template created');
 			}
@@ -199,7 +204,12 @@
 								{@const items = Array.isArray(template.workItems) ? template.workItems : []}
 								<tr class="hover">
 									<td>
-										<div class="font-medium">{template.name}</div>
+										<div class="flex items-center gap-2">
+											<span class="font-medium">{template.name}</span>
+											{#if template.displayType === 'description'}
+												<span class="badge badge-ghost badge-sm">Description</span>
+											{/if}
+										</div>
 										{#if template.description}
 											<div class="text-sm text-base-content/60 line-clamp-1">
 												{template.description}
@@ -215,7 +225,9 @@
 									</td>
 									<td>{items.length} items</td>
 									<td>
-										{#if template.defaultPrice}
+										{#if template.displayType === 'description'}
+											<span class="text-base-content/40 text-xs">N/A</span>
+										{:else if template.defaultPrice}
 											{formatCurrency(template.defaultPrice)}
 										{:else}
 											<span class="text-base-content/40">—</span>
@@ -293,6 +305,41 @@
 					/>
 				</div>
 
+				<!-- Display Type -->
+				<div class="form-control">
+					<label class="label">
+						<span class="label-text">Display Type</span>
+					</label>
+					<div class="flex flex-col gap-2">
+						<label class="flex items-start gap-3 cursor-pointer rounded-lg border border-base-300 p-3 hover:bg-base-200/50" class:border-primary={formDisplayType === 'priced'} class:bg-primary={false}>
+							<input
+								type="radio"
+								name="display-type"
+								value="priced"
+								class="radio radio-sm radio-primary mt-0.5"
+								bind:group={formDisplayType}
+							/>
+							<div>
+								<div class="font-medium text-sm">Priced section</div>
+								<div class="text-xs text-base-content/60">Work items in a 2-column list with a price. For standard job items.</div>
+							</div>
+						</label>
+						<label class="flex items-start gap-3 cursor-pointer rounded-lg border border-base-300 p-3 hover:bg-base-200/50" class:border-primary={formDisplayType === 'description'}>
+							<input
+								type="radio"
+								name="display-type"
+								value="description"
+								class="radio radio-sm radio-primary mt-0.5"
+								bind:group={formDisplayType}
+							/>
+							<div>
+								<div class="font-medium text-sm">Description only</div>
+								<div class="text-xs text-base-content/60">Narrative text, full-width, no price shown. For findings, notes, or commentary.</div>
+							</div>
+						</label>
+					</div>
+				</div>
+
 				<!-- Description -->
 				<div class="form-control">
 					<label class="label" for="scope-desc">
@@ -331,8 +378,9 @@
 							id="scope-price"
 							type="text"
 							class="input input-bordered"
-							placeholder="e.g. 5500.00"
+							placeholder={formDisplayType === 'description' ? 'Not applicable' : 'e.g. 5500.00'}
 							bind:value={formDefaultPrice}
+							disabled={formDisplayType === 'description'}
 						/>
 					</div>
 				</div>

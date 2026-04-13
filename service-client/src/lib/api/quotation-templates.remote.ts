@@ -35,6 +35,7 @@ const CreateScopeTemplateSchema = v.object({
 	category: v.optional(v.nullable(v.pipe(v.string(), v.maxLength(100)))),
 	workItems: v.optional(v.array(v.string())),
 	defaultPrice: v.optional(v.nullable(v.string())),
+	displayType: v.optional(v.picklist(["priced", "description"])),
 });
 
 const UpdateScopeTemplateSchema = v.object({
@@ -44,6 +45,7 @@ const UpdateScopeTemplateSchema = v.object({
 	category: v.optional(v.nullable(v.pipe(v.string(), v.maxLength(100)))),
 	workItems: v.optional(v.array(v.string())),
 	defaultPrice: v.optional(v.nullable(v.string())),
+	displayType: v.optional(v.picklist(["priced", "description"])),
 	sortOrder: v.optional(v.number()),
 });
 
@@ -223,6 +225,7 @@ export const createScopeTemplate = command(CreateScopeTemplateSchema, async (dat
 			category: data.category || null,
 			workItems: data.workItems || [],
 			defaultPrice: data.defaultPrice || null,
+			displayType: data.displayType || "priced",
 			createdBy: context.userId,
 		})
 		.returning();
@@ -269,6 +272,7 @@ export const updateScopeTemplate = command(UpdateScopeTemplateSchema, async (dat
 	if (data.category !== undefined) updates["category"] = data.category;
 	if (data.workItems !== undefined) updates["workItems"] = data.workItems;
 	if (data.defaultPrice !== undefined) updates["defaultPrice"] = data.defaultPrice;
+	if (data.displayType !== undefined) updates["displayType"] = data.displayType;
 	if (data.sortOrder !== undefined) updates["sortOrder"] = data.sortOrder;
 
 	const [template] = await db

@@ -51,3 +51,8 @@ app/content-service/server
 # Logs
 *.log
 logs/
+
+# OMC runtime state (skills are committed, state is not)
+.omc/sessions/
+.omc/state/
+.omc/project-memory.json

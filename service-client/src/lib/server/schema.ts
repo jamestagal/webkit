@@ -1196,6 +1196,9 @@ export const quotationScopeTemplates = pgTable(
 		// Default section price (optional, pre-fills when added to quotation)
 		defaultPrice: decimal("default_price", { precision: 10, scale: 2 }),
 
+		// Display mode: "priced" (2-col bullets + price) or "description" (full-width prose, no price)
+		displayType: varchar("display_type", { length: 20 }).notNull().default("priced"),
+
 		// Display
 		isActive: boolean("is_active").notNull().default(true),
 		sortOrder: integer("sort_order").notNull().default(0),
@@ -1429,6 +1432,9 @@ export const quotationScopeSections = pgTable(
 		sectionPrice: decimal("section_price", { precision: 10, scale: 2 }),
 		sectionGst: decimal("section_gst", { precision: 10, scale: 2 }),
 		sectionTotal: decimal("section_total", { precision: 10, scale: 2 }),
+
+		// Display mode: "priced" (2-col bullets + price) or "description" (full-width prose, no price)
+		displayType: varchar("display_type", { length: 20 }).notNull().default("priced"),
 
 		// Ordering
 		sortOrder: integer("sort_order").notNull().default(0),

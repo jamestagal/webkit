@@ -18,6 +18,7 @@ export interface ScopeSectionInput {
 	title: string;
 	workItems: string[];
 	sectionPrice: string;
+	displayType?: "priced" | "description";
 	scopeTemplateId?: string | null;
 	sortOrder: number;
 }
@@ -73,6 +74,7 @@ export interface QuotationWithSections {
 		sectionPrice: string | null;
 		sectionGst: string | null;
 		sectionTotal: string | null;
+		displayType: string;
 		sortOrder: number;
 		scopeTemplateId: string | null;
 		createdAt: Date;
