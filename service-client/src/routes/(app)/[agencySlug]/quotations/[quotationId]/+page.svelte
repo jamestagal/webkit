@@ -891,10 +891,11 @@
 
 						{#each data.sections as section (section.id)}
 							{@const items = (section.workItems as string[]) || []}
+							{@const isDescription = section.displayType === 'description'}
 							<div class="border border-base-300 rounded-lg overflow-hidden">
 								<div class="bg-base-200/50 px-4 py-3 flex justify-between items-center">
 									<h3 class="font-semibold">{section.title}</h3>
-									{#if section.sectionTotal}
+									{#if !isDescription && section.sectionTotal}
 										<span class="font-bold text-primary">
 											{formatCurrency(parseFloat(section.sectionTotal))}
 											{#if data.quotation.gstRegistered}
@@ -905,14 +906,22 @@
 								</div>
 								<div class="p-4">
 									{#if items.length > 0}
-										<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-											{#each items as item}
-												<div class="flex items-start gap-2 text-sm">
-													<span class="text-primary mt-0.5 shrink-0">&#x2022;</span>
-													<span>{item}</span>
-												</div>
-											{/each}
-										</div>
+										{#if isDescription}
+											<div class="space-y-2 text-sm leading-relaxed text-base-content/80">
+												{#each items as item}
+													<p>{item}</p>
+												{/each}
+											</div>
+										{:else}
+											<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+												{#each items as item}
+													<div class="flex items-start gap-2 text-sm">
+														<span class="text-primary mt-0.5 shrink-0">&#x2022;</span>
+														<span>{item}</span>
+													</div>
+												{/each}
+											</div>
+										{/if}
 									{/if}
 								</div>
 							</div>

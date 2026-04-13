@@ -176,7 +176,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 				? buildDescriptionItemsHtml((section.workItems as string[]) || [])
 				: buildWorkItemsHtml((section.workItems as string[]) || []);
 			return `
-		<div style="margin-bottom: 20px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; page-break-inside: avoid;">
+		<div style="margin-bottom: 12px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; page-break-inside: avoid;">
 			<div style="background: #f9fafb; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;">
 				<h3 style="margin: 0; font-size: 14px; font-weight: 600; color: #111827;">${escapeHtml(section.title)}</h3>
 				${priceBlock}
@@ -193,8 +193,8 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 	const termsHtml =
 		termsBlocks.length > 0
 			? `
-		<div style="margin: 32px 0; page-break-inside: avoid;">
-			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Terms & Conditions</h2>
+		<div style="margin: 20px 0; page-break-inside: avoid;">
+			<h2 style="font-size: 16px; font-weight: 600; color: #111827; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid ${accentColor};">Terms & Conditions</h2>
 			${termsBlocks
 				.map(
 					(term) => `
@@ -211,12 +211,12 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 	// Build acceptance block
 	const acceptanceHtml = isAccepted
 		? `
-		<div style="margin: 48px 0 32px 0; page-break-inside: avoid;">
-			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Acceptance</h2>
+		<div style="margin: 24px 0 16px 0; page-break-inside: avoid;">
+			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid ${accentColor};">Acceptance</h2>
 
-			<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px;">
+			<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
 				<!-- Agency -->
-				<div style="padding: 20px; background: #f9fafb; border-radius: 8px;">
+				<div style="padding: 14px; background: #f9fafb; border-radius: 8px;">
 					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
 						From ${escapeHtml(agency.name)}
 					</div>
@@ -227,7 +227,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 				</div>
 
 				<!-- Client -->
-				<div style="padding: 20px; background: #f9fafb; border-radius: 8px;">
+				<div style="padding: 14px; background: #f9fafb; border-radius: 8px;">
 					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
 						For ${escapeHtml(quotation.clientBusinessName || "Client")}
 					</div>
@@ -244,12 +244,12 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 		</div>
 	`
 		: `
-		<div style="margin: 48px 0 32px 0; page-break-inside: avoid;">
-			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Acceptance</h2>
+		<div style="margin: 24px 0 16px 0; page-break-inside: avoid;">
+			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid ${accentColor};">Acceptance</h2>
 
-			<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px;">
+			<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
 				<!-- Agency -->
-				<div style="padding: 20px; background: #f9fafb; border-radius: 8px;">
+				<div style="padding: 14px; background: #f9fafb; border-radius: 8px;">
 					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
 						From ${escapeHtml(agency.name)}
 					</div>
@@ -260,11 +260,11 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 				</div>
 
 				<!-- Client -->
-				<div style="padding: 20px; background: #f9fafb; border-radius: 8px;">
+				<div style="padding: 14px; background: #f9fafb; border-radius: 8px;">
 					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
 						For ${escapeHtml(quotation.clientBusinessName || "Client")}
 					</div>
-					<div style="height: 60px; border-bottom: 2px solid #d1d5db; margin: 20px 0;"></div>
+					<div style="height: 40px; border-bottom: 2px solid #d1d5db; margin: 12px 0;"></div>
 					<div style="font-size: 12px; color: #9ca3af;">Date: _______________</div>
 				</div>
 			</div>
@@ -280,7 +280,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 	<style>
 		@page {
 			size: A4;
-			margin: 15mm;
+			margin: 12mm 15mm;
 		}
 		* {
 			margin: 0;
@@ -323,7 +323,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 	${isAccepted ? '<div class="accepted-watermark">ACCEPTED</div>' : ""}
 	<div class="container">
 		<!-- Header -->
-		<div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 3px solid ${accentColor};">
+		<div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 16px; border-bottom: 3px solid ${accentColor};">
 			<div style="flex: 1; min-width: 0;">
 				${
 					logoUrl
@@ -343,7 +343,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 		</div>
 
 		<!-- Addresses -->
-		<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin: 24px 0;">
+		<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin: 16px 0;">
 			<div>
 				<h3 style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">From</h3>
 				<div style="font-size: 13px; line-height: 1.6;">
@@ -359,7 +359,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 		</div>
 
 		<!-- Dates & Site -->
-		<div style="display: grid; grid-template-columns: repeat(${quotation.siteAddress ? "3" : "2"}, 1fr); gap: 24px; margin: 24px 0; padding: 16px; background: #f9fafb; border-radius: 8px; border-left: 4px solid ${accentColor};">
+		<div style="display: grid; grid-template-columns: repeat(${quotation.siteAddress ? "3" : "2"}, 1fr); gap: 24px; margin: 16px 0; padding: 12px 16px; background: #f9fafb; border-radius: 8px; border-left: 4px solid ${accentColor};">
 			<div>
 				<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Date</div>
 				<div style="font-weight: 500;">${formatDate(quotation.preparedDate, "long")}</div>
@@ -392,17 +392,17 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 		}
 
 		<!-- Scope of Works -->
-		<div style="margin: 24px 0;">
-			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Scope of Works</h2>
+		<div style="margin: 16px 0;">
+			<h2 style="font-size: 16px; font-weight: 600; color: #111827; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid ${accentColor};">Scope of Works</h2>
 			${scopeSectionsHtml}
 		</div>
 
 		<!-- Totals -->
-		<div style="margin: 32px 0; padding: 24px; background: linear-gradient(135deg, ${accentColor}10 0%, ${accentColor}05 100%); border-radius: 12px; border: 1px solid ${accentColor}20; page-break-inside: avoid;">
+		<div style="margin: 20px 0; padding: 16px 20px; background: linear-gradient(135deg, ${accentColor}10 0%, ${accentColor}05 100%); border-radius: 12px; border: 1px solid ${accentColor}20; page-break-inside: avoid;">
 			<div style="display: flex; justify-content: space-between; align-items: center;">
 				<div>
 					<div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Quotation Total</div>
-					<div style="font-size: 32px; font-weight: bold; color: ${accentColor};">${formatCurrency(quotation.total)}</div>
+					<div style="font-size: 26px; font-weight: bold; color: ${accentColor};">${formatCurrency(quotation.total)}</div>
 					<div style="font-size: 13px; color: #6b7280; margin-top: 4px;">${quotation.gstRegistered ? "Inclusive of GST" : "Exclusive of GST"}</div>
 				</div>
 				<div style="text-align: right;">
@@ -438,8 +438,8 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 		${
 			hasContent(quotation.optionsNotes)
 				? `
-		<div style="margin: 32px 0; page-break-inside: avoid;">
-			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Options & Notes</h2>
+		<div style="margin: 20px 0; page-break-inside: avoid;">
+			<h2 style="font-size: 16px; font-weight: 600; color: #111827; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid ${accentColor};">Options & Notes</h2>
 			<div style="font-size: 13px; color: #6b7280; line-height: 1.7;">${sanitizeHtml(quotation.optionsNotes)}</div>
 		</div>
 		`
@@ -453,7 +453,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 		${acceptanceHtml}
 
 		<!-- Footer -->
-		<div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #9ca3af;">
+		<div style="margin-top: 24px; padding-top: 12px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 11px; color: #9ca3af;">
 			<div>Generated on ${formatDate(new Date(), "long")} by ${escapeHtml(agency.name)}</div>
 		</div>
 	</div>
