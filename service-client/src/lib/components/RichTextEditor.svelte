@@ -26,7 +26,12 @@
 	} = $props();
 
 	let element: HTMLDivElement;
-	let editor: Editor | null = $state(null);
+	// $state.raw: Editor is a complex third-party object — deep reactivity
+	// causes effect_update_depth_exceeded because setContent/setEditable
+	// mutate internals, re-triggering any $effect that reads editor.
+	// Raw state only reacts to reassignment (editor = new Editor(...)),
+	// not internal mutations. Toolbar uses txCounter + activeEditor derived.
+	let editor: Editor | null = $state.raw(null);
 	// Toolbar reactivity: counter increments on each transaction,
 	// activeEditor derived re-reads editor state for toolbar buttons.
 	let txCounter = $state(0);
