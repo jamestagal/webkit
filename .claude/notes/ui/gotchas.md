@@ -139,3 +139,34 @@ async function handleConfirm() {
 - [ ] Both buttons disabled during async operation
 - [ ] Backdrop click closes modal (disabled during operation)
 - [ ] Item name shown in bold in confirmation message
+
+## Never Read Form $state Inside $effect That Syncs Server Data
+
+**Bug:** `$effect` that re-populates form from server data after `invalidateAll()` also called `takeSnapshot()` which reads form `$state` variables. This creates a circular dependency:
+1. User edits field → `$state` changes
+2. `$effect` re-runs (depends on form state via `takeSnapshot()`)
+3. Effect overwrites field back to server value
+4. `loadedForm` resets → `hasChanges` stays false
+
+**Symptoms:** 20+ second delay entering edit mode (reactive cascade), changes never detected.
+
+**Fix:** Build the baseline snapshot directly from server data parameters (`data.quotation`, `data.sections`), never from form `$state` variables. Use a `snapshotFromServer(q, s)` helper.
+
+```typescript
+// BAD — creates circular dependency
+$effect(() => {
+    const q = data.quotation;
+    if (!isEditing) return;
+    quotationName = q.title;
+    loadedForm = takeSnapshot(); // reads quotationName → circular!
+});
+
+// GOOD — only depends on server data + isEditing
+$effect(() => {
+    const q = data.quotation;
+    if (!isEditing) return;
+    const snapshot = snapshotFromServer(q, s);
+    quotationName = snapshot.title;
+    loadedForm = snapshot; // built from server data, not form state
+});
+```

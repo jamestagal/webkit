@@ -70,48 +70,6 @@
 
 	let loadedForm = $state<FormSnapshot | null>(null);
 
-	function takeSnapshot(): FormSnapshot {
-		return structuredClone({
-			quotationName,
-			manualBusinessName,
-			manualEmail,
-			manualContactName,
-			manualPhone,
-			siteAddress,
-			siteReference,
-			preparedDate,
-			expiryDate,
-			sections,
-			discountAmount,
-			discountDescription,
-			termsBlocks,
-			optionsNotes,
-			notes,
-		});
-	}
-
-	let hasChanges = $derived.by(() => {
-		if (!loadedForm || !isEditing) return false;
-		// Scalar fields
-		if (quotationName !== loadedForm.quotationName) return true;
-		if (manualBusinessName !== loadedForm.manualBusinessName) return true;
-		if (manualEmail !== loadedForm.manualEmail) return true;
-		if (manualContactName !== loadedForm.manualContactName) return true;
-		if (manualPhone !== loadedForm.manualPhone) return true;
-		if (siteAddress !== loadedForm.siteAddress) return true;
-		if (siteReference !== loadedForm.siteReference) return true;
-		if (preparedDate !== loadedForm.preparedDate) return true;
-		if (expiryDate !== loadedForm.expiryDate) return true;
-		if (discountAmount !== loadedForm.discountAmount) return true;
-		if (discountDescription !== loadedForm.discountDescription) return true;
-		if (optionsNotes !== loadedForm.optionsNotes) return true;
-		if (notes !== loadedForm.notes) return true;
-		// Deep compare sections and terms via JSON
-		if (JSON.stringify(sections) !== JSON.stringify(loadedForm.sections)) return true;
-		if (JSON.stringify(termsBlocks) !== JSON.stringify(loadedForm.termsBlocks)) return true;
-		return false;
-	});
-
 	// Edit form state (populated by startEditing)
 	let isSaving = $state(false);
 	let quotationName = $state('');
@@ -161,6 +119,125 @@
 	let newSectionTitle = $state('');
 	let selectedScopeTemplateId = $state<string | null>(null);
 
+	// =========================================================================
+	// Dirty-state tracking (Rafflekit pattern)
+	// takeSnapshot() uses $state.snapshot() for imperative plain-object copies.
+	// hasChanges uses explicit field reads so $derived.by() tracks each one.
+	// =========================================================================
+	function takeSnapshot(): FormSnapshot {
+		return $state.snapshot({
+			quotationName,
+			manualBusinessName,
+			manualEmail,
+			manualContactName,
+			manualPhone,
+			siteAddress,
+			siteReference,
+			preparedDate,
+			expiryDate,
+			sections,
+			discountAmount,
+			discountDescription,
+			termsBlocks,
+			optionsNotes,
+			notes,
+		}) as FormSnapshot;
+	}
+
+	let hasChanges = $derived.by(() => {
+		if (!loadedForm || !isEditing) return false;
+		// Explicit field-by-field comparison (matches Rafflekit pattern)
+		// Direct reads ensure Svelte 5 tracks each field as a dependency
+		if (quotationName !== loadedForm.quotationName) return true;
+		if (manualBusinessName !== loadedForm.manualBusinessName) return true;
+		if (manualEmail !== loadedForm.manualEmail) return true;
+		if (manualContactName !== loadedForm.manualContactName) return true;
+		if (manualPhone !== loadedForm.manualPhone) return true;
+		if (siteAddress !== loadedForm.siteAddress) return true;
+		if (siteReference !== loadedForm.siteReference) return true;
+		if (preparedDate !== loadedForm.preparedDate) return true;
+		if (expiryDate !== loadedForm.expiryDate) return true;
+		if (discountAmount !== loadedForm.discountAmount) return true;
+		if (discountDescription !== loadedForm.discountDescription) return true;
+		if (optionsNotes !== loadedForm.optionsNotes) return true;
+		if (notes !== loadedForm.notes) return true;
+		// Deep compare arrays — JSON.stringify reads through Svelte proxies
+		if (JSON.stringify(sections) !== JSON.stringify(loadedForm.sections)) return true;
+		if (JSON.stringify(termsBlocks) !== JSON.stringify(loadedForm.termsBlocks)) return true;
+		return false;
+	});
+
+	// =========================================================================
+	// Helper: build a snapshot directly from server data (no form-state reads)
+	// Used inside $effect to avoid creating reactive dependencies on form fields.
+	// =========================================================================
+	function snapshotFromServer(q: typeof data.quotation, s: typeof data.sections): FormSnapshot {
+		return {
+			quotationName: q.quotationName,
+			manualBusinessName: q.clientBusinessName,
+			manualEmail: q.clientEmail,
+			manualContactName: q.clientContactName,
+			manualPhone: q.clientPhone,
+			siteAddress: q.siteAddress,
+			siteReference: q.siteReference,
+			preparedDate: q.preparedDate
+				? new Date(q.preparedDate).toISOString().split('T')[0]!
+				: '',
+			expiryDate: q.expiryDate
+				? new Date(q.expiryDate).toISOString().split('T')[0]!
+				: '',
+			sections: s.map((sec) => ({
+				title: sec.title,
+				workItems: Array.isArray(sec.workItems) ? (sec.workItems as string[]) : [],
+				sectionPrice: sec.sectionPrice || '0.00',
+				displayType: (sec.displayType === 'description' ? 'description' : 'priced') as 'priced' | 'description',
+				scopeTemplateId: sec.scopeTemplateId || null,
+				sortOrder: sec.sortOrder,
+			})),
+			discountAmount: q.discountAmount || '',
+			discountDescription: q.discountDescription || '',
+			termsBlocks: Array.isArray(q.termsBlocks)
+				? (q.termsBlocks as TermsBlock[]).map((t, i) => ({
+						...t,
+						sortOrder: t.sortOrder ?? i
+					}))
+				: [],
+			optionsNotes: q.optionsNotes || '',
+			notes: q.notes || '',
+		};
+	}
+
+	// =========================================================================
+	// $effect: sync edit form + snapshot when server data changes
+	// Fires after invalidateAll() re-runs the server load function.
+	// CRITICAL: must NOT read form state variables — only server data + isEditing.
+	// =========================================================================
+	$effect(() => {
+		const q = data.quotation;
+		const s = data.sections;
+		if (!isEditing) return;
+		// Build snapshot from server data (no form-state reads!)
+		const snapshot = snapshotFromServer(q, s);
+		// Re-populate form fields
+		quotationName = snapshot.quotationName;
+		manualBusinessName = snapshot.manualBusinessName;
+		manualEmail = snapshot.manualEmail;
+		manualContactName = snapshot.manualContactName;
+		manualPhone = snapshot.manualPhone;
+		siteAddress = snapshot.siteAddress;
+		siteReference = snapshot.siteReference;
+		preparedDate = snapshot.preparedDate;
+		expiryDate = snapshot.expiryDate;
+		sections = structuredClone(snapshot.sections);
+		discountAmount = snapshot.discountAmount;
+		discountDescription = snapshot.discountDescription;
+		termsBlocks = structuredClone(snapshot.termsBlocks);
+		optionsNotes = snapshot.optionsNotes;
+		notes = snapshot.notes;
+		// Reset baseline — built from server data, not form state
+		loadedForm = snapshot;
+	});
+
 	// Calculated values (edit mode)
 	let gstRegistered = $derived(data.profile?.gstRegistered ?? true);
 	let gstRate = $derived(parseFloat(data.profile?.gstRate || '10.00'));
@@ -181,50 +258,29 @@
 	);
 
 	// =========================================================================
-	// startEditing — deep copies server data into edit state
+	// startEditing — uses snapshotFromServer to populate form + baseline
 	// =========================================================================
 	function startEditing() {
-		quotationName = data.quotation.quotationName;
+		const snapshot = snapshotFromServer(data.quotation, data.sections);
 		selectedClient = null;
-		manualBusinessName = data.quotation.clientBusinessName;
-		manualEmail = data.quotation.clientEmail;
-		manualContactName = data.quotation.clientContactName;
-		manualPhone = data.quotation.clientPhone;
-		siteAddress = data.quotation.siteAddress;
-		siteReference = data.quotation.siteReference;
-		preparedDate = data.quotation.preparedDate
-			? new Date(data.quotation.preparedDate).toISOString().split('T')[0]!
-			: '';
-		expiryDate = data.quotation.expiryDate
-			? new Date(data.quotation.expiryDate).toISOString().split('T')[0]!
-			: '';
-		// Deep copy sections (JSONB workItems arrays)
-		sections = structuredClone(
-			data.sections.map((s) => ({
-				title: s.title,
-				workItems: Array.isArray(s.workItems) ? (s.workItems as string[]) : [],
-				sectionPrice: s.sectionPrice || '0.00',
-				displayType: (s.displayType === 'description' ? 'description' : 'priced') as 'priced' | 'description',
-				scopeTemplateId: s.scopeTemplateId || null,
-				sortOrder: s.sortOrder,
-			}))
-		);
-		discountAmount = data.quotation.discountAmount || '';
-		discountDescription = data.quotation.discountDescription || '';
-		// Deep copy terms blocks (JSONB)
-		termsBlocks = structuredClone(
-			Array.isArray(data.quotation.termsBlocks)
-				? (data.quotation.termsBlocks as TermsBlock[]).map((t, i) => ({
-						...t,
-						sortOrder: t.sortOrder ?? i
-					}))
-				: []
-		);
-		optionsNotes = data.quotation.optionsNotes || '';
-		notes = data.quotation.notes || '';
+		quotationName = snapshot.quotationName;
+		manualBusinessName = snapshot.manualBusinessName;
+		manualEmail = snapshot.manualEmail;
+		manualContactName = snapshot.manualContactName;
+		manualPhone = snapshot.manualPhone;
+		siteAddress = snapshot.siteAddress;
+		siteReference = snapshot.siteReference;
+		preparedDate = snapshot.preparedDate;
+		expiryDate = snapshot.expiryDate;
+		sections = structuredClone(snapshot.sections);
+		discountAmount = snapshot.discountAmount;
+		discountDescription = snapshot.discountDescription;
+		termsBlocks = structuredClone(snapshot.termsBlocks);
+		optionsNotes = snapshot.optionsNotes;
+		notes = snapshot.notes;
+		// Set baseline BEFORE toggling isEditing to avoid $effect cascade
+		loadedForm = snapshot;
 		isEditing = true;
-		// Capture snapshot of initial state for dirty-tracking
-		loadedForm = takeSnapshot();
 	}
 
 	// Section management
@@ -362,8 +418,7 @@
 				discountDescription: discountDescription.trim(),
 			});
 			await invalidateAll();
-			// Reset snapshot so hasChanges goes false
-			loadedForm = takeSnapshot();
+			// $effect syncs form + snapshot from fresh server data
 			isEditing = false;
 			toast.success('Quotation saved');
 		} catch (err) {
@@ -467,17 +522,11 @@
 		<!-- Action Bar -->
 		<div class="flex flex-wrap gap-2 pt-3 border-t border-base-200">
 			{#if isEditing}
-				<!-- Editing: Cancel only — Save is in the sticky bar below -->
-				<button type="button" class="btn btn-ghost btn-sm" onclick={() => (isEditing = false)}>
-					<XCircle class="h-4 w-4" />
-					Cancel Editing
-				</button>
-				{#if hasChanges}
-					<span class="text-sm text-warning flex items-center gap-1">
-						<AlertCircle class="h-3.5 w-3.5" />
-						Unsaved changes
-					</span>
-				{/if}
+				<!-- Editing indicator — actions are in the sticky bar below -->
+				<span class="text-sm text-base-content/60 flex items-center gap-1.5">
+					<Edit class="h-3.5 w-3.5" />
+					Editing
+				</span>
 			{:else}
 				<!-- View mode actions by status -->
 				{#if isDraft}
@@ -1105,19 +1154,28 @@
 	{/if}
 </div>
 
-<!-- Sticky Save Bar — appears when editing with unsaved changes -->
-{#if isEditing && hasChanges}
+<!-- Sticky Action Bar — always visible in edit mode -->
+{#if isEditing}
 	<div class="fixed bottom-0 left-0 right-0 z-40 border-t border-base-300 bg-base-100/95 backdrop-blur-sm shadow-[0_-4px_12px_rgba(0,0,0,0.1)]">
 		<div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-			<div class="flex items-center gap-2 text-sm text-warning">
-				<AlertCircle class="h-4 w-4 shrink-0" />
-				<span>You have unsaved changes</span>
+			<div class="flex items-center gap-3 min-h-[2rem]">
+				{#if hasChanges}
+					<div class="size-2 rounded-full bg-warning animate-pulse"></div>
+					<span class="text-sm text-base-content/70">Unsaved changes</span>
+				{:else}
+					<span class="text-sm text-base-content/40">All changes saved</span>
+				{/if}
 			</div>
 			<div class="flex items-center gap-2">
 				<button type="button" class="btn btn-ghost btn-sm" onclick={() => (isEditing = false)}>
-					Discard
+					Cancel
 				</button>
-				<button type="button" class="btn btn-primary btn-sm" onclick={handleSave} disabled={isSaving}>
+				<button
+					type="button"
+					class="btn btn-primary btn-sm"
+					onclick={handleSave}
+					disabled={!hasChanges || isSaving}
+				>
 					{#if isSaving}
 						<span class="loading loading-spinner loading-sm"></span>
 					{:else}
