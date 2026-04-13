@@ -26,11 +26,9 @@
 	} = $props();
 
 	let element: HTMLDivElement;
-	// $state.raw: Editor is a complex third-party object — deep reactivity
-	// causes effect_update_depth_exceeded because setContent/setEditable
-	// mutate internals, re-triggering any $effect that reads editor.
-	// Raw state only reacts to reassignment (editor = new Editor(...)),
-	// not internal mutations. Toolbar uses txCounter + activeEditor derived.
+	// $state.raw: assignment-only reactivity for the Editor instance.
+	// We don't need deep reactivity on the editor object — toolbar updates
+	// go through txCounter + activeEditor derived instead.
 	let editor: Editor | null = $state.raw(null);
 	// Toolbar reactivity: counter increments on each transaction,
 	// activeEditor derived re-reads editor state for toolbar buttons.
@@ -82,19 +80,21 @@
 	});
 
 	// Sync content prop → editor when parent changes it externally.
-	// Compares against lastContent (plain var) instead of editor.getHTML()
-	// to avoid loops from tiptap normalising HTML (e.g. "" → "<p></p>").
+	// emitUpdate: false prevents tiptap from firing onUpdate, which would
+	// write back to parent state and re-trigger this effect (the actual
+	// cause of effect_update_depth_exceeded).
 	$effect(() => {
 		if (editor && content !== lastContent) {
 			lastContent = content;
-			editor.commands.setContent(content);
+			editor.commands.setContent(content, { emitUpdate: false });
 		}
 	});
 
-	// Update editable state when disabled prop changes
+	// Update editable state when disabled prop changes.
+	// Second arg false prevents tiptap from emitting an update event.
 	$effect(() => {
 		if (editor) {
-			editor.setEditable(!disabled);
+			editor.setEditable(!disabled, false);
 		}
 	});
 

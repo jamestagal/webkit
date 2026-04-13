@@ -140,31 +140,38 @@ async function handleConfirm() {
 - [ ] Backdrop click closes modal (disabled during operation)
 - [ ] Item name shown in bold in confirmation message
 
-## Never Use $effect to Write to Form $state Variables
+## Tiptap + Svelte 5: effect_update_depth_exceeded
 
-**Bug:** `$effect` that re-populates form from server data after `invalidateAll()` wrote to multiple `$state` variables. In production builds, Svelte 5 tracks effect dependencies more aggressively, causing `effect_update_depth_exceeded` — an infinite loop. Works in dev mode but crashes in production.
+**Root cause:** Tiptap's `setContent()` emits an `update` event by default. When a Svelte `$effect` watches the `content` prop and calls `setContent`, tiptap fires `onUpdate`, which writes back to the parent's reactive state, which flows back as the `content` prop, re-triggering the effect. Same applies to `setEditable()` which also defaults `emitUpdate: true`.
 
-**Symptoms:** `effect_update_depth_exceeded` error in console (production only), 20+ second delay entering edit mode, changes never detected.
+**Symptoms:** `effect_update_depth_exceeded` in production only (dev mode is more lenient with loop limits).
 
-**Fix:** Remove the `$effect` entirely. Sync form state imperatively in `handleSave()` after `invalidateAll()`:
+**Fix:** Use tiptap's `emitUpdate: false` option + a `lastContent` guard:
 
 ```typescript
-// BAD — causes effect_update_depth_exceeded in production
-$effect(() => {
-    const q = data.quotation;
-    if (!isEditing) return;
-    quotationName = q.title;        // writes trigger cascading updates
-    loadedForm = snapshot;
-});
+let lastContent = content; // plain var, not $state
 
-// GOOD — imperative sync, no $effect
-function syncFormFromServer() {
-    const snapshot = snapshotFromServer(data.quotation, data.sections);
-    quotationName = snapshot.title;
-    loadedForm = snapshot;
+// In Editor constructor:
+onUpdate: ({ editor: ed }) => {
+    const html = ed.getHTML();
+    lastContent = html;           // track editor-initiated changes
+    onUpdate?.(html);
 }
 
-// In handleSave:
-await invalidateAll();
-syncFormFromServer();  // called imperatively, not reactively
+// Content sync — emitUpdate: false breaks the round-trip
+$effect(() => {
+    if (editor && content !== lastContent) {
+        lastContent = content;
+        editor.commands.setContent(content, { emitUpdate: false });
+    }
+});
+
+// Editable sync — second arg false prevents emitUpdate
+$effect(() => {
+    if (editor) {
+        editor.setEditable(!disabled, false);
+    }
+});
 ```
+
+**Also:** Use `$state.raw(null)` for the Editor (assignment-only reactivity), `queueMicrotask(() => txCounter++)` in `onTransaction` to avoid `state_unsafe_mutation`, and `link: false` in StarterKit when configuring Link separately.
