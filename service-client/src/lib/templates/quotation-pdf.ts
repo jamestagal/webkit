@@ -31,6 +31,15 @@ export interface QuotationPdfData {
 }
 
 /**
+ * Check if a HTML/text string has actual content (not just empty tags).
+ */
+function hasContent(text: string | null | undefined): boolean {
+	if (!text) return false;
+	const stripped = text.replace(/<[^>]*>/g, "").trim();
+	return stripped.length > 0;
+}
+
+/**
  * Get status badge color
  */
 function getStatusColor(status: string): { bg: string; text: string } {
@@ -427,11 +436,11 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 
 		<!-- Options Notes -->
 		${
-			quotation.optionsNotes
+			hasContent(quotation.optionsNotes)
 				? `
 		<div style="margin: 32px 0; page-break-inside: avoid;">
 			<h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">Options & Notes</h2>
-			<div style="font-size: 13px; color: #6b7280; line-height: 1.7;">${escapeHtml(quotation.optionsNotes)}</div>
+			<div style="font-size: 13px; color: #6b7280; line-height: 1.7;">${sanitizeHtml(quotation.optionsNotes)}</div>
 		</div>
 		`
 				: ""
