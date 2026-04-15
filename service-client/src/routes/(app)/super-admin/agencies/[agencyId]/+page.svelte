@@ -1,11 +1,29 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto, invalidateAll } from '$app/navigation';
-	import { ArrowLeft, ExternalLink, Users, FileText, Briefcase, Receipt, Shield } from 'lucide-svelte';
-	import { getAgencyDetails, updateAgencyStatus, impersonateAgency } from '$lib/api/super-admin.remote';
+	import { ArrowLeft, ExternalLink, Users, FileText, Briefcase, Receipt, Shield, Gift } from 'lucide-svelte';
+	import { getAgencyDetails, updateAgencyAccess, impersonateAgency } from '$lib/api/super-admin.remote';
 	import { formatDateTime } from '$lib/utils/formatting';
+	import { normalizeExpiry } from '$lib/utils/freemium';
 	import { onMount } from 'svelte';
 	import { getToast } from '$lib/ui/toast_store.svelte';
+
+	type FreemiumReason =
+		| 'beta_tester'
+		| 'partner'
+		| 'promotional'
+		| 'early_signup'
+		| 'referral_reward'
+		| 'internal';
+
+	const reasonLabels: Record<FreemiumReason, string> = {
+		beta_tester: 'Beta Tester',
+		partner: 'Partner',
+		promotional: 'Promotional',
+		early_signup: 'Early Signup',
+		referral_reward: 'Referral Reward',
+		internal: 'Internal'
+	};
 
 	const toast = getToast();
 
@@ -23,6 +41,15 @@
 			updatedAt: Date;
 			logoUrl: string;
 			logoAvatarUrl: string;
+			isFreemium: boolean;
+			freemiumReason: string | null;
+			freemiumExpiresAt: Date | null;
+			freemiumGrantedAt: Date | null;
+			freemiumGrantedBy: string | null;
+			freemiumGrantedByName: string | null;
+			freemiumRevokedAt: Date | null;
+			freemiumRevokedBy: string | null;
+			freemiumRevokedByName: string | null;
 		};
 		members: Array<{
 			id: string;
@@ -50,6 +77,10 @@
 	let showStatusModal = $state(false);
 	let newStatus = $state<'active' | 'suspended' | 'cancelled'>('active');
 	let newTier = $state('free');
+	let freemiumEnabled = $state(false);
+	let freemiumReason = $state<FreemiumReason>('internal');
+	let freemiumExpiresAt = $state('');
+	let freemiumDirty = $state(false);
 
 	async function loadDetails() {
 		loading = true;
@@ -59,12 +90,34 @@
 			if (details) {
 				newStatus = details.agency.status as 'active' | 'suspended' | 'cancelled';
 				newTier = details.agency.subscriptionTier;
+				freemiumEnabled = details.agency.isFreemium;
+				freemiumReason = (details.agency.freemiumReason as FreemiumReason) ?? 'internal';
+				freemiumExpiresAt = details.agency.freemiumExpiresAt
+					? new Date(details.agency.freemiumExpiresAt).toISOString().slice(0, 10)
+					: '';
+				freemiumDirty = false;
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load agency details';
 		} finally {
 			loading = false;
 		}
+	}
+
+	function markFreemiumDirty() {
+		freemiumDirty = true;
+	}
+
+	function clearExpiry() {
+		freemiumExpiresAt = '';
+		freemiumDirty = true;
+	}
+
+	function formatActor(value: string | null, name: string | null): string {
+		if (!value) return 'Unknown';
+		if (value === 'system:beta_invite') return 'System (beta invite)';
+		if (value.startsWith('system:')) return 'System';
+		return name ?? value;
 	}
 
 	onMount(() => {
@@ -75,13 +128,25 @@
 		if (!details) return;
 		updating = true;
 		try {
-			await updateAgencyStatus({
+			const payload: Parameters<typeof updateAgencyAccess>[0] = {
 				agencyId: details.agency.id,
 				status: newStatus,
 				subscriptionTier: newTier
-			});
-			toast.success('Updated', 'Agency settings updated successfully');
+			};
+			if (freemiumDirty) {
+				payload.freemium = freemiumEnabled
+					? {
+							enabled: true,
+							reason: freemiumReason,
+							expiresAt: normalizeExpiry(freemiumExpiresAt)
+						}
+					: { enabled: false };
+			}
+			await updateAgencyAccess(payload);
+			toast.success('Updated', 'Agency access updated successfully');
 			showStatusModal = false;
+			// query() results are cached — force a refresh so the badge/card/timestamps re-render.
+			await getAgencyDetails(agencyId).refresh();
 			await loadDetails();
 		} catch (e) {
 			toast.error('Error', e instanceof Error ? e.message : 'Failed to update agency');
@@ -233,8 +298,29 @@
 								<span class="badge {getTierBadgeClass(details.agency.subscriptionTier)} capitalize">
 									{details.agency.subscriptionTier}
 								</span>
+								{#if details.agency.isFreemium}
+									<span class="badge badge-success gap-1">
+										<Gift class="h-3 w-3" />
+										Freemium
+									</span>
+								{/if}
 							</div>
 						</div>
+
+						{#if details.agency.isFreemium}
+							<div class="mt-2 rounded-lg border border-success/30 bg-success/5 p-3 text-sm">
+								<div class="flex items-center gap-2 font-medium">
+									<Gift class="h-4 w-4 text-success" />
+									Freemium Access
+								</div>
+								<div class="mt-1 text-base-content/70">
+									Reason: <span class="font-medium">{reasonLabels[(details.agency.freemiumReason as FreemiumReason) ?? 'internal'] ?? details.agency.freemiumReason ?? '-'}</span>
+									· Granted by <span class="font-medium">{formatActor(details.agency.freemiumGrantedBy, details.agency.freemiumGrantedByName)}</span>
+									{#if details.agency.freemiumGrantedAt} on {formatDate(details.agency.freemiumGrantedAt)}{/if}
+									· {details.agency.freemiumExpiresAt ? `Expires ${formatDate(details.agency.freemiumExpiresAt)}` : 'No expiry'}
+								</div>
+							</div>
+						{/if}
 
 						<div class="divider"></div>
 
@@ -384,7 +470,7 @@
 							</a>
 
 							<button onclick={() => (showStatusModal = true)} class="btn btn-outline w-full">
-								Change Status / Tier
+								Change Access
 							</button>
 						</div>
 					</div>
@@ -401,12 +487,12 @@
 	{/if}
 </div>
 
-<!-- Status/Tier Modal -->
+<!-- Change Access Modal -->
 {#if showStatusModal && details}
 	<div class="modal modal-open">
 		<div class="modal-box">
-			<h3 class="text-lg font-bold">Update Agency Settings</h3>
-			<p class="py-2 text-base-content/70">Modify status or subscription tier for this agency.</p>
+			<h3 class="text-lg font-bold">Change Access</h3>
+			<p class="py-2 text-base-content/70">Modify status, subscription tier, or freemium access for this agency.</p>
 
 			<div class="form-control mt-4">
 				<label class="label" for="status-select">
@@ -415,7 +501,6 @@
 				<select id="status-select" class="select select-bordered" bind:value={newStatus}>
 					<option value="active">Active</option>
 					<option value="suspended">Suspended</option>
-					<option value="cancelled">Cancelled</option>
 				</select>
 			</div>
 
@@ -429,7 +514,84 @@
 					<option value="growth">Growth</option>
 					<option value="enterprise">Enterprise</option>
 				</select>
+				{#if freemiumEnabled}
+					<label class="label">
+						<span class="label-text-alt text-warning">⚠ Tier limits ignored while freemium is active</span>
+					</label>
+				{/if}
 			</div>
+
+			<div class="divider mt-6 mb-2 text-xs">Freemium Access</div>
+
+			<div class="form-control">
+				<div class="flex gap-6">
+					<label class="label cursor-pointer gap-2">
+						<input
+							type="radio"
+							class="radio radio-sm"
+							name="freemium-enabled"
+							value={false}
+							checked={!freemiumEnabled}
+							onchange={() => {
+								freemiumEnabled = false;
+								markFreemiumDirty();
+							}}
+						/>
+						<span class="label-text">None</span>
+					</label>
+					<label class="label cursor-pointer gap-2">
+						<input
+							type="radio"
+							class="radio radio-sm"
+							name="freemium-enabled"
+							value={true}
+							checked={freemiumEnabled}
+							onchange={() => {
+								freemiumEnabled = true;
+								markFreemiumDirty();
+							}}
+						/>
+						<span class="label-text">Granted</span>
+					</label>
+				</div>
+			</div>
+
+			{#if freemiumEnabled}
+				<div class="form-control mt-3">
+					<label class="label" for="freemium-reason">
+						<span class="label-text">Reason</span>
+					</label>
+					<select
+						id="freemium-reason"
+						class="select select-bordered"
+						bind:value={freemiumReason}
+						onchange={markFreemiumDirty}
+					>
+						{#each Object.entries(reasonLabels) as [key, label]}
+							<option value={key}>{label}</option>
+						{/each}
+					</select>
+				</div>
+
+				<div class="form-control mt-3">
+					<label class="label" for="freemium-expires">
+						<span class="label-text">Expires</span>
+					</label>
+					<div class="join">
+						<input
+							id="freemium-expires"
+							type="date"
+							class="input input-bordered join-item flex-1"
+							bind:value={freemiumExpiresAt}
+							oninput={markFreemiumDirty}
+						/>
+						<button type="button" class="btn join-item" onclick={clearExpiry}>Clear</button>
+					</div>
+					<label class="label">
+						<span class="label-text-alt text-base-content/50">Empty = no expiry (permanent)</span>
+					</label>
+				</div>
+			{/if}
 
 			<div class="modal-action">
 				<button class="btn btn-ghost" onclick={() => (showStatusModal = false)}>Cancel</button>

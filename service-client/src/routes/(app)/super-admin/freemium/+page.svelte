@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Search, RotateCcw, Building2, Gift, ExternalLink, XCircle, Calendar } from 'lucide-svelte';
-	import { getFreemiumAgencies, revokeAgencyFreemium, updateFreemiumExpiry } from '$lib/api/super-admin.remote';
+	import { getFreemiumAgencies, updateAgencyAccess } from '$lib/api/super-admin.remote';
+	import { normalizeExpiry } from '$lib/utils/freemium';
 	import { formatDate } from '$lib/utils/formatting';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -44,6 +45,7 @@
 	// Revoke confirmation modal
 	let showRevokeModal = $state(false);
 	let revokingAgency = $state<{ id: string; name: string } | null>(null);
+	type FreemiumReason = 'beta_tester' | 'partner' | 'promotional' | 'early_signup' | 'referral_reward' | 'internal';
 	let isRevoking = $state(false);
 
 	let searchDebounce: ReturnType<typeof setTimeout>;
@@ -61,12 +63,15 @@
 		loading = true;
 		error = null;
 		try {
-			const result = await getFreemiumAgencies({
+			const args = {
 				search: search || undefined,
 				reason: reasonFilter || undefined,
 				limit: pageSize,
 				offset: (currentPage - 1) * pageSize
-			});
+			};
+			// query() results are cached — bust the cache so mutations reflect immediately.
+			await getFreemiumAgencies(args).refresh();
+			const result = await getFreemiumAgencies(args);
 			agencies = result.agencies;
 			total = result.total;
 			stats = result.stats;
@@ -108,7 +113,10 @@
 		if (!revokingAgency) return;
 		isRevoking = true;
 		try {
-			await revokeAgencyFreemium(revokingAgency.id);
+			await updateAgencyAccess({
+				agencyId: revokingAgency.id,
+				freemium: { enabled: false }
+			});
 			closeRevokeModal();
 			toast.success('Success', 'Freemium status revoked');
 			loadAgencies();
@@ -130,11 +138,19 @@
 	async function handleUpdateExpiry() {
 		if (!selectedAgency) return;
 
+		// Read the reason from the row snapshot captured at click time, not from a
+		// page-level value that could have invalidated between load and submit.
+		const currentReason = (selectedAgency.freemiumReason as FreemiumReason) ?? 'internal';
+
 		updatingExpiry = true;
 		try {
-			await updateFreemiumExpiry({
+			await updateAgencyAccess({
 				agencyId: selectedAgency.id,
-				expiresAt: newExpiryDate ? new Date(newExpiryDate).toISOString() : null
+				freemium: {
+					enabled: true,
+					reason: currentReason,
+					expiresAt: normalizeExpiry(newExpiryDate)
+				}
 			});
 			toast.success('Success', newExpiryDate ? 'Expiry date updated' : 'Expiry removed (no expiry)');
 			showExpiryModal = false;

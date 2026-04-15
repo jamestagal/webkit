@@ -90,6 +90,8 @@ create table if not exists agencies (
     freemium_expires_at timestamptz,
     freemium_granted_at timestamptz,
     freemium_granted_by varchar(255),
+    freemium_revoked_at timestamptz,
+    freemium_revoked_by varchar(255),
 
     constraint valid_agency_status check (status in ('active', 'suspended', 'cancelled'))
 );

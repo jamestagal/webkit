@@ -130,7 +130,7 @@ func (q *Queries) GetAgencyBillingInfo(ctx context.Context, id uuid.UUID) (GetAg
 }
 
 const getAgencyByStripeCustomer = `-- name: GetAgencyByStripeCustomer :one
-SELECT id, created_at, updated_at, name, slug, logo_url, logo_avatar_url, primary_color, secondary_color, accent_color, accent_gradient, email, phone, website, status, subscription_tier, subscription_id, subscription_end, stripe_customer_id, ai_generations_this_month, ai_generations_reset_at, is_freemium, freemium_reason, freemium_expires_at, freemium_granted_at, freemium_granted_by, deleted_at, deletion_scheduled_for FROM agencies
+SELECT id, created_at, updated_at, name, slug, logo_url, logo_avatar_url, primary_color, secondary_color, accent_color, accent_gradient, email, phone, website, status, subscription_tier, subscription_id, subscription_end, stripe_customer_id, ai_generations_this_month, ai_generations_reset_at, is_freemium, freemium_reason, freemium_expires_at, freemium_granted_at, freemium_granted_by, freemium_revoked_at, freemium_revoked_by, deleted_at, deletion_scheduled_for FROM agencies
 WHERE stripe_customer_id = $1
 `
 
@@ -164,6 +164,8 @@ func (q *Queries) GetAgencyByStripeCustomer(ctx context.Context, stripeCustomerI
 		&i.FreemiumExpiresAt,
 		&i.FreemiumGrantedAt,
 		&i.FreemiumGrantedBy,
+		&i.FreemiumRevokedAt,
+		&i.FreemiumRevokedBy,
 		&i.DeletedAt,
 		&i.DeletionScheduledFor,
 	)
