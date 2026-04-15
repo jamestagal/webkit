@@ -40,6 +40,8 @@ type Agency struct {
 	FreemiumExpiresAt      sql.NullTime   `json:"freemium_expires_at"`
 	FreemiumGrantedAt      sql.NullTime   `json:"freemium_granted_at"`
 	FreemiumGrantedBy      sql.NullString `json:"freemium_granted_by"`
+	FreemiumRevokedAt      sql.NullTime   `json:"freemium_revoked_at"`
+	FreemiumRevokedBy      sql.NullString `json:"freemium_revoked_by"`
 	DeletedAt              sql.NullTime   `json:"deleted_at"`
 	DeletionScheduledFor   sql.NullTime   `json:"deletion_scheduled_for"`
 }

@@ -98,6 +98,8 @@ export const agencies = pgTable("agencies", {
 	freemiumExpiresAt: timestamp("freemium_expires_at", { withTimezone: true }),
 	freemiumGrantedAt: timestamp("freemium_granted_at", { withTimezone: true }),
 	freemiumGrantedBy: varchar("freemium_granted_by", { length: 255 }),
+	freemiumRevokedAt: timestamp("freemium_revoked_at", { withTimezone: true }),
+	freemiumRevokedBy: varchar("freemium_revoked_by", { length: 255 }),
 
 	// Soft delete (GDPR compliance)
 	deletedAt: timestamp("deleted_at", { withTimezone: true }),

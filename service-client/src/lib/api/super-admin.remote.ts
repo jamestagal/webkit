@@ -17,7 +17,7 @@ import {
 	invoices,
 	agencyActivityLog,
 } from "$lib/server/schema";
-import { eq, desc, sql, and, like, or, count } from "drizzle-orm";
+import { eq, desc, sql, and, like, or, count, inArray } from "drizzle-orm";
 import {
 	requireSuperAdmin,
 	setImpersonatedAgencyId,
@@ -25,6 +25,15 @@ import {
 	SUPER_ADMIN_FLAG,
 } from "$lib/server/super-admin";
 import { error } from "@sveltejs/kit";
+
+const FreemiumReasonSchema = v.picklist([
+	"beta_tester",
+	"partner",
+	"promotional",
+	"early_signup",
+	"referral_reward",
+	"internal",
+]);
 
 // =============================================================================
 // Dashboard Stats
@@ -206,8 +215,31 @@ export const getAgencyDetails = query(v.pipe(v.string(), v.uuid()), async (agenc
 		.from(invoices)
 		.where(eq(invoices.agencyId, agencyId));
 
+	// Resolve user names for freemium granted_by / revoked_by. Skip "system:*" sentinels
+	// (e.g. "system:beta_invite" written by the beta-invite flow) — those aren't UUIDs.
+	const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+	const actorIds = [agency.freemiumGrantedBy, agency.freemiumRevokedBy].filter(
+		(id): id is string => !!id && UUID_RE.test(id),
+	);
+	const actorMap = new Map<string, string>();
+	if (actorIds.length > 0) {
+		const rows = await db
+			.select({ id: users.id, email: users.email })
+			.from(users)
+			.where(inArray(users.id, actorIds));
+		for (const r of rows) actorMap.set(r.id, r.email);
+	}
+
 	return {
-		agency,
+		agency: {
+			...agency,
+			freemiumGrantedByName: agency.freemiumGrantedBy
+				? (actorMap.get(agency.freemiumGrantedBy) ?? null)
+				: null,
+			freemiumRevokedByName: agency.freemiumRevokedBy
+				? (actorMap.get(agency.freemiumRevokedBy) ?? null)
+				: null,
+		},
 		members,
 		stats: {
 			proposals: proposalCount?.count ?? 0,
@@ -217,70 +249,184 @@ export const getAgencyDetails = query(v.pipe(v.string(), v.uuid()), async (agenc
 	};
 });
 
-const UpdateAgencyStatusSchema = v.object({
+const UpdateAgencyAccessSchema = v.object({
 	agencyId: v.pipe(v.string(), v.uuid()),
 	status: v.optional(v.picklist(["active", "suspended", "cancelled"])),
 	subscriptionTier: v.optional(v.string()),
+	freemium: v.optional(
+		v.object({
+			enabled: v.boolean(),
+			reason: v.optional(FreemiumReasonSchema),
+			expiresAt: v.optional(v.nullable(v.pipe(v.string(), v.isoTimestamp()))),
+		}),
+	),
 });
 
-export const updateAgencyStatus = command(UpdateAgencyStatusSchema, async (data) => {
+/**
+ * Unified agency access command. Replaces updateAgencyStatus, revokeAgencyFreemium,
+ * and updateFreemiumExpiry. The whole body runs inside one transaction so a failed
+ * activity-log insert rolls back the agency update.
+ *
+ * Freemium payload semantics: desired end-state for the freemium section, not a partial
+ * patch. When `freemium` is present, every field describes the target. Omitting the key
+ * entirely leaves the agency's freemium columns alone.
+ */
+export const updateAgencyAccess = command(UpdateAgencyAccessSchema, async (data) => {
 	const { userId } = await requireSuperAdmin();
 
-	// Fetch current agency state for audit logging
-	const [currentAgency] = await db
-		.select({ status: agencies.status, subscriptionTier: agencies.subscriptionTier })
-		.from(agencies)
-		.where(eq(agencies.id, data.agencyId))
-		.limit(1);
+	return await db.transaction(async (tx) => {
+		const [currentAgency] = await tx
+			.select()
+			.from(agencies)
+			.where(eq(agencies.id, data.agencyId))
+			.limit(1);
 
-	const updates: Partial<typeof agencies.$inferInsert> = {
-		updatedAt: new Date(),
-	};
+		if (!currentAgency) {
+			throw error(404, "Agency not found");
+		}
 
-	if (data.status) {
-		updates.status = data.status;
-	}
+		const updates: Partial<typeof agencies.$inferInsert> = {};
+		const logEntries: Array<typeof agencyActivityLog.$inferInsert> = [];
+		const now = new Date();
 
-	if (data.subscriptionTier) {
-		updates.subscriptionTier = data.subscriptionTier;
-	}
+		// Status / tier
+		if (data.status && data.status !== currentAgency.status) {
+			updates.status = data.status;
+			logEntries.push({
+				agencyId: data.agencyId,
+				userId,
+				action: "agency.status_changed",
+				entityType: "agency",
+				entityId: data.agencyId,
+				oldValues: { status: currentAgency.status },
+				newValues: { status: data.status },
+				metadata: { source: "super_admin" },
+			});
+		}
 
-	await db.update(agencies).set(updates).where(eq(agencies.id, data.agencyId));
+		if (data.subscriptionTier && data.subscriptionTier !== currentAgency.subscriptionTier) {
+			updates.subscriptionTier = data.subscriptionTier;
+			const tierOrder = ["free", "starter", "growth", "enterprise"];
+			const oldIdx = tierOrder.indexOf(currentAgency.subscriptionTier);
+			const newIdx = tierOrder.indexOf(data.subscriptionTier);
+			const action = newIdx > oldIdx ? "subscription.upgraded" : "subscription.downgraded";
+			logEntries.push({
+				agencyId: data.agencyId,
+				userId,
+				action,
+				entityType: "agency",
+				entityId: data.agencyId,
+				oldValues: { subscriptionTier: currentAgency.subscriptionTier },
+				newValues: { subscriptionTier: data.subscriptionTier },
+				metadata: { source: "super_admin" },
+			});
+		}
 
-	// Log subscription tier change
-	if (data.subscriptionTier && currentAgency && data.subscriptionTier !== currentAgency.subscriptionTier) {
-		const tierOrder = ["free", "starter", "growth", "enterprise"];
-		const oldIdx = tierOrder.indexOf(currentAgency.subscriptionTier);
-		const newIdx = tierOrder.indexOf(data.subscriptionTier);
-		const action = newIdx > oldIdx ? "subscription.upgraded" : "subscription.downgraded";
+		// Freemium
+		if (data.freemium) {
+			const wasEnabled = currentAgency.isFreemium;
+			const willBeEnabled = data.freemium.enabled;
 
-		await db.insert(agencyActivityLog).values({
-			agencyId: data.agencyId,
-			userId,
-			action,
-			entityType: "agency",
-			entityId: data.agencyId,
-			oldValues: { subscriptionTier: currentAgency.subscriptionTier },
-			newValues: { subscriptionTier: data.subscriptionTier },
-			metadata: { source: "super_admin" },
-		});
-	}
+			if (wasEnabled && !willBeEnabled) {
+				// enable → disable
+				updates.isFreemium = false;
+				updates.freemiumRevokedBy = userId;
+				updates.freemiumRevokedAt = now;
+				logEntries.push({
+					agencyId: data.agencyId,
+					userId,
+					action: "freemium.revoked",
+					entityType: "agency",
+					entityId: data.agencyId,
+					oldValues: {
+						reason: currentAgency.freemiumReason,
+						expiresAt: currentAgency.freemiumExpiresAt,
+					},
+					newValues: {},
+					metadata: { source: "super_admin" },
+				});
+			} else if (!wasEnabled && willBeEnabled) {
+				// disable → enable
+				if (!data.freemium.reason) {
+					throw error(400, "Freemium reason is required when granting access");
+				}
+				const expiresAt = data.freemium.expiresAt ? new Date(data.freemium.expiresAt) : null;
+				updates.isFreemium = true;
+				updates.freemiumReason = data.freemium.reason;
+				updates.freemiumGrantedAt = now;
+				updates.freemiumGrantedBy = userId;
+				updates.freemiumExpiresAt = expiresAt;
+				updates.freemiumRevokedAt = null;
+				updates.freemiumRevokedBy = null;
+				logEntries.push({
+					agencyId: data.agencyId,
+					userId,
+					action: "freemium.granted",
+					entityType: "agency",
+					entityId: data.agencyId,
+					oldValues: {},
+					newValues: { reason: data.freemium.reason, expiresAt },
+					metadata: { source: "super_admin" },
+				});
+			} else if (wasEnabled && willBeEnabled) {
+				// edit in place — preserve grantedAt/grantedBy
+				const oldDelta: Record<string, unknown> = {};
+				const newDelta: Record<string, unknown> = {};
 
-	// Log status change
-	if (data.status && currentAgency && data.status !== currentAgency.status) {
-		await db.insert(agencyActivityLog).values({
-			agencyId: data.agencyId,
-			userId,
-			action: "agency.status_changed",
-			entityType: "agency",
-			entityId: data.agencyId,
-			oldValues: { status: currentAgency.status },
-			newValues: { status: data.status },
-			metadata: { source: "super_admin" },
-		});
-	}
+				if (data.freemium.reason && data.freemium.reason !== currentAgency.freemiumReason) {
+					updates.freemiumReason = data.freemium.reason;
+					oldDelta["reason"] = currentAgency.freemiumReason;
+					newDelta["reason"] = data.freemium.reason;
+				}
 
-	return { success: true };
+				if (data.freemium.expiresAt !== undefined) {
+					const nextExpiresAt = data.freemium.expiresAt ? new Date(data.freemium.expiresAt) : null;
+					const prevMs = currentAgency.freemiumExpiresAt?.getTime() ?? null;
+					const nextMs = nextExpiresAt?.getTime() ?? null;
+					if (prevMs !== nextMs) {
+						updates.freemiumExpiresAt = nextExpiresAt;
+						oldDelta["expiresAt"] = currentAgency.freemiumExpiresAt;
+						newDelta["expiresAt"] = nextExpiresAt;
+					}
+				}
+
+				if (Object.keys(newDelta).length > 0) {
+					logEntries.push({
+						agencyId: data.agencyId,
+						userId,
+						action: "freemium.updated",
+						entityType: "agency",
+						entityId: data.agencyId,
+						oldValues: oldDelta,
+						newValues: newDelta,
+						metadata: { source: "super_admin" },
+					});
+				}
+			}
+			// !wasEnabled && !willBeEnabled → no-op
+		}
+
+		// Skip the write entirely when no meaningful field changed — keeps updated_at
+		// truthful as "last meaningful change" rather than "last submit click".
+		if (Object.keys(updates).length === 0) {
+			return { success: true, agency: currentAgency };
+		}
+
+		updates.updatedAt = now;
+		await tx.update(agencies).set(updates).where(eq(agencies.id, data.agencyId));
+
+		if (logEntries.length > 0) {
+			await tx.insert(agencyActivityLog).values(logEntries);
+		}
+
+		const [updated] = await tx
+			.select()
+			.from(agencies)
+			.where(eq(agencies.id, data.agencyId))
+			.limit(1);
+
+		return { success: true, agency: updated };
+	});
 });
 
 // =============================================================================
@@ -694,76 +840,6 @@ export const getFreemiumAgencies = query(FreemiumAgenciesFilterSchema, async (fi
 		limit,
 		offset,
 	};
-});
-
-/**
- * Revoke freemium status from an agency
- */
-export const revokeAgencyFreemium = command(v.pipe(v.string(), v.uuid()), async (agencyId) => {
-	await requireSuperAdmin();
-
-	const [agency] = await db
-		.select({ id: agencies.id, isFreemium: agencies.isFreemium })
-		.from(agencies)
-		.where(eq(agencies.id, agencyId))
-		.limit(1);
-
-	if (!agency) {
-		throw error(404, "Agency not found");
-	}
-
-	if (!agency.isFreemium) {
-		throw error(400, "Agency does not have freemium status");
-	}
-
-	await db
-		.update(agencies)
-		.set({
-			isFreemium: false,
-			// Keep reason and dates for historical record
-			updatedAt: new Date(),
-		})
-		.where(eq(agencies.id, agencyId));
-
-	return { success: true };
-});
-
-const UpdateFreemiumExpirySchema = v.object({
-	agencyId: v.pipe(v.string(), v.uuid()),
-	expiresAt: v.nullable(v.pipe(v.string(), v.isoTimestamp())),
-});
-
-/**
- * Update freemium expiry date for an agency
- */
-export const updateFreemiumExpiry = command(UpdateFreemiumExpirySchema, async (data) => {
-	await requireSuperAdmin();
-
-	const { agencyId, expiresAt } = data;
-
-	const [agency] = await db
-		.select({ id: agencies.id, isFreemium: agencies.isFreemium })
-		.from(agencies)
-		.where(eq(agencies.id, agencyId))
-		.limit(1);
-
-	if (!agency) {
-		throw error(404, "Agency not found");
-	}
-
-	if (!agency.isFreemium) {
-		throw error(400, "Agency does not have freemium status");
-	}
-
-	await db
-		.update(agencies)
-		.set({
-			freemiumExpiresAt: expiresAt ? new Date(expiresAt) : null,
-			updatedAt: new Date(),
-		})
-		.where(eq(agencies.id, agencyId));
-
-	return { success: true };
 });
 
 // =============================================================================
