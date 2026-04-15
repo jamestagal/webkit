@@ -136,7 +136,7 @@ services:
       # Client-side URLs (for browser requests)
       PUBLIC_CORE_URL: https://api.webkit.au
       PUBLIC_CLIENT_URL: https://app.webkit.au
-      PUBLIC_APP_DOMAIN: webkit.au
+      PUBLIC_APP_DOMAIN: app.webkit.au
       # Database for Drizzle (individual vars for pg.Pool)
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432

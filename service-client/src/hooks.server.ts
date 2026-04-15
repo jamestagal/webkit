@@ -97,7 +97,9 @@ const authHandle: Handle = async ({ event, resolve }) => {
 		event.url.pathname === "/" ||
 		event.url.pathname === "/login" ||
 		event.url.pathname === "/sitemap.xml" ||
-		event.url.pathname.startsWith("/invite/");
+		event.url.pathname.startsWith("/invite/") ||
+		// Shareable SEO audit reports: /{agencySlug}/report/{token}
+		/^\/[^/]+\/report\/[^/]+\/?$/.test(event.url.pathname);
 
 	// Allow public routes without authentication
 	if (isPublicRoute) {

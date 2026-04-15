@@ -6,8 +6,8 @@
 
 	let { data } = $props();
 
-	// Get app domain from environment (defaults to webkit.au)
-	const appDomain = env['PUBLIC_APP_DOMAIN'] || 'webkit.au';
+	// Get app domain from environment (defaults to app.webkit.au)
+	const appDomain = env['PUBLIC_APP_DOMAIN'] || 'app.webkit.au';
 
 	let name = $state('');
 	let slug = $state('');

@@ -13,14 +13,14 @@ import (
 
 // RunCompetitorAnalysis discovers competitor domains and performs keyword gap
 // analysis for each, inserting competitor_analyses rows.
-func (e *AuditEngine) RunCompetitorAnalysis(ctx context.Context, auditID, clientID uuid.UUID, domain string) error {
+func (e *AuditEngine) RunCompetitorAnalysis(ctx context.Context, auditID, clientID uuid.UUID, domain string, locationCode int, language string) error {
 	if e.dfs == nil {
 		slog.Info("Skipping competitor analysis — DataForSEO client not configured", "audit_id", auditID)
 		return nil
 	}
 
 	// Get top 5 competitor domains (we'll use the top 3).
-	competitors, err := e.dfs.GetCompetitorDomains(ctx, domain, 2036, "en", 5)
+	competitors, err := e.dfs.GetCompetitorDomains(ctx, domain, locationCode, language, 5)
 	if err != nil {
 		return fmt.Errorf("get competitor domains: %w", err)
 	}
@@ -34,7 +34,7 @@ func (e *AuditEngine) RunCompetitorAnalysis(ctx context.Context, auditID, client
 	for i := 0; i < limit; i++ {
 		comp := competitors[i]
 
-		if err := e.analyzeCompetitor(ctx, auditID, clientID, domain, comp); err != nil {
+		if err := e.analyzeCompetitor(ctx, auditID, clientID, domain, comp, locationCode, language); err != nil {
 			slog.Error("Failed to analyze competitor",
 				"audit_id", auditID,
 				"competitor", comp.Domain,
@@ -55,9 +55,9 @@ func (e *AuditEngine) RunCompetitorAnalysis(ctx context.Context, auditID, client
 
 // analyzeCompetitor performs keyword gap analysis for a single competitor
 // and inserts the result into competitor_analyses.
-func (e *AuditEngine) analyzeCompetitor(ctx context.Context, auditID, clientID uuid.UUID, domain string, comp dataforseo.CompetitorDomain) error {
+func (e *AuditEngine) analyzeCompetitor(ctx context.Context, auditID, clientID uuid.UUID, domain string, comp dataforseo.CompetitorDomain, locationCode int, language string) error {
 	// Get keyword gaps between our domain and the competitor.
-	gaps, err := e.dfs.GetKeywordGaps(ctx, domain, comp.Domain, 2036, "en", 50)
+	gaps, err := e.dfs.GetKeywordGaps(ctx, domain, comp.Domain, locationCode, language, 50)
 	if err != nil {
 		slog.Warn("Failed to get keyword gaps",
 			"domain", domain,

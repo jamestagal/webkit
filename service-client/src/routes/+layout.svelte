@@ -13,8 +13,11 @@
 	let checked = $state(false);
 	let isInIframe = $state(false);
 
-	// Hide theme toggle on public form pages (they use custom branding)
-	let isPublicFormPage = $derived($page.url.pathname.startsWith("/f/"));
+	// Hide theme toggle on public pages (forms, shared reports) — they render with their own branding.
+	let isPublicPage = $derived(
+		$page.url.pathname.startsWith("/f/") ||
+			/^\/[^/]+\/report\/[^/]+/.test($page.url.pathname),
+	);
 
 	$effect(() => {
 		// Check if we're inside an iframe (e.g., preview mode)
@@ -63,7 +66,7 @@
 </div>
 
 <!-- Theme Controller (hidden in iframe/preview and on public form pages) -->
-{#if !isInIframe && !isPublicFormPage}
+{#if !isInIframe && !isPublicPage}
 <div class="fixed right-0 bottom-0 z-30 p-4">
 	<label class="swap swap-rotate">
 		<input

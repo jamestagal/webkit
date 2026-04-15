@@ -119,8 +119,32 @@ type paginatedIssuesResponse struct {
 
 // --- Handlers ---
 
+// startAuditRequest is the optional JSON body for POST /api/content/audit/{clientId}.
+// Region + language are used downstream to select the DataForSEO location code.
+type startAuditRequest struct {
+	TargetRegion   string `json:"target_region"`
+	TargetLanguage string `json:"target_language"`
+}
+
+func validateTargetRegion(region string) bool {
+	switch region {
+	case "", "au", "us", "uk", "nz", "ca":
+		return true
+	}
+	return false
+}
+
+func validateTargetLanguage(lang string) bool {
+	switch lang {
+	case "", "en":
+		return true
+	}
+	return false
+}
+
 // handleStartAudit starts an SEO audit for a client.
 // POST /api/content/audit/{clientId}
+// Body (optional): { "target_region": "au|us|uk|nz|ca", "target_language": "en" }
 func (h *Handler) handleStartAudit(w http.ResponseWriter, r *http.Request) {
 	agencyID := getAgencyID(r)
 
@@ -128,6 +152,29 @@ func (h *Handler) handleStartAudit(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse("invalid client ID format"))
 		return
+	}
+
+	// Parse optional request body for region/language.
+	var req startAuditRequest
+	if r.Body != nil && r.ContentLength > 0 {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse("invalid request body"))
+			return
+		}
+	}
+	if !validateTargetRegion(req.TargetRegion) {
+		writeJSON(w, http.StatusBadRequest, errorResponse("invalid target_region"))
+		return
+	}
+	if !validateTargetLanguage(req.TargetLanguage) {
+		writeJSON(w, http.StatusBadRequest, errorResponse("invalid target_language"))
+		return
+	}
+	if req.TargetRegion == "" {
+		req.TargetRegion = "au"
+	}
+	if req.TargetLanguage == "" {
+		req.TargetLanguage = "en"
 	}
 
 	// Verify client belongs to agency.
@@ -183,9 +230,9 @@ func (h *Handler) handleStartAudit(w http.ResponseWriter, r *http.Request) {
 	// Insert the audit.
 	auditID := uuid.New()
 	_, err = h.db.ExecContext(r.Context(),
-		`INSERT INTO seo_audits (id, agency_id, client_id, crawl_job_id, status)
-		 VALUES ($1, $2, $3, $4, 'pending')`,
-		auditID, agencyID, clientID, crawlJobID,
+		`INSERT INTO seo_audits (id, agency_id, client_id, crawl_job_id, status, target_region, target_language)
+		 VALUES ($1, $2, $3, $4, 'pending', $5, $6)`,
+		auditID, agencyID, clientID, crawlJobID, req.TargetRegion, req.TargetLanguage,
 	)
 	if err != nil {
 		slog.Error("Error inserting audit", "error", err)

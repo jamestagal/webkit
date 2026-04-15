@@ -551,7 +551,7 @@ When writing or modifying database queries in remote functions:
 
 | Variable | Description |
 |----------|-------------|
-| `PUBLIC_APP_DOMAIN` | Domain for agency URLs (e.g., `webkit.au`) |
+| `PUBLIC_APP_DOMAIN` | Host for agency-scoped URLs including public share links (e.g., `app.webkit.au` in prod, `localhost:3000` in dev). Must be the host where the SvelteKit app is served — NOT the bare marketing domain `webkit.au` (which serves the static landing page). |
 | `DATABASE_URL` | PostgreSQL connection string for Drizzle |
 | `DIRECT_URL` | Direct PostgreSQL URL (for migrations) |
 | `POSTGRES_*` | PostgreSQL connection details |

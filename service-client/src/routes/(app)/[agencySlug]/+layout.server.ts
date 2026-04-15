@@ -14,14 +14,82 @@ import type { AgencyConfig } from "$lib/stores/agency-config.svelte";
 import type { LayoutServerLoad } from "./$types";
 import { isSuperAdmin, getImpersonatedAgencyId } from "$lib/server/super-admin";
 
+/**
+ * Public share-report paths bypass the auth + membership checks. The nested
+ * +page.server.ts owns token validation. Layout returns a minimal branding-only
+ * payload so {@link +layout.svelte} and ancestor components render correctly.
+ */
+const PUBLIC_REPORT_PATH = /^\/[^/]+\/report\/[^/]+\/?$/;
+
 export const load: LayoutServerLoad = async ({ locals, params, cookies, url }) => {
+	const { agencySlug } = params;
+	const isPublicReport = PUBLIC_REPORT_PATH.test(url.pathname);
+
+	// Public share report: return branding-only payload, skip user/membership checks.
+	// Explicit column whitelist — NEVER SELECT * from agencies on public paths.
+	if (isPublicReport) {
+		const [agency] = await db
+			.select({
+				id: agencies.id,
+				name: agencies.name,
+				slug: agencies.slug,
+				logoUrl: agencies.logoUrl,
+				logoAvatarUrl: agencies.logoAvatarUrl,
+				primaryColor: agencies.primaryColor,
+				secondaryColor: agencies.secondaryColor,
+				accentColor: agencies.accentColor,
+				accentGradient: agencies.accentGradient,
+				email: agencies.email,
+				phone: agencies.phone,
+				website: agencies.website,
+				status: agencies.status,
+				deletedAt: agencies.deletedAt,
+			})
+			.from(agencies)
+			.where(eq(agencies.slug, agencySlug))
+			.limit(1);
+
+		if (!agency || agency.deletedAt || agency.status !== "active") {
+			throw error(404, "Not found");
+		}
+
+		return {
+			agency: {
+				id: agency.id,
+				name: agency.name,
+				slug: agency.slug,
+				logoUrl: agency.logoUrl,
+				logoAvatarUrl: agency.logoAvatarUrl,
+				primaryColor: agency.primaryColor,
+				secondaryColor: agency.secondaryColor,
+				accentColor: agency.accentColor,
+				accentGradient: agency.accentGradient,
+				email: agency.email,
+				phone: agency.phone,
+				website: agency.website,
+			},
+			// Public report has no authenticated user context — stub values keep
+			// downstream type assumptions satisfied without leaking membership data.
+			membership: {
+				id: "public",
+				userId: "",
+				role: "member" as const,
+				displayName: "",
+			},
+			agencyConfig: mergeWithDefaults({}),
+			isDefaultAgency: false,
+			userAgencies: [],
+			isSuperAdmin: false,
+			isImpersonating: false,
+			isPublicReport: true as const,
+		};
+	}
+
 	const userId = locals.user?.id;
 
 	if (!userId) {
 		throw redirect(302, "/login");
 	}
-
-	const { agencySlug } = params;
 
 	// Get agency by slug
 	const [agency] = await db
@@ -198,5 +266,6 @@ export const load: LayoutServerLoad = async ({ locals, params, cookies, url }) =
 		})),
 		isSuperAdmin: isUserSuperAdmin,
 		isImpersonating,
+		isPublicReport: false as const,
 	};
 };

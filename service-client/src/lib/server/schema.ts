@@ -1739,6 +1739,19 @@ export const seoAudits = pgTable("seo_audits", {
 	progress: jsonb("progress").default({}),
 	performanceData: jsonb("performance_data").default({}),
 
+	// Shareable report (Phase 1)
+	shareToken: varchar("share_token", { length: 64 }).unique(),
+	shareCreatedAt: timestamp("share_created_at", { withTimezone: true }),
+	shareExpiresAt: timestamp("share_expires_at", { withTimezone: true }),
+	shareRevokedAt: timestamp("share_revoked_at", { withTimezone: true }),
+	shareViewCount: integer("share_view_count").notNull().default(0),
+	shareFirstViewedAt: timestamp("share_first_viewed_at", { withTimezone: true }),
+	shareLastViewedAt: timestamp("share_last_viewed_at", { withTimezone: true }),
+
+	// Target region/language for DataForSEO location mapping
+	targetRegion: varchar("target_region", { length: 10 }).default("au"),
+	targetLanguage: varchar("target_language", { length: 10 }).default("en"),
+
 	startedAt: timestamp("started_at", { withTimezone: true }),
 	completedAt: timestamp("completed_at", { withTimezone: true }),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

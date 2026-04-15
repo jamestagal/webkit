@@ -3,7 +3,7 @@ import { env } from "$env/dynamic/public";
 
 Sentry.init({
 	dsn: env["PUBLIC_SENTRY_DSN"],
-	environment: env["PUBLIC_APP_DOMAIN"] === "webkit.au" ? "production" : "development",
+	environment: env["PUBLIC_APP_DOMAIN"] === "app.webkit.au" ? "production" : "development",
 	tracesSampleRate: 0.2,
 	profilesSampleRate: 0,
 	beforeSend(event) {

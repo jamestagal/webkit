@@ -1,6 +1,5 @@
 import type { PageServerLoad } from "./$types";
-import { getClientAudits } from "$lib/api/content-audit.remote";
-import { getAudit } from "$lib/api/content-audit.remote";
+import { getClientAudits, getAudit, getShareStatus } from "$lib/api/content-audit.remote";
 
 export const load: PageServerLoad = async ({ params }) => {
 	const audits = await getClientAudits(params.clientId);
@@ -13,5 +12,15 @@ export const load: PageServerLoad = async ({ params }) => {
 			latestAudit = null;
 		}
 	}
-	return { audits, latestAudit, clientId: params.clientId };
+
+	let shareStatus = null;
+	if (first && latestAudit?.status === "complete") {
+		try {
+			shareStatus = await getShareStatus(first.id);
+		} catch {
+			shareStatus = null;
+		}
+	}
+
+	return { audits, latestAudit, clientId: params.clientId, shareStatus };
 };

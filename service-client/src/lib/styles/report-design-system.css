@@ -1,0 +1,206 @@
+/* Public report design tokens — mirrors analyzemy-business-design-system.json
+   Scoped to `.report-scope` so DaisyUI dashboard styles stay untouched. */
+
+@import url('https://rsms.me/inter/inter.css');
+
+.report-scope {
+	/* Neutral gray scale */
+	--report-gray-25: #fcfcfd;
+	--report-gray-50: #f9fafb;
+	--report-gray-100: #f2f4f7;
+	--report-gray-200: #eaecf0;
+	--report-gray-300: #d0d5dd;
+	--report-gray-400: #98a2b3;
+	--report-gray-500: #667085;
+	--report-gray-600: #475467;
+	--report-gray-700: #344054;
+	--report-gray-800: #1d2939;
+	--report-gray-900: #101828;
+
+	/* Semantic success */
+	--report-success-50: #ecfdf3;
+	--report-success-100: #d1fadf;
+	--report-success-200: #a6f4c5;
+	--report-success-300: #6ce9a6;
+	--report-success-500: #12b76a;
+	--report-success-600: #039855;
+	--report-success-700: #027a48;
+
+	/* Semantic warning */
+	--report-warning-50: #fffaeb;
+	--report-warning-100: #fef0c7;
+	--report-warning-300: #fec84b;
+	--report-warning-500: #f79009;
+	--report-warning-600: #dc6803;
+	--report-warning-700: #b54708;
+
+	/* Semantic error */
+	--report-error-50: #fef3f2;
+	--report-error-100: #fee4e2;
+	--report-error-300: #fda29b;
+	--report-error-500: #f04438;
+	--report-error-600: #d92d20;
+	--report-error-700: #b42318;
+
+	/* Primary blue (default; agency colours override via --agency-primary) */
+	--report-primary-25: #f5f8ff;
+	--report-primary-50: #eff4ff;
+	--report-primary-100: #d1e0ff;
+	--report-primary-500: #2970ff;
+	--report-primary-600: #155eef;
+	--report-primary-700: #004eeb;
+
+	/* Semantic surfaces */
+	--report-page-bg: var(--report-gray-25);
+	--report-card-bg: #ffffff;
+	--report-card-border: var(--report-gray-200);
+	--report-divider: var(--report-gray-200);
+	--report-sidebar-bg: var(--report-gray-25);
+	--report-sidebar-border: #e5e7eb;
+
+	/* Text */
+	--report-text-heading: var(--report-gray-900);
+	--report-text-body: var(--report-gray-600);
+	--report-text-muted: var(--report-gray-500);
+	--report-text-subtle: var(--report-gray-400);
+
+	/* Radii */
+	--report-radius-sm: 4px;
+	--report-radius-base: 8px;
+	--report-radius-md: 10px;
+	--report-radius-lg: 12px;
+	--report-radius-xl: 16px;
+	--report-radius-full: 9999px;
+
+	/* Shadows */
+	--report-shadow-xs: 0px 1px 2px rgba(16, 24, 40, 0.05);
+	--report-shadow-sm: 0px 1px 2px 0px rgba(16, 24, 40, 0.06), 0px 1px 3px 0px rgba(16, 24, 40, 0.1);
+	--report-shadow-md: 0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06);
+	--report-shadow-lg: 0px 12px 16px -4px rgba(16, 24, 40, 0.08), 0px 4px 6px -2px rgba(16, 24, 40, 0.03);
+
+	/* Typography */
+	--report-font: 'Inter var', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+	background-color: var(--report-page-bg);
+	color: var(--report-text-body);
+	font-family: var(--report-font);
+	font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+.report-scope h1,
+.report-scope h2,
+.report-scope h3,
+.report-scope h4 {
+	color: var(--report-text-heading);
+	font-family: var(--report-font);
+}
+
+/* Section card — §4.report_section_card */
+.report-scope .r-card {
+	background: var(--report-card-bg);
+	border: 1px solid var(--report-card-border);
+	border-radius: var(--report-radius-lg);
+	box-shadow: var(--report-shadow-md);
+}
+
+/* Table cells use tabular figures — §3.data_number_rendering */
+.report-scope table {
+	font-variant-numeric: tabular-nums;
+}
+
+/* Status pill — §12.status_pill */
+.report-scope .r-pill {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--report-radius-full);
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1;
+	padding: 3px 8px;
+	min-width: 32px;
+	border: 1px solid transparent;
+}
+.report-scope .r-pill--success {
+	background: var(--report-success-50);
+	color: var(--report-success-700);
+	border-color: var(--report-success-300);
+}
+.report-scope .r-pill--info {
+	background: var(--report-primary-50);
+	color: var(--report-primary-700);
+	border-color: var(--report-primary-100);
+}
+.report-scope .r-pill--warning {
+	background: var(--report-warning-50);
+	color: var(--report-warning-700);
+	border-color: var(--report-warning-300);
+}
+.report-scope .r-pill--error {
+	background: var(--report-error-50);
+	color: var(--report-error-700);
+	border-color: var(--report-error-300);
+}
+.report-scope .r-pill--neutral {
+	background: var(--report-gray-100);
+	color: var(--report-gray-500);
+	border-color: var(--report-gray-200);
+}
+
+/* Sidebar nav item — §10.nav_item */
+.report-scope .r-nav-item {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	min-height: 40px;
+	padding: 10px 12px;
+	border-radius: var(--report-radius-base);
+	font-size: 14px;
+	font-weight: 500;
+	color: #6b7280;
+	text-align: left;
+	transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms;
+	cursor: pointer;
+}
+.report-scope .r-nav-item:hover {
+	color: var(--report-gray-900);
+}
+.report-scope .r-nav-item--active {
+	background: var(--report-gray-100);
+	box-shadow: var(--report-shadow-sm);
+	color: var(--agency-primary, var(--report-primary-700));
+	font-weight: 600;
+}
+
+/* Mobile grading list row — §7.mobile_grading_list */
+.report-scope .r-mobile-grade-row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 16px 0;
+	border-bottom: 1px solid var(--report-gray-100);
+	width: 100%;
+	text-align: left;
+	background: transparent;
+	transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.report-scope .r-mobile-grade-row:last-child {
+	border-bottom: none;
+}
+.report-scope .r-mobile-grade-row:hover {
+	background: var(--report-gray-50);
+}
+.report-scope .r-mobile-grade-avatar {
+	flex-shrink: 0;
+	width: 36px;
+	height: 36px;
+	border-radius: var(--report-radius-full);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 14px;
+	font-weight: 600;
+	color: #ffffff;
+}

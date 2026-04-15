@@ -21,14 +21,13 @@ type rankingKeywordEntry struct {
 
 // RunKeywordAnalysis fetches domain ranking keywords from DataForSEO Labs
 // and inserts a keyword_profiles row for the audit.
-func (e *AuditEngine) RunKeywordAnalysis(ctx context.Context, auditID, clientID uuid.UUID, domain string) error {
+func (e *AuditEngine) RunKeywordAnalysis(ctx context.Context, auditID, clientID uuid.UUID, domain string, locationCode int, language string) error {
 	if e.dfs == nil {
 		slog.Info("Skipping keyword analysis — DataForSEO client not configured", "audit_id", auditID)
 		return nil
 	}
 
-	// 2036 = Australia location code, "en" = English.
-	keywords, totalCount, err := e.dfs.GetDomainRankingKeywords(ctx, domain, 2036, "en", 100, 0)
+	keywords, totalCount, err := e.dfs.GetDomainRankingKeywords(ctx, domain, locationCode, language, 100, 0)
 	if err != nil {
 		return fmt.Errorf("get domain ranking keywords: %w", err)
 	}

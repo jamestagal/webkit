@@ -126,7 +126,7 @@ Key variables in `docker-compose.yml`:
 
 | Variable | Description |
 |----------|-------------|
-| `PUBLIC_APP_DOMAIN` | Domain for agency URLs (e.g., `webkit.au`) |
+| `PUBLIC_APP_DOMAIN` | Host for agency-scoped URLs including share links (e.g., `app.webkit.au` in prod, `localhost:3000` in dev). Must be the host where the SvelteKit app is served, not the bare marketing domain. |
 | `DATABASE_URL` | PostgreSQL connection string |
 | `DIRECT_URL` | Direct PostgreSQL URL (for migrations) |
 

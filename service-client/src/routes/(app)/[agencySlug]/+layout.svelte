@@ -9,6 +9,10 @@
 
 	let { children, data }: { children: Snippet; data: import('./$types').LayoutData } = $props();
 
+	// Public share-report pages render their own fullscreen, unauthenticated
+	// layout. Skip the authenticated app shell (sidebar, switcher, nav).
+	let isPublicReport = $derived(data.isPublicReport === true);
+
 	// Build current agency object for switcher
 	let currentAgencyForSwitcher = $derived({
 		id: data.agency.id,
@@ -76,6 +80,9 @@
 	let sidebarOpen = $state(false);
 </script>
 
+{#if isPublicReport}
+	{@render children()}
+{:else}
 <div id="content" class="h-full">
 	<!-- Desktop menu -->
 	<div
@@ -317,3 +324,4 @@
 		</div>
 	</main>
 </div>
+{/if}

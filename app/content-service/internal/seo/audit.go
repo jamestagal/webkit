@@ -73,6 +73,17 @@ func (e *AuditEngine) Run(ctx context.Context, auditID, clientID, agencyID uuid.
 		return fmt.Errorf("update audit status to running: %w", err)
 	}
 
+	// Load target region + language (used for DataForSEO location/language mapping).
+	var targetRegion, targetLanguage sql.NullString
+	if err := e.db.QueryRowContext(ctx,
+		"SELECT target_region, target_language FROM seo_audits WHERE id = $1",
+		auditID,
+	).Scan(&targetRegion, &targetLanguage); err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("load audit region: %w", err)
+	}
+	locationCode := regionToLocationCode(targetRegion.String)
+	language := normaliseLanguage(targetLanguage.String)
+
 	// Get the source domain: try crawl job first, then fall back to client's website field.
 	var sourceURL string
 	err = e.db.QueryRowContext(ctx,
@@ -191,7 +202,7 @@ func (e *AuditEngine) Run(ctx context.Context, auditID, clientID, agencyID uuid.
 	go func() {
 		defer wg.Done()
 		e.updateProgress(ctx, auditID, "keywords", "running", "Analyzing keyword rankings...")
-		if err := e.RunKeywordAnalysis(ctx, auditID, clientID, domain); err != nil {
+		if err := e.RunKeywordAnalysis(ctx, auditID, clientID, domain, locationCode, language); err != nil {
 			slog.Error("Keyword analysis failed", "audit_id", auditID, "error", err)
 			e.updateProgress(ctx, auditID, "keywords", "failed", "Analysis failed")
 			mu.Lock()
@@ -218,7 +229,7 @@ func (e *AuditEngine) Run(ctx context.Context, auditID, clientID, agencyID uuid.
 	go func() {
 		defer wg.Done()
 		e.updateProgress(ctx, auditID, "competitors", "running", "Analyzing competitors...")
-		if err := e.RunCompetitorAnalysis(ctx, auditID, clientID, domain); err != nil {
+		if err := e.RunCompetitorAnalysis(ctx, auditID, clientID, domain, locationCode, language); err != nil {
 			slog.Error("Competitor analysis failed", "audit_id", auditID, "error", err)
 			e.updateProgress(ctx, auditID, "competitors", "failed", "Analysis failed")
 			mu.Lock()

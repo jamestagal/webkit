@@ -2,10 +2,12 @@
 	import { page } from "$app/state";
 	import { invalidateAll } from "$app/navigation";
 	import { Search, AlertTriangle, BarChart3, Download } from "lucide-svelte";
-	import { startAudit, getAudit } from "$lib/api/content-audit.remote";
+	import { getAudit } from "$lib/api/content-audit.remote";
 	import { formatDate, formatRelativeTime } from "$lib/utils/formatting";
 	import type { AuditResponse, AuditProgress } from "$lib/api/content-audit.types";
 	import type { PageData } from "./$types";
+	import ShareReportModal from "$lib/components/audit/ShareReportModal.svelte";
+	import RegionSelectorModal from "$lib/components/audit/RegionSelectorModal.svelte";
 
 	let { data }: { data: PageData } = $props();
 
@@ -16,6 +18,8 @@
 	let polling = $state(false);
 	let polledAudit = $state<AuditResponse | null>(null);
 	let errorMessage = $state<string | null>(null);
+	let regionModalOpen = $state(false);
+	let shareStatus = $derived(data.shareStatus ?? null);
 
 	let latestAudit = $derived(polledAudit ?? data.latestAudit);
 	let isRunning = $derived(
@@ -52,41 +56,6 @@
 		}, 3000);
 		return () => clearInterval(interval);
 	});
-
-	async function handleStartAudit() {
-		starting = true;
-		errorMessage = null;
-		try {
-			const cid = data.clientId;
-			const result = await startAudit(cid);
-			// Start polling the new audit
-			polledAudit = {
-				id: result.id,
-				agency_id: "",
-				client_id: cid,
-				crawl_job_id: null,
-				status: "pending",
-				overall_score: null,
-				technical_score: null,
-				content_score: null,
-				backlink_score: null,
-				keyword_score: null,
-				total_pages: 0,
-				critical_issues: 0,
-				warning_issues: 0,
-				passed_checks: 0,
-				opportunities: 0,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			};
-			polling = true;
-		} catch (err) {
-			errorMessage =
-				err instanceof Error ? err.message : "Failed to start audit. Please try again.";
-		} finally {
-			starting = false;
-		}
-	}
 
 	// Progress tracking for running audits
 	const AUDIT_SECTIONS = ["technical", "backlinks", "keywords", "competitors", "performance", "scoring"] as const;
@@ -198,7 +167,7 @@
 					type="button"
 					class="btn btn-primary"
 					disabled={starting}
-					onclick={handleStartAudit}
+					onclick={() => (regionModalOpen = true)}
 				>
 					{#if starting}
 						<span class="loading loading-spinner loading-sm"></span>
@@ -280,7 +249,7 @@
 					type="button"
 					class="btn btn-primary"
 					disabled={starting}
-					onclick={handleStartAudit}
+					onclick={() => (regionModalOpen = true)}
 				>
 					{#if starting}
 						<span class="loading loading-spinner loading-sm"></span>
@@ -483,11 +452,18 @@
 				{/if}
 				Download Report
 			</button>
+			{#if shareStatus !== null && latestAudit?.id}
+				<ShareReportModal
+					auditId={latestAudit.id}
+					status={shareStatus}
+					onUpdated={async () => { await invalidateAll(); }}
+				/>
+			{/if}
 			<button
 				type="button"
 				class="btn btn-outline btn-sm"
 				disabled={starting}
-				onclick={handleStartAudit}
+				onclick={() => (regionModalOpen = true)}
 			>
 				{#if starting}
 					<span class="loading loading-spinner loading-sm"></span>
@@ -513,9 +489,19 @@
 								</tr>
 							</thead>
 							<tbody>
-								{#each data.audits as audit (audit.id)}
+								{#each data.audits as audit, i (audit.id)}
 									<tr>
-										<td class="text-sm">{formatDate(audit.createdAt, "medium")}</td>
+										<td class="text-sm">
+											{formatDate(audit.createdAt, "medium")}
+											{#if i === 0 && shareStatus?.isShared}
+												<span class="ml-2 text-xs text-base-content/40">
+													{shareStatus.viewCount} {shareStatus.viewCount === 1 ? 'view' : 'views'}
+													{#if shareStatus.lastViewedAt}
+														&middot; last {formatRelativeTime(shareStatus.lastViewedAt)}
+													{/if}
+												</span>
+											{/if}
+										</td>
 										<td>
 											<span class="badge badge-sm {statusBadgeClass(audit.status)} capitalize">
 												{audit.status}
@@ -540,3 +526,32 @@
 		{/if}
 	{/if}
 </div>
+
+<RegionSelectorModal
+	clientId={data.clientId}
+	open={regionModalOpen}
+	onClose={() => (regionModalOpen = false)}
+	onStarted={(auditId) => {
+		regionModalOpen = false;
+		polledAudit = {
+			id: auditId,
+			agency_id: '',
+			client_id: data.clientId,
+			crawl_job_id: null,
+			status: 'pending',
+			overall_score: null,
+			technical_score: null,
+			content_score: null,
+			backlink_score: null,
+			keyword_score: null,
+			total_pages: 0,
+			critical_issues: 0,
+			warning_issues: 0,
+			passed_checks: 0,
+			opportunities: 0,
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
+		};
+		polling = true;
+	}}
+/>
