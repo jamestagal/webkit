@@ -53,6 +53,7 @@ app/content-service/server
 logs/
 
 # OMC runtime state (skills are committed, state is not)
-.omc/sessions/
-.omc/state/
-.omc/project-memory.json
+# Matches at repo root and any nested service directory.
+**/.omc/sessions/
+**/.omc/state/
+**/.omc/project-memory.json
