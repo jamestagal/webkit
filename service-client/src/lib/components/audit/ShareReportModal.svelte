@@ -21,11 +21,10 @@
 		auditId: string;
 		status: ShareStatus;
 		onUpdated?: () => void | Promise<void>;
+		open?: boolean;
 	}
 
-	let { auditId, status, onUpdated }: Props = $props();
-
-	let open = $state(false);
+	let { auditId, status, onUpdated, open = $bindable(false) }: Props = $props();
 	let loading = $state(false);
 	let errorMsg = $state<string | null>(null);
 	let copiedFeedback = $state(false);

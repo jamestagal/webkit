@@ -1,487 +1,202 @@
 <script lang="ts">
-	import { page } from "$app/state";
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import {
-		Globe,
-		FileText,
 		Search,
-		Brain,
+		PenTool,
+		ExternalLink,
+		Zap,
 		Share2,
-		CheckCircle2,
-		Circle,
-		AlertCircle,
-		X,
-		Sparkles,
-		Clock,
-		ClipboardList,
-		RefreshCw,
-	} from "lucide-svelte";
-	import { formatRelativeTime } from "$lib/utils/formatting";
-	import { invalidateAll } from "$app/navigation";
-	import { startCrawl, getCrawlStatus } from "$lib/api/content.remote";
-	import type { PageData } from "./$types";
+		AlertCircle
+	} from 'lucide-svelte';
+	import type { PageData } from './$types';
+	import ScoreDonut from '$lib/components/audit/ScoreDonut.svelte';
+	import ProgressFlow from '$lib/components/content-intelligence/ProgressFlow.svelte';
+	import LaneHeader from '$lib/components/content-intelligence/LaneHeader.svelte';
+	import InfoBanner from '$lib/components/content-intelligence/InfoBanner.svelte';
+	import ModuleCard from '$lib/components/content-intelligence/ModuleCard.svelte';
+	import SharedContextBar from '$lib/components/content-intelligence/SharedContextBar.svelte';
 
 	let { data }: { data: PageData } = $props();
 
 	let agencySlug = $derived(page.params.agencySlug);
 	let clientId = $derived(page.params.clientId!);
 	let overview = $derived(data.overview);
+	let analysisModules = $derived(data.analysisModules);
+	let contentModules = $derived(data.contentModules);
+	let progressSteps = $derived(data.progressSteps);
 
-	// Re-crawl state
-	let isCrawling = $state(false);
+	let expandedModule = $state<string | null>(null);
 
-	async function handleRecrawl(e: Event) {
-		e.preventDefault();
-		e.stopPropagation();
-		const sourceUrl = overview?.crawl?.source_url;
-		if (!sourceUrl || isCrawling) return;
-
-		isCrawling = true;
-		try {
-			const result = await startCrawl({ clientId, sourceUrl, maxDepth: 3 });
-			// Poll until done — refresh overview on each tick
-			let done = false;
-			let pollCount = 0;
-			while (!done) {
-				await new Promise((r) => setTimeout(r, 3000));
-				const status = await getCrawlStatus(result.id);
-				if (status.status === "complete" || status.status === "failed") {
-					done = true;
-				}
-				pollCount++;
-				if (pollCount % 3 === 0 || done) {
-					await invalidateAll();
-				}
-			}
-		} finally {
-			isCrawling = false;
-		}
+	function toggleModule(id: string) {
+		expandedModule = expandedModule === id ? null : id;
 	}
 
-	// Wizard dismiss state (localStorage)
-	let wizardDismissed = $state(false);
-
-	$effect(() => {
-		if (typeof window !== "undefined") {
-			wizardDismissed =
-				localStorage.getItem(`wizard_dismissed_${clientId}`) === "true";
-		}
-	});
-
-	function dismissWizard() {
-		wizardDismissed = true;
-		if (typeof window !== "undefined") {
-			localStorage.setItem(`wizard_dismissed_${clientId}`, "true");
-		}
-	}
-
-	// Wizard step detection
-	let wizardSteps = $derived(
-		overview
-			? [
-					{
-						label: "Run SEO Audit",
-						done: overview.seo.score > 0,
-						href: `/${agencySlug}/content/${clientId}/audit`,
-					},
-					{
-						label: "Crawl for AI Copy",
-						done: overview.crawl.total_pages > 0,
-						href: `/${agencySlug}/content/crawl`,
-					},
-					{
-						label: "Brand Profile",
-						done: overview.brand.has_profile,
-						href: `/${agencySlug}/content/${clientId}/brand`,
-					},
-					{
-						label: "Generate Copy",
-						done: overview.copy.total > 0,
-						href: `/${agencySlug}/content/${clientId}/copy/generate`,
-					},
-				]
-			: [],
+	let analysisComplete = $derived(
+		analysisModules.length > 0 && analysisModules.every((m) => m.status === 'complete')
 	);
 
-	let allStepsDone = $derived(wizardSteps.every((s) => s.done));
-
-	// Activity icons
-	function activityIcon(type: string) {
-		switch (type) {
-			case "crawl":
-				return Globe;
-			case "copy":
-				return FileText;
-			case "audit":
-				return Search;
-			case "brand":
-				return Brain;
-			case "social":
-				return Share2;
-			default:
-				return FileText;
-		}
-	}
-
-	// Score color
 	function scoreColor(score: number): string {
-		if (score >= 80) return "text-success";
-		if (score >= 50) return "text-warning";
-		return "text-error";
-	}
-
-	// Crawl status badge
-	function statusBadge(status: string): string {
-		switch (status) {
-			case "completed":
-				return "badge-success";
-			case "running":
-				return "badge-info";
-			case "failed":
-				return "badge-error";
-			default:
-				return "badge-ghost";
-		}
+		if (score >= 70) return 'text-success';
+		if (score >= 40) return 'text-warning';
+		return 'text-error';
 	}
 </script>
 
 {#if overview}
 	<div class="space-y-6">
-		<!-- Post-crawl wizard banner -->
-		{#if !allStepsDone && !wizardDismissed}
-			<div class="alert shadow-lg bg-base-100 border border-base-300 relative">
-				<div class="flex items-start gap-3 w-full">
-					<Sparkles class="h-5 w-5 text-primary shrink-0 mt-0.5" />
-					<div class="flex-1">
-						<h3 class="font-semibold text-sm">Get started with content intelligence</h3>
-						<p class="text-xs text-base-content/60 mt-0.5">
-							Complete these steps to unlock AI-powered content generation.
-						</p>
-						<div class="flex flex-wrap gap-4 mt-3">
-							{#each wizardSteps as step}
-								<a
-									href={step.href}
-									class="flex items-center gap-2 text-sm hover:underline {step.done ? 'opacity-50' : ''}"
-								>
-									{#if step.done}
-										<CheckCircle2 class="h-4 w-4 text-success" />
-									{:else}
-										<Circle class="h-4 w-4 text-base-content/30" />
-									{/if}
-									<span class:line-through={step.done}>{step.label}</span>
-								</a>
-							{/each}
-						</div>
+		<!-- Top score bar -->
+		<div
+			class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 bg-base-100 rounded-2xl border border-base-200 p-5 shadow-sm"
+		>
+			<div class="flex items-center gap-4">
+				<ScoreDonut score={overview.seo.score || null} size="sm" />
+				<div>
+					<div class="text-xs text-base-content/50 uppercase tracking-wider">
+						Overall Score
 					</div>
-					<button
-						type="button"
-						class="btn btn-ghost btn-xs btn-circle absolute top-2 right-2"
-						onclick={dismissWizard}
-					>
-						<X class="h-3 w-3" />
-					</button>
+					<div class="text-2xl font-bold {scoreColor(overview.seo.score)}">
+						{overview.seo.score || '\u2014'}
+					</div>
 				</div>
 			</div>
-		{/if}
+			<div class="flex items-center gap-2">
+				<a
+					href="/{agencySlug}/content/{clientId}/audit?share=1"
+					class="btn btn-success btn-sm gap-2"
+				>
+					<Share2 size={14} />
+					Share Report
+				</a>
+				<a
+					href="/{agencySlug}/content/{clientId}/audit"
+					class="btn btn-warning btn-sm gap-2"
+				>
+					<Zap size={14} />
+					Re-run Audit
+				</a>
+			</div>
+		</div>
 
-		<!-- Feature status cards -->
-		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-			<!-- SEO Audit card (primary) -->
-			<a
-				href="/{agencySlug}/content/{clientId}/audit"
-				class="card bg-base-100 border-2 border-primary/30 hover:shadow-md transition-shadow"
-			>
-				<div class="card-body p-5">
-					<div class="flex items-center justify-between mb-3">
-						<div class="flex items-center gap-2">
-							<Search class="h-4 w-4 text-primary" />
-							<span class="text-sm font-semibold">SEO Audit</span>
-						</div>
-					</div>
-					<div class="stat p-0">
-						{#if overview.seo.score > 0}
-							<div class="stat-value text-2xl {scoreColor(overview.seo.score)}">
-								{overview.seo.score}
-							</div>
-						{:else}
-							<div class="stat-value text-2xl text-base-content/20">--</div>
-						{/if}
-						<div class="stat-desc">
-							<div class="flex gap-2 mt-1">
-								{#if overview.seo.critical > 0}
-									<span class="badge badge-error badge-xs">{overview.seo.critical} critical</span>
-								{/if}
-								{#if overview.seo.warnings > 0}
-									<span class="badge badge-warning badge-xs">{overview.seo.warnings} warnings</span>
-								{/if}
-								{#if overview.seo.critical === 0 && overview.seo.warnings === 0 && overview.seo.score > 0}
-									<span class="text-success">No issues found</span>
-								{/if}
-								{#if overview.seo.score === 0}
-									<span>Run an audit to get started</span>
-								{/if}
-							</div>
-						</div>
-					</div>
-				</div>
-			</a>
+		<!-- Progress strip -->
+		<div class="bg-base-100 rounded-lg border border-base-200/50 px-4 py-3">
+			<ProgressFlow steps={progressSteps} />
+		</div>
 
-			<!-- Pages card -->
-			<a
-				href="/{agencySlug}/content/{clientId}/pages"
-				class="card bg-base-100 border border-base-300 hover:shadow-md transition-shadow"
-			>
-				<div class="card-body p-5">
-					<div class="flex items-center justify-between mb-3">
-						<div class="flex items-center gap-2">
-							<Globe class="h-4 w-4 text-primary" />
-							<span class="text-sm font-medium">Pages</span>
-						</div>
-						<div class="flex items-center gap-2">
-							{#if overview.crawl.source_url && overview.crawl.total_pages > 0}
-								<button
-									type="button"
-									class="btn btn-ghost btn-xs gap-1"
-									onclick={handleRecrawl}
-									disabled={isCrawling}
-									title="Re-crawl website"
-								>
-									<RefreshCw class="h-3 w-3 {isCrawling ? 'animate-spin' : ''}" />
-								</button>
-							{/if}
-							<span class="badge badge-sm {statusBadge(overview.crawl.status)}">
-								{isCrawling ? "crawling" : overview.crawl.status}
+		<!-- Two-lane grid -->
+		<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+			<!-- Analysis Lane -->
+			<div class="bg-base-100 rounded-2xl border border-base-200 p-5 shadow-sm">
+				<LaneHeader
+					icon={Search}
+					title="Analysis"
+					subtitle="Understand the client's current position"
+					color="#a855f7"
+					actionLabel="View Report"
+					actionIcon={ExternalLink}
+					onaction={() => goto(`/${agencySlug}/content/${clientId}/audit`)}
+				>
+					{#snippet badge()}
+						{#if analysisComplete}
+							<span
+								class="text-[10px] font-bold uppercase tracking-wider bg-success/15 text-success px-1.5 py-0.5 rounded-full"
+							>
+								All complete
 							</span>
-						</div>
-					</div>
-					<div class="stat p-0">
-						<div class="stat-value text-2xl">{overview.crawl.total_pages}</div>
-						<div class="stat-desc">
-							{#if overview.crawl.last_crawled_at}
-								Crawled {formatRelativeTime(overview.crawl.last_crawled_at)}
-							{:else}
-								Not crawled yet
-							{/if}
-						</div>
-					</div>
-					<p class="text-xs text-base-content/40 mt-2">Required for AI copy and social posts. Not needed for SEO audits.</p>
-				</div>
-			</a>
-
-			<!-- Brand card -->
-			<a
-				href="/{agencySlug}/content/{clientId}/brand"
-				class="card bg-base-100 border border-base-300 hover:shadow-md transition-shadow"
-			>
-				<div class="card-body p-5">
-					<div class="flex items-center justify-between mb-3">
-						<div class="flex items-center gap-2">
-							<Brain class="h-4 w-4 text-secondary" />
-							<span class="text-sm font-medium">Brand Profile</span>
-						</div>
-						{#if overview.brand.has_profile}
-							<span class="badge badge-sm badge-success">Active</span>
-						{:else}
-							<span class="badge badge-sm badge-ghost">Not set</span>
 						{/if}
-					</div>
-					<div class="stat p-0">
-						<div class="stat-value text-2xl">
-							{#if overview.brand.has_profile}
-								<CheckCircle2 class="h-6 w-6 text-success inline" />
-							{:else}
-								<Circle class="h-6 w-6 text-base-content/20 inline" />
-							{/if}
-						</div>
-						<div class="stat-desc">
-							{#if overview.brand.source_type}
-								Source: {overview.brand.source_type}
-							{:else}
-								Set up brand voice and tone
-							{/if}
-						</div>
-					</div>
-				</div>
-			</a>
+					{/snippet}
+				</LaneHeader>
 
-			<!-- Copy card -->
-			<a
-				href="/{agencySlug}/content/{clientId}/copy"
-				class="card bg-base-100 border border-base-300 hover:shadow-md transition-shadow"
-			>
-				<div class="card-body p-5">
-					<div class="flex items-center justify-between mb-3">
-						<div class="flex items-center gap-2">
-							<FileText class="h-4 w-4 text-info" />
-							<span class="text-sm font-medium">Copy</span>
-						</div>
-					</div>
-					<div class="stat p-0">
-						<div class="stat-value text-2xl">{overview.copy.total}</div>
-						<div class="stat-desc">
-							{#if overview.copy.total > 0}
-								{overview.copy.drafts} drafts, {overview.copy.finals} final
-							{:else}
-								No copy generated yet
-							{/if}
-						</div>
-					</div>
-				</div>
-			</a>
+				<InfoBanner
+					variant="purple"
+					label="Feeds into: Shareable Report, Proposals, Content Generation"
+				/>
 
-			<!-- Social card -->
-			<a
-				href="/{agencySlug}/content/{clientId}/social"
-				class="card bg-base-100 border border-base-300 hover:shadow-md transition-shadow"
-			>
-				<div class="card-body p-5">
-					<div class="flex items-center justify-between mb-3">
-						<div class="flex items-center gap-2">
-							<Share2 class="h-4 w-4 text-primary" />
-							<span class="text-sm font-medium">Social</span>
-						</div>
-					</div>
-					<div class="stat p-0">
-						<div class="stat-value text-2xl">
-							{overview.copy.by_type?.["social_post"] ?? 0}
-						</div>
-						<div class="stat-desc">Social posts generated</div>
-					</div>
-				</div>
-			</a>
-		</div>
-
-		<!-- Bottom row: AI Context Sources + Recent Activity -->
-		<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-			<!-- AI Context Sources -->
-			<div class="card bg-base-100 border border-base-300">
-				<div class="card-body p-5">
-					<div class="flex items-center gap-2 mb-4">
-						<Sparkles class="h-4 w-4 text-primary" />
-						<h3 class="font-semibold text-sm">AI Context Sources</h3>
-					</div>
-					<div class="space-y-3">
-						<div class="flex items-center justify-between">
-							<div class="flex items-center gap-2">
-								{#if overview.crawl.total_pages > 0}
-									<CheckCircle2 class="h-4 w-4 text-success" />
-								{:else}
-									<Circle class="h-4 w-4 text-base-content/20" />
-								{/if}
-								<span class="text-sm">Crawled pages (AI copy)</span>
-							</div>
-							{#if overview.crawl.total_pages > 0}
-								<span class="text-xs text-base-content/50">{overview.crawl.total_pages} pages</span>
-							{:else}
-								<a
-									href="/{agencySlug}/content/crawl"
-									class="text-xs text-primary hover:underline"
-								>
-									Crawl
-								</a>
-							{/if}
-						</div>
-						<div class="flex items-center justify-between">
-							<div class="flex items-center gap-2">
-								{#if overview.brand.has_profile}
-									<CheckCircle2 class="h-4 w-4 text-success" />
-								{:else}
-									<Circle class="h-4 w-4 text-base-content/20" />
-								{/if}
-								<span class="text-sm">Brand profile</span>
-							</div>
-							{#if !overview.brand.has_profile}
-								<a
-									href="/{agencySlug}/content/{clientId}/brand"
-									class="text-xs text-primary hover:underline"
-								>
-									Set up
-								</a>
-							{/if}
-						</div>
-						<div class="flex items-center justify-between">
-							<div class="flex items-center gap-2">
-								{#if overview.seo.score > 0}
-									<CheckCircle2 class="h-4 w-4 text-success" />
-								{:else}
-									<Circle class="h-4 w-4 text-base-content/20" />
-								{/if}
-								<span class="text-sm">SEO audit (reports & proposals)</span>
-							</div>
-							{#if overview.seo.score === 0}
-								<a
-									href="/{agencySlug}/content/{clientId}/audit"
-									class="text-xs text-primary hover:underline"
-								>
-									Run audit
-								</a>
-							{/if}
-						</div>
-						<div class="flex items-center justify-between">
-							<div class="flex items-center gap-2">
-								{#if overview.questionnaire.completed}
-									<CheckCircle2 class="h-4 w-4 text-success" />
-								{:else}
-									<Circle class="h-4 w-4 text-base-content/20" />
-								{/if}
-								<span class="text-sm">Questionnaire</span>
-							</div>
-							{#if !overview.questionnaire.completed}
-								<span class="text-xs text-base-content/40">Pending</span>
-							{/if}
-						</div>
-					</div>
+				<div class="space-y-3">
+					{#each analysisModules as mod (mod.id)}
+						<ModuleCard
+							module={mod}
+							expanded={expandedModule === mod.id}
+							ontoggle={toggleModule}
+						/>
+					{/each}
 				</div>
 			</div>
 
-			<!-- Recent Activity -->
-			<div class="card bg-base-100 border border-base-300">
-				<div class="card-body p-5">
-					<div class="flex items-center gap-2 mb-4">
-						<Clock class="h-4 w-4 text-primary" />
-						<h3 class="font-semibold text-sm">Recent Activity</h3>
+			<!-- Content Lane -->
+			<div class="bg-base-100 rounded-2xl border border-base-200 p-5 shadow-sm">
+				<LaneHeader
+					icon={PenTool}
+					title="Content"
+					subtitle="Produce deliverables for the client"
+					color="#ec4899"
+					actionLabel="New Content Sprint"
+					actionIcon={Zap}
+					disabled={true}
+				/>
+
+				{#if analysisComplete}
+					<InfoBanner
+						variant="emerald"
+						label="All analysis data available — ready to generate content"
+					/>
+				{:else}
+					<InfoBanner
+						variant="amber"
+						label="Run Complete Audit first to unlock full content generation"
+					/>
+				{/if}
+
+				<div class="space-y-3">
+					{#each contentModules as mod (mod.id)}
+						<ModuleCard
+							module={mod}
+							expanded={expandedModule === mod.id}
+							ontoggle={toggleModule}
+						/>
+					{/each}
+				</div>
+
+				<!-- Content Sprint History placeholder -->
+				<div class="mt-4 border border-dashed border-base-200 rounded-xl p-4">
+					<div
+						class="text-xs font-medium text-base-content/40 uppercase tracking-wider mb-2"
+					>
+						Content Sprint History
 					</div>
-					{#if overview.activity.length > 0}
-						<div class="space-y-3">
-							{#each overview.activity as item}
-								{@const Icon = activityIcon(item.type)}
-								<div class="flex items-start gap-3">
-									<div class="flex h-7 w-7 items-center justify-center rounded-full bg-base-200 shrink-0 mt-0.5">
-										<Icon class="h-3.5 w-3.5 text-base-content/50" />
-									</div>
-									<div class="flex-1 min-w-0">
-										<p class="text-sm truncate">{item.title}</p>
-										<p class="text-xs text-base-content/50">
-											{formatRelativeTime(item.created_at)}
-										</p>
-									</div>
-								</div>
-							{/each}
-						</div>
-					{:else}
-						<div class="flex flex-col items-center justify-center py-6 text-base-content/40">
-							<ClipboardList class="h-8 w-8 mb-2" />
-							<p class="text-sm">No activity yet</p>
-						</div>
-					{/if}
+					<div class="text-sm text-base-content/50 text-center py-3">
+						No content sprints yet.
+						<br />
+						<span class="text-xs text-base-content/35">
+							Run your first sprint to see article history here.
+						</span>
+					</div>
 				</div>
 			</div>
 		</div>
+
+		<!-- Shared Context Bar -->
+		<SharedContextBar
+			brandActive={overview.brand.has_profile}
+			pagesActive={overview.crawl.total_pages > 0}
+			keywordsActive={overview.seo.score > 0}
+			gbpActive={false}
+		/>
 	</div>
 {:else}
 	<!-- Error state -->
 	<div class="card bg-base-100 border border-base-300">
 		<div class="card-body items-center text-center py-12">
-			<div class="flex h-16 w-16 items-center justify-center rounded-full bg-base-200 mb-4">
+			<div
+				class="flex h-16 w-16 items-center justify-center rounded-full bg-base-200 mb-4"
+			>
 				<AlertCircle class="h-8 w-8 text-base-content/30" />
 			</div>
 			<h3 class="text-lg font-semibold">Unable to load overview data</h3>
 			<p class="text-base-content/60 max-w-sm">
 				The content service may be unavailable. Please try again later.
 			</p>
-			<a
-				href="/{agencySlug}/content/{clientId}"
-				class="btn btn-outline mt-4"
-			>
+			<a href="/{agencySlug}/content/{clientId}" class="btn btn-outline mt-4">
 				Retry
 			</a>
 		</div>
