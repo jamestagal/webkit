@@ -9,6 +9,7 @@
 
 import { getRequestEvent } from "$app/server";
 import { error } from "@sveltejs/kit";
+import { env } from "$env/dynamic/private";
 import { db } from "$lib/server/db";
 import { agencies, agencyMemberships, users } from "$lib/server/schema";
 import { eq, and } from "drizzle-orm";
@@ -149,7 +150,7 @@ export function setAgencyCookie(agencyId: string): void {
 	event?.cookies.set(CURRENT_AGENCY_COOKIE, agencyId, {
 		path: "/",
 		httpOnly: true,
-		secure: process.env["NODE_ENV"] === "production",
+		secure: env.DOMAIN !== "localhost",
 		sameSite: "lax",
 		maxAge: 60 * 60 * 24 * 30, // 30 days
 	});
@@ -198,7 +199,7 @@ export async function switchAgency(agencyId: string): Promise<void> {
 	event?.cookies.set(CURRENT_AGENCY_COOKIE, agencyId, {
 		path: "/",
 		httpOnly: true,
-		secure: process.env["NODE_ENV"] === "production",
+		secure: env.DOMAIN !== "localhost",
 		sameSite: "lax",
 		maxAge: 60 * 60 * 24 * 30, // 30 days
 	});
