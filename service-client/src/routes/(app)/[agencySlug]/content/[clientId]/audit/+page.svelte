@@ -19,6 +19,7 @@
 	let polledAudit = $state<AuditResponse | null>(null);
 	let errorMessage = $state<string | null>(null);
 	let regionModalOpen = $state(false);
+	let shareModalOpen = $state(false);
 	let shareStatus = $derived(data.shareStatus ?? null);
 
 	let latestAudit = $derived(polledAudit ?? data.latestAudit);
@@ -26,6 +27,21 @@
 		latestAudit != null &&
 			(latestAudit.status === "pending" || latestAudit.status === "running"),
 	);
+
+	// Auto-open Share modal when arriving with ?share=1 (e.g. from overview dashboard).
+	// Guarded by shareStatus !== null so the modal renders before we flip it open.
+	let autoShareTriggered = $state(false);
+	$effect(() => {
+		if (
+			!autoShareTriggered &&
+			page.url.searchParams.get("share") === "1" &&
+			shareStatus !== null &&
+			latestAudit?.id
+		) {
+			shareModalOpen = true;
+			autoShareTriggered = true;
+		}
+	});
 
 	// Start polling automatically if audit is running on page load
 	$effect(() => {
@@ -456,6 +472,7 @@
 				<ShareReportModal
 					auditId={latestAudit.id}
 					status={shareStatus}
+					bind:open={shareModalOpen}
 					onUpdated={async () => { await invalidateAll(); }}
 				/>
 			{/if}
