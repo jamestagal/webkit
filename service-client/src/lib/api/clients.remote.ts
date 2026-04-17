@@ -18,7 +18,30 @@ import {
 } from "$lib/server/schema";
 import { error } from "@sveltejs/kit";
 import { getAgencyContext, requireAgencyRole } from "$lib/server/agency";
-import { eq, and, asc, desc, ilike, or, sql } from "drizzle-orm";
+import { getEffectiveTier } from "$lib/server/subscription";
+import { getMaxClients } from "$lib/server/usage";
+import { eq, and, asc, desc, ilike, or, sql, ne } from "drizzle-orm";
+
+/**
+ * Enforces the tier's max_clients hard ceiling before a new row is inserted.
+ * Counts non-archived clients — matches the same soft-delete semantics used
+ * everywhere else in the codebase (clients have no deleted_at column).
+ */
+async function assertClientCapacity(agencyId: string): Promise<void> {
+	const tier = await getEffectiveTier(agencyId);
+	const max = getMaxClients(tier);
+	const [row] = await db
+		.select({ count: sql<number>`COUNT(*)::INTEGER` })
+		.from(clients)
+		.where(and(eq(clients.agencyId, agencyId), ne(clients.status, "archived")));
+	const current = Number(row?.count ?? 0);
+	if (current >= max) {
+		throw error(
+			422,
+			`Your plan supports up to ${max} clients. Upgrade to add more.`,
+		);
+	}
+}
 
 // =============================================================================
 // Validation Schemas
@@ -187,6 +210,9 @@ export const getClientCount = query(async () => {
 export const createClient = command(CreateClientSchema, async (data) => {
 	const context = await requireAgencyRole(["owner", "admin", "member"]);
 
+	// Enforce tier's max_clients ceiling before touching the table.
+	await assertClientCapacity(context.agencyId);
+
 	// Check for existing client with same email
 	const [existing] = await db
 		.select({ id: clients.id })
@@ -245,6 +271,11 @@ export const getOrCreateClient = command(
 		if (existing) {
 			return { client: existing, created: false };
 		}
+
+		// New-client path only: enforce tier's max_clients ceiling.
+		// The existing-client path returns the existing row unchanged, which
+		// doesn't change row count, so it doesn't need the check.
+		await assertClientCapacity(context.agencyId);
 
 		// Create new client
 		const [client] = await db

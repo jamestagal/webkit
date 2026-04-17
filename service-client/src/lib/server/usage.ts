@@ -57,6 +57,29 @@ export function getLimit(tier: Tier, feature: UsageFeature): number {
 }
 
 /**
+ * `enterprise` is a reserved sales-only tier with no TIER_LIMITS entry
+ * (decision 10 — per-agency overrides are wired when the first deal is
+ * signed). Until then, fall back to Agency Pro caps so an Enterprise
+ * agency isn't incorrectly gated at a lower tier.
+ */
+export function resolveLimitsTier(tier: string): Tier {
+	if (tier === "enterprise") return "agency_pro";
+	if (tier === "free" || tier === "starter" || tier === "growth" || tier === "agency_pro") {
+		return tier;
+	}
+	return "free";
+}
+
+/** Hard ceilings (rows, not monthly counters) exposed for guard call-sites. */
+export function getMaxClients(tier: string): number {
+	return TIER_LIMITS[resolveLimitsTier(tier)].max_clients;
+}
+
+export function getMaxMembers(tier: string): number {
+	return TIER_LIMITS[resolveLimitsTier(tier)].max_members;
+}
+
+/**
  * callUsageAPI routes through service-core with the caller's bearer token.
  * Mirrors the shape of callBillingAPI in billing.remote.ts so error handling
  * behaves the same (4xx/5xx throw via @sveltejs/kit `error`).

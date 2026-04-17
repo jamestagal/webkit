@@ -13,6 +13,7 @@ import { agencies, agencyMemberships, consultations, seoAudits } from "$lib/serv
 import { eq, and, gte, count, sql } from "drizzle-orm";
 import { error } from "@sveltejs/kit";
 import { getAgencyContext } from "$lib/server/agency";
+import { getMaxMembers } from "$lib/server/usage";
 import { formatDate } from "$lib/utils/formatting";
 
 // =============================================================================
@@ -226,6 +227,12 @@ export async function getMonthlyConsultationCount(agencyId: string): Promise<num
 
 /**
  * Check if agency can add more members.
+ *
+ * Reads the cap from the generated $lib/generated/tier-limits file so Go
+ * remains the single source of truth. Enterprise maps to Agency Pro's cap
+ * until the first sales deal defines per-agency overrides — `unlimited`
+ * is therefore always false in the current model, but the field is kept
+ * in the return shape for backwards compatibility with existing callers.
  */
 export async function canAddMember(agencyId?: string): Promise<{
 	allowed: boolean;
@@ -236,17 +243,14 @@ export async function canAddMember(agencyId?: string): Promise<{
 	const context = await getAgencyContext();
 	const targetAgencyId = agencyId || context.agencyId;
 
-	const { limits } = await getAgencyTierLimits();
+	const tier = await getEffectiveTier(targetAgencyId);
+	const limit = getMaxMembers(tier);
 	const currentCount = await getMemberCount(targetAgencyId);
 
-	if (limits.maxMembers === -1) {
-		return { allowed: true, current: currentCount, limit: -1, unlimited: true };
-	}
-
 	return {
-		allowed: currentCount < limits.maxMembers,
+		allowed: currentCount < limit,
 		current: currentCount,
-		limit: limits.maxMembers,
+		limit,
 		unlimited: false,
 	};
 }
