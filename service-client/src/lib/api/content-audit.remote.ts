@@ -9,7 +9,7 @@ import { contentFetch } from "$lib/server/content-fetch";
 import { db } from "$lib/server/db";
 import { seoAudits } from "$lib/server/schema";
 import { getAgencyContext } from "$lib/server/agency";
-import { canRunSeoAudit, incrementSeoAuditCount } from "$lib/server/subscription";
+import { canRunSeoAudit } from "$lib/server/subscription";
 import { generateShareToken } from "$lib/server/share-tokens";
 import { eq, and, desc } from "drizzle-orm";
 import { error } from "@sveltejs/kit";
@@ -74,10 +74,9 @@ export const startAudit = command(StartAuditSchema, async ({ clientId, targetReg
 			: { method: "POST" };
 	const result = await contentFetch<{ id: string }>(`/api/content/audit/${clientId}`, init);
 
-	// Only increment agency counter if this wasn't a free re-audit
-	if (!auditCheck.isReaudit) {
-		await incrementSeoAuditCount(context.agencyId);
-	}
+	// No SvelteKit-side increment: content-service's handleStartAudit already
+	// calls usage.Consume(FeatureSEOAudit) atomically. Re-audit discount is
+	// also dropped (decision 9 — every audit counts equally).
 
 	return result;
 });

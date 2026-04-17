@@ -149,3 +149,17 @@ export async function consumePDFExport(
 		body: JSON.stringify({ agencyId, feature: "pdf_export" }),
 	});
 }
+
+/**
+ * Atomic check + increment for AI generations made from the SvelteKit side
+ * (e.g. proposal AI generation, which calls Anthropic directly rather than
+ * going through the content-service Go handler).
+ */
+export async function consumeAIGeneration(
+	agencyId: string,
+): Promise<UsageStatus> {
+	return callUsageAPI<UsageStatus>("/consume", {
+		method: "POST",
+		body: JSON.stringify({ agencyId, feature: "ai_generation" }),
+	});
+}

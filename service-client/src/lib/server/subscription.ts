@@ -13,8 +13,18 @@ import { agencies, agencyMemberships, consultations, seoAudits } from "$lib/serv
 import { eq, and, gte, count, sql } from "drizzle-orm";
 import { error } from "@sveltejs/kit";
 import { getAgencyContext } from "$lib/server/agency";
-import { getMaxMembers } from "$lib/server/usage";
+import { checkUsage, consumeAIGeneration, getMaxMembers } from "$lib/server/usage";
 import { formatDate } from "$lib/utils/formatting";
+
+// First-of-next-month in local time — kept here so the two refactored
+// wrappers below return the same `resetsAt` shape as their legacy callers expect.
+function startOfNextMonth(): Date {
+	const d = new Date();
+	d.setMonth(d.getMonth() + 1);
+	d.setDate(1);
+	d.setHours(0, 0, 0, 0);
+	return d;
+}
 
 // =============================================================================
 // Tier Definitions
@@ -326,7 +336,11 @@ export async function getMonthlyAIGenerationCount(agencyId: string): Promise<num
 }
 
 /**
- * Check if agency can generate more AI proposals this month.
+ * Check if agency can generate more AI content this month.
+ *
+ * Thin wrapper over the Go /api/v1/usage/check endpoint — the agency_usage
+ * table in service-core is the source of truth. The legacy column
+ * agencies.ai_generations_this_month is deprecated (PR 3 removes it).
  */
 export async function canGenerateWithAI(agencyId?: string): Promise<{
 	allowed: boolean;
@@ -338,51 +352,28 @@ export async function canGenerateWithAI(agencyId?: string): Promise<{
 	const context = await getAgencyContext();
 	const targetAgencyId = agencyId || context.agencyId;
 
-	const { limits } = await getAgencyTierLimits();
-	const currentCount = await getMonthlyAIGenerationCount(targetAgencyId);
-
-	// Calculate when limit resets (start of next month)
-	const resetsAt = new Date();
-	resetsAt.setMonth(resetsAt.getMonth() + 1);
-	resetsAt.setDate(1);
-	resetsAt.setHours(0, 0, 0, 0);
-
-	if (limits.maxAIGenerationsPerMonth === -1) {
-		return { allowed: true, current: currentCount, limit: -1, unlimited: true, resetsAt };
-	}
-
+	const status = await checkUsage(targetAgencyId, "ai_generation");
 	return {
-		allowed: currentCount < limits.maxAIGenerationsPerMonth,
-		current: currentCount,
-		limit: limits.maxAIGenerationsPerMonth,
+		allowed: !status.AtLimit,
+		current: status.Current,
+		limit: status.Limit,
 		unlimited: false,
-		resetsAt,
+		resetsAt: startOfNextMonth(),
 	};
 }
 
 /**
- * Increment AI generation counter for an agency.
- * Call this after a successful AI generation.
- * Uses atomic SQL to prevent race conditions with concurrent requests.
+ * Increment AI generation counter for an agency after a successful generation
+ * initiated from the SvelteKit side (e.g. proposal AI generation, which calls
+ * Anthropic directly). Delegates to the Go /api/v1/usage/consume endpoint so
+ * agency_usage is the single source of truth.
+ *
+ * Content-intelligence AI generation is already counted in-process by the Go
+ * handleGenerateCopy handler — do not call this from paths that go through
+ * content-service, or it will double-count.
  */
 export async function incrementAIGenerationCount(agencyId: string): Promise<void> {
-	const now = new Date();
-	const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-	await db.execute(sql`
-		UPDATE agencies
-		SET ai_generations_this_month = CASE
-			WHEN ai_generations_reset_at IS NULL OR ai_generations_reset_at < ${startOfMonth}
-			THEN 1
-			ELSE ai_generations_this_month + 1
-		END,
-		ai_generations_reset_at = CASE
-			WHEN ai_generations_reset_at IS NULL OR ai_generations_reset_at < ${startOfMonth}
-			THEN ${now}
-			ELSE ai_generations_reset_at
-		END
-		WHERE id = ${agencyId}
-	`);
+	await consumeAIGeneration(agencyId);
 }
 
 // =============================================================================
@@ -454,7 +445,7 @@ export async function getClientAuditCountThisMonth(
  */
 export async function canRunSeoAudit(
 	agencyId?: string,
-	clientId?: string,
+	_clientId?: string,
 ): Promise<{
 	allowed: boolean;
 	current: number;
@@ -466,56 +457,17 @@ export async function canRunSeoAudit(
 	const context = await getAgencyContext();
 	const targetAgencyId = agencyId || context.agencyId;
 
-	const { limits } = await getAgencyTierLimits();
-
-	// Calculate when limit resets (start of next month)
-	const resetsAt = new Date();
-	resetsAt.setMonth(resetsAt.getMonth() + 1);
-	resetsAt.setDate(1);
-	resetsAt.setHours(0, 0, 0, 0);
-
-	// Tier doesn't allow SEO audits at all
-	if (limits.maxSeoAuditsPerMonth === 0) {
-		return { allowed: false, current: 0, limit: 0, unlimited: false, resetsAt, isReaudit: false };
-	}
-
-	const currentCount = await getMonthlySeoAuditCount(targetAgencyId);
-
-	// Unlimited
-	if (limits.maxSeoAuditsPerMonth === -1) {
-		return {
-			allowed: true,
-			current: currentCount,
-			limit: -1,
-			unlimited: true,
-			resetsAt,
-			isReaudit: false,
-		};
-	}
-
-	// Check re-audit logic if clientId provided
-	if (clientId) {
-		const clientAuditCount = await getClientAuditCountThisMonth(targetAgencyId, clientId);
-		// If client has been audited before this month, and count is within free re-audit allowance
-		if (clientAuditCount >= 1 && clientAuditCount <= limits.maxFreeReauditsPerClient) {
-			return {
-				allowed: true,
-				current: currentCount,
-				limit: limits.maxSeoAuditsPerMonth,
-				unlimited: false,
-				resetsAt,
-				isReaudit: true,
-			};
-		}
-	}
-
-	// Standard quota check
+	// Thin wrapper over Go /api/v1/usage/check. Decision 9 dropped re-audit
+	// logic — every audit counts equally against the monthly cap — so the
+	// clientId parameter is ignored. `isReaudit` is kept in the return shape
+	// for back-compat with existing callers; always false.
+	const status = await checkUsage(targetAgencyId, "seo_audit");
 	return {
-		allowed: currentCount < limits.maxSeoAuditsPerMonth,
-		current: currentCount,
-		limit: limits.maxSeoAuditsPerMonth,
+		allowed: !status.AtLimit && status.Limit > 0,
+		current: status.Current,
+		limit: status.Limit,
 		unlimited: false,
-		resetsAt,
+		resetsAt: startOfNextMonth(),
 		isReaudit: false,
 	};
 }
