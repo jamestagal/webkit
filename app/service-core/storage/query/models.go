@@ -221,6 +221,22 @@ type AgencyProposalTemplate struct {
 	Settings      json.RawMessage `json:"settings"`
 }
 
+type AgencyStorage struct {
+	AgencyID  uuid.UUID `json:"agency_id"`
+	UsedBytes int64     `json:"used_bytes"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type AgencyUsage struct {
+	ID        uuid.UUID `json:"id"`
+	AgencyID  uuid.UUID `json:"agency_id"`
+	Feature   string    `json:"feature"`
+	Period    string    `json:"period"`
+	Count     int32     `json:"count"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type BetaInvite struct {
 	ID             uuid.UUID      `json:"id"`
 	CreatedAt      time.Time      `json:"created_at"`

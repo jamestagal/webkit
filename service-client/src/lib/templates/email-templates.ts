@@ -757,10 +757,10 @@ export function generateBetaInviteEmail(data: BetaInviteEmailData): EmailTemplat
 
         <div style="background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%); border-radius: 12px; padding: 24px; margin: 24px 0;">
             <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600; color: #4338CA;">
-                ✨ Your Enterprise Beta Benefits
+                ✨ Your Agency Pro Beta Benefits
             </h3>
             <p style="margin: 0 0 12px 0; color: #4b5563;">
-                As a beta tester, you'll enjoy <strong>full enterprise-level access</strong> including:
+                As a beta tester, you'll enjoy <strong>full Agency Pro-level access</strong> including:
             </p>
             <ul style="margin: 0; padding-left: 20px; color: #4b5563;">
                 <li style="margin-bottom: 8px;"><strong>Unlimited team members</strong> – invite your whole team</li>

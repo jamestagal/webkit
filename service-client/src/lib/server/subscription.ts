@@ -19,7 +19,11 @@ import { formatDate } from "$lib/utils/formatting";
 // Tier Definitions
 // =============================================================================
 
-export type SubscriptionTier = "free" | "starter" | "growth" | "enterprise";
+// Self-serve tiers live in TIER_DEFINITIONS. "enterprise" is a reserved slot
+// for future sales-negotiated contracts — no TIER_DEFINITIONS entry until the
+// first Enterprise deal defines its caps.
+export type SelfServeTier = "free" | "starter" | "growth" | "agency_pro";
+export type SubscriptionTier = SelfServeTier | "enterprise";
 
 export interface TierLimits {
 	maxMembers: number; // -1 = unlimited
@@ -47,7 +51,7 @@ export type TierFeature =
 	| "seo_audits"
 	| "backlink_analysis";
 
-export const TIER_DEFINITIONS: Record<SubscriptionTier, TierLimits> = {
+export const TIER_DEFINITIONS: Record<SelfServeTier, TierLimits> = {
 	free: {
 		maxMembers: 1,
 		maxConsultationsPerMonth: 10,
@@ -89,7 +93,7 @@ export const TIER_DEFINITIONS: Record<SubscriptionTier, TierLimits> = {
 			"backlink_analysis",
 		],
 	},
-	enterprise: {
+	agency_pro: {
 		maxMembers: -1,
 		maxConsultationsPerMonth: -1,
 		maxAIGenerationsPerMonth: -1,
@@ -121,7 +125,7 @@ export const TIER_DEFINITIONS: Record<SubscriptionTier, TierLimits> = {
 
 /**
  * Get the effective tier for an agency, considering freemium status.
- * Freemium users get enterprise-level access regardless of actual subscription.
+ * Freemium users get Agency Pro-level access regardless of actual subscription.
  */
 export async function getEffectiveTier(agencyId: string): Promise<SubscriptionTier> {
 	const [agency] = await db
@@ -143,8 +147,8 @@ export async function getEffectiveTier(agencyId: string): Promise<SubscriptionTi
 			// Freemium expired, fall back to actual tier
 			return (agency.subscriptionTier as SubscriptionTier) || "free";
 		}
-		// Active freemium - grant enterprise access
-		return "enterprise";
+		// Active freemium - grant Agency Pro access
+		return "agency_pro";
 	}
 
 	return (agency.subscriptionTier as SubscriptionTier) || "free";
@@ -158,12 +162,16 @@ export async function getEffectiveTier(agencyId: string): Promise<SubscriptionTi
  * Get the tier limits for a specific tier.
  */
 export function getTierLimits(tier: SubscriptionTier): TierLimits {
+	// "enterprise" is a reserved sales-only slot with no TIER_DEFINITIONS entry.
+	// Until per-agency overrides are wired for Enterprise deals, treat it as the
+	// Agency Pro ceiling so no agency is under-served if the tier ever gets set.
+	if (tier === "enterprise") return TIER_DEFINITIONS.agency_pro;
 	return TIER_DEFINITIONS[tier] || TIER_DEFINITIONS.free;
 }
 
 /**
  * Get the current agency's tier and limits.
- * Respects freemium status - freemium users get enterprise limits.
+ * Respects freemium status - freemium users get Agency Pro limits.
  */
 export async function getAgencyTierLimits(): Promise<{
 	tier: SubscriptionTier;
@@ -713,8 +721,9 @@ export function getTierComparison(currentTier: SubscriptionTier): Array<{
 	isCurrentTier: boolean;
 	isUpgrade: boolean;
 }> {
-	const tierOrder: SubscriptionTier[] = ["free", "starter", "growth", "enterprise"];
-	const currentIndex = tierOrder.indexOf(currentTier);
+	// Only self-serve tiers surface in comparisons (enterprise is sales-only).
+	const tierOrder: SelfServeTier[] = ["free", "starter", "growth", "agency_pro"];
+	const currentIndex = tierOrder.indexOf(currentTier as SelfServeTier);
 
 	return tierOrder.map((tier, index) => ({
 		tier,
@@ -729,7 +738,7 @@ export function getTierComparison(currentTier: SubscriptionTier): Array<{
  * Get the next tier up from current tier.
  */
 export function getNextTier(currentTier: SubscriptionTier): SubscriptionTier | null {
-	const tierOrder: SubscriptionTier[] = ["free", "starter", "growth", "enterprise"];
+	const tierOrder: SubscriptionTier[] = ["free", "starter", "growth", "agency_pro"];
 	const currentIndex = tierOrder.indexOf(currentTier);
 
 	if (currentIndex === -1 || currentIndex >= tierOrder.length - 1) {

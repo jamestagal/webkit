@@ -91,7 +91,7 @@
 				return 'badge-info';
 			case 'growth':
 				return 'badge-success';
-			case 'enterprise':
+			case 'agency_pro':
 				return 'badge-primary';
 			default:
 				return 'badge-ghost';
@@ -144,7 +144,7 @@
 				<option value="free">Free</option>
 				<option value="starter">Starter</option>
 				<option value="growth">Growth</option>
-				<option value="enterprise">Enterprise</option>
+				<option value="agency_pro">Agency Pro</option>
 			</select>
 		</div>
 	</div>

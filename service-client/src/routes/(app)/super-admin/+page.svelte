@@ -49,7 +49,7 @@
 				return 'badge-info';
 			case 'growth':
 				return 'badge-success';
-			case 'enterprise':
+			case 'agency_pro':
 				return 'badge-primary';
 			default:
 				return 'badge-ghost';

@@ -121,7 +121,7 @@
 				<div>
 					<h3 class="font-semibold">Beta Access Activated!</h3>
 					<p class="text-sm text-white/90">
-						Your account will have full enterprise features for free.
+						Your account will have full Agency Pro features for free.
 					</p>
 					{#if data.inviteEmail}
 						<p class="mt-1 text-xs text-white/70">Invite for: {data.inviteEmail}</p>

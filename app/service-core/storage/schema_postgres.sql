@@ -75,7 +75,7 @@ create table if not exists agencies (
 
     -- Status & Billing
     status varchar(50) not null default 'active',
-    subscription_tier varchar(50) not null default 'free',  -- free, starter, pro, enterprise
+    subscription_tier varchar(50) not null default 'free',  -- free, starter, growth, agency_pro, enterprise (reserved sales-only)
     subscription_id text not null default '',  -- Stripe subscription ID
     subscription_end timestamptz,
     stripe_customer_id text not null default '',  -- Stripe Customer ID for platform billing
@@ -1257,4 +1257,27 @@ create index if not exists idx_questionnaire_responses_slug on questionnaire_res
 create index if not exists idx_questionnaire_responses_contract_id on questionnaire_responses(contract_id);
 create index if not exists idx_questionnaire_responses_proposal_id on questionnaire_responses(proposal_id);
 create index if not exists idx_questionnaire_responses_status on questionnaire_responses(agency_id, status);
+
+-- Agency usage counters (monthly rolling) — mirrors migration 036
+create table if not exists agency_usage (
+    id uuid primary key default gen_random_uuid(),
+    agency_id uuid not null references agencies(id) on delete cascade,
+    feature text not null,
+    period text not null,
+    count integer not null default 0,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    constraint agency_usage_unique unique (agency_id, feature, period),
+    constraint agency_usage_count_non_negative check (count >= 0)
+);
+
+create index if not exists idx_agency_usage_lookup on agency_usage(agency_id, feature, period);
+
+-- Agency cumulative storage (bytes) — mirrors migration 036
+create table if not exists agency_storage (
+    agency_id uuid primary key references agencies(id) on delete cascade,
+    used_bytes bigint not null default 0,
+    updated_at timestamptz not null default now(),
+    constraint agency_storage_non_negative check (used_bytes >= 0)
+);
 

@@ -380,7 +380,7 @@
 		<div class="modal-box">
 			<h3 class="text-lg font-bold">Create Beta Invite</h3>
 			<p class="py-2 text-base-content/60">
-				Send an invite email to grant enterprise access during beta.
+				Send an invite email to grant Agency Pro access during beta.
 			</p>
 
 			<div class="form-control mt-4">

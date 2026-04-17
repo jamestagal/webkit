@@ -47,10 +47,10 @@
                     textColor: 'text-purple-100',
                     iconColor: 'text-purple-400'
                 };
-            case 'enterprise':
+            case 'agency_pro':
                 return {
-                    name: 'Enterprise',
-                    plan: 'enterprise',
+                    name: 'Agency Pro',
+                    plan: 'agency_pro',
                     bgColor: 'bg-yellow-500/20',
                     borderColor: 'border-yellow-500/30',
                     textColor: 'text-yellow-100',
@@ -76,7 +76,7 @@
         <Zap size={16} class="flex-shrink-0 {planInfo.iconColor}" />
     {:else if planInfo.plan === 'pro'}
         <Rocket size={16} class="flex-shrink-0 {planInfo.iconColor}" />
-    {:else if planInfo.plan === 'enterprise'}
+    {:else if planInfo.plan === 'agency_pro'}
         <Crown size={16} class="flex-shrink-0 {planInfo.iconColor}" />
     {:else}
         <Building2 size={16} class="flex-shrink-0 {planInfo.iconColor}" />

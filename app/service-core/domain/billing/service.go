@@ -71,9 +71,9 @@ func (s *Service) getPriceID(tier, interval string) (string, error) {
 			"month": s.cfg.StripePriceGrowthMonthly,
 			"year":  s.cfg.StripePriceGrowthYearly,
 		},
-		"enterprise": {
-			"month": s.cfg.StripePriceEnterpriseMonthly,
-			"year":  s.cfg.StripePriceEnterpriseYearly,
+		"agency_pro": {
+			"month": s.cfg.StripePriceAgencyProMonthly,
+			"year":  s.cfg.StripePriceAgencyProYearly,
 		},
 	}
 
@@ -92,8 +92,8 @@ func (s *Service) tierFromPriceID(priceID string) string {
 		s.cfg.StripePriceStarterYearly:     "starter",
 		s.cfg.StripePriceGrowthMonthly:     "growth",
 		s.cfg.StripePriceGrowthYearly:      "growth",
-		s.cfg.StripePriceEnterpriseMonthly: "enterprise",
-		s.cfg.StripePriceEnterpriseYearly:  "enterprise",
+		s.cfg.StripePriceAgencyProMonthly: "agency_pro",
+		s.cfg.StripePriceAgencyProYearly:  "agency_pro",
 	}
 	if tier, ok := priceToTier[priceID]; ok {
 		return tier

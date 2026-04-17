@@ -80,8 +80,8 @@ type Config struct {
 	StripePriceStarterYearly     string
 	StripePriceGrowthMonthly     string
 	StripePriceGrowthYearly      string
-	StripePriceEnterpriseMonthly string
-	StripePriceEnterpriseYearly  string
+	StripePriceAgencyProMonthly string
+	StripePriceAgencyProYearly  string
 	StripeBillingWebhookSecret   string
 
 	// Email
@@ -168,8 +168,8 @@ func LoadConfig() *Config {
 		StripePriceStarterYearly:     os.Getenv("STRIPE_PRICE_STARTER_YEARLY"),
 		StripePriceGrowthMonthly:     os.Getenv("STRIPE_PRICE_GROWTH_MONTHLY"),
 		StripePriceGrowthYearly:      os.Getenv("STRIPE_PRICE_GROWTH_YEARLY"),
-		StripePriceEnterpriseMonthly: os.Getenv("STRIPE_PRICE_ENTERPRISE_MONTHLY"),
-		StripePriceEnterpriseYearly:  os.Getenv("STRIPE_PRICE_ENTERPRISE_YEARLY"),
+		StripePriceAgencyProMonthly: os.Getenv("STRIPE_PRICE_AGENCY_PRO_MONTHLY"),
+		StripePriceAgencyProYearly:  os.Getenv("STRIPE_PRICE_AGENCY_PRO_YEARLY"),
 		StripeBillingWebhookSecret:   os.Getenv("STRIPE_BILLING_WEBHOOK_SECRET"),
 		EmailProvider:                MustSetEnv(true, "EMAIL_PROVIDER"),
 		EmailFrom:                    MustSetEnv(true, "EMAIL_FROM"),
@@ -244,8 +244,8 @@ func LoadTestConfig() *Config {
 		StripePriceStarterYearly:     "price_starter_yearly_test",
 		StripePriceGrowthMonthly:     "price_growth_monthly_test",
 		StripePriceGrowthYearly:      "price_growth_yearly_test",
-		StripePriceEnterpriseMonthly: "price_enterprise_monthly_test",
-		StripePriceEnterpriseYearly:  "price_enterprise_yearly_test",
+		StripePriceAgencyProMonthly: "price_agency_pro_monthly_test",
+		StripePriceAgencyProYearly:  "price_agency_pro_yearly_test",
 		StripeBillingWebhookSecret:   "billing_webhook_secret_test",
 		EmailProvider:                "sendgrid",
 		EmailFrom:                    "email_from",

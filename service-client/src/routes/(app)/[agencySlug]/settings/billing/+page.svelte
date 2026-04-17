@@ -98,8 +98,8 @@
 			]
 		},
 		{
-			id: 'enterprise',
-			name: 'Enterprise',
+			id: 'agency_pro',
+			name: 'Agency Pro',
 			description: 'For large agencies with advanced needs',
 			monthlyPrice: 199,
 			yearlyPrice: 1990,
@@ -136,7 +136,7 @@
 
 	// Check if tier is an upgrade
 	function isUpgrade(tierId: string): boolean {
-		const tierOrder = ['free', 'starter', 'growth', 'enterprise'];
+		const tierOrder = ['free', 'starter', 'growth', 'agency_pro'];
 		const currentIndex = tierOrder.indexOf(currentTier);
 		const targetIndex = tierOrder.indexOf(tierId);
 		return targetIndex > currentIndex;
@@ -152,7 +152,7 @@
 			// If user already has a paid subscription, use upgrade API (proration)
 			if (!hasActiveSubscription) {
 				const result = await createCheckoutSession({
-					tier: tierId as 'starter' | 'growth' | 'enterprise',
+					tier: tierId as 'starter' | 'growth' | 'agency_pro',
 					interval: billingInterval
 				});
 
@@ -162,7 +162,7 @@
 			} else {
 				// Existing subscriber - upgrade with proration
 				await upgradeSubscription({
-					tier: tierId as 'starter' | 'growth' | 'enterprise',
+					tier: tierId as 'starter' | 'growth' | 'agency_pro',
 					interval: billingInterval
 				});
 
@@ -360,7 +360,7 @@
 	</div>
 
 	<!-- Pricing Plans -->
-	{#if currentTier !== 'enterprise' && !isFreemium}
+	{#if currentTier !== 'agency_pro' && currentTier !== 'enterprise' && !isFreemium}
 		<div class="card bg-base-100 border border-base-300">
 			<div class="card-body">
 				<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
