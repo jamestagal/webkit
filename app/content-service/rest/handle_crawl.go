@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"app/pkg/usage"
 	"database/sql"
 	"encoding/json"
 	"log/slog"
@@ -141,6 +142,16 @@ func (h *Handler) handleStartCrawl(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != sql.ErrNoRows {
 		slog.Error("Error checking for active crawl jobs", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse("internal error"))
+		return
+	}
+
+	// Enforce monthly crawl cap (spec §8). Atomic check+increment.
+	if _, err := h.usage.Consume(r.Context(), agencyID, usage.FeatureCrawl); err != nil {
+		if writeUsageError(w, err) {
+			return
+		}
+		slog.Error("Error consuming crawl quota", "error", err)
 		writeJSON(w, http.StatusInternalServerError, errorResponse("internal error"))
 		return
 	}
