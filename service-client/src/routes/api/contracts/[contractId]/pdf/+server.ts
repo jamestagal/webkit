@@ -14,6 +14,7 @@ import { contracts, agencies, agencyProfiles, contractSchedules, agencyMembershi
 import { eq, and, inArray } from "drizzle-orm";
 import { generateContractPdfHtml } from "$lib/templates/contract-pdf";
 import { convertHtmlToPdf, RateLimitError } from "$lib/server/gotenberg";
+import { consumePDFExport } from "$lib/server/usage";
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const { contractId } = params;
@@ -80,6 +81,10 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			profile: profile || null,
 			includedSchedules,
 		});
+
+		// Enforce monthly PDF-export cap before hitting Gotenberg.
+		// Throws 429 with reset_date on limit exceeded.
+		await consumePDFExport(contract.agencyId);
 
 		// Convert to PDF
 		const pdfBuffer = await convertHtmlToPdf(html, locals.user.id);

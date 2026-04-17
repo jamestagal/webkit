@@ -21,6 +21,7 @@ import { eq, and, asc } from "drizzle-orm";
 import { generateQuotationPdfHtml } from "$lib/templates/quotation-pdf";
 import { decryptProfileFields } from "$lib/server/crypto";
 import { convertHtmlToPdf, RateLimitError } from "$lib/server/gotenberg";
+import { consumePDFExport } from "$lib/server/usage";
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const { quotationId } = params;
@@ -92,6 +93,10 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			agency,
 			profile,
 		});
+
+		// Enforce monthly PDF-export cap before hitting Gotenberg.
+		// Throws 429 with reset_date on limit exceeded (propagates via SvelteKit).
+		await consumePDFExport(quotation.agencyId);
 
 		// Convert to PDF
 		const pdfBuffer = await convertHtmlToPdf(html, locals.user.id);

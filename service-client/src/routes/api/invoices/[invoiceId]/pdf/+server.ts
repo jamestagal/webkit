@@ -15,6 +15,7 @@ import { eq, and } from "drizzle-orm";
 import { generateInvoicePdfHtml } from "$lib/templates/invoice-pdf";
 import { decryptProfileFields } from "$lib/server/crypto";
 import { convertHtmlToPdf, RateLimitError } from "$lib/server/gotenberg";
+import { consumePDFExport } from "$lib/server/usage";
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const { invoiceId } = params;
@@ -75,6 +76,10 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			agency,
 			profile: profile ? decryptProfileFields(profile) : null,
 		});
+
+		// Enforce monthly PDF-export cap before hitting Gotenberg.
+		// Throws 429 with reset_date on limit exceeded.
+		await consumePDFExport(invoice.agencyId);
 
 		// Convert to PDF
 		const pdfBuffer = await convertHtmlToPdf(html, locals.user.id);
