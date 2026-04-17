@@ -57,3 +57,10 @@ logs/
 **/.omc/sessions/
 **/.omc/state/
 **/.omc/project-memory.json
+
+# Cowork planning workspace (symlink to ~/Documents/Claude/Projects/Webkit)
+.cowork
+
+# Playwright MCP runtime logs/snapshots
+.playwright-mcp/
+
