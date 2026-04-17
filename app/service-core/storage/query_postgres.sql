@@ -149,3 +149,82 @@ SET
     subscription_end = NULL,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1;
+
+-- ============================================================================
+-- Usage tracking (agency_usage + agency_storage) — see migration 036
+-- Enforcement point is usage.Service in app/pkg/usage/service.go.
+-- ============================================================================
+
+-- name: GetUsageCount :one
+-- Returns 0 when no row exists for this (agency, feature, period) tuple.
+SELECT COALESCE(
+    (SELECT count FROM agency_usage
+     WHERE agency_id = $1 AND feature = $2 AND period = $3),
+    0
+)::INTEGER AS count;
+
+-- name: ConsumeIfUnderLimit :one
+-- Atomic check + increment. Insert path always succeeds (count=1 is under
+-- any real limit). Update path only fires when count < $4. When the update's
+-- WHERE clause fails, no row is returned -> sql.ErrNoRows, mapped to
+-- usage.ErrLimitExceeded by the service layer.
+INSERT INTO agency_usage (agency_id, feature, period, count)
+VALUES ($1, $2, $3, 1)
+ON CONFLICT (agency_id, feature, period)
+DO UPDATE SET
+    count = agency_usage.count + 1,
+    updated_at = NOW()
+WHERE agency_usage.count < sqlc.arg('max_count')
+RETURNING count;
+
+-- name: GetUsageSummary :many
+-- Returns all feature counts for an agency in a given period.
+-- Powers the /settings/billing dashboard.
+SELECT feature, count
+FROM agency_usage
+WHERE agency_id = $1 AND period = $2
+ORDER BY feature;
+
+-- name: GetStorageUsed :one
+SELECT COALESCE(used_bytes, 0)::BIGINT AS used_bytes
+FROM agency_storage
+WHERE agency_id = $1;
+
+-- name: UpsertIncrementStorage :exec
+-- $2 is a signed delta (negative to decrement on file delete).
+-- GREATEST guard prevents any path from leaving a negative balance.
+INSERT INTO agency_storage (agency_id, used_bytes)
+VALUES ($1, $2)
+ON CONFLICT (agency_id)
+DO UPDATE SET
+    used_bytes = GREATEST(agency_storage.used_bytes + $2, 0),
+    updated_at = NOW();
+
+-- name: AdminGetTopConsumers :many
+-- Super-admin anomaly detection — highest-usage agencies per feature/period.
+SELECT
+    a.id AS agency_id,
+    a.name AS agency_name,
+    a.slug AS agency_slug,
+    u.feature,
+    u.count,
+    u.period
+FROM agency_usage u
+JOIN agencies a ON a.id = u.agency_id
+WHERE u.period = $1 AND u.feature = $2
+ORDER BY u.count DESC
+LIMIT $3;
+
+-- name: CountActiveMembers :one
+-- Enforced at invite time (see app/pkg/usage docs). Status values:
+-- 'active' | 'invited' — only active memberships count against MaxMembers.
+SELECT COUNT(*)::INTEGER AS count
+FROM agency_memberships
+WHERE agency_id = $1 AND status = 'active';
+
+-- name: CountNonArchivedClients :one
+-- Clients use status-based soft delete (no deleted_at column).
+-- Valid status values: 'active' | 'archived'.
+SELECT COUNT(*)::INTEGER AS count
+FROM clients
+WHERE agency_id = $1 AND status != 'archived';

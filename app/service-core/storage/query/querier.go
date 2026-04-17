@@ -12,6 +12,19 @@ import (
 
 type Querier interface {
 	AcceptPendingMemberships(ctx context.Context, userID uuid.UUID) error
+	// Super-admin anomaly detection — highest-usage agencies per feature/period.
+	AdminGetTopConsumers(ctx context.Context, arg AdminGetTopConsumersParams) ([]AdminGetTopConsumersRow, error)
+	// Atomic check + increment. Insert path always succeeds (count=1 is under
+	// any real limit). Update path only fires when count < $4. When the update's
+	// WHERE clause fails, no row is returned -> sql.ErrNoRows, mapped to
+	// usage.ErrLimitExceeded by the service layer.
+	ConsumeIfUnderLimit(ctx context.Context, arg ConsumeIfUnderLimitParams) (int32, error)
+	// Enforced at invite time (see app/pkg/usage docs). Status values:
+	// 'active' | 'invited' — only active memberships count against MaxMembers.
+	CountActiveMembers(ctx context.Context, agencyID uuid.UUID) (int32, error)
+	// Clients use status-based soft delete (no deleted_at column).
+	// Valid status values: 'active' | 'archived'.
+	CountNonArchivedClients(ctx context.Context, agencyID uuid.UUID) (int32, error)
 	CountNotes(ctx context.Context, userID uuid.UUID) (int64, error)
 	DeleteFile(ctx context.Context, id uuid.UUID) error
 	DeleteNote(ctx context.Context, id uuid.UUID) error
@@ -22,6 +35,16 @@ type Querier interface {
 	// =============================================================================
 	GetAgencyBillingInfo(ctx context.Context, id uuid.UUID) (GetAgencyBillingInfoRow, error)
 	GetAgencyByStripeCustomer(ctx context.Context, stripeCustomerID string) (Agency, error)
+	GetStorageUsed(ctx context.Context, agencyID uuid.UUID) (int64, error)
+	// ============================================================================
+	// Usage tracking (agency_usage + agency_storage) — see migration 036
+	// Enforcement point is usage.Service in app/pkg/usage/service.go.
+	// ============================================================================
+	// Returns 0 when no row exists for this (agency, feature, period) tuple.
+	GetUsageCount(ctx context.Context, arg GetUsageCountParams) (int32, error)
+	// Returns all feature counts for an agency in a given period.
+	// Powers the /settings/billing dashboard.
+	GetUsageSummary(ctx context.Context, arg GetUsageSummaryParams) ([]GetUsageSummaryRow, error)
 	InsertEmail(ctx context.Context, arg InsertEmailParams) (Email, error)
 	InsertEmailAttachment(ctx context.Context, arg InsertEmailAttachmentParams) (EmailAttachment, error)
 	InsertFile(ctx context.Context, arg InsertFileParams) (File, error)
@@ -51,6 +74,9 @@ type Querier interface {
 	UpdateUserPhone(ctx context.Context, arg UpdateUserPhoneParams) error
 	UpdateUserSub(ctx context.Context, arg UpdateUserSubParams) error
 	UpdateUserSubscription(ctx context.Context, arg UpdateUserSubscriptionParams) error
+	// $2 is a signed delta (negative to decrement on file delete).
+	// GREATEST guard prevents any path from leaving a negative balance.
+	UpsertIncrementStorage(ctx context.Context, arg UpsertIncrementStorageParams) error
 }
 
 var _ Querier = (*Queries)(nil)
