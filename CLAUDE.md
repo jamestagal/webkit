@@ -26,6 +26,28 @@ Specs flow: **Cowork (draft)** → **Claude Code plan mode (plan)** → **Cowork
 3. User takes the plan back to Cowork for appraisal; feedback comes back as revisions to the plan
 4. Iterate the plan until user approves; **only then** exit plan mode and implement
 5. During implementation, write project learnings to `.claude/notes/{feature}/`; cross-project learnings queue in `~/Workspaces/shared-context/promotions-to-review/` for later promotion
+6. Commit with a `Spec: <filename>.md` trailer to auto-stamp the spec in `.cowork/planning/active/` with the commit SHA
+7. Once verified complete, run `/ship <filename>` to archive the spec to `.cowork/archive/completed/` (closes Layer 3)
+
+### `.cowork/` write policy
+
+Agents are **read-only** under `.cowork/` with **two narrow exceptions**:
+
+1. `/ship` may move a spec file between `.cowork/planning/active/` and `.cowork/archive/{completed,superseded}/`
+2. `/ship` may edit `.cowork/FEATURE-TRACKER.md` to flip a feature's status (e.g. `READY` → `DONE`). Matches entries by the `[slug]` anchor on the entry headline. Confirmation required before applying the edit.
+
+Format convention for tracker entries — each entry headline carries a slug anchor matching its spec filename stem:
+
+```
+DONE      [content-intelligence-nav-redesign] Content Intelligence Nav Redesign — shipped 2026-04-17
+          Spec: archive/completed/content-intelligence-nav-redesign.md
+```
+
+No other writes, edits, renames, or deletes under `.cowork/` — Cowork owns that workspace.
+
+### Git hooks
+
+One-time per clone: `sh scripts/install-git-hooks.sh`. Installs `post-commit` which stamps the matching Cowork spec when the commit message contains a `Spec: <filename>.md` trailer. Silent no-op if the trailer is absent or the spec is missing.
 
 Full pattern: `~/Workspaces/shared-context/standards/claude-code-workflow.md`.
 

@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Stamps the matching Cowork spec with the commit SHA when the commit message
+# includes a trailer like `Spec: <filename>.md`. Closes Layer 3 of the
+# Cowork → plan-mode → implement workflow.
+#
+# Example commit message:
+#     feat(nav): consolidate content intelligence tabs
+#
+#     Spec: content-intelligence-nav-redesign.md
+
+set -e
+
+COMMIT_SHA=$(git rev-parse --short HEAD)
+COMMIT_MSG=$(git log -1 --pretty=%B)
+
+SPEC_FILE=$(printf '%s\n' "$COMMIT_MSG" \
+  | grep -oE '^Spec:[[:space:]]*[^[:space:]]+\.md' \
+  | head -1 \
+  | sed -E 's/^Spec:[[:space:]]*//')
+
+[ -z "$SPEC_FILE" ] && exit 0
+
+COWORK_DIR="$(git rev-parse --show-toplevel)/.cowork"
+if [ ! -e "$COWORK_DIR" ]; then
+  echo "post-commit: .cowork symlink missing, skipping SHA stamp"
+  exit 0
+fi
+
+SPEC_PATH="$COWORK_DIR/planning/active/$SPEC_FILE"
+if [ ! -f "$SPEC_PATH" ]; then
+  echo "post-commit: spec not found at planning/active/$SPEC_FILE, skipping"
+  exit 0
+fi
+
+TODAY=$(date +%Y-%m-%d)
+{
+  echo ""
+  echo "- shipped in \`$COMMIT_SHA\` ($TODAY)"
+} >> "$SPEC_PATH"
+
+echo "post-commit: stamped $SPEC_FILE with $COMMIT_SHA"
