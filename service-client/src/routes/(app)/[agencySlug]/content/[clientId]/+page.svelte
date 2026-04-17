@@ -89,7 +89,7 @@
 			<div class="bg-base-100 rounded-2xl border border-base-200 p-5 shadow-sm">
 				<LaneHeader
 					icon={Search}
-					title="Analysis"
+					title="Website Analysis"
 					subtitle="Understand the client's current position"
 					color="#a855f7"
 					actionLabel="View Report"
@@ -127,7 +127,7 @@
 			<div class="bg-base-100 rounded-2xl border border-base-200 p-5 shadow-sm">
 				<LaneHeader
 					icon={PenTool}
-					title="Content"
+					title="Content Generation"
 					subtitle="Produce deliverables for the client"
 					color="#ec4899"
 					actionLabel="New Content Sprint"

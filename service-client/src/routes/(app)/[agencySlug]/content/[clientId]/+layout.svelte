@@ -2,51 +2,14 @@
 	import type { Snippet } from "svelte";
 	import { page } from "$app/state";
 	import { ArrowLeft } from "lucide-svelte";
+	import ClientTabNav from "$lib/components/content-intelligence/ClientTabNav.svelte";
 	import type { LayoutData } from "./$types";
 
 	let { children, data }: { children: Snippet; data: LayoutData } = $props();
 
-	let agencySlug = $derived(page.params.agencySlug);
-	let clientId = $derived(page.params.clientId);
-	let current = $derived(page.url.pathname);
-
-	let tabs = $derived([
-		{
-			label: "Overview",
-			href: `/${agencySlug}/content/${clientId}`,
-			active:
-				!current.includes("/pages") &&
-				!current.includes("/brand") &&
-				!current.includes("/audit") &&
-				!current.includes("/copy") &&
-				!current.includes("/social"),
-		},
-		{
-			label: "Pages",
-			href: `/${agencySlug}/content/${clientId}/pages`,
-			active: current.includes("/pages"),
-		},
-		{
-			label: "Brand",
-			href: `/${agencySlug}/content/${clientId}/brand`,
-			active: current.includes("/brand"),
-		},
-		{
-			label: "Audit",
-			href: `/${agencySlug}/content/${clientId}/audit`,
-			active: current.includes("/audit"),
-		},
-		{
-			label: "Copy",
-			href: `/${agencySlug}/content/${clientId}/copy`,
-			active: current.includes("/copy"),
-		},
-		{
-			label: "Social",
-			href: `/${agencySlug}/content/${clientId}/social`,
-			active: current.includes("/social"),
-		},
-	]);
+	let agencySlug = $derived(page.params.agencySlug!);
+	let clientId = $derived(page.params.clientId!);
+	let primaryColor = $derived(data.agency?.primaryColor ?? '#155eef');
 </script>
 
 <div class="space-y-6">
@@ -59,18 +22,7 @@
 	</div>
 
 	<!-- Tabs -->
-	<div role="tablist" class="tabs tabs-bordered">
-		{#each tabs as tab (tab.label)}
-			<a
-				href={tab.href}
-				role="tab"
-				class="tab"
-				class:tab-active={tab.active}
-			>
-				{tab.label}
-			</a>
-		{/each}
-	</div>
+	<ClientTabNav {agencySlug} {clientId} {primaryColor} />
 
 	<!-- Content -->
 	{@render children()}
