@@ -322,27 +322,6 @@
 					></progress>
 				</div>
 
-				<!-- Consultations -->
-				<div class="space-y-2">
-					<div class="flex items-center justify-between text-sm">
-						<span class="flex items-center gap-2">
-							<FileText class="h-4 w-4 text-base-content/60" />
-							Consultations
-						</span>
-						<span class="font-medium">
-							{formatUsage(
-								usageStats.usage.consultationsThisMonth.current,
-								usageStats.usage.consultationsThisMonth.limit
-							)}
-						</span>
-					</div>
-					<progress
-						class="progress progress-primary w-full"
-						value={usageStats.usage.consultationsThisMonth.percentage}
-						max="100"
-					></progress>
-				</div>
-
 				<!-- AI Generations (Go agency_usage SSoT) -->
 				<div class="space-y-2">
 					<div class="flex items-center justify-between text-sm">

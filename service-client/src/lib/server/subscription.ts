@@ -9,8 +9,8 @@
  */
 
 import { db } from "$lib/server/db";
-import { agencies, agencyMemberships, consultations, seoAudits } from "$lib/server/schema";
-import { eq, and, gte, count, sql } from "drizzle-orm";
+import { agencies, agencyMemberships } from "$lib/server/schema";
+import { eq, and, count } from "drizzle-orm";
 import { error } from "@sveltejs/kit";
 import { getAgencyContext } from "$lib/server/agency";
 import { checkUsage, consumeAIGeneration, getMaxMembers } from "$lib/server/usage";
@@ -37,13 +37,13 @@ export type SelfServeTier = "free" | "starter" | "growth" | "agency_pro";
 export type SubscriptionTier = SelfServeTier | "enterprise";
 
 export interface TierLimits {
-	maxMembers: number; // -1 = unlimited
-	maxConsultationsPerMonth: number; // -1 = unlimited
-	maxAIGenerationsPerMonth: number; // -1 = unlimited
-	maxSeoAuditsPerMonth: number; // -1 = unlimited
-	maxFreeReauditsPerClient: number; // re-audits before counting against quota
-	maxTemplates: number; // -1 = unlimited
-	maxStorageMB: number; // -1 = unlimited
+	// All numeric caps are authoritative in $lib/generated/tier-limits (Go is
+	// SSoT). The fields below are legacy and retained only for the `features`
+	// array used by hasFeature/tierHasFeature; PR 4+ will migrate those too.
+	maxMembers: number; // kept for legacy getAgencyTierLimits consumers
+	maxAIGenerationsPerMonth: number;
+	maxSeoAuditsPerMonth: number;
+	maxStorageMB: number;
 	features: TierFeature[];
 }
 
@@ -65,32 +65,23 @@ export type TierFeature =
 export const TIER_DEFINITIONS: Record<SelfServeTier, TierLimits> = {
 	free: {
 		maxMembers: 1,
-		maxConsultationsPerMonth: 10,
 		maxAIGenerationsPerMonth: 5,
-		maxSeoAuditsPerMonth: 0,
-		maxFreeReauditsPerClient: 0,
-		maxTemplates: 3,
-		maxStorageMB: 100,
+		maxSeoAuditsPerMonth: 2,
+		maxStorageMB: 500,
 		features: ["basic_proposals", "ai_proposal_generation"],
 	},
 	starter: {
 		maxMembers: 3,
-		maxConsultationsPerMonth: 25,
 		maxAIGenerationsPerMonth: 25,
-		maxSeoAuditsPerMonth: 5,
-		maxFreeReauditsPerClient: 3,
-		maxTemplates: 5,
-		maxStorageMB: 1024, // 1GB
+		maxSeoAuditsPerMonth: 10,
+		maxStorageMB: 5 * 1024, // 5GB
 		features: ["basic_proposals", "pdf_export", "email_delivery", "ai_proposal_generation", "seo_audits"],
 	},
 	growth: {
 		maxMembers: 10,
-		maxConsultationsPerMonth: 100,
 		maxAIGenerationsPerMonth: 100,
-		maxSeoAuditsPerMonth: 15,
-		maxFreeReauditsPerClient: 3,
-		maxTemplates: 20,
-		maxStorageMB: 10240, // 10GB
+		maxSeoAuditsPerMonth: 50,
+		maxStorageMB: 20 * 1024, // 20GB
 		features: [
 			"basic_proposals",
 			"pdf_export",
@@ -105,13 +96,10 @@ export const TIER_DEFINITIONS: Record<SelfServeTier, TierLimits> = {
 		],
 	},
 	agency_pro: {
-		maxMembers: -1,
-		maxConsultationsPerMonth: -1,
-		maxAIGenerationsPerMonth: -1,
-		maxSeoAuditsPerMonth: -1,
-		maxFreeReauditsPerClient: 3,
-		maxTemplates: -1,
-		maxStorageMB: -1,
+		maxMembers: 25,
+		maxAIGenerationsPerMonth: 500,
+		maxSeoAuditsPerMonth: 200,
+		maxStorageMB: 50 * 1024, // 50GB
 		features: [
 			"basic_proposals",
 			"pdf_export",
@@ -220,22 +208,6 @@ export async function getMemberCount(agencyId: string): Promise<number> {
 }
 
 /**
- * Get consultation count for current month.
- */
-export async function getMonthlyConsultationCount(agencyId: string): Promise<number> {
-	const startOfMonth = new Date();
-	startOfMonth.setDate(1);
-	startOfMonth.setHours(0, 0, 0, 0);
-
-	const [result] = await db
-		.select({ count: count() })
-		.from(consultations)
-		.where(and(eq(consultations.agencyId, agencyId), gte(consultations.createdAt, startOfMonth)));
-
-	return result?.count ?? 0;
-}
-
-/**
  * Check if agency can add more members.
  *
  * Reads the cap from the generated $lib/generated/tier-limits file so Go
@@ -263,76 +235,6 @@ export async function canAddMember(agencyId?: string): Promise<{
 		limit,
 		unlimited: false,
 	};
-}
-
-/**
- * Check if agency can create more consultations this month.
- */
-export async function canCreateConsultation(agencyId?: string): Promise<{
-	allowed: boolean;
-	current: number;
-	limit: number;
-	unlimited: boolean;
-	resetsAt: Date;
-}> {
-	const context = await getAgencyContext();
-	const targetAgencyId = agencyId || context.agencyId;
-
-	const { limits } = await getAgencyTierLimits();
-	const currentCount = await getMonthlyConsultationCount(targetAgencyId);
-
-	// Calculate when limit resets (start of next month)
-	const resetsAt = new Date();
-	resetsAt.setMonth(resetsAt.getMonth() + 1);
-	resetsAt.setDate(1);
-	resetsAt.setHours(0, 0, 0, 0);
-
-	if (limits.maxConsultationsPerMonth === -1) {
-		return { allowed: true, current: currentCount, limit: -1, unlimited: true, resetsAt };
-	}
-
-	return {
-		allowed: currentCount < limits.maxConsultationsPerMonth,
-		current: currentCount,
-		limit: limits.maxConsultationsPerMonth,
-		unlimited: false,
-		resetsAt,
-	};
-}
-
-/**
- * Get AI generation count for current month.
- * Uses the aiGenerationsThisMonth counter on the agencies table.
- */
-export async function getMonthlyAIGenerationCount(agencyId: string): Promise<number> {
-	const [agency] = await db
-		.select({
-			aiGenerationsThisMonth: agencies.aiGenerationsThisMonth,
-			aiGenerationsResetAt: agencies.aiGenerationsResetAt,
-		})
-		.from(agencies)
-		.where(eq(agencies.id, agencyId))
-		.limit(1);
-
-	if (!agency) return 0;
-
-	// Check if counter needs to be reset (new month)
-	const now = new Date();
-	const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-	if (!agency.aiGenerationsResetAt || agency.aiGenerationsResetAt < startOfMonth) {
-		// Reset counter for new month
-		await db
-			.update(agencies)
-			.set({
-				aiGenerationsThisMonth: 0,
-				aiGenerationsResetAt: now,
-			})
-			.where(eq(agencies.id, agencyId));
-		return 0;
-	}
-
-	return agency.aiGenerationsThisMonth ?? 0;
 }
 
 /**
@@ -381,67 +283,8 @@ export async function incrementAIGenerationCount(agencyId: string): Promise<void
 // =============================================================================
 
 /**
- * Get SEO audit count for current month.
- * Uses the seoAuditsThisMonth counter on the agencies table.
- */
-export async function getMonthlySeoAuditCount(agencyId: string): Promise<number> {
-	const [agency] = await db
-		.select({
-			seoAuditsThisMonth: agencies.seoAuditsThisMonth,
-			seoAuditsResetAt: agencies.seoAuditsResetAt,
-		})
-		.from(agencies)
-		.where(eq(agencies.id, agencyId))
-		.limit(1);
-
-	if (!agency) return 0;
-
-	// Check if counter needs to be reset (new month)
-	const now = new Date();
-	const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-	if (!agency.seoAuditsResetAt || agency.seoAuditsResetAt < startOfMonth) {
-		// Reset counter for new month
-		await db
-			.update(agencies)
-			.set({
-				seoAuditsThisMonth: 0,
-				seoAuditsResetAt: now,
-			})
-			.where(eq(agencies.id, agencyId));
-		return 0;
-	}
-
-	return agency.seoAuditsThisMonth ?? 0;
-}
-
-/**
- * Get the number of audits for a specific client this month.
- */
-export async function getClientAuditCountThisMonth(
-	agencyId: string,
-	clientId: string,
-): Promise<number> {
-	const now = new Date();
-	const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-	const [result] = await db
-		.select({ count: count() })
-		.from(seoAudits)
-		.where(
-			and(
-				eq(seoAudits.agencyId, agencyId),
-				eq(seoAudits.clientId, clientId),
-				gte(seoAudits.createdAt, startOfMonth),
-			),
-		);
-
-	return result?.count ?? 0;
-}
-
-/**
  * Check if agency can run an SEO audit.
- * Handles re-audit logic: first N re-audits per client/month are free.
+ * Thin wrapper over Go /api/v1/usage/check (agency_usage is SSoT).
  */
 export async function canRunSeoAudit(
 	agencyId?: string,
@@ -470,31 +313,6 @@ export async function canRunSeoAudit(
 		resetsAt: startOfNextMonth(),
 		isReaudit: false,
 	};
-}
-
-/**
- * Increment SEO audit counter for an agency.
- * Call this after a successful audit start (not for free re-audits).
- * Uses atomic SQL to prevent race conditions.
- */
-export async function incrementSeoAuditCount(agencyId: string): Promise<void> {
-	const now = new Date();
-	const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-	await db.execute(sql`
-		UPDATE agencies
-		SET seo_audits_this_month = CASE
-			WHEN seo_audits_reset_at IS NULL OR seo_audits_reset_at < ${startOfMonth}
-			THEN 1
-			ELSE seo_audits_this_month + 1
-		END,
-		seo_audits_reset_at = CASE
-			WHEN seo_audits_reset_at IS NULL OR seo_audits_reset_at < ${startOfMonth}
-			THEN ${now}
-			ELSE seo_audits_reset_at
-		END
-		WHERE id = ${agencyId}
-	`);
 }
 
 /**
@@ -530,22 +348,6 @@ export async function enforceMemberLimit(agencyId?: string): Promise<void> {
 		throw error(
 			403,
 			`Member limit reached (${result.current}/${result.limit}). Upgrade your plan to add more members.`,
-		);
-	}
-}
-
-/**
- * Enforce consultation limit - throws if limit exceeded.
- */
-export async function enforceConsultationLimit(agencyId?: string): Promise<void> {
-	const result = await canCreateConsultation(agencyId);
-
-	if (!result.allowed) {
-		throw error(
-			403,
-			`Monthly consultation limit reached (${result.current}/${result.limit}). ` +
-				`Limit resets on ${formatDate(result.resetsAt)}. ` +
-				`Upgrade your plan for more consultations.`,
 		);
 	}
 }
@@ -601,39 +403,19 @@ export async function getAgencyUsageStats(agencyId?: string): Promise<{
 	limits: TierLimits;
 	usage: {
 		members: { current: number; limit: number; percentage: number };
-		consultationsThisMonth: { current: number; limit: number; percentage: number };
-		aiGenerationsThisMonth: { current: number; limit: number; percentage: number };
-		seoAuditsThisMonth: { current: number; limit: number; percentage: number };
 	};
 }> {
 	const context = await getAgencyContext();
 	const targetAgencyId = agencyId || context.agencyId;
 
+	// Monthly counters (AI generations, SEO audits, PDF exports, etc.) now come
+	// from Go /api/v1/usage/summary. Consumers that want those should call
+	// getUsageSummary directly. This function is retained for the members
+	// row-count only, since that lives in agency_memberships, not agency_usage.
 	const { tier, limits } = await getAgencyTierLimits();
 	const memberCount = await getMemberCount(targetAgencyId);
-	const consultationCount = await getMonthlyConsultationCount(targetAgencyId);
-	const aiGenerationCount = await getMonthlyAIGenerationCount(targetAgencyId);
-	const seoAuditCount = await getMonthlySeoAuditCount(targetAgencyId);
-
 	const memberPercentage =
-		limits.maxMembers === -1 ? 0 : Math.round((memberCount / limits.maxMembers) * 100);
-
-	const consultationPercentage =
-		limits.maxConsultationsPerMonth === -1
-			? 0
-			: Math.round((consultationCount / limits.maxConsultationsPerMonth) * 100);
-
-	const aiGenerationPercentage =
-		limits.maxAIGenerationsPerMonth === -1
-			? 0
-			: Math.round((aiGenerationCount / limits.maxAIGenerationsPerMonth) * 100);
-
-	const seoAuditPercentage =
-		limits.maxSeoAuditsPerMonth === -1
-			? 0
-			: limits.maxSeoAuditsPerMonth === 0
-				? 0
-				: Math.round((seoAuditCount / limits.maxSeoAuditsPerMonth) * 100);
+		limits.maxMembers > 0 ? Math.round((memberCount / limits.maxMembers) * 100) : 0;
 
 	return {
 		tier,
@@ -643,21 +425,6 @@ export async function getAgencyUsageStats(agencyId?: string): Promise<{
 				current: memberCount,
 				limit: limits.maxMembers,
 				percentage: memberPercentage,
-			},
-			consultationsThisMonth: {
-				current: consultationCount,
-				limit: limits.maxConsultationsPerMonth,
-				percentage: consultationPercentage,
-			},
-			aiGenerationsThisMonth: {
-				current: aiGenerationCount,
-				limit: limits.maxAIGenerationsPerMonth,
-				percentage: aiGenerationPercentage,
-			},
-			seoAuditsThisMonth: {
-				current: seoAuditCount,
-				limit: limits.maxSeoAuditsPerMonth,
-				percentage: seoAuditPercentage,
 			},
 		},
 	};

@@ -80,7 +80,9 @@ create table if not exists agencies (
     subscription_end timestamptz,
     stripe_customer_id text not null default '',  -- Stripe Customer ID for platform billing
 
-    -- AI Generation Rate Limiting
+    -- DEPRECATED: replaced by agency_usage table (migration 036,
+    -- app/pkg/usage). No longer read or written from application code.
+    -- Column drop deferred to a post-launch migration.
     ai_generations_this_month integer not null default 0,
     ai_generations_reset_at timestamptz,
 

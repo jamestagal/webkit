@@ -84,11 +84,12 @@ export const agencies = pgTable("agencies", {
 	subscriptionEnd: timestamp("subscription_end", { withTimezone: true }),
 	stripeCustomerId: text("stripe_customer_id").notNull().default(""), // Stripe Customer ID for platform billing
 
-	// AI Generation Rate Limiting
+	// DEPRECATED: Per-agency monthly counters — replaced by agency_usage table
+	// (see migration 036 + app/pkg/usage). Column drop deferred to a post-launch
+	// migration once the new system is proven; meanwhile these columns are no
+	// longer read or written from application code. Do NOT add new references.
 	aiGenerationsThisMonth: integer("ai_generations_this_month").notNull().default(0),
 	aiGenerationsResetAt: timestamp("ai_generations_reset_at", { withTimezone: true }),
-
-	// SEO Audit Rate Limiting
 	seoAuditsThisMonth: integer("seo_audits_this_month").notNull().default(0),
 	seoAuditsResetAt: timestamp("seo_audits_reset_at", { withTimezone: true }),
 
