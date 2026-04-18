@@ -183,9 +183,17 @@ const UpdateAgencyBrandingSchema = v.object({
 	name: v.optional(v.pipe(v.string(), v.minLength(2), v.maxLength(100))),
 	logoUrl: v.optional(v.string()), // Horizontal logo for documents
 	logoAvatarUrl: v.optional(v.string()), // Square avatar logo for nav/UI
-	primaryColor: v.optional(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/))),
-	secondaryColor: v.optional(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/))),
-	accentColor: v.optional(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/))),
+	// Accept empty string as "unset" — the branding form clears fields to empty
+	// rather than undefined, so empty must be treated the same as missing.
+	primaryColor: v.optional(
+		v.union([v.literal(""), v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"))]),
+	),
+	secondaryColor: v.optional(
+		v.union([v.literal(""), v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"))]),
+	),
+	accentColor: v.optional(
+		v.union([v.literal(""), v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"))]),
+	),
 	accentGradient: v.optional(v.string()), // CSS gradient string for backgrounds
 });
 
