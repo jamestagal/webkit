@@ -41,6 +41,8 @@
 		if (score >= 40) return 'text-warning';
 		return 'text-error';
 	}
+
+	let hasAudit = $derived((overview?.seo.score ?? 0) > 0);
 </script>
 
 {#if overview}
@@ -50,30 +52,49 @@
 			class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 bg-base-100 rounded-2xl border border-base-200 p-5 shadow-sm"
 		>
 			<div class="flex items-center gap-4">
-				<ScoreDonut score={overview.seo.score || null} size="sm" />
-				<div>
-					<div class="text-xs text-base-content/50 uppercase tracking-wider">
-						Overall Score
+				{#if hasAudit}
+					<ScoreDonut score={overview.seo.score} size="sm" />
+					<div>
+						<div class="text-xs text-base-content/50 uppercase tracking-wider">
+							Overall Score
+						</div>
+						<div class="text-2xl font-bold {scoreColor(overview.seo.score)}">
+							{overview.seo.score}
+						</div>
 					</div>
-					<div class="text-2xl font-bold {scoreColor(overview.seo.score)}">
-						{overview.seo.score || '\u2014'}
+				{:else}
+					<div class="flex h-16 w-16 items-center justify-center rounded-full bg-base-200/60">
+						<AlertCircle class="h-7 w-7 text-base-content/30" />
 					</div>
-				</div>
+					<div>
+						<div class="text-xs text-base-content/50 uppercase tracking-wider">
+							Overall Score
+						</div>
+						<div class="text-sm font-medium text-base-content/70">
+							No audit yet
+						</div>
+						<div class="text-xs text-base-content/50">
+							Run an audit to see this client's SEO score.
+						</div>
+					</div>
+				{/if}
 			</div>
 			<div class="flex items-center gap-2">
-				<a
-					href="/{agencySlug}/content/{clientId}/audit?share=1"
-					class="btn btn-success btn-sm gap-2"
-				>
-					<Share2 size={14} />
-					Share Report
-				</a>
+				{#if hasAudit}
+					<a
+						href="/{agencySlug}/content/{clientId}/audit?share=1"
+						class="btn btn-success btn-sm gap-2"
+					>
+						<Share2 size={14} />
+						Share Report
+					</a>
+				{/if}
 				<a
 					href="/{agencySlug}/content/{clientId}/audit"
-					class="btn btn-warning btn-sm gap-2"
+					class="btn btn-sm gap-2 {hasAudit ? 'btn-warning' : 'btn-primary'}"
 				>
 					<Zap size={14} />
-					Re-run Audit
+					{hasAudit ? 'Re-run Audit' : 'Run Audit'}
 				</a>
 			</div>
 		</div>
