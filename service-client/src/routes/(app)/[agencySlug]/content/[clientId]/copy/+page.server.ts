@@ -9,5 +9,12 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		status,
 		copyType,
 	});
-	return { copies, clientId: params.clientId };
+
+	// The Go /api/content/copy endpoint returns every row in the copy table —
+	// including social_post rows, which have their own Social Posts tab.
+	// Filter here so Page Copy only surfaces true page-copy types and
+	// doesn't duplicate what Social Posts already shows.
+	const pageCopy = copies.filter((c) => c.copy_type !== "social_post");
+
+	return { copies: pageCopy, clientId: params.clientId };
 };
