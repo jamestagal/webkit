@@ -3,10 +3,17 @@
 	 * Renders nothing for <80% usage, an amber banner at 80-99%, and a red
 	 * banner at 100%. `upgradeHref` is the "Upgrade plan →" link target.
 	 *
-	 * Reads the same threshold semantics the Go service uses via the shared
-	 * isAtWarning / isAtLimit helpers so frontend + backend stay aligned.
+	 * Threshold semantics match the Go service's flag computation exactly
+	 * (≥80% warning / ≥100% limit). Kept inline rather than imported from
+	 * $lib/server so this component is client-safe.
 	 */
-	import { isAtWarning, isAtLimit } from '$lib/server/usage';
+	function isAtWarning(current: number, limit: number): boolean {
+		return limit > 0 && current / limit >= 0.8;
+	}
+
+	function isAtLimit(current: number, limit: number): boolean {
+		return limit > 0 && current >= limit;
+	}
 
 	interface Props {
 		feature: string;
