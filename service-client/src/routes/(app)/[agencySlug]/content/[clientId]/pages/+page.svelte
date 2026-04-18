@@ -11,16 +11,42 @@
 
 	let agencySlug = $derived(page.params.agencySlug);
 	let clientId = $derived(page.params.clientId!);
+	let upgradeHref = $derived(`/${agencySlug}/settings/billing`);
+
+	// SvelteKit's error() throws HttpError (not Error), so `err instanceof Error`
+	// is false. Read status + body.message directly so 429/403 quota messages
+	// surface instead of being replaced by a generic fallback.
+	function classifyError(err: unknown, fallback: string): {
+		message: string;
+		isLimit: boolean;
+	} {
+		const status = (err as { status?: number } | null)?.status;
+		let message = fallback;
+		if (err && typeof err === "object" && "body" in err) {
+			const body = (err as { body?: { message?: string } }).body;
+			if (body?.message) message = body.message;
+		} else if (err instanceof Error && err.message) {
+			message = err.message;
+		}
+		const isLimit =
+			status === 429 ||
+			(status === 403 && /limit|not available|upgrade/i.test(message));
+		return { message, isLimit };
+	}
 
 	// Re-crawl state
 	let isCrawling = $state(false);
 	let crawlProgress = $state("");
+	let crawlError = $state("");
+	let crawlAtLimit = $state(false);
 
 	async function handleRecrawl() {
 		if (!data.sourceUrl || isCrawling) return;
 
 		isCrawling = true;
 		crawlProgress = "Starting crawl...";
+		crawlError = "";
+		crawlAtLimit = false;
 
 		try {
 			const result = await startCrawl({
@@ -77,11 +103,11 @@
 				crawlProgress = "";
 			}, 2000);
 		} catch (err) {
-			crawlProgress = "Error starting crawl";
-			setTimeout(() => {
-				isCrawling = false;
-				crawlProgress = "";
-			}, 3000);
+			const { message, isLimit } = classifyError(err, "Error starting crawl");
+			crawlError = message;
+			crawlAtLimit = isLimit;
+			crawlProgress = "";
+			isCrawling = false;
 		}
 	}
 
@@ -170,6 +196,19 @@
 			{/if}
 		</div>
 	</div>
+
+	{#if crawlError}
+		<div>
+			<div class="alert alert-error">
+				<span>{crawlError}</span>
+			</div>
+			{#if crawlAtLimit}
+				<a href={upgradeHref} class="btn btn-sm btn-primary mt-2">
+					Upgrade plan →
+				</a>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- Search + Filter -->
 	<div class="flex flex-col sm:flex-row gap-2">
