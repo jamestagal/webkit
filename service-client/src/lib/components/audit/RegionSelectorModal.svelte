@@ -84,12 +84,14 @@
 			<h3 class="mb-4 text-lg font-semibold">Start SEO Audit</h3>
 
 			{#if errorMsg}
-				<div class="alert alert-error mb-4 flex-col items-start gap-2 py-2 text-sm">
-					<span>{errorMsg}</span>
+				<div class="mb-4">
+					<div class="alert alert-error py-2 text-sm">
+						<span>{errorMsg}</span>
+					</div>
 					{#if isLimitError}
 						<a
 							href={upgradeHref}
-							class="btn btn-sm btn-primary self-start"
+							class="btn btn-sm btn-primary mt-2"
 							onclick={onClose}
 						>
 							Upgrade plan →
