@@ -7,6 +7,8 @@
 	 * (≥80% warning / ≥100% limit). Kept inline rather than imported from
 	 * $lib/server so this component is client-safe.
 	 */
+	import { page } from '$app/state';
+
 	function isAtWarning(current: number, limit: number): boolean {
 		return limit > 0 && current / limit >= 0.8;
 	}
@@ -23,6 +25,11 @@
 	}
 
 	let { feature, current, limit, upgradeHref = './billing' }: Props = $props();
+
+	// On the billing page the link would point back to the same page —
+	// suppress the CTA there rather than making users click it only to
+	// discover nothing changed. Everywhere else the CTA is the whole point.
+	let showCta = $derived(!page.url.pathname.endsWith('/settings/billing'));
 
 	const FEATURE_LABELS: Record<string, string> = {
 		seo_audit: 'SEO audits',
@@ -46,9 +53,11 @@
 		<span>
 			You've used all <strong>{limit} {label}</strong> for this month.
 		</span>
-		<a href={upgradeHref} class="font-medium underline whitespace-nowrap"
-			>Upgrade plan →</a
-		>
+		{#if showCta}
+			<a href={upgradeHref} class="font-medium underline whitespace-nowrap"
+				>Upgrade plan →</a
+			>
+		{/if}
 	</div>
 {:else if warning}
 	<div
@@ -57,8 +66,10 @@
 		<span>
 			You've used <strong>{current} of {limit} {label}</strong> this month.
 		</span>
-		<a href={upgradeHref} class="font-medium underline whitespace-nowrap"
-			>Upgrade for more →</a
-		>
+		{#if showCta}
+			<a href={upgradeHref} class="font-medium underline whitespace-nowrap"
+				>Upgrade for more →</a
+			>
+		{/if}
 	</div>
 {/if}
