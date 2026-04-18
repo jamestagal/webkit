@@ -161,7 +161,11 @@
 					disabled={isCrawling}
 				>
 					<RefreshCw class="h-4 w-4 {isCrawling ? 'animate-spin' : ''}" />
-					{isCrawling ? "Crawling..." : "Re-crawl"}
+					{isCrawling
+						? "Crawling..."
+						: data.hasPriorCrawl
+							? "Re-crawl"
+							: "Start Crawl"}
 				</button>
 			{/if}
 		</div>
@@ -222,8 +226,26 @@
 				{:else}
 					<h3 class="text-lg font-semibold">No pages yet</h3>
 					<p class="text-base-content/60 max-w-sm">
-						Pages will appear here once a crawl has been completed for this client.
+						{#if data.sourceUrl}
+							Start a crawl to populate this client's pages.
+						{:else}
+							Add a website URL on the client profile to enable crawling.
+						{/if}
 					</p>
+					{#if data.sourceUrl}
+						<button
+							type="button"
+							class="btn btn-primary mt-4 gap-2"
+							onclick={handleRecrawl}
+							disabled={isCrawling}
+						>
+							<RefreshCw class="h-4 w-4 {isCrawling ? 'animate-spin' : ''}" />
+							{isCrawling ? "Crawling..." : "Start Crawl"}
+						</button>
+						{#if crawlProgress}
+							<p class="mt-2 text-xs text-base-content/60">{crawlProgress}</p>
+						{/if}
+					{/if}
 				{/if}
 			</div>
 		</div>
