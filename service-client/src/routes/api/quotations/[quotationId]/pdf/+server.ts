@@ -116,7 +116,14 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			return json({ error: err.message }, { status: 429 });
 		}
 		console.error("PDF generation error:", err);
-		const message = err instanceof Error ? err.message : "PDF generation failed";
-		return json({ error: message }, { status: 500 });
+		// SvelteKit error() throws an HttpError with .status + .body.message —
+		// forward both so 429 (quota), 403 (feature not on plan), 404 etc.
+		// reach the caller intact instead of being flattened to 500.
+		const httpErr = err as { status?: number; body?: { message?: string } };
+		const status = httpErr?.status ?? 500;
+		const message =
+			httpErr?.body?.message ??
+			(err instanceof Error ? err.message : "PDF generation failed");
+		return json({ error: message }, { status });
 	}
 };
