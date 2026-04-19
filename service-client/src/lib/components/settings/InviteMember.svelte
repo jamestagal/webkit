@@ -38,6 +38,10 @@
 		}
 	];
 
+	let currentRoleDescription = $derived(
+		roles.find((r) => r.value === role)?.description ?? ''
+	);
+
 	async function handleInvite() {
 		// Reset errors
 		errors = {};
@@ -186,36 +190,27 @@
 						/>
 					</div>
 
-					<!-- Role Selection -->
+					<!-- Role Selection — compact segmented control + dynamic description -->
 					<div class="form-control">
-						<label class="label">
+						<div class="label">
 							<span class="label-text">Role</span>
-						</label>
-						<div class="space-y-2">
+						</div>
+						<div class="join w-full" role="radiogroup" aria-label="Role">
 							{#each roles as roleOption}
-								<label
-									class="flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors hover:bg-base-200 {role ===
-									roleOption.value
-										? 'bg-primary/5 border-primary'
-										: 'border-base-300'}"
+								<button
+									type="button"
+									class="join-item btn btn-sm flex-1 {role === roleOption.value
+										? 'btn-primary'
+										: 'btn-outline'}"
+									onclick={() => (role = roleOption.value)}
+									disabled={isLoading}
+									aria-pressed={role === roleOption.value}
 								>
-									<input
-										type="radio"
-										name="role"
-										value={roleOption.value}
-										bind:group={role}
-										disabled={isLoading}
-										class="radio radio-primary mt-0.5"
-									/>
-									<div class="flex-1">
-										<div class="font-medium">{roleOption.label}</div>
-										<div class="text-base-content/60 text-sm">
-											{roleOption.description}
-										</div>
-									</div>
-								</label>
+									{roleOption.label}
+								</button>
 							{/each}
 						</div>
+						<p class="text-base-content/60 text-xs mt-2">{currentRoleDescription}</p>
 					</div>
 
 				</div>
