@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Mail, Users } from 'lucide-svelte';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import Modal from '$lib/components/shared/Modal.svelte';
 
@@ -127,19 +126,10 @@
 
 <Modal bind:isOpen={showModal} title="Invite Team Member" maxWidth="max-w-md">
 	{#snippet children()}
-		<div class="p-6">
-			<div class="flex items-center gap-3 mb-6">
-				<div
-					class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"
-				>
-					<Mail class="h-5 w-5" />
-				</div>
-				<div>
-					<p class="text-base-content/70 text-sm">
-						Send an invitation to join {agency.name}
-					</p>
-				</div>
-			</div>
+		<div class="p-5">
+			<p class="text-base-content/70 text-sm mb-4">
+				Send an invitation to join {agency.name}.
+			</p>
 
 			{#if inviteError}
 				<div class="mb-4">
@@ -158,7 +148,7 @@
 					handleInvite();
 				}}
 			>
-				<div class="space-y-4">
+				<div class="space-y-3">
 					<!-- Email Input -->
 					<div class="form-control">
 						<label for="email" class="label">
@@ -228,25 +218,9 @@
 						</div>
 					</div>
 
-					<!-- Info Box -->
-					<div class="alert alert-info">
-						<Users class="h-5 w-5 shrink-0" />
-						<div class="text-sm">
-							<p class="font-medium mb-1">About Member Roles</p>
-							<ul class="space-y-1 text-xs">
-								<li>
-									• <strong>Members</strong> can create and manage their own consultations and proposals
-								</li>
-								<li>
-									• <strong>Admins</strong> can manage all agency work and invite new members
-								</li>
-								<li>• <strong>Owners</strong> have full control including billing and settings</li>
-							</ul>
-						</div>
-					</div>
 				</div>
 
-				<div class="flex justify-end gap-3 mt-6">
+				<div class="flex justify-end gap-3 mt-4">
 					<button type="button" class="btn" onclick={handleClose} disabled={isLoading}>
 						Cancel
 					</button>
