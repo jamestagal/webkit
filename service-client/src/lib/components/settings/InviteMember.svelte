@@ -20,6 +20,12 @@
 	let isLoading = $state(false);
 	let errors = $state<{ email?: string }>({});
 
+	// Plan-limit error state — rendered as an inline alert at the top of the
+	// modal with an Upgrade CTA. Mirrors the New Client modal pattern.
+	let inviteError = $state('');
+	let inviteAtLimit = $state(false);
+	let upgradeHref = $derived(`/${agency.slug}/settings/billing`);
+
 	const roles = [
 		{
 			value: 'member' as const,
@@ -36,6 +42,8 @@
 	async function handleInvite() {
 		// Reset errors
 		errors = {};
+		inviteError = '';
+		inviteAtLimit = false;
 
 		// Validate
 		if (!email) {
@@ -67,21 +75,37 @@
 
 			// Notify parent
 			onInvite();
-		} catch (error) {
-			console.error('Failed to invite member:', error);
+		} catch (err) {
+			console.error('Failed to invite member:', err);
 
-			const errorMessage = (error as Error).message || 'Unknown error';
+			// SvelteKit's error() throws HttpError, so read status + body.message
+			// directly (same pattern as commit 9704e02).
+			const status = (err as { status?: number } | null)?.status;
+			let message = 'Something went wrong';
+			if (err && typeof err === 'object' && 'body' in err) {
+				const body = (err as { body?: { message?: string } }).body;
+				if (body?.message) message = body.message;
+			} else if (err instanceof Error && err.message) {
+				message = err.message;
+			}
 
-			// Handle specific error messages
-			if (errorMessage.includes('already a member')) {
+			const isLimit =
+				status === 429 ||
+				((status === 403 || status === 422) &&
+					/limit|not available|upgrade|plan supports/i.test(message));
+
+			// Keep the existing per-field handling for validation-style errors so
+			// the message attaches to the email input. Route everything else —
+			// including plan-limit errors — through the top-of-modal alert.
+			if (message.includes('already a member')) {
 				errors.email = 'This user is already a member of the agency';
-			} else if (errorMessage.includes('already invited')) {
+			} else if (message.includes('already invited')) {
 				errors.email = 'This user has already been invited';
-			} else if (errorMessage.includes('permission')) {
+			} else if (!isLimit && message.includes('permission')) {
 				errors.email = 'You do not have permission to invite members';
 			} else {
-				toast.error(`Failed to send invitation: ${errorMessage}`);
-				errors.email = errorMessage;
+				inviteError = message;
+				inviteAtLimit = isLimit;
 			}
 		} finally {
 			isLoading = false;
@@ -94,6 +118,8 @@
 			displayName = '';
 			role = 'member';
 			errors = {};
+			inviteError = '';
+			inviteAtLimit = false;
 			showModal = false;
 		}
 	}
@@ -114,6 +140,17 @@
 					</p>
 				</div>
 			</div>
+
+			{#if inviteError}
+				<div class="mb-4">
+					<div class="alert alert-error">
+						<span>{inviteError}</span>
+					</div>
+					{#if inviteAtLimit}
+						<a href={upgradeHref} class="btn btn-sm btn-primary mt-2">Upgrade plan →</a>
+					{/if}
+				</div>
+			{/if}
 
 			<form
 				onsubmit={(e) => {

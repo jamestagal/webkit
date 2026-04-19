@@ -33,6 +33,7 @@ import {
 } from "$lib/server/agency";
 import { logActivity } from "$lib/server/db-helpers";
 import { getEffectiveBranding } from "$lib/server/document-branding";
+import { enforceMemberLimit } from "$lib/server/subscription";
 import { eq, and, desc, asc, sql } from "drizzle-orm";
 import { sendEmail } from "$lib/server/services/email.service";
 import {
@@ -501,6 +502,13 @@ export const switchAgency = command(SwitchAgencySchema, async (agencyId: string)
  */
 export const inviteMember = command(InviteMemberSchema, async (data) => {
 	const context = await requireAgencyRole(["owner", "admin"]);
+
+	// Hard-ceiling guard (commit 42a76a9). Throws 403 when
+	// agency_memberships count (status='active') >= TIER_LIMITS[tier].max_members.
+	// Must run BEFORE we create users or membership rows so a blocked invite
+	// doesn't leave orphaned placeholder users behind.
+	await enforceMemberLimit(context.agencyId);
+
 	const currentUserId = getUserId();
 
 	// Get inviter details for email
