@@ -96,6 +96,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
 		// Enforce monthly PDF-export cap before hitting Gotenberg.
 		// Throws 429 with reset_date on limit exceeded (propagates via SvelteKit).
+		// TODO(usage): consume runs before convertHtmlToPdf — a Gotenberg failure
+		// here bills the agency for a PDF they never received. Acceptable while
+		// Gotenberg is reliable; revisit if failure rate climbs.
 		await consumePDFExport(quotation.agencyId);
 
 		// Convert to PDF
@@ -108,7 +111,10 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 				"Content-Type": "application/pdf",
 				"Content-Disposition": `attachment; filename="${filename}"`,
 				"Content-Length": pdfBuffer.byteLength.toString(),
-				"Cache-Control": "private, max-age=60",
+				// no-store: every download must hit the server so consumePDFExport runs.
+				// Prior `max-age=60` let browsers serve repeat downloads from cache and
+				// silently skip the usage counter.
+				"Cache-Control": "private, no-store",
 			},
 		});
 	} catch (err) {
