@@ -728,8 +728,10 @@
 							</div>
 
 							{#if pdfError}
-								<div class="alert alert-error flex-col items-start mt-3">
-									<span>{pdfError}</span>
+								<div class="mt-3">
+									<div class="alert alert-error">
+										<span>{pdfError}</span>
+									</div>
 									{#if pdfAtLimit}
 										<a href={upgradeHref} class="btn btn-sm btn-primary mt-2">Upgrade plan →</a>
 									{/if}

@@ -551,8 +551,10 @@
 		</div>
 
 		{#if createError}
-			<div class="alert alert-error flex-col items-start mb-4">
-				<span>{createError}</span>
+			<div class="mb-4">
+				<div class="alert alert-error">
+					<span>{createError}</span>
+				</div>
 				{#if createAtLimit}
 					<a href={upgradeHref} class="btn btn-sm btn-primary mt-2">Upgrade plan →</a>
 				{/if}
