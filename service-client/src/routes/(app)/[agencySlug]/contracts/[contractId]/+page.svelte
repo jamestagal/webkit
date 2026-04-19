@@ -41,7 +41,7 @@
 		Link2
 	} from 'lucide-svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/formatting';
-	import { downloadPdf as downloadPdfFile, PDFDownloadError } from '$lib/utils/pdf-download';
+	import { downloadPdf as downloadPdfFile, PDFDownloadError, friendlyLimitMessage } from '$lib/utils/pdf-download';
 	import type { PageProps } from './$types';
 
 	const toast = getToast();
@@ -342,7 +342,7 @@
 			toast.success('PDF downloaded');
 		} catch (err) {
 			if (err instanceof PDFDownloadError) {
-				pdfError = err.message;
+				pdfError = friendlyLimitMessage(err);
 				pdfAtLimit = err.isLimit;
 			} else {
 				pdfError = err instanceof Error ? err.message : 'PDF download failed';

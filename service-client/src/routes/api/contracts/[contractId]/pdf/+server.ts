@@ -112,11 +112,22 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		console.error("PDF generation error:", err);
 		// Forward HttpError status + message from consumePDFExport so 429/403
 		// reach the caller intact instead of being flattened to 500.
-		const httpErr = err as { status?: number; body?: { message?: string } };
+		const httpErr = err as {
+			status?: number;
+			body?: { message?: string; limit?: number; feature?: string; resetDate?: string };
+		};
 		const status = httpErr?.status ?? 500;
 		const message =
 			httpErr?.body?.message ??
 			(err instanceof Error ? err.message : "PDF generation failed");
-		return json({ error: message }, { status });
+		return json(
+			{
+				error: message,
+				limit: httpErr?.body?.limit,
+				feature: httpErr?.body?.feature,
+				resetDate: httpErr?.body?.resetDate,
+			},
+			{ status },
+		);
 	}
 };

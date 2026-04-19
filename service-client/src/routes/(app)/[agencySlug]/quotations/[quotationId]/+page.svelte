@@ -36,7 +36,7 @@
 	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
 	import type { ScopeSectionInput, TermsBlock } from '$lib/api/quotations.types';
-	import { downloadPdf as downloadPdfFile, PDFDownloadError } from '$lib/utils/pdf-download';
+	import { downloadPdf as downloadPdfFile, PDFDownloadError, friendlyLimitMessage } from '$lib/utils/pdf-download';
 
 	const toast = getToast();
 	let { data }: PageProps = $props();
@@ -467,7 +467,7 @@
 			);
 		} catch (err) {
 			if (err instanceof PDFDownloadError) {
-				pdfError = err.message;
+				pdfError = friendlyLimitMessage(err);
 				pdfAtLimit = err.isLimit;
 			} else {
 				pdfError = err instanceof Error ? err.message : 'PDF download failed';

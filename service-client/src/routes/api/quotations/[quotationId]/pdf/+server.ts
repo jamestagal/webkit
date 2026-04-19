@@ -122,14 +122,25 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			return json({ error: err.message }, { status: 429 });
 		}
 		console.error("PDF generation error:", err);
-		// SvelteKit error() throws an HttpError with .status + .body.message —
-		// forward both so 429 (quota), 403 (feature not on plan), 404 etc.
-		// reach the caller intact instead of being flattened to 500.
-		const httpErr = err as { status?: number; body?: { message?: string } };
+		// Forward the HttpError shape (status + structured body from usage.ts)
+		// so the frontend can render a clean "Resets 1 May 2026 — all 10 used"
+		// alert without regex-parsing the raw Go message on every page.
+		const httpErr = err as {
+			status?: number;
+			body?: { message?: string; limit?: number; feature?: string; resetDate?: string };
+		};
 		const status = httpErr?.status ?? 500;
 		const message =
 			httpErr?.body?.message ??
 			(err instanceof Error ? err.message : "PDF generation failed");
-		return json({ error: message }, { status });
+		return json(
+			{
+				error: message,
+				limit: httpErr?.body?.limit,
+				feature: httpErr?.body?.feature,
+				resetDate: httpErr?.body?.resetDate,
+			},
+			{ status },
+		);
 	}
 };

@@ -37,7 +37,7 @@
 	} from 'lucide-svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/formatting';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
-	import { downloadPdf as downloadPdfFile, PDFDownloadError } from '$lib/utils/pdf-download';
+	import { downloadPdf as downloadPdfFile, PDFDownloadError, friendlyLimitMessage } from '$lib/utils/pdf-download';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import AutoResizeTextarea from '$lib/components/AutoResizeTextarea.svelte';
 	import type { PageProps } from './$types';
@@ -375,7 +375,7 @@
 			await downloadPdfFile(`/api/invoices/${invoice.id}/pdf`, `${invoice.invoiceNumber}.pdf`);
 		} catch (err) {
 			if (err instanceof PDFDownloadError) {
-				pdfError = err.message;
+				pdfError = friendlyLimitMessage(err);
 				pdfAtLimit = err.isLimit;
 			} else {
 				pdfError = err instanceof Error ? err.message : 'PDF download failed';

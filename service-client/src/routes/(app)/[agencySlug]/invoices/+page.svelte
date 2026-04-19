@@ -24,7 +24,7 @@
 		RefreshCw
 	} from 'lucide-svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/formatting';
-	import { downloadPdf as downloadPdfFile, PDFDownloadError } from '$lib/utils/pdf-download';
+	import { downloadPdf as downloadPdfFile, PDFDownloadError, formatLimitToast } from '$lib/utils/pdf-download';
 	import type { PageProps } from './$types';
 
 	const feature = FEATURES.invoices;
@@ -179,11 +179,9 @@
 		try {
 			await downloadPdfFile(`/api/invoices/${invoiceId}/pdf`, `${invoiceNumber}.pdf`);
 		} catch (err) {
-			if (err instanceof PDFDownloadError && err.isLimit) {
-				toast.error(
-					'Monthly PDF limit reached',
-					`${err.message} — upgrade your plan to download more.`
-				);
+			if (err instanceof PDFDownloadError) {
+				const { title, body } = formatLimitToast(err);
+				toast.error(title, body);
 			} else {
 				toast.error(
 					'PDF download failed',

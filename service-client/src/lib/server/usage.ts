@@ -108,10 +108,19 @@ async function callUsageAPI<T>(
 			message?: string;
 			reset_date?: string;
 		};
-		const msg = body.reset_date
-			? `${body.message ?? "usage limit reached"} (resets ${body.reset_date})`
-			: body.message ?? `usage API error: ${res.status}`;
-		throw error(res.status, msg);
+		const rawMessage = body.message ?? `usage API error: ${res.status}`;
+		// Pull structured fields out of the Go message so callers don't have
+		// to regex-parse on every page. Shape is stable across service-core
+		// 429 responses: "usage: monthly limit exceeded: {feature} (limit of
+		// {N} reached this month)".
+		const limitMatch = rawMessage.match(/limit of (\d+) reached/i);
+		const featureMatch = rawMessage.match(/exceeded:\s*([a-z_]+)/i);
+		throw error(res.status, {
+			message: rawMessage,
+			limit: limitMatch ? Number(limitMatch[1]) : undefined,
+			feature: featureMatch?.[1],
+			resetDate: body.reset_date,
+		});
 	}
 
 	const parsed = (await res.json()) as SafeResponse<T>;

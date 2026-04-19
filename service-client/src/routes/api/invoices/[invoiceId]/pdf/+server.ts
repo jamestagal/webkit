@@ -105,13 +105,25 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			return json({ error: err.message }, { status: 429 });
 		}
 		console.error("PDF generation error:", err);
-		// Forward HttpError status + message from consumePDFExport so 429/403
-		// reach the caller intact instead of being flattened to 500.
-		const httpErr = err as { status?: number; body?: { message?: string } };
+		// Forward HttpError status + structured body (limit/feature/resetDate)
+		// from consumePDFExport so the frontend can render a clean alert
+		// without regex-parsing the raw Go message.
+		const httpErr = err as {
+			status?: number;
+			body?: { message?: string; limit?: number; feature?: string; resetDate?: string };
+		};
 		const status = httpErr?.status ?? 500;
 		const message =
 			httpErr?.body?.message ??
 			(err instanceof Error ? err.message : "PDF generation failed");
-		return json({ error: message }, { status });
+		return json(
+			{
+				error: message,
+				limit: httpErr?.body?.limit,
+				feature: httpErr?.body?.feature,
+				resetDate: httpErr?.body?.resetDate,
+			},
+			{ status },
+		);
 	}
 };

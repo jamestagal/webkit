@@ -6,7 +6,7 @@
 	import SendEmailModal from "$lib/components/shared/SendEmailModal.svelte";
 	import EmailHistory from "$lib/components/emails/EmailHistory.svelte";
 	import { formatDateTime } from '$lib/utils/formatting';
-	import { downloadPdf as downloadPdfFile, PDFDownloadError } from '$lib/utils/pdf-download';
+	import { downloadPdf as downloadPdfFile, PDFDownloadError, friendlyLimitMessage } from '$lib/utils/pdf-download';
 	import type { EmailLog } from "$lib/server/schema";
 	import {
 		ArrowLeft,
@@ -62,7 +62,7 @@
 			await downloadPdfFile(`/api/forms/${submission.id}/pdf`, '');
 		} catch (err) {
 			if (err instanceof PDFDownloadError) {
-				pdfError = err.message;
+				pdfError = friendlyLimitMessage(err);
 				pdfAtLimit = err.isLimit;
 			} else {
 				pdfError = err instanceof Error ? err.message : 'PDF download failed';
