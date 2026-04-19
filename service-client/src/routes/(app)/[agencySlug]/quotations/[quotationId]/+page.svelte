@@ -31,10 +31,12 @@
 		Edit,
 		Download,
 		MapPin,
-		MoreHorizontal
+		MoreHorizontal,
+		Loader2
 	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
 	import type { ScopeSectionInput, TermsBlock } from '$lib/api/quotations.types';
+	import { downloadPdf as downloadPdfFile, PDFDownloadError } from '$lib/utils/pdf-download';
 
 	const toast = getToast();
 	let { data }: PageProps = $props();
@@ -448,8 +450,31 @@
 		toast.success('Link copied to clipboard');
 	}
 
-	function downloadPdf() {
-		window.open(`/api/quotations/${data.quotation.id}/pdf`, '_blank');
+	// PDF download state — surfaces 429/403 inline instead of navigating to raw JSON.
+	let isDownloadingPdf = $state(false);
+	let pdfError = $state('');
+	let pdfAtLimit = $state(false);
+	let upgradeHref = $derived(`/${agencySlug}/settings/billing`);
+
+	async function downloadPdf() {
+		isDownloadingPdf = true;
+		pdfError = '';
+		pdfAtLimit = false;
+		try {
+			await downloadPdfFile(
+				`/api/quotations/${data.quotation.id}/pdf`,
+				`${data.quotation.quotationNumber}.pdf`
+			);
+		} catch (err) {
+			if (err instanceof PDFDownloadError) {
+				pdfError = err.message;
+				pdfAtLimit = err.isLimit;
+			} else {
+				pdfError = err instanceof Error ? err.message : 'PDF download failed';
+			}
+		} finally {
+			isDownloadingPdf = false;
+		}
 	}
 
 	function getStatusBadge(status: string) {
@@ -532,8 +557,17 @@
 					</button>
 				{/if}
 
-				<button type="button" class="btn btn-outline btn-sm" onclick={downloadPdf}>
-					<Download class="h-4 w-4" />
+				<button
+					type="button"
+					class="btn btn-outline btn-sm"
+					onclick={downloadPdf}
+					disabled={isDownloadingPdf}
+				>
+					{#if isDownloadingPdf}
+						<Loader2 class="h-4 w-4 animate-spin" />
+					{:else}
+						<Download class="h-4 w-4" />
+					{/if}
 					PDF
 				</button>
 
@@ -563,6 +597,15 @@
 			{/if}
 		</div>
 	</div>
+
+	{#if pdfError}
+		<div class="alert alert-error flex-col items-start">
+			<span>{pdfError}</span>
+			{#if pdfAtLimit}
+				<a href={upgradeHref} class="btn btn-sm btn-primary mt-2">Upgrade plan →</a>
+			{/if}
+		</div>
+	{/if}
 
 	{#if isEditing}
 		<!-- ================================================================= -->

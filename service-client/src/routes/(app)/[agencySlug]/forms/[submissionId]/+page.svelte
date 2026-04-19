@@ -6,6 +6,7 @@
 	import SendEmailModal from "$lib/components/shared/SendEmailModal.svelte";
 	import EmailHistory from "$lib/components/emails/EmailHistory.svelte";
 	import { formatDateTime } from '$lib/utils/formatting';
+	import { downloadPdf as downloadPdfFile, PDFDownloadError } from '$lib/utils/pdf-download';
 	import type { EmailLog } from "$lib/server/schema";
 	import {
 		ArrowLeft,
@@ -31,6 +32,7 @@
 		UserPlus,
 		Send,
 		Download,
+		Loader2,
 	} from "lucide-svelte";
 	import type { PageProps } from "./$types";
 
@@ -44,6 +46,31 @@
 	// Send email modal state
 	let sendModalOpen = $state(false);
 	let sendingEmail = $state(false);
+
+	// PDF download state — fetch-based so 429/403 surface inline instead of a raw JSON tab.
+	let isDownloadingPdf = $state(false);
+	let pdfError = $state('');
+	let pdfAtLimit = $state(false);
+	let upgradeHref = $derived(`/${agencySlug}/settings/billing`);
+
+	async function downloadPdf() {
+		isDownloadingPdf = true;
+		pdfError = '';
+		pdfAtLimit = false;
+		try {
+			// Filename falls back to server's Content-Disposition ({formName}-{clientName}-{date}.pdf).
+			await downloadPdfFile(`/api/forms/${submission.id}/pdf`, '');
+		} catch (err) {
+			if (err instanceof PDFDownloadError) {
+				pdfError = err.message;
+				pdfAtLimit = err.isLimit;
+			} else {
+				pdfError = err instanceof Error ? err.message : 'PDF download failed';
+			}
+		} finally {
+			isDownloadingPdf = false;
+		}
+	}
 
 	// Email history state
 	let emailLogs = $state<EmailLog[]>([]);
@@ -231,14 +258,19 @@
 			<div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-base-200">
 				<!-- PDF Download (only show if has responses) -->
 				{#if submission.status === "completed" || (formData() && Object.keys(formData()).length > 0)}
-					<a
-						href="/api/forms/{submission.id}/pdf"
-						download
+					<button
+						type="button"
 						class="btn btn-outline btn-sm"
+						onclick={downloadPdf}
+						disabled={isDownloadingPdf}
 					>
-						<Download class="h-4 w-4" />
+						{#if isDownloadingPdf}
+							<Loader2 class="h-4 w-4 animate-spin" />
+						{:else}
+							<Download class="h-4 w-4" />
+						{/if}
 						PDF
-					</a>
+					</button>
 				{/if}
 
 				<!-- Send Form (when draft or can resend) -->
@@ -285,6 +317,15 @@
 			</div>
 		</div>
 	</div>
+
+	{#if pdfError}
+		<div class="alert alert-error flex-col items-start">
+			<span>{pdfError}</span>
+			{#if pdfAtLimit}
+				<a href={upgradeHref} class="btn btn-sm btn-primary mt-2">Upgrade plan →</a>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- Status & Progress Card -->
 	{#if true}

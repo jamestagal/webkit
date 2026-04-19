@@ -41,6 +41,7 @@
 		Link2
 	} from 'lucide-svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/formatting';
+	import { downloadPdf as downloadPdfFile, PDFDownloadError } from '$lib/utils/pdf-download';
 	import type { PageProps } from './$types';
 
 	const toast = getToast();
@@ -53,6 +54,10 @@
 
 	let isSubmitting = $state(false);
 	let isDownloadingPdf = $state(false);
+	// PDF download error state — surfaces 429/403 inline instead of swallowing as a toast.
+	let pdfError = $state('');
+	let pdfAtLimit = $state(false);
+	let upgradeHref = $derived(`/${agencySlug}/settings/billing`);
 	let isRegeneratingTerms = $state(false);
 	let isLinkingTemplate = $state(false);
 	let showTemplatePicker = $state(false);
@@ -327,20 +332,21 @@
 
 	async function downloadPdf() {
 		isDownloadingPdf = true;
+		pdfError = '';
+		pdfAtLimit = false;
 		try {
-			const response = await fetch(`/api/contracts/${contract.id}/pdf`);
-			if (!response.ok) throw new Error('Failed to generate PDF');
-
-			const blob = await response.blob();
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `${contract.contractNumber}.pdf`;
-			a.click();
-			URL.revokeObjectURL(url);
+			await downloadPdfFile(
+				`/api/contracts/${contract.id}/pdf`,
+				`${contract.contractNumber}.pdf`
+			);
 			toast.success('PDF downloaded');
 		} catch (err) {
-			toast.error('Failed to download PDF', err instanceof Error ? err.message : '');
+			if (err instanceof PDFDownloadError) {
+				pdfError = err.message;
+				pdfAtLimit = err.isLimit;
+			} else {
+				pdfError = err instanceof Error ? err.message : 'PDF download failed';
+			}
 		} finally {
 			isDownloadingPdf = false;
 		}
@@ -720,6 +726,15 @@
 								<AlertCircle class="h-4 w-4" />
 								<span>Preview of how clients will see the contract. Save changes first.</span>
 							</div>
+
+							{#if pdfError}
+								<div class="alert alert-error flex-col items-start mt-3">
+									<span>{pdfError}</span>
+									{#if pdfAtLimit}
+										<a href={upgradeHref} class="btn btn-sm btn-primary mt-2">Upgrade plan →</a>
+									{/if}
+								</div>
+							{/if}
 						</div>
 
 						<!-- Inline Preview iframe - full width -->

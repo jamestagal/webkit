@@ -24,6 +24,7 @@
 		RefreshCw
 	} from 'lucide-svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/formatting';
+	import { downloadPdf as downloadPdfFile, PDFDownloadError } from '$lib/utils/pdf-download';
 	import type { PageProps } from './$types';
 
 	const feature = FEATURES.invoices;
@@ -174,8 +175,22 @@
 		toast.success('Link copied to clipboard');
 	}
 
-	function downloadPdf(invoiceId: string) {
-		window.open(`/api/invoices/${invoiceId}/pdf`, '_blank');
+	async function downloadPdf(invoiceId: string, invoiceNumber: string) {
+		try {
+			await downloadPdfFile(`/api/invoices/${invoiceId}/pdf`, `${invoiceNumber}.pdf`);
+		} catch (err) {
+			if (err instanceof PDFDownloadError && err.isLimit) {
+				toast.error(
+					'Monthly PDF limit reached',
+					`${err.message} — upgrade your plan to download more.`
+				);
+			} else {
+				toast.error(
+					'PDF download failed',
+					err instanceof Error ? err.message : 'Please try again.'
+				);
+			}
+		}
 	}
 </script>
 
@@ -342,7 +357,7 @@
 											</a>
 										</li>
 										<li>
-											<button type="button" onclick={() => downloadPdf(invoice.id)}>
+											<button type="button" onclick={() => downloadPdf(invoice.id, invoice.invoiceNumber)}>
 												<Download class="h-4 w-4" />
 												Download PDF
 											</button>
@@ -500,7 +515,7 @@
 											</a>
 										</li>
 										<li>
-											<button type="button" onclick={() => downloadPdf(invoice.id)}>
+											<button type="button" onclick={() => downloadPdf(invoice.id, invoice.invoiceNumber)}>
 												<Download class="h-4 w-4" />
 												Download PDF
 											</button>
