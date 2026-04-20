@@ -1032,8 +1032,10 @@
 		{/if}
 
 		<!-- Client Response Section (PART 2: Proposal Improvements).
-		     Hidden entirely when `previewMode` is true (branding preview iframe). -->
-		{#if !previewMode && canRespond && !form?.success}
+		     In `previewMode`, buttons render visually so the agency sees what the
+		     client will see, but click handlers are suppressed (disabled state +
+		     inline "Preview mode" note). Visual fidelity wins over logic strip. -->
+		{#if canRespond && !form?.success}
 			<section class="px-8 py-16">
 				<div class="mx-auto max-w-4xl">
 					<div class="text-center mb-8">
@@ -1041,19 +1043,21 @@
 						<p class="text-base-content/60 mt-2">
 							Let us know your decision below. We're here to answer any questions.
 						</p>
-						{#if isPreview}
-							<p class="text-info text-sm mt-2">(Preview mode - actions are disabled)</p>
+						{#if isPreview || previewMode}
+							<p class="text-info text-sm mt-2">(Preview mode — actions are disabled)</p>
 						{/if}
 					</div>
 
-					<!-- Response Action Buttons -->
+					<!-- Response Action Buttons. Disabled in either isPreview (admin
+					     preview via ?preview=true) or previewMode (branding preview
+					     iframe). Visible in both — agencies must see what clients see. -->
 					{#if !activeResponse}
 						<div class="flex flex-col sm:flex-row justify-center gap-4">
 							<button
 								type="button"
 								class="btn btn-success btn-lg gap-2"
 								onclick={() => (activeResponse = 'accept')}
-								disabled={isPreview}
+								disabled={isPreview || previewMode}
 							>
 								<ThumbsUp class="h-5 w-5" />
 								Accept Proposal
@@ -1062,7 +1066,7 @@
 								type="button"
 								class="btn btn-warning btn-lg gap-2"
 								onclick={() => (activeResponse = 'revision')}
-								disabled={isPreview}
+								disabled={isPreview || previewMode}
 							>
 								<Edit3 class="h-5 w-5" />
 								Request Changes
@@ -1071,7 +1075,7 @@
 								type="button"
 								class="btn btn-ghost btn-lg gap-2"
 								onclick={() => (activeResponse = 'decline')}
-								disabled={isPreview}
+								disabled={isPreview || previewMode}
 							>
 								<ThumbsDown class="h-5 w-5" />
 								Decline

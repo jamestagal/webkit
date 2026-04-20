@@ -435,10 +435,16 @@
 						</div>
 					{/if}
 
-					<!-- Acceptance Section -->
-					{#if !previewMode && canRespond && !acceptSuccess && !declineSuccess}
+					<!-- Acceptance Section. Visible in `previewMode` for visual
+					     fidelity, but submit + expand handlers disabled. -->
+					{#if canRespond && !acceptSuccess && !declineSuccess}
 						<div class="mt-8 pt-6 border-t-2 border-primary print-hidden">
-							<h2 class="text-lg font-bold mb-4">Acceptance</h2>
+							<div class="flex items-center justify-between mb-4">
+								<h2 class="text-lg font-bold">Acceptance</h2>
+								{#if previewMode}
+									<span class="text-info text-xs">(Preview mode — actions disabled)</span>
+								{/if}
+							</div>
 
 							{#if form?.error}
 								<div class="alert alert-error alert-sm mb-4">
@@ -472,6 +478,7 @@
 											class="input input-bordered"
 											placeholder="Enter your full name"
 											required
+											disabled={previewMode}
 										/>
 									</div>
 									<div class="form-control">
@@ -485,6 +492,7 @@
 											bind:value={acceptedByTitle}
 											class="input input-bordered"
 											placeholder="e.g., Director, Owner"
+											disabled={previewMode}
 										/>
 									</div>
 								</div>
@@ -493,7 +501,7 @@
 									<button
 										type="submit"
 										class="btn btn-primary flex-1"
-										disabled={isSubmitting || !acceptedByName}
+										disabled={isSubmitting || !acceptedByName || previewMode}
 									>
 										{#if isSubmitting}
 											<span class="loading loading-spinner loading-sm"></span>
@@ -507,6 +515,7 @@
 										type="button"
 										class="btn btn-outline btn-error"
 										onclick={() => (showDeclineForm = !showDeclineForm)}
+										disabled={previewMode}
 									>
 										<XCircle class="h-4 w-4" />
 										Decline

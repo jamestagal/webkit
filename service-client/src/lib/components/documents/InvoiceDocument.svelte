@@ -388,21 +388,39 @@
 				</div>
 			</div>
 
-			<!-- Pay Now Button -->
-			{#if !previewMode && canPay}
+			<!-- Pay Now Button. Visible in `previewMode` for visual fidelity —
+			     rendered as an inert button (no href / tabindex=-1 / aria-disabled)
+			     so the agency sees what the client sees without the click actually
+			     navigating to Stripe. -->
+			{#if canPay}
 				<div class="mt-6 print-hidden">
-					<a
-						href={invoice.stripePaymentLinkUrl}
-						class="btn btn-primary btn-lg w-full gap-2"
-						target="_blank"
-						rel="noopener noreferrer"
-					>
-						<CreditCard class="h-5 w-5" />
-						Pay {formatCurrency(invoice.total)} Now
-					</a>
-					<p class="text-center text-sm text-base-content/60 mt-2">
-						Secure payment powered by Stripe
-					</p>
+					{#if previewMode}
+						<button
+							type="button"
+							class="btn btn-primary btn-lg w-full gap-2"
+							disabled
+							aria-disabled="true"
+						>
+							<CreditCard class="h-5 w-5" />
+							Pay {formatCurrency(invoice.total)} Now
+						</button>
+						<p class="text-center text-xs text-info mt-2">
+							(Preview mode — payment link disabled)
+						</p>
+					{:else}
+						<a
+							href={invoice.stripePaymentLinkUrl}
+							class="btn btn-primary btn-lg w-full gap-2"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							<CreditCard class="h-5 w-5" />
+							Pay {formatCurrency(invoice.total)} Now
+						</a>
+						<p class="text-center text-sm text-base-content/60 mt-2">
+							Secure payment powered by Stripe
+						</p>
+					{/if}
 				</div>
 			{/if}
 

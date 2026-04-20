@@ -358,8 +358,13 @@
 											</p>
 										</div>
 									</div>
-								{:else if canSign && !signatureSuccess && !isPreview && !previewMode}
-									<!-- Signature Form -->
+								{:else if canSign && !signatureSuccess}
+									<!-- Signature Form. Visible in preview modes for visual
+									     fidelity — inputs are disabled so agencies see the
+									     form clients will complete without triggering a sign. -->
+									{#if isPreview || previewMode}
+										<p class="text-info text-xs mb-2">(Preview mode — signature disabled)</p>
+									{/if}
 									<form
 										method="POST"
 										action="?/sign"
@@ -391,6 +396,7 @@
 												class="input input-bordered"
 												placeholder="Enter your full legal name"
 												required
+												disabled={isPreview || previewMode}
 											/>
 										</div>
 
@@ -405,6 +411,7 @@
 												bind:value={signatoryTitle}
 												class="input input-bordered"
 												placeholder="e.g., Director, Owner"
+												disabled={isPreview || previewMode}
 											/>
 										</div>
 
@@ -417,6 +424,7 @@
 													bind:checked={agreedToTerms}
 													class="checkbox checkbox-primary"
 													required
+													disabled={isPreview || previewMode}
 												/>
 												<span class="label-text">
 													I have read and agree to the terms and conditions of this contract
@@ -427,7 +435,7 @@
 										<button
 											type="submit"
 											class="btn btn-primary w-full"
-											disabled={isSubmitting || !signatoryName || !agreedToTerms}
+											disabled={isSubmitting || !signatoryName || !agreedToTerms || isPreview || previewMode}
 										>
 											{#if isSubmitting}
 												<span class="loading loading-spinner loading-sm"></span>
@@ -441,10 +449,6 @@
 											By signing, you agree to be legally bound by this contract.
 										</p>
 									</form>
-								{:else if isPreview || previewMode}
-									<div class="bg-base-200 p-4 rounded-lg text-center">
-										<p class="text-base-content/60 text-sm">Signature form hidden in preview mode</p>
-									</div>
 								{:else if isExpired}
 									<p class="text-sm text-error italic">This contract has expired</p>
 								{:else}
