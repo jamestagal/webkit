@@ -108,8 +108,24 @@ export async function getEffectiveBranding(
 		primaryColor: agency.primaryColor || DEFAULT_BRANDING.primaryColor,
 		secondaryColor: agency.secondaryColor || DEFAULT_BRANDING.secondaryColor,
 		accentColor: agency.accentColor || DEFAULT_BRANDING.accentColor,
-		accentGradient: agency.accentGradient || DEFAULT_BRANDING.accentGradient,
+		// Replaced below with a computed-gradient fallback so consumers can
+		// read EffectiveBranding.accentGradient as an always-paintable string
+		// (no `||` logic at the call site).
+		accentGradient: "",
 	};
+
+	// Resolve an always-paintable accentGradient: explicit override wins,
+	// then the agency's own gradient, else compute a 2-stop gradient from
+	// primary → accent. This collapses the per-site `accentGradient || ...`
+	// conditional that would otherwise need to live at every consumer.
+	const explicitGradient =
+		override?.useCustomBranding && override?.accentGradient
+			? override.accentGradient
+			: agency.accentGradient || null;
+	const resolvedAccentGradient =
+		explicitGradient ||
+		`linear-gradient(135deg, ${baseBranding.primaryColor} 0%, ${baseBranding.accentColor} 100%)`;
+	baseBranding.accentGradient = resolvedAccentGradient;
 
 	// If no override or override is disabled, return agency defaults
 	if (!override || !override.useCustomBranding) {
@@ -122,7 +138,7 @@ export async function getEffectiveBranding(
 		primaryColor: override.primaryColor ?? baseBranding.primaryColor,
 		secondaryColor: baseBranding.secondaryColor, // No override for secondary
 		accentColor: override.accentColor ?? baseBranding.accentColor,
-		accentGradient: override.accentGradient ?? baseBranding.accentGradient,
+		accentGradient: baseBranding.accentGradient, // already resolved above
 	};
 }
 
