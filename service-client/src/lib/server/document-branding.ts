@@ -22,16 +22,24 @@ export interface EffectiveBranding {
 /**
  * Proposal-specific effective branding.
  *
- * Text-color fields are nullable: `null` means "no override, inherit from
- * the document's current text styling" — consumers must omit the inline
- * style attribute when the value is null. Hardcoding a default (e.g. white)
- * would break every existing agency render on a light cover background.
+ * Four fields are nullable and `null` means "no explicit override set —
+ * consumer should fall through to its own default fallback chain":
+ *   - coverTextColor / ctaButtonTextColor → `null` means inherit from
+ *     document's current text styling (omit inline `color`).
+ *   - sectionHeadingColor → `null` means the `<h2>` keeps `text-base-content`.
+ *   - ctaButtonColor → `null` means the price-card background uses
+ *     `branding.accentGradient || computed-gradient` (preserves the
+ *     pre-rewire agency-level gradient fallback path).
+ *
+ * coverBgColor and footerBgColor always have a value (cascade to
+ * agency.secondaryColor → '#E3EDF7') because they paint full-width
+ * sections that would look broken without a background.
  */
 export interface ProposalEffectiveBranding extends EffectiveBranding {
 	coverBgColor: string;
 	coverTextColor: string | null;
-	sectionHeadingColor: string;
-	ctaButtonColor: string;
+	sectionHeadingColor: string | null;
+	ctaButtonColor: string | null;
 	ctaButtonTextColor: string | null;
 	footerBgColor: string;
 }
@@ -158,14 +166,13 @@ export async function getEffectiveProposalBranding(
 		.limit(1);
 
 	const agencyCoverBg = agency?.secondaryColor || PROPOSAL_DEFAULT_COVER_BG;
-	const agencyHeading = agency?.primaryColor || DEFAULT_BRANDING.primaryColor;
 
 	return {
 		...base,
 		coverBgColor: (useOverride && override?.coverBgColor) || agencyCoverBg,
 		coverTextColor: useOverride ? (override?.coverTextColor ?? null) : null,
-		sectionHeadingColor: (useOverride && override?.sectionHeadingColor) || agencyHeading,
-		ctaButtonColor: (useOverride && override?.ctaButtonColor) || agencyHeading,
+		sectionHeadingColor: useOverride ? (override?.sectionHeadingColor ?? null) : null,
+		ctaButtonColor: useOverride ? (override?.ctaButtonColor ?? null) : null,
 		ctaButtonTextColor: useOverride ? (override?.ctaButtonTextColor ?? null) : null,
 		footerBgColor: (useOverride && override?.footerBgColor) || agencyCoverBg,
 	};

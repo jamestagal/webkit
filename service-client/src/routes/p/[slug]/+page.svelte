@@ -191,7 +191,7 @@
 			class="relative flex min-h-[50vh] items-center justify-center px-8 py-16"
 			style:background={branding.coverBgColor}
 		>
-			<div class="relative z-10 text-center" style:color={branding.coverTextColor}>
+			<div class="relative z-10 text-center">
 				{#if branding.logoUrl}
 					<img
 						src={branding.logoUrl}
@@ -199,16 +199,28 @@
 						class="mx-auto mb-8 h-16 w-auto object-contain"
 					/>
 				{:else}
-					<h2 class="mb-8 text-xl font-medium text-base-content/80">{agency?.name}</h2>
+					<h2
+						class="mb-8 text-xl font-medium text-base-content/80"
+						style:color={branding.coverTextColor}
+					>{agency?.name}</h2>
 				{/if}
 
-				<h1 class="text-4xl font-bold md:text-5xl text-base-content">{proposal.title}</h1>
+				<h1
+					class="text-4xl font-bold md:text-5xl text-base-content"
+					style:color={branding.coverTextColor}
+				>{proposal.title}</h1>
 
-				<p class="mt-4 text-xl text-base-content/80">
+				<p
+					class="mt-4 text-xl text-base-content/80"
+					style:color={branding.coverTextColor}
+				>
 					Prepared for {proposal.clientBusinessName || 'Valued Client'}
 				</p>
 
-				<p class="mt-2 text-base-content/60">{formatDate(proposal.createdAt, 'long')}</p>
+				<p
+					class="mt-2 text-base-content/60"
+					style:color={branding.coverTextColor}
+				>{formatDate(proposal.createdAt, 'long')}</p>
 
 				{#if proposal.validUntil}
 					<p class="mt-4 text-sm text-base-content/50">
@@ -295,7 +307,7 @@
 		{#if hasPerformanceData()}
 			<section class="px-8 py-16">
 				<div class="mx-auto max-w-4xl">
-					<h2 class="mb-8 text-center text-3xl font-bold">Current Website Performance Analysis</h2>
+					<h2 class="mb-8 text-center text-3xl font-bold" style:color={branding.sectionHeadingColor}>Current Website Performance Analysis</h2>
 
 					<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 						{#if performanceData.performance !== undefined}
@@ -373,7 +385,7 @@
 				<div class="relative mx-auto max-w-4xl">
 					<div class="flex items-center gap-4 mb-10">
 						<div class="w-1.5 h-12 rounded-full bg-gradient-to-b from-primary to-primary/30"></div>
-						<h2 class="text-3xl md:text-4xl font-bold tracking-tight">The Opportunity</h2>
+						<h2 class="text-3xl md:text-4xl font-bold tracking-tight" style:color={branding.sectionHeadingColor}>The Opportunity</h2>
 					</div>
 					<div class="text-base-content/80 text-lg leading-relaxed space-y-1">
 						{@html parseMarkdown(proposal.opportunityContent)}
@@ -391,7 +403,7 @@
 			})}
 			<section class="px-8 py-16">
 				<div class="mx-auto max-w-4xl">
-					<h2 class="mb-8 text-3xl font-bold">Current Site Issues We'll Solve</h2>
+					<h2 class="mb-8 text-3xl font-bold" style:color={branding.sectionHeadingColor}>Current Site Issues We'll Solve</h2>
 
 					{#if hasDetailedContent}
 						<!-- Detailed layout: stacked cards with title + description -->
@@ -433,9 +445,8 @@
 		<!-- Package & Pricing -->
 		{#if selectedPackage || customPricing}
 			<section
-				class="px-8 py-16"
-				style:background={branding.accentGradient || branding.ctaButtonColor}
-				style:color={branding.ctaButtonTextColor ?? '#FFFFFF'}
+				class="px-8 py-16 text-white"
+				style:background={branding.accentGradient || branding.primaryColor}
 			>
 				<div class="mx-auto max-w-4xl">
 					<h2 class="mb-8 text-3xl font-bold">
@@ -527,7 +538,7 @@
 		{#if roiAnalysis.currentVisitors || roiAnalysis.projectedVisitors}
 			<section class="px-8 py-16">
 				<div class="mx-auto max-w-4xl">
-					<h2 class="mb-8 text-3xl font-bold">ROI Analysis</h2>
+					<h2 class="mb-8 text-3xl font-bold" style:color={branding.sectionHeadingColor}>ROI Analysis</h2>
 					<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 						{#if roiAnalysis.currentVisitors}
 							<div class="card bg-base-200">
@@ -574,7 +585,7 @@
 		{#if performanceStandards.length > 0}
 			<section class="bg-base-200 px-8 py-16">
 				<div class="mx-auto max-w-4xl">
-					<h2 class="mb-8 text-center text-3xl font-bold">Performance Standards We Guarantee</h2>
+					<h2 class="mb-8 text-center text-3xl font-bold" style:color={branding.sectionHeadingColor}>Performance Standards We Guarantee</h2>
 					<div class="grid gap-4 sm:grid-cols-2">
 						{#each performanceStandards as standard}
 							{@const hasArrow = standard.value?.includes('→')}
@@ -637,7 +648,7 @@
 								</svg>
 							</div>
 							<div>
-								<h2 class="text-3xl md:text-4xl font-bold tracking-tight mb-3">SEO Health Summary</h2>
+								<h2 class="text-3xl md:text-4xl font-bold tracking-tight mb-3" style:color={branding.sectionHeadingColor}>SEO Health Summary</h2>
 								<p class="text-base-content/70 text-lg leading-relaxed">{seoData.overallAssessment}</p>
 							</div>
 						</div>
@@ -721,7 +732,7 @@
 					<div class="mx-auto max-w-4xl">
 						<div class="flex items-center gap-4 mb-10">
 							<div class="w-1.5 h-12 rounded-full bg-gradient-to-b from-info to-info/30"></div>
-							<h2 class="text-3xl md:text-4xl font-bold tracking-tight">SEO Health Summary</h2>
+							<h2 class="text-3xl md:text-4xl font-bold tracking-tight" style:color={branding.sectionHeadingColor}>SEO Health Summary</h2>
 						</div>
 						<div class="text-base-content/80 text-lg leading-relaxed space-y-1">
 							{@html parseMarkdown(proposal.seoSummary)}
@@ -737,7 +748,7 @@
 				<div class="mx-auto max-w-4xl">
 					<div class="flex items-center gap-4 mb-10">
 						<div class="w-1.5 h-12 rounded-full bg-gradient-to-b from-success to-success/30"></div>
-						<h2 class="text-3xl md:text-4xl font-bold tracking-tight">Local Advantage</h2>
+						<h2 class="text-3xl md:text-4xl font-bold tracking-tight" style:color={branding.sectionHeadingColor}>Local Advantage</h2>
 					</div>
 					<div class="relative">
 						<!-- Accent card styling -->
@@ -754,7 +765,7 @@
 		{#if proposedPages.length > 0}
 			<section class="bg-base-200 px-8 py-16">
 				<div class="mx-auto max-w-4xl">
-					<h2 class="mb-8 text-3xl font-bold">Proposed Site Architecture</h2>
+					<h2 class="mb-8 text-3xl font-bold" style:color={branding.sectionHeadingColor}>Proposed Site Architecture</h2>
 					<div class="grid gap-4 sm:grid-cols-2">
 						{#each proposedPages as page}
 							<div class="card bg-base-100">
@@ -775,14 +786,14 @@
 		{#if timeline.length > 0}
 			<section class="px-8 py-16">
 				<div class="mx-auto max-w-4xl">
-					<h2 class="mb-8 text-3xl font-bold">Implementation Timeline</h2>
+					<h2 class="mb-8 text-3xl font-bold" style:color={branding.sectionHeadingColor}>Implementation Timeline</h2>
 					<div class="space-y-0">
 						{#each timeline as phase, index}
 							<div class="flex gap-4">
 								<div class="flex flex-col items-center">
 									<div
 										class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white font-semibold"
-										style="background-color: {branding.sectionHeadingColor}"
+										style="background-color: {branding.primaryColor}"
 									>
 										{index + 1}
 									</div>
@@ -830,12 +841,12 @@
 					<div class="text-center mb-16">
 						<div
 							class="inline-flex items-center gap-3 px-5 py-2 rounded-full text-sm font-medium mb-6"
-							style="background: {branding.sectionHeadingColor}12; color: {branding.sectionHeadingColor};"
+							style="background: {branding.primaryColor}12; color: {branding.primaryColor};"
 						>
-							<span class="w-2 h-2 rounded-full animate-pulse" style="background: {branding.sectionHeadingColor};"></span>
+							<span class="w-2 h-2 rounded-full animate-pulse" style="background: {branding.primaryColor};"></span>
 							Final Thoughts
 						</div>
-						<h2 class="text-3xl md:text-4xl font-bold tracking-tight">
+						<h2 class="text-3xl md:text-4xl font-bold tracking-tight" style:color={branding.sectionHeadingColor}>
 							Looking Forward to Working Together
 						</h2>
 					</div>
@@ -845,7 +856,7 @@
 						<!-- Vertical accent line -->
 						<div
 							class="absolute left-0 top-8 bottom-8 w-1 rounded-full hidden md:block"
-							style="background: linear-gradient(180deg, {branding.sectionHeadingColor} 0%, {branding.sectionHeadingColor}40 50%, transparent 100%);"
+							style="background: linear-gradient(180deg, {branding.primaryColor} 0%, {branding.primaryColor}40 50%, transparent 100%);"
 						></div>
 
 						<div class="md:pl-8 space-y-8">
@@ -861,9 +872,9 @@
 								<div class="bg-base-100 rounded-xl p-4 text-center border border-base-200 hover:border-primary/30 transition-colors">
 									<div
 										class="w-10 h-10 mx-auto mb-2 rounded-full flex items-center justify-center"
-										style="background: {branding.sectionHeadingColor}15;"
+										style="background: {branding.primaryColor}15;"
 									>
-										<svg class="w-5 h-5" style="color: {branding.sectionHeadingColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<svg class="w-5 h-5" style="color: {branding.primaryColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
 										</svg>
 									</div>
@@ -872,9 +883,9 @@
 								<div class="bg-base-100 rounded-xl p-4 text-center border border-base-200 hover:border-primary/30 transition-colors">
 									<div
 										class="w-10 h-10 mx-auto mb-2 rounded-full flex items-center justify-center"
-										style="background: {branding.sectionHeadingColor}15;"
+										style="background: {branding.primaryColor}15;"
 									>
-										<svg class="w-5 h-5" style="color: {branding.sectionHeadingColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<svg class="w-5 h-5" style="color: {branding.primaryColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 										</svg>
 									</div>
@@ -883,9 +894,9 @@
 								<div class="bg-base-100 rounded-xl p-4 text-center border border-base-200 hover:border-primary/30 transition-colors">
 									<div
 										class="w-10 h-10 mx-auto mb-2 rounded-full flex items-center justify-center"
-										style="background: {branding.sectionHeadingColor}15;"
+										style="background: {branding.primaryColor}15;"
 									>
-										<svg class="w-5 h-5" style="color: {branding.sectionHeadingColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<svg class="w-5 h-5" style="color: {branding.primaryColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
 										</svg>
 									</div>
@@ -903,20 +914,23 @@
 			<section class="px-8 py-16">
 				<div class="mx-auto max-w-4xl">
 					<div class="text-center mb-10">
-						<h2 class="text-3xl font-bold tracking-tight">Your Investment</h2>
+						<h2 class="text-3xl font-bold tracking-tight" style:color={branding.sectionHeadingColor}>Your Investment</h2>
 						<p class="text-base-content/60 mt-2">Everything included in your package</p>
 					</div>
 
 					<div
 						class="relative overflow-hidden rounded-2xl border-2 shadow-2xl"
-						style="border-color: {branding.ctaButtonColor}30;"
+						style="border-color: {branding.ctaButtonColor || branding.primaryColor}30;"
 					>
-						<!-- Gradient header -->
+						<!-- Gradient header.
+						     Fallback chain: explicit price-card override (ctaButtonColor) wins
+						     when set; otherwise the agency's accentGradient wins (gonzcat-style
+						     pink/magenta/purple); otherwise a computed 2-stop gradient. -->
 						<div
 							class="px-8 py-6"
-							style="background: {branding.accentGradient || `linear-gradient(135deg, ${branding.ctaButtonColor} 0%, ${branding.accentColor} 100%)`};"
+							style="background: {branding.ctaButtonColor || branding.accentGradient || `linear-gradient(135deg, ${branding.primaryColor} 0%, ${branding.accentColor} 100%)`};"
 						>
-							<div class="text-white text-center">
+							<div class="text-white text-center" style:color={branding.ctaButtonTextColor}>
 								<p class="text-sm font-medium opacity-80 uppercase tracking-wider">
 									{selectedPackage?.name || 'Custom'} Package
 								</p>
@@ -956,7 +970,7 @@
 									{#each selectedAddons as addon}
 										<div class="flex justify-between items-center py-2 border-b border-base-200">
 											<dt class="text-base-content/70 flex items-center gap-2">
-												<span class="w-2 h-2 rounded-full" style="background: {branding.sectionHeadingColor};"></span>
+												<span class="w-2 h-2 rounded-full" style="background: {branding.primaryColor};"></span>
 												{addon.name}
 											</dt>
 											<dd class="font-semibold">{formatCurrency(addon.price)}</dd>
@@ -976,7 +990,7 @@
 									</div>
 									<div class="flex justify-between items-center py-2 mt-2">
 										<dt class="text-lg font-bold">Total (inc. GST)</dt>
-										<dd class="text-2xl font-bold" style="color: {branding.sectionHeadingColor};">
+										<dd class="text-2xl font-bold" style:color={branding.ctaButtonTextColor ?? branding.primaryColor}>
 											{formatCurrency(total)}
 										</dd>
 									</div>
@@ -1021,7 +1035,7 @@
 			<section class="px-8 py-16">
 				<div class="mx-auto max-w-4xl">
 					<div class="text-center mb-8">
-						<h2 class="text-3xl font-bold">Ready to Move Forward?</h2>
+						<h2 class="text-3xl font-bold" style:color={branding.sectionHeadingColor}>Ready to Move Forward?</h2>
 						<p class="text-base-content/60 mt-2">
 							Let us know your decision below. We're here to answer any questions.
 						</p>
