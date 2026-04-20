@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, goto } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { deleteInvoice, cancelInvoice } from '$lib/api/invoices.remote';
 	import { sendInvoiceEmail, sendInvoiceReminder } from '$lib/api/email.remote';
@@ -179,9 +179,17 @@
 		try {
 			await downloadPdfFile(`/api/invoices/${invoiceId}/pdf`, `${invoiceNumber}.pdf`);
 		} catch (err) {
-			if (err instanceof PDFDownloadError) {
+			if (err instanceof PDFDownloadError && err.isLimit) {
 				const { title, body } = formatLimitToast(err);
-				toast.error(title, body);
+				toast.error(title, body, {
+					duration: 0,
+					action: {
+						label: 'Upgrade plan →',
+						onClick: () => goto(`/${agencySlug}/settings/billing`),
+					},
+				});
+			} else if (err instanceof PDFDownloadError) {
+				toast.error('PDF download failed', err.message);
 			} else {
 				toast.error(
 					'PDF download failed',

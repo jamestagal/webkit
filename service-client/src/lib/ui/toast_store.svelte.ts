@@ -9,10 +9,13 @@ class ToastState {
 		setTimeout(() => {
 			this.toasts = [...this.toasts, toast];
 
-			const t = setTimeout(() => {
-				this.toasts = this.toasts.filter((t) => t.id !== toast.id);
-			}, toast.duration);
-			this.timeoutMap.set(toast.id, t);
+			// duration === 0 → persistent toast (user must dismiss manually)
+			if (toast.duration > 0) {
+				const t = setTimeout(() => {
+					this.toasts = this.toasts.filter((t) => t.id !== toast.id);
+				}, toast.duration);
+				this.timeoutMap.set(toast.id, t);
+			}
 		}, 0);
 	}
 	removeToast(id: symbol): void {
@@ -32,13 +35,18 @@ class ToastState {
 			duration: 5000,
 		});
 	}
-	error(title: string, description = ""): void {
+	error(
+		title: string,
+		description = "",
+		opts?: { duration?: number; action?: { label: string; onClick: () => void } },
+	): void {
 		this.showToast({
 			id: Symbol(),
 			title,
 			description,
 			type: "error",
-			duration: 8000,
+			duration: opts?.duration ?? 8000,
+			...(opts?.action && { action: opts.action }),
 		});
 	}
 	warning(title: string, description = ""): void {
