@@ -44,6 +44,7 @@
 	import { parseSEOSummary, getStatusColorClass } from '$lib/types/seo-summary';
 	import { AlertTriangle, TrendingUp } from 'lucide-svelte';
 	import SvelteSeo from 'svelte-seo';
+	import ProposalDocument from '$lib/components/documents/ProposalDocument.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -185,6 +186,7 @@
 		</div>
 	</div>
 {:else}
+	<ProposalDocument {branding}>
 	<article class="min-h-screen bg-base-100">
 		<!-- Cover Section -->
 		<header
@@ -1306,4 +1308,5 @@
 			</div>
 		</footer>
 	</article>
+	</ProposalDocument>
 {/if}
