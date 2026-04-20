@@ -21,7 +21,7 @@
 	import type { FormSchema, UIConfig } from '$lib/types/form-builder';
 	import type { ResolvedBranding } from '$lib/types/branding';
 	import { defaultAgencyBranding } from '$lib/types/branding';
-	import { hexToHsl } from '$lib/components/form-renderer/utils/theme-generator';
+	import { hexToHsl, hexToDaisyHsl } from '$lib/utils/color';
 	import { Check, AlertCircle } from 'lucide-svelte';
 	import type { EffectiveBranding } from '$lib/server/document-branding';
 	import type { PageData } from '../../../routes/f/[slug]/$types';
@@ -193,6 +193,22 @@
 		isSubmitted = true;
 	}
 
+	// DaisyUI-ready comma-separated HSL values computed from the branding
+	// cascade. Injected on the wrapper as --p / --s / --a below so
+	// DynamicForm (and any future consumer that reads DaisyUI theme vars)
+	// sees the resolved branding live — postMessage-driven branding updates
+	// in Phase 2.3 will flow through the wrapper's reactive style:--p and
+	// cascade to every descendant with zero DynamicForm changes.
+	let primaryDaisy = $derived(
+		branding.primaryColor ? hexToDaisyHsl(branding.primaryColor) : null
+	);
+	let secondaryDaisy = $derived(
+		branding.secondaryColor ? hexToDaisyHsl(branding.secondaryColor) : null
+	);
+	let accentDaisy = $derived(
+		branding.accentColor ? hexToDaisyHsl(branding.accentColor) : null
+	);
+
 	let uiConfig = $derived.by((): UIConfig => {
 		if (!form?.uiConfig) {
 			return {
@@ -213,6 +229,9 @@
 	style:--brand-secondary={branding.secondaryColor}
 	style:--brand-accent={branding.accentColor}
 	style:--brand-accent-gradient={branding.accentGradient}
+	style:--p={primaryDaisy}
+	style:--s={secondaryDaisy}
+	style:--a={accentDaisy}
 >
 	{#if isCompleted && !isSubmitted}
 		<!-- Already Completed State -->
