@@ -29,17 +29,23 @@ const GetDocumentBrandingSchema = v.object({
 	documentType: DocumentTypeSchema,
 });
 
+const HexColorSchema = v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"));
+
 const UpdateDocumentBrandingSchema = v.object({
 	documentType: DocumentTypeSchema,
 	useCustomBranding: v.boolean(),
 	logoUrl: v.optional(v.nullable(v.string())),
-	primaryColor: v.optional(
-		v.nullable(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"))),
-	),
-	accentColor: v.optional(
-		v.nullable(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"))),
-	),
+	primaryColor: v.optional(v.nullable(HexColorSchema)),
+	accentColor: v.optional(v.nullable(HexColorSchema)),
 	accentGradient: v.optional(v.nullable(v.string())),
+	// Proposal-specific override fields (migration 037). Mirrored by DB CHECK
+	// constraints; text-color fields may be null (inherit).
+	coverBgColor: v.optional(v.nullable(HexColorSchema)),
+	coverTextColor: v.optional(v.nullable(HexColorSchema)),
+	sectionHeadingColor: v.optional(v.nullable(HexColorSchema)),
+	ctaButtonColor: v.optional(v.nullable(HexColorSchema)),
+	ctaButtonTextColor: v.optional(v.nullable(HexColorSchema)),
+	footerBgColor: v.optional(v.nullable(HexColorSchema)),
 });
 
 // =============================================================================
@@ -112,13 +118,23 @@ export const updateDocumentBranding = command(UpdateDocumentBrandingSchema, asyn
 		)
 		.limit(1);
 
-	// Build update object - handle null vs undefined properly
+	// Build update object - handle null vs undefined properly. Empty strings
+	// from the form collapse to null so the DB CHECK constraint isn't tripped.
+	const normaliseHex = (value: string | null | undefined): string | null =>
+		value === null ? null : value || null;
+
 	const updateData = {
 		useCustomBranding: data.useCustomBranding,
 		logoUrl: data.logoUrl === null ? null : data.logoUrl || null,
-		primaryColor: data.primaryColor === null ? null : data.primaryColor || null,
-		accentColor: data.accentColor === null ? null : data.accentColor || null,
+		primaryColor: normaliseHex(data.primaryColor),
+		accentColor: normaliseHex(data.accentColor),
 		accentGradient: data.accentGradient === null ? null : data.accentGradient || null,
+		coverBgColor: normaliseHex(data.coverBgColor),
+		coverTextColor: normaliseHex(data.coverTextColor),
+		sectionHeadingColor: normaliseHex(data.sectionHeadingColor),
+		ctaButtonColor: normaliseHex(data.ctaButtonColor),
+		ctaButtonTextColor: normaliseHex(data.ctaButtonTextColor),
+		footerBgColor: normaliseHex(data.footerBgColor),
 		updatedAt: new Date(),
 	};
 
