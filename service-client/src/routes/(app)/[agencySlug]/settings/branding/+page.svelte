@@ -1206,7 +1206,14 @@
 				<iframe
 					bind:this={previewFrames[docType]}
 					src="/{page.params.agencySlug}/preview/{docType}"
-					onload={() => postBrandingNow(docType)}
+					onload={() => {
+						// Cancel any trailing debounced post queued before the iframe
+						// was ready — otherwise the scheduled call fires ~150ms after
+						// this synchronous one with the same payload (harmless but a
+						// redundant postMessage). Flagged by Cowork as probe 1.
+						postBranding.cancel();
+						postBrandingNow(docType);
+					}}
 					sandbox="allow-same-origin allow-scripts"
 					title="{tab.label} branding preview"
 					class="border-0"
