@@ -15,13 +15,22 @@
 	let { data }: PageProps = $props();
 
 	// Tab state
-	type TabId = 'defaults' | 'contracts' | 'invoices' | 'questionnaires' | 'emails';
+	type TabId =
+		| 'defaults'
+		| 'proposals'
+		| 'contracts'
+		| 'invoices'
+		| 'quotations'
+		| 'questionnaires'
+		| 'emails';
 	let activeTab = $state<TabId>('defaults');
 
 	const tabs: { id: TabId; label: string; icon: typeof FileText; docType?: DocumentType }[] = [
 		{ id: 'defaults', label: 'Agency Defaults', icon: Palette },
+		{ id: 'proposals', label: 'Proposals', icon: FileText, docType: 'proposal' },
 		{ id: 'contracts', label: 'Contracts', icon: FileText, docType: 'contract' },
 		{ id: 'invoices', label: 'Invoices', icon: Receipt, docType: 'invoice' },
+		{ id: 'quotations', label: 'Quotations', icon: Receipt, docType: 'quotation' },
 		{ id: 'questionnaires', label: 'Questionnaires', icon: ClipboardList, docType: 'questionnaire' },
 		{ id: 'emails', label: 'Emails', icon: Mail, docType: 'email' }
 	];
@@ -58,13 +67,21 @@
 	let isSavingDocBranding = $state(false);
 	let error = $state('');
 
-	// Document-specific branding state
+	// Document-specific branding state. Proposal-specific fields are stored on
+	// every record for shape consistency; they are only rendered for the
+	// Proposals tab and only persisted for docType === 'proposal'.
 	interface DocBrandingState {
 		useCustomBranding: boolean;
 		logoUrl: string;
 		primaryColor: string;
 		accentColor: string;
 		accentGradient: string;
+		coverBgColor: string;
+		coverTextColor: string;
+		sectionHeadingColor: string;
+		ctaButtonColor: string;
+		ctaButtonTextColor: string;
+		footerBgColor: string;
 	}
 
 	function getInitialDocBranding(docType: DocumentType): DocBrandingState {
@@ -74,7 +91,13 @@
 			logoUrl: override?.logoUrl ?? '',
 			primaryColor: override?.primaryColor ?? '',
 			accentColor: override?.accentColor ?? '',
-			accentGradient: override?.accentGradient ?? ''
+			accentGradient: override?.accentGradient ?? '',
+			coverBgColor: override?.coverBgColor ?? '',
+			coverTextColor: override?.coverTextColor ?? '',
+			sectionHeadingColor: override?.sectionHeadingColor ?? '',
+			ctaButtonColor: override?.ctaButtonColor ?? '',
+			ctaButtonTextColor: override?.ctaButtonTextColor ?? '',
+			footerBgColor: override?.footerBgColor ?? ''
 		};
 	}
 
@@ -86,6 +109,23 @@
 		email: getInitialDocBranding('email'),
 		quotation: getInitialDocBranding('quotation')
 	});
+
+	// Proposal-specific color fields rendered inside the Proposals tab.
+	type ProposalColorKey =
+		| 'coverBgColor'
+		| 'coverTextColor'
+		| 'sectionHeadingColor'
+		| 'ctaButtonColor'
+		| 'ctaButtonTextColor'
+		| 'footerBgColor';
+	const proposalColorFields: { key: ProposalColorKey; label: string; hint: string; placeholder: string }[] = [
+		{ key: 'coverBgColor', label: 'Cover background', hint: 'Proposal cover hero background', placeholder: '#E3EDF7' },
+		{ key: 'coverTextColor', label: 'Cover text', hint: 'Leave empty to inherit', placeholder: 'inherit' },
+		{ key: 'sectionHeadingColor', label: 'Section heading', hint: 'Titles and accent dots', placeholder: data.agency?.primaryColor ?? '#4F46E5' },
+		{ key: 'ctaButtonColor', label: 'CTA button bg', hint: 'Pricing + accept buttons', placeholder: data.agency?.primaryColor ?? '#4F46E5' },
+		{ key: 'ctaButtonTextColor', label: 'CTA button text', hint: 'Leave empty to inherit', placeholder: 'inherit' },
+		{ key: 'footerBgColor', label: 'Footer background', hint: 'Footer panel', placeholder: '#E3EDF7' }
+	];
 
 	// Logo upload state - separate for each logo type
 	let logoPreview = $state<string | null>(null); // For horizontal logo
@@ -272,13 +312,22 @@
 
 		try {
 			const branding = docBrandings[docType];
+			const isProposal = docType === 'proposal';
 			await updateDocumentBranding({
 				documentType: docType,
 				useCustomBranding: branding.useCustomBranding,
 				logoUrl: branding.logoUrl || null,
 				primaryColor: branding.primaryColor || null,
 				accentColor: branding.accentColor || null,
-				accentGradient: branding.accentGradient || null
+				accentGradient: branding.accentGradient || null,
+				// Proposal-specific fields are only persisted for docType 'proposal'.
+				// Other doc types skip them entirely (undefined preserves existing DB values).
+				coverBgColor: isProposal ? branding.coverBgColor || null : undefined,
+				coverTextColor: isProposal ? branding.coverTextColor || null : undefined,
+				sectionHeadingColor: isProposal ? branding.sectionHeadingColor || null : undefined,
+				ctaButtonColor: isProposal ? branding.ctaButtonColor || null : undefined,
+				ctaButtonTextColor: isProposal ? branding.ctaButtonTextColor || null : undefined,
+				footerBgColor: isProposal ? branding.footerBgColor || null : undefined
 			});
 			await invalidateAll();
 			toast.success('Document branding updated', `${docType.charAt(0).toUpperCase() + docType.slice(1)} branding saved`);
@@ -887,6 +936,50 @@
 							</FormField>
 						{/if}
 					</div>
+
+					{#if docType === 'proposal'}
+						<!-- Proposal-specific overrides -->
+						<div class="rounded-lg border border-base-300 p-4 space-y-4">
+							<div>
+								<p class="text-sm font-medium">Proposal-specific overrides</p>
+								<p class="text-xs text-base-content/60 mt-1">
+									Fine-tune the cover, section headings, CTA button, and footer. Leave any field
+									empty to inherit from your agency defaults (or, for text colors, your document's
+									built-in text styling).
+								</p>
+							</div>
+							<div class="grid gap-4 sm:grid-cols-2">
+								{#each proposalColorFields as field (field.key)}
+									<FormField label={field.label} hint={field.hint}>
+										<div class="flex items-center gap-3">
+											<input
+												type="color"
+												class="h-10 w-14 cursor-pointer rounded-lg border border-base-300"
+												bind:value={branding[field.key]}
+											/>
+											<input
+												type="text"
+												class="input input-bordered flex-1 font-mono text-sm uppercase"
+												placeholder={field.placeholder}
+												bind:value={branding[field.key]}
+												pattern="^#[0-9A-Fa-f]{6}$"
+											/>
+											{#if branding[field.key]}
+												<button
+													type="button"
+													class="btn btn-ghost btn-sm btn-square"
+													onclick={() => (branding[field.key] = '')}
+													title="Clear override"
+												>
+													<X class="h-4 w-4" />
+												</button>
+											{/if}
+										</div>
+									</FormField>
+								{/each}
+							</div>
+						</div>
+					{/if}
 
 					<!-- Preview -->
 					<div class="rounded-lg border border-base-300 p-4">
