@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { updateAgencyProfile } from '$lib/api/agency-profile.remote';
 	import { updateAgencyBranding } from '$lib/api/agency.remote';
 	import { updateDocumentBranding } from '$lib/api/document-branding.remote';
+	import { advancedDebounce } from '$lib/utils/debounce';
 	import type { DocumentType } from '$lib/server/schema';
 
 	const toast = getToast();
@@ -110,6 +112,108 @@
 		quotation: getInitialDocBranding('quotation')
 	});
 
+	// ---------------------------------------------------------------------
+	// Phase 2.5: Live preview wiring.
+	//
+	// The `previewFrames` map holds `HTMLIFrameElement` refs populated by
+	// `bind:this` on each doc-type tab's preview iframe. When the user
+	// mutates any branding form field, an $effect below computes the
+	// effective branding for the active tab's docType and posts a
+	// `branding-update` message to that iframe. The debounced wrapper keeps
+	// the post rate sane during color-picker drags (color inputs can fire
+	// ~60 events/sec).
+	//
+	// `computeEffective` mirrors the server-side resolver in
+	// `$lib/server/document-branding.ts` (getEffectiveBranding /
+	// getEffectiveProposalBranding). Must stay in sync: if the server
+	// cascade changes, update the copy below, or the preview will silently
+	// drift from the saved render. The duplication is intentional — the
+	// server resolver reads DB state (post-save), this one reads live form
+	// state (pre-save), so they operate on different data sources.
+	// ---------------------------------------------------------------------
+	let previewFrames = $state<Partial<Record<DocumentType, HTMLIFrameElement>>>({});
+	let previewExpanded = $state<Partial<Record<DocumentType, boolean>>>({});
+
+	function computeEffective(docType: DocumentType) {
+		const override = docBrandings[docType];
+		const useOverride = override.useCustomBranding;
+
+		const primaryColor =
+			(useOverride && override.primaryColor) || brandingData.primaryColor || '#4F46E5';
+		const secondaryColor = brandingData.secondaryColor || '#1E40AF';
+		const accentColor =
+			(useOverride && override.accentColor) || brandingData.accentColor || '#F59E0B';
+		const logoUrl = (useOverride && override.logoUrl) || brandingData.logoUrl || '';
+
+		// accentGradient is always paintable (matches the server-side tweak
+		// that folded the computed-gradient fallback into the resolver).
+		const explicitGradient =
+			(useOverride && override.accentGradient) || brandingData.accentGradient || null;
+		const accentGradient =
+			explicitGradient ||
+			`linear-gradient(135deg, ${primaryColor} 0%, ${accentColor} 100%)`;
+
+		const base = { logoUrl, primaryColor, secondaryColor, accentColor, accentGradient };
+
+		if (docType === 'proposal') {
+			// Cover/footer bg fall back to agency.secondaryColor (matches
+			// getEffectiveProposalBranding's agencyCoverBg cascade). Text
+			// colors cascade to null when no explicit override is set.
+			const agencyCoverBg = brandingData.secondaryColor || '#E3EDF7';
+			return {
+				...base,
+				coverBgColor: (useOverride && override.coverBgColor) || agencyCoverBg,
+				coverTextColor: useOverride ? override.coverTextColor || null : null,
+				sectionHeadingColor: useOverride ? override.sectionHeadingColor || null : null,
+				ctaButtonColor: useOverride ? override.ctaButtonColor || null : null,
+				ctaButtonTextColor: useOverride ? override.ctaButtonTextColor || null : null,
+				footerBgColor: (useOverride && override.footerBgColor) || agencyCoverBg
+			};
+		}
+		return base;
+	}
+
+	function postBrandingNow(docType: DocumentType) {
+		const frame = previewFrames[docType];
+		if (!frame?.contentWindow) return;
+		frame.contentWindow.postMessage(
+			{ type: 'branding-update', payload: computeEffective(docType) },
+			window.location.origin
+		);
+	}
+
+	/**
+	 * Debounce window: 150ms. Rationale — color-picker input events can
+	 * fire at ~60fps during a drag. Posting a payload per frame saturates
+	 * the iframe's reactive pipeline without perceptual benefit (human
+	 * eye can't resolve updates faster than ~100ms). A 16ms (rAF) window
+	 * would be strictly faster but offers no perceptual gain for a
+	 * branding preview. A 50ms window would feel equivalent but doesn't
+	 * leave enough margin for slow connections between color-input events
+	 * (some input devices emit at odd cadences). 150ms is the revision
+	 * doc's recommended value — adopted.
+	 */
+	const postBranding = advancedDebounce(postBrandingNow, 150);
+
+	// Re-post whenever the active tab's branding form state (or agency
+	// defaults feeding it) changes. Mutating `brandingData.X` or
+	// `docBrandings[docType].X` triggers the effect; the debounced
+	// function coalesces bursts.
+	$effect(() => {
+		const tab = tabs.find((t) => t.id === activeTab);
+		const docType = tab?.docType;
+		if (!docType) return;
+		// Force $effect to read every watched field so mutations track.
+		// JSON.stringify of the state objects is the cheapest way to
+		// depend on every nested field without listing them all.
+		void JSON.stringify(docBrandings[docType]);
+		void JSON.stringify(brandingData);
+		postBranding(docType);
+	});
+
+	function togglePreviewExpanded(docType: DocumentType) {
+		previewExpanded[docType] = !previewExpanded[docType];
+	}
 
 	// Logo upload state - separate for each logo type
 	let logoPreview = $state<string | null>(null); // For horizontal logo
@@ -1057,6 +1161,58 @@
 				{/if}
 				Save {tab.label} Branding
 			</button>
+		</div>
+
+		<!-- Live Preview (Phase 2.5).
+		     The iframe loads /preview/{docType} under the (bare) layout
+		     group so chrome-less rendering matches what clients see. The
+		     branding settings page posts a debounced `branding-update`
+		     message to this iframe whenever any form field for the active
+		     tab changes; the iframe's listener mutates its overrideBranding
+		     $state and every descendant reading --brand-* CSS vars repaints.
+
+		     sandbox="allow-same-origin allow-scripts" — `allow-scripts` is
+		     necessary because the preview page runs a Svelte hydration +
+		     the postMessage listener. `allow-same-origin` is necessary so
+		     the parent can reach iframe.contentWindow and target posts to
+		     `window.location.origin` (not '*'). Any looser value (e.g.
+		     omitting sandbox entirely) would permit additional attack
+		     surface with no functional benefit. -->
+		<div class="mt-6 border border-base-300 rounded-xl overflow-hidden">
+			<div class="bg-base-200 px-4 py-2 flex items-center justify-between">
+				<span class="text-sm font-medium">Live Preview</span>
+				<div class="flex items-center gap-2">
+					<a
+						href="/{page.params.agencySlug}/preview/{docType}"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="btn btn-xs btn-ghost"
+					>
+						Open full preview ↗
+					</a>
+					<button
+						type="button"
+						class="btn btn-xs btn-ghost"
+						onclick={() => togglePreviewExpanded(docType)}
+					>
+						{previewExpanded[docType] ? 'Collapse' : 'Expand'}
+					</button>
+				</div>
+			</div>
+			<div
+				class="relative overflow-hidden bg-base-100"
+				style="height: {previewExpanded[docType] ? 600 : 400}px"
+			>
+				<iframe
+					bind:this={previewFrames[docType]}
+					src="/{page.params.agencySlug}/preview/{docType}"
+					onload={() => postBrandingNow(docType)}
+					sandbox="allow-same-origin allow-scripts"
+					title="{tab.label} branding preview"
+					class="border-0"
+					style="transform: scale(0.65); transform-origin: top left; width: 154%; height: 154%;"
+				></iframe>
+			</div>
 		</div>
 	{/if}
 	{/if}
