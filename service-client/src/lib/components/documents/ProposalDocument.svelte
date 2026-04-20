@@ -150,7 +150,7 @@
 		<!-- Cover Section -->
 		<header
 			class="relative flex min-h-[50vh] items-center justify-center px-8 py-16"
-			style:background={branding.coverBgColor}
+			style="background: var(--brand-cover-bg)"
 		>
 			<div class="relative z-10 text-center">
 				{#if branding.logoUrl}
@@ -162,25 +162,25 @@
 				{:else}
 					<h2
 						class="mb-8 text-xl font-medium text-base-content/80"
-						style:color={branding.coverTextColor}
+						style="color: var(--brand-cover-text, inherit)"
 					>{agency?.name}</h2>
 				{/if}
 
 				<h1
 					class="text-4xl font-bold md:text-5xl text-base-content"
-					style:color={branding.coverTextColor}
+					style="color: var(--brand-cover-text, inherit)"
 				>{proposal.title}</h1>
 
 				<p
 					class="mt-4 text-xl text-base-content/80"
-					style:color={branding.coverTextColor}
+					style="color: var(--brand-cover-text, inherit)"
 				>
 					Prepared for {proposal.clientBusinessName || 'Valued Client'}
 				</p>
 
 				<p
 					class="mt-2 text-base-content/60"
-					style:color={branding.coverTextColor}
+					style="color: var(--brand-cover-text, inherit)"
 				>{formatDate(proposal.createdAt, 'long')}</p>
 
 				{#if proposal.validUntil}
@@ -268,7 +268,7 @@
 		{#if hasPerformanceData()}
 			<section class="px-8 py-16">
 				<div class="mx-auto max-w-4xl">
-					<h2 class="mb-8 text-center text-3xl font-bold" style:color={branding.sectionHeadingColor}>Current Website Performance Analysis</h2>
+					<h2 class="mb-8 text-center text-3xl font-bold" style="color: var(--brand-section-heading, inherit)">Current Website Performance Analysis</h2>
 
 					<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 						{#if performanceData.performance !== undefined}
@@ -346,7 +346,7 @@
 				<div class="relative mx-auto max-w-4xl">
 					<div class="flex items-center gap-4 mb-10">
 						<div class="w-1.5 h-12 rounded-full bg-gradient-to-b from-primary to-primary/30"></div>
-						<h2 class="text-3xl md:text-4xl font-bold tracking-tight" style:color={branding.sectionHeadingColor}>The Opportunity</h2>
+						<h2 class="text-3xl md:text-4xl font-bold tracking-tight" style="color: var(--brand-section-heading, inherit)">The Opportunity</h2>
 					</div>
 					<div class="text-base-content/80 text-lg leading-relaxed space-y-1">
 						{@html parseMarkdown(proposal.opportunityContent)}
@@ -364,7 +364,7 @@
 			})}
 			<section class="px-8 py-16">
 				<div class="mx-auto max-w-4xl">
-					<h2 class="mb-8 text-3xl font-bold" style:color={branding.sectionHeadingColor}>Current Site Issues We'll Solve</h2>
+					<h2 class="mb-8 text-3xl font-bold" style="color: var(--brand-section-heading, inherit)">Current Site Issues We'll Solve</h2>
 
 					{#if hasDetailedContent}
 						<!-- Detailed layout: stacked cards with title + description -->
@@ -411,7 +411,7 @@
 		{#if selectedPackage || customPricing}
 			<section
 				class="px-8 py-16 text-white"
-				style:background={branding.primaryColor}
+				style="background: var(--brand-primary)"
 			>
 				<div class="mx-auto max-w-4xl">
 					<h2 class="mb-8 text-3xl font-bold">
@@ -503,7 +503,7 @@
 		{#if roiAnalysis.currentVisitors || roiAnalysis.projectedVisitors}
 			<section class="px-8 py-16">
 				<div class="mx-auto max-w-4xl">
-					<h2 class="mb-8 text-3xl font-bold" style:color={branding.sectionHeadingColor}>ROI Analysis</h2>
+					<h2 class="mb-8 text-3xl font-bold" style="color: var(--brand-section-heading, inherit)">ROI Analysis</h2>
 					<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 						{#if roiAnalysis.currentVisitors}
 							<div class="card bg-base-200">
@@ -550,7 +550,7 @@
 		{#if performanceStandards.length > 0}
 			<section class="bg-base-200 px-8 py-16">
 				<div class="mx-auto max-w-4xl">
-					<h2 class="mb-8 text-center text-3xl font-bold" style:color={branding.sectionHeadingColor}>Performance Standards We Guarantee</h2>
+					<h2 class="mb-8 text-center text-3xl font-bold" style="color: var(--brand-section-heading, inherit)">Performance Standards We Guarantee</h2>
 					<div class="grid gap-4 sm:grid-cols-2">
 						{#each performanceStandards as standard}
 							{@const hasArrow = standard.value?.includes('→')}
@@ -613,7 +613,7 @@
 								</svg>
 							</div>
 							<div>
-								<h2 class="text-3xl md:text-4xl font-bold tracking-tight mb-3" style:color={branding.sectionHeadingColor}>SEO Health Summary</h2>
+								<h2 class="text-3xl md:text-4xl font-bold tracking-tight mb-3" style="color: var(--brand-section-heading, inherit)">SEO Health Summary</h2>
 								<p class="text-base-content/70 text-lg leading-relaxed">{seoData.overallAssessment}</p>
 							</div>
 						</div>
@@ -697,7 +697,7 @@
 					<div class="mx-auto max-w-4xl">
 						<div class="flex items-center gap-4 mb-10">
 							<div class="w-1.5 h-12 rounded-full bg-gradient-to-b from-info to-info/30"></div>
-							<h2 class="text-3xl md:text-4xl font-bold tracking-tight" style:color={branding.sectionHeadingColor}>SEO Health Summary</h2>
+							<h2 class="text-3xl md:text-4xl font-bold tracking-tight" style="color: var(--brand-section-heading, inherit)">SEO Health Summary</h2>
 						</div>
 						<div class="text-base-content/80 text-lg leading-relaxed space-y-1">
 							{@html parseMarkdown(proposal.seoSummary)}
@@ -713,7 +713,7 @@
 				<div class="mx-auto max-w-4xl">
 					<div class="flex items-center gap-4 mb-10">
 						<div class="w-1.5 h-12 rounded-full bg-gradient-to-b from-success to-success/30"></div>
-						<h2 class="text-3xl md:text-4xl font-bold tracking-tight" style:color={branding.sectionHeadingColor}>Local Advantage</h2>
+						<h2 class="text-3xl md:text-4xl font-bold tracking-tight" style="color: var(--brand-section-heading, inherit)">Local Advantage</h2>
 					</div>
 					<div class="relative">
 						<!-- Accent card styling -->
@@ -730,7 +730,7 @@
 		{#if proposedPages.length > 0}
 			<section class="bg-base-200 px-8 py-16">
 				<div class="mx-auto max-w-4xl">
-					<h2 class="mb-8 text-3xl font-bold" style:color={branding.sectionHeadingColor}>Proposed Site Architecture</h2>
+					<h2 class="mb-8 text-3xl font-bold" style="color: var(--brand-section-heading, inherit)">Proposed Site Architecture</h2>
 					<div class="grid gap-4 sm:grid-cols-2">
 						{#each proposedPages as page}
 							<div class="card bg-base-100">
@@ -751,14 +751,14 @@
 		{#if timeline.length > 0}
 			<section class="px-8 py-16">
 				<div class="mx-auto max-w-4xl">
-					<h2 class="mb-8 text-3xl font-bold" style:color={branding.sectionHeadingColor}>Implementation Timeline</h2>
+					<h2 class="mb-8 text-3xl font-bold" style="color: var(--brand-section-heading, inherit)">Implementation Timeline</h2>
 					<div class="space-y-0">
 						{#each timeline as phase, index}
 							<div class="flex gap-4">
 								<div class="flex flex-col items-center">
 									<div
 										class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white font-semibold"
-										style="background-color: {branding.primaryColor}"
+										style="background-color: var(--brand-primary)"
 									>
 										{index + 1}
 									</div>
@@ -786,18 +786,18 @@
 				<!-- Dramatic gradient background -->
 				<div
 					class="absolute inset-0"
-					style="background: linear-gradient(135deg, {branding.primaryColor}08 0%, transparent 50%, {branding.coverBgColor}08 100%);"
+					style="background: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 3%, transparent) 0%, transparent 50%, color-mix(in srgb, var(--brand-cover-bg) 3%, transparent) 100%);"
 				></div>
 
 				<!-- Geometric accent shapes -->
 				<div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
 					<div
 						class="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-[0.03]"
-						style:background={branding.primaryColor}
+						style="background: var(--brand-primary)"
 					></div>
 					<div
 						class="absolute -bottom-32 -left-32 w-[500px] h-[500px] rounded-full opacity-[0.03]"
-						style:background={branding.coverBgColor}
+						style="background: var(--brand-cover-bg)"
 					></div>
 				</div>
 
@@ -806,12 +806,12 @@
 					<div class="text-center mb-16">
 						<div
 							class="inline-flex items-center gap-3 px-5 py-2 rounded-full text-sm font-medium mb-6"
-							style="background: {branding.primaryColor}12; color: {branding.primaryColor};"
+							style="background: color-mix(in srgb, var(--brand-primary) 7%, transparent); color: var(--brand-primary);"
 						>
-							<span class="w-2 h-2 rounded-full animate-pulse" style="background: {branding.primaryColor};"></span>
+							<span class="w-2 h-2 rounded-full animate-pulse" style="background: var(--brand-primary);"></span>
 							Final Thoughts
 						</div>
-						<h2 class="text-3xl md:text-4xl font-bold tracking-tight" style:color={branding.sectionHeadingColor}>
+						<h2 class="text-3xl md:text-4xl font-bold tracking-tight" style="color: var(--brand-section-heading, inherit)">
 							Looking Forward to Working Together
 						</h2>
 					</div>
@@ -821,7 +821,7 @@
 						<!-- Vertical accent line -->
 						<div
 							class="absolute left-0 top-8 bottom-8 w-1 rounded-full hidden md:block"
-							style="background: linear-gradient(180deg, {branding.primaryColor} 0%, {branding.primaryColor}40 50%, transparent 100%);"
+							style="background: linear-gradient(180deg, var(--brand-primary) 0%, color-mix(in srgb, var(--brand-primary) 25%, transparent) 50%, transparent 100%);"
 						></div>
 
 						<div class="md:pl-8 space-y-8">
@@ -837,9 +837,9 @@
 								<div class="bg-base-100 rounded-xl p-4 text-center border border-base-200 hover:border-primary/30 transition-colors">
 									<div
 										class="w-10 h-10 mx-auto mb-2 rounded-full flex items-center justify-center"
-										style="background: {branding.primaryColor}15;"
+										style="background: color-mix(in srgb, var(--brand-primary) 8%, transparent);"
 									>
-										<svg class="w-5 h-5" style="color: {branding.primaryColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<svg class="w-5 h-5" style="color: var(--brand-primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
 										</svg>
 									</div>
@@ -848,9 +848,9 @@
 								<div class="bg-base-100 rounded-xl p-4 text-center border border-base-200 hover:border-primary/30 transition-colors">
 									<div
 										class="w-10 h-10 mx-auto mb-2 rounded-full flex items-center justify-center"
-										style="background: {branding.primaryColor}15;"
+										style="background: color-mix(in srgb, var(--brand-primary) 8%, transparent);"
 									>
-										<svg class="w-5 h-5" style="color: {branding.primaryColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<svg class="w-5 h-5" style="color: var(--brand-primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 										</svg>
 									</div>
@@ -859,9 +859,9 @@
 								<div class="bg-base-100 rounded-xl p-4 text-center border border-base-200 hover:border-primary/30 transition-colors">
 									<div
 										class="w-10 h-10 mx-auto mb-2 rounded-full flex items-center justify-center"
-										style="background: {branding.primaryColor}15;"
+										style="background: color-mix(in srgb, var(--brand-primary) 8%, transparent);"
 									>
-										<svg class="w-5 h-5" style="color: {branding.primaryColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<svg class="w-5 h-5" style="color: var(--brand-primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
 										</svg>
 									</div>
@@ -879,23 +879,24 @@
 			<section class="px-8 py-16">
 				<div class="mx-auto max-w-4xl">
 					<div class="text-center mb-10">
-						<h2 class="text-3xl font-bold tracking-tight" style:color={branding.sectionHeadingColor}>Your Investment</h2>
+						<h2 class="text-3xl font-bold tracking-tight" style="color: var(--brand-section-heading, inherit)">Your Investment</h2>
 						<p class="text-base-content/60 mt-2">Everything included in your package</p>
 					</div>
 
 					<div
 						class="relative overflow-hidden rounded-2xl border-2 shadow-2xl"
-						style="border-color: {branding.ctaButtonColor || branding.primaryColor}30;"
+						style="border-color: color-mix(in srgb, var(--brand-cta-bg, var(--brand-primary)) 19%, transparent);"
 					>
-						<!-- Gradient header.
-						     Fallback chain: explicit price-card override (ctaButtonColor) wins
-						     when set; otherwise the agency's accentGradient wins (gonzcat-style
-						     pink/magenta/purple); otherwise a computed 2-stop gradient. -->
+						<!-- Gradient header. After the resolver tweak, --brand-accent-gradient
+						     is always paintable (explicit agency gradient or computed 2-stop).
+						     The legacy `|| computed-gradient` tail is therefore dead code and
+						     collapses to a nested var() fallback: CTA override beats accent
+						     gradient, which beats the resolver-computed default. -->
 						<div
 							class="px-8 py-6"
-							style="background: {branding.ctaButtonColor || branding.accentGradient || `linear-gradient(135deg, ${branding.primaryColor} 0%, ${branding.accentColor} 100%)`};"
+							style="background: var(--brand-cta-bg, var(--brand-accent-gradient));"
 						>
-							<div class="text-white text-center" style:color={branding.ctaButtonTextColor}>
+							<div class="text-white text-center" style="color: var(--brand-cta-text, inherit)">
 								<p class="text-sm font-medium opacity-80 uppercase tracking-wider">
 									{selectedPackage?.name || 'Custom'} Package
 								</p>
@@ -935,7 +936,7 @@
 									{#each selectedAddons as addon}
 										<div class="flex justify-between items-center py-2 border-b border-base-200">
 											<dt class="text-base-content/70 flex items-center gap-2">
-												<span class="w-2 h-2 rounded-full" style="background: {branding.primaryColor};"></span>
+												<span class="w-2 h-2 rounded-full" style="background: var(--brand-primary);"></span>
 												{addon.name}
 											</dt>
 											<dd class="font-semibold">{formatCurrency(addon.price)}</dd>
@@ -955,7 +956,7 @@
 									</div>
 									<div class="flex justify-between items-center py-2 mt-2">
 										<dt class="text-lg font-bold">Total (inc. GST)</dt>
-										<dd class="text-2xl font-bold" style:color={branding.ctaButtonTextColor ?? branding.primaryColor}>
+										<dd class="text-2xl font-bold" style="color: var(--brand-cta-text, var(--brand-primary))">
 											{formatCurrency(total)}
 										</dd>
 									</div>
@@ -1000,7 +1001,7 @@
 			<section class="px-8 py-16">
 				<div class="mx-auto max-w-4xl">
 					<div class="text-center mb-8">
-						<h2 class="text-3xl font-bold" style:color={branding.sectionHeadingColor}>Ready to Move Forward?</h2>
+						<h2 class="text-3xl font-bold" style="color: var(--brand-section-heading, inherit)">Ready to Move Forward?</h2>
 						<p class="text-base-content/60 mt-2">
 							Let us know your decision below. We're here to answer any questions.
 						</p>
@@ -1212,7 +1213,7 @@
 		<!-- Contact / Footer -->
 		<footer
 			class="px-8 py-16"
-			style:background-color={branding.footerBgColor}
+			style="background-color: var(--brand-footer-bg)"
 		>
 			<div class="mx-auto max-w-4xl text-center">
 				{#if branding.logoUrl}
@@ -1231,13 +1232,13 @@
 
 				<div class="flex flex-wrap justify-center gap-6 text-base-content/80">
 					{#if agency?.phone}
-						<a href="tel:{agency.phone}" class="flex items-center gap-2 hover:underline" style:color={branding.primaryColor}>
+						<a href="tel:{agency.phone}" class="flex items-center gap-2 hover:underline" style="color: var(--brand-primary)">
 							<Phone class="h-5 w-5" />
 							{agency.phone}
 						</a>
 					{/if}
 					{#if agency?.email}
-						<a href="mailto:{agency.email}" class="flex items-center gap-2 hover:underline" style:color={branding.primaryColor}>
+						<a href="mailto:{agency.email}" class="flex items-center gap-2 hover:underline" style="color: var(--brand-primary)">
 							<Mail class="h-5 w-5" />
 							{agency.email}
 						</a>
@@ -1248,7 +1249,7 @@
 							target="_blank"
 							rel="noopener noreferrer"
 							class="flex items-center gap-2 hover:underline"
-							style:color={branding.primaryColor}
+							style="color: var(--brand-primary)"
 						>
 							<Globe class="h-5 w-5" />
 							{agency.website.replace(/^https?:\/\//, '')}
