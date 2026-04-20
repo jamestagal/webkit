@@ -10,6 +10,7 @@ import { db } from "$lib/server/db";
 import { contracts, agencies, agencyProfiles, contractSchedules, emailLogs } from "$lib/server/schema";
 import { eq, sql, inArray } from "drizzle-orm";
 import { error, fail } from "@sveltejs/kit";
+import { getEffectiveBranding } from "$lib/server/document-branding";
 import { sendEmail } from "$lib/server/services/email.service";
 import {
 	generateContractSignedClientEmail,
@@ -96,15 +97,34 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 			.orderBy(contractSchedules.displayOrder);
 	}
 
+	// Resolve effective branding for contract. Single source of truth for
+	// all colors + logo on the rendered page — do not read colors from `agency`.
+	const branding = await getEffectiveBranding(contract.agencyId, "contract");
+
+	const agencyWithoutBranding = agency
+		? (() => {
+				const {
+					logoUrl: _logoUrl,
+					primaryColor: _primaryColor,
+					secondaryColor: _secondaryColor,
+					accentColor: _accentColor,
+					accentGradient: _accentGradient,
+					...rest
+				} = agency;
+				return rest;
+			})()
+		: agency;
+
 	return {
 		contract: {
 			...contract,
 			status: isExpired ? "expired" : contract.status,
 		},
-		agency,
+		agency: agencyWithoutBranding,
 		profile,
 		includedSchedules,
 		isPreview,
+		branding,
 	};
 };
 
