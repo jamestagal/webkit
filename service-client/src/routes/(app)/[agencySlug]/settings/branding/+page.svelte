@@ -110,22 +110,6 @@
 		quotation: getInitialDocBranding('quotation')
 	});
 
-	// Proposal-specific color fields rendered inside the Proposals tab.
-	type ProposalColorKey =
-		| 'coverBgColor'
-		| 'coverTextColor'
-		| 'sectionHeadingColor'
-		| 'ctaButtonColor'
-		| 'ctaButtonTextColor'
-		| 'footerBgColor';
-	const proposalColorFields: { key: ProposalColorKey; label: string; hint: string; placeholder: string }[] = [
-		{ key: 'coverBgColor', label: 'Cover background', hint: 'Proposal cover hero background', placeholder: '#E3EDF7' },
-		{ key: 'coverTextColor', label: 'Cover text', hint: 'Leave empty to inherit', placeholder: 'inherit' },
-		{ key: 'sectionHeadingColor', label: 'Section heading', hint: 'Titles and accent dots', placeholder: data.agency?.primaryColor ?? '#4F46E5' },
-		{ key: 'ctaButtonColor', label: 'CTA button bg', hint: 'Pricing + accept buttons', placeholder: data.agency?.primaryColor ?? '#4F46E5' },
-		{ key: 'ctaButtonTextColor', label: 'CTA button text', hint: 'Leave empty to inherit', placeholder: 'inherit' },
-		{ key: 'footerBgColor', label: 'Footer background', hint: 'Footer panel', placeholder: '#E3EDF7' }
-	];
 
 	// Logo upload state - separate for each logo type
 	let logoPreview = $state<string | null>(null); // For horizontal logo
@@ -949,34 +933,69 @@
 								</p>
 							</div>
 							<div class="grid gap-4 sm:grid-cols-2">
-								{#each proposalColorFields as field (field.key)}
-									<FormField label={field.label} hint={field.hint}>
-										<div class="flex items-center gap-3">
-											<input
-												type="color"
-												class="h-10 w-14 cursor-pointer rounded-lg border border-base-300"
-												bind:value={branding[field.key]}
-											/>
-											<input
-												type="text"
-												class="input input-bordered flex-1 font-mono text-sm uppercase"
-												placeholder={field.placeholder}
-												bind:value={branding[field.key]}
-												pattern="^#[0-9A-Fa-f]{6}$"
-											/>
-											{#if branding[field.key]}
-												<button
-													type="button"
-													class="btn btn-ghost btn-sm btn-square"
-													onclick={() => (branding[field.key] = '')}
-													title="Clear override"
-												>
-													<X class="h-4 w-4" />
-												</button>
-											{/if}
-										</div>
-									</FormField>
-								{/each}
+								<!-- Explicit per-field bindings. Using `bind:value={branding[key]}` with
+								     a dynamic key via `{#each}` silently fails for the first entry in
+								     Svelte 5 runes mode (state proxy + dynamic indexed write). Always
+								     use static property paths here. -->
+								<FormField label="Cover background" hint="Hero section behind the proposal title">
+									<div class="flex items-center gap-3">
+										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.coverBgColor} />
+										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder="#E3EDF7" bind:value={branding.coverBgColor} pattern="^#[0-9A-Fa-f]{6}$" />
+										{#if branding.coverBgColor}
+											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.coverBgColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
+										{/if}
+									</div>
+								</FormField>
+
+								<FormField label="Cover text" hint="Hero heading + subtitle (leave empty to inherit)">
+									<div class="flex items-center gap-3">
+										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.coverTextColor} />
+										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder="inherit" bind:value={branding.coverTextColor} pattern="^#[0-9A-Fa-f]{6}$" />
+										{#if branding.coverTextColor}
+											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.coverTextColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
+										{/if}
+									</div>
+								</FormField>
+
+								<FormField label="Section heading" hint="Main section titles (The Opportunity, Timeline, etc.)">
+									<div class="flex items-center gap-3">
+										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.sectionHeadingColor} />
+										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder={data.agency?.primaryColor ?? '#4F46E5'} bind:value={branding.sectionHeadingColor} pattern="^#[0-9A-Fa-f]{6}$" />
+										{#if branding.sectionHeadingColor}
+											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.sectionHeadingColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
+										{/if}
+									</div>
+								</FormField>
+
+								<FormField label="CTA button bg" hint="Investment / price card background">
+									<div class="flex items-center gap-3">
+										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.ctaButtonColor} />
+										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder={data.agency?.primaryColor ?? '#4F46E5'} bind:value={branding.ctaButtonColor} pattern="^#[0-9A-Fa-f]{6}$" />
+										{#if branding.ctaButtonColor}
+											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.ctaButtonColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
+										{/if}
+									</div>
+								</FormField>
+
+								<FormField label="CTA button text" hint="Text inside the investment / price card (leave empty to inherit)">
+									<div class="flex items-center gap-3">
+										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.ctaButtonTextColor} />
+										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder="inherit" bind:value={branding.ctaButtonTextColor} pattern="^#[0-9A-Fa-f]{6}$" />
+										{#if branding.ctaButtonTextColor}
+											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.ctaButtonTextColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
+										{/if}
+									</div>
+								</FormField>
+
+								<FormField label="Footer background" hint="Footer panel at the bottom of the proposal">
+									<div class="flex items-center gap-3">
+										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.footerBgColor} />
+										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder="#E3EDF7" bind:value={branding.footerBgColor} pattern="^#[0-9A-Fa-f]{6}$" />
+										{#if branding.footerBgColor}
+											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.footerBgColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
+										{/if}
+									</div>
+								</FormField>
 							</div>
 						</div>
 					{/if}
