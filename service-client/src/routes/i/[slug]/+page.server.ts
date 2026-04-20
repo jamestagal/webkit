@@ -12,6 +12,7 @@ import { eq, sql, asc } from "drizzle-orm";
 import { error } from "@sveltejs/kit";
 import { decryptProfileFields } from "$lib/server/crypto";
 import { isAgencyMember } from "$lib/server/agency";
+import { getEffectiveBranding } from "$lib/server/document-branding";
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const { slug } = params;
@@ -72,10 +73,24 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		.where(eq(invoiceLineItems.invoiceId, invoice.id))
 		.orderBy(asc(invoiceLineItems.sortOrder));
 
+	// Resolve effective branding for invoice. Single source of truth for
+	// all colors + logo on the rendered page — do not read colors from `agency`.
+	const branding = await getEffectiveBranding(invoice.agencyId, "invoice");
+
+	const {
+		logoUrl: _logoUrl,
+		primaryColor: _primaryColor,
+		secondaryColor: _secondaryColor,
+		accentColor: _accentColor,
+		accentGradient: _accentGradient,
+		...agencyWithoutBranding
+	} = agency;
+
 	return {
 		invoice,
 		lineItems,
-		agency,
+		agency: agencyWithoutBranding,
 		profile: profile ? decryptProfileFields(profile) : null,
+		branding,
 	};
 };
