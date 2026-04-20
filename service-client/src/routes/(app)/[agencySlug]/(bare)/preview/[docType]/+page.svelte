@@ -8,11 +8,28 @@
 	 * visible but inert, per the design contract documented in the
 	 * `refactor(branding): normalise previewMode semantics` commit.
 	 *
-	 * Phase 2.3 adds a `postMessage` listener here that mutates the
-	 * branding state so the parent (branding settings page) can drive
-	 * live-preview updates without reloading the iframe. Phase 2.6 handles
-	 * the email branch via `srcdoc`.
+	 * postMessage bridge contract (Phase 2.3):
+	 *   Incoming message shape : { type: 'branding-update', payload: Partial<branding> }
+	 *   Validation             : rejects messages whose event.origin is not the
+	 *                            document's own origin; rejects anything without
+	 *                            the exact `type` string; rejects payload that
+	 *                            isn't a plain object.
+	 *   Mutation strategy      : Object.assign(overrideBranding, payload).
+	 *                            In-place mutation so Svelte 5's $state proxy
+	 *                            notifies downstream `style:--brand-*` directives;
+	 *                            a reassignment (`overrideBranding = {...}`) would
+	 *                            not trigger the same tracked path.
+	 *   Debouncing             : NOT here. The parent is responsible for
+	 *                            debouncing (advancedDebounce(150) per the
+	 *                            revision doc). The listener processes every
+	 *                            inbound message so stuck-open iframes don't
+	 *                            drift out of sync with the agency's current
+	 *                            branding form state.
+	 *
+	 * Phase 2.6 will replace the `email` branch with a `srcdoc` iframe
+	 * rendering of the rendered email HTML.
 	 */
+	import { onMount } from 'svelte';
 	import ProposalDocument from '$lib/components/documents/ProposalDocument.svelte';
 	import ContractDocument from '$lib/components/documents/ContractDocument.svelte';
 	import InvoiceDocument from '$lib/components/documents/InvoiceDocument.svelte';
@@ -26,12 +43,49 @@
 
 	let { data }: PageProps = $props();
 
-	// The loader's `branding` is a union across doc types because the switch
-	// is evaluated server-side. Each template branch below narrows to the
-	// correct branding shape for its Document component.
-	let branding = $derived(data.branding);
-	let proposalBranding = $derived(branding as ProposalEffectiveBranding);
-	let genericBranding = $derived(branding as EffectiveBranding);
+	// Mutable overlay seeded from the loader-resolved branding. Parent-posted
+	// `branding-update` messages mutate this object in place; the wrapper's
+	// `style:--brand-*` directives track it reactively and update every
+	// descendant's CSS vars live. Initial render shows the loader's resolved
+	// values — no message needed.
+	let overrideBranding = $state<ProposalEffectiveBranding | EffectiveBranding>({
+		...data.branding
+	});
+
+	let proposalBranding = $derived(overrideBranding as ProposalEffectiveBranding);
+	let genericBranding = $derived(overrideBranding as EffectiveBranding);
+
+	// Type-narrow incoming postMessage payloads before applying. The parent
+	// is trusted (same origin), but the listener still enforces shape so a
+	// future cross-origin iframe embedding accidentally pointing at this
+	// route can't poison state with arbitrary objects.
+	type BrandingUpdateMessage = {
+		type: 'branding-update';
+		payload: Partial<ProposalEffectiveBranding>;
+	};
+
+	function isBrandingUpdate(value: unknown): value is BrandingUpdateMessage {
+		if (typeof value !== 'object' || value === null) return false;
+		const v = value as { type?: unknown; payload?: unknown };
+		if (v.type !== 'branding-update') return false;
+		if (typeof v.payload !== 'object' || v.payload === null) return false;
+		return true;
+	}
+
+	onMount(() => {
+		function handleMessage(event: MessageEvent) {
+			// Origin check runs first — abort before any payload parsing.
+			if (event.origin !== window.location.origin) return;
+			if (!isBrandingUpdate(event.data)) return;
+
+			// In-place mutation — re-assignment would replace the $state proxy
+			// reference and break the reactivity chain the wrapper relies on.
+			Object.assign(overrideBranding, event.data.payload);
+		}
+
+		window.addEventListener('message', handleMessage);
+		return () => window.removeEventListener('message', handleMessage);
+	});
 </script>
 
 {#if data.docType === 'proposal'}
