@@ -98,6 +98,11 @@ const authHandle: Handle = async ({ event, resolve }) => {
 		event.url.pathname === "/login" ||
 		event.url.pathname === "/sitemap.xml" ||
 		event.url.pathname.startsWith("/invite/") ||
+		// Shareable client-facing document routes — /p/{slug}, /c/{slug},
+		// /i/{slug}, /q/{slug}, /f/{slug}. The slug itself is the auth
+		// token (32+ random chars, un-guessable). Same prefix list used by
+		// the rate-limiter above.
+		PUBLIC_ROUTE_PREFIXES.some((prefix) => event.url.pathname.startsWith(prefix)) ||
 		// Shareable SEO audit reports: /{agencySlug}/report/{token}
 		/^\/[^/]+\/report\/[^/]+\/?$/.test(event.url.pathname);
 
