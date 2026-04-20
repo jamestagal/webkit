@@ -16,3 +16,16 @@ jobs:
     uses: ./.github/workflows/lint-ts.yml
     with:
       working-directory: service-client
+  tier-limits-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: false
+      - name: Regenerate tier-limits.ts
+        run: go generate ./...
+        working-directory: app
+      - name: Fail if generated TS diverges from Go source
+        run: git diff --exit-code -- service-client/src/lib/generated/

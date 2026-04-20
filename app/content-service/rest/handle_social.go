@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"app/pkg/usage"
 	"content-service/internal/embeddings"
 	"content-service/internal/generator"
 	"database/sql"
@@ -100,6 +101,18 @@ func (h *Handler) handleGenerateSocial(w http.ResponseWriter, r *http.Request) {
 	}
 	if !clientExists {
 		writeJSON(w, http.StatusNotFound, errorResponse("client not found"))
+		return
+	}
+
+	// Enforce monthly AI-generation cap. Each platform invocation is one
+	// generation — generating 3 Twitter posts in a batch counts as 1, but
+	// kicking off Facebook + LinkedIn + Twitter separately counts as 3.
+	if _, err := h.usage.Consume(r.Context(), agencyID, usage.FeatureAIGeneration); err != nil {
+		if writeUsageError(w, err) {
+			return
+		}
+		slog.Error("Error consuming AI generation quota", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse("internal error"))
 		return
 	}
 

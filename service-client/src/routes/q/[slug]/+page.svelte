@@ -14,6 +14,7 @@
 	} from 'lucide-svelte';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import { formatDate, formatCurrency } from '$lib/utils/formatting';
+	import { downloadPdf as downloadPdfFile } from '$lib/utils/pdf-download';
 	import SvelteSeo from 'svelte-seo';
 	import type { PageProps, ActionData } from './$types';
 
@@ -74,8 +75,24 @@
 
 	let statusInfo = $derived(getStatusBadge(effectiveStatus));
 
-	function downloadPdf() {
-		window.open(`/api/quotations/${quotation.id}/pdf`, '_blank');
+	let isDownloadingPdf = $state(false);
+	let pdfError = $state('');
+
+	async function downloadPdf() {
+		isDownloadingPdf = true;
+		pdfError = '';
+		try {
+			await downloadPdfFile(
+				`/api/quotations/${quotation.id}/pdf`,
+				`${quotation.quotationNumber}.pdf`
+			);
+		} catch {
+			// Agency-neutral wording — don't leak quota error messages or upgrade CTAs
+			// to end clients. Any failure (429, 403, 5xx, network) maps to the same line.
+			pdfError = 'This document is temporarily unavailable. Please contact your provider.';
+		} finally {
+			isDownloadingPdf = false;
+		}
 	}
 
 	function handlePrint() {
@@ -181,8 +198,14 @@
 		{/if}
 
 		<!-- Actions Bar (hidden in print) -->
-		<div class="flex justify-end gap-2 mb-6 print-hidden">
-			<button type="button" class="btn btn-outline btn-sm" onclick={downloadPdf}>
+		<div class="flex flex-col items-end gap-2 mb-6 print-hidden">
+		<div class="flex justify-end gap-2">
+			<button
+				type="button"
+				class="btn btn-outline btn-sm"
+				onclick={downloadPdf}
+				disabled={isDownloadingPdf}
+			>
 				<Download class="h-4 w-4" />
 				Download PDF
 			</button>
@@ -190,6 +213,10 @@
 				<Printer class="h-4 w-4" />
 				Print
 			</button>
+		</div>
+		{#if pdfError}
+			<p class="text-sm text-base-content/70">{pdfError}</p>
+		{/if}
 		</div>
 
 		<!-- Quotation Card -->

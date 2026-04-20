@@ -49,6 +49,12 @@ func Run(apiHandler *Handler) *http.Server {
 	mux.HandleFunc("/api/v1/notes", apiHandler.handleNotesCollection)
 	mux.HandleFunc("/api/v1/notes/{id}", apiHandler.handleNoteResource)
 
+	// Usage tracking (see app/pkg/usage). SvelteKit calls these for UX
+	// hints (Check/Summary) and PDF export enforcement (Consume).
+	mux.HandleFunc("/api/v1/usage/check", apiHandler.handleUsageCheck)
+	mux.HandleFunc("/api/v1/usage/summary", apiHandler.handleUsageSummary)
+	mux.HandleFunc("/api/v1/usage/consume", apiHandler.handleUsageConsume)
+
 	// Cron jobs
 	mux.HandleFunc("/tasks/delete-tokens", apiHandler.handleTasksDeleteTokens)
 

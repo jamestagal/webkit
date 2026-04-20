@@ -3,12 +3,17 @@ package main
 import (
 	"app/pkg"
 	"app/pkg/auth"
+	pkgbilling "app/pkg/billing"
+	"app/pkg/usage"
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/google/uuid"
 
 	"service-core/config"
 	"service-core/domain/billing"
@@ -83,6 +88,17 @@ func setupRESTHandlers(cfg *config.Config, storage *storage.Storage) *rest.Handl
 	billingService := billing.NewService(cfg, store)
 	noteService := note.NewService(store)
 
+	// Usage service: TierLookup reuses the existing GetAgencyBillingInfo
+	// sqlc query (single-row SELECT) so the hot path stays one DB round-trip.
+	tierLookup := func(ctx context.Context, agencyID uuid.UUID) (pkgbilling.SubscriptionTier, error) {
+		info, err := store.GetAgencyBillingInfo(ctx, agencyID)
+		if err != nil {
+			return "", fmt.Errorf("lookup tier for agency %s: %w", agencyID, err)
+		}
+		return pkgbilling.SubscriptionTier(info.SubscriptionTier), nil
+	}
+	usageService := usage.NewService(store, tierLookup)
+
 	apiHandler := rest.NewHandler(
 		cfg,
 		storage,
@@ -92,6 +108,7 @@ func setupRESTHandlers(cfg *config.Config, storage *storage.Storage) *rest.Handl
 		emailService,
 		fileService,
 		noteService,
+		usageService,
 	)
 	return apiHandler
 }

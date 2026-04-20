@@ -37,6 +37,7 @@
 	} from 'lucide-svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/formatting';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
+	import { downloadPdf as downloadPdfFile, PDFDownloadError, friendlyLimitMessage } from '$lib/utils/pdf-download';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import AutoResizeTextarea from '$lib/components/AutoResizeTextarea.svelte';
 	import type { PageProps } from './$types';
@@ -52,6 +53,12 @@
 	let saving = $state(false);
 	let showPaymentModal = $state(false);
 	let generatingPaymentLink = $state(false);
+
+	// PDF download state — surfaces 429/403 inline instead of navigating to raw JSON.
+	let isDownloadingPdf = $state(false);
+	let pdfError = $state('');
+	let pdfAtLimit = $state(false);
+	let upgradeHref = $derived(`/${agencySlug}/settings/billing`);
 
 	// Send email modal state
 	let sendModalOpen = $state(false);
@@ -360,8 +367,22 @@
 		}
 	}
 
-	function downloadPdf() {
-		window.open(`/api/invoices/${invoice.id}/pdf`, '_blank');
+	async function downloadPdf() {
+		isDownloadingPdf = true;
+		pdfError = '';
+		pdfAtLimit = false;
+		try {
+			await downloadPdfFile(`/api/invoices/${invoice.id}/pdf`, `${invoice.invoiceNumber}.pdf`);
+		} catch (err) {
+			if (err instanceof PDFDownloadError) {
+				pdfError = friendlyLimitMessage(err);
+				pdfAtLimit = err.isLimit;
+			} else {
+				pdfError = err instanceof Error ? err.message : 'PDF download failed';
+			}
+		} finally {
+			isDownloadingPdf = false;
+		}
 	}
 
 	function copyPublicUrl() {
@@ -544,8 +565,12 @@
 					</button>
 					<ul class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300">
 						<li>
-							<button type="button" onclick={downloadPdf}>
-								<Download class="h-4 w-4" />
+							<button type="button" onclick={downloadPdf} disabled={isDownloadingPdf}>
+								{#if isDownloadingPdf}
+									<Loader2 class="h-4 w-4 animate-spin" />
+								{:else}
+									<Download class="h-4 w-4" />
+								{/if}
 								Download PDF
 							</button>
 						</li>
@@ -597,6 +622,17 @@
 			</div>
 		</div>
 	</div>
+
+	{#if pdfError}
+		<div>
+			<div class="alert alert-error">
+				<span>{pdfError}</span>
+			</div>
+			{#if pdfAtLimit}
+				<a href={upgradeHref} class="btn btn-sm btn-primary mt-2">Upgrade plan →</a>
+			{/if}
+		</div>
+	{/if}
 
 	{#if isEditing}
 		<!-- Edit Mode -->

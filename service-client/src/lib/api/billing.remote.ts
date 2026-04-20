@@ -47,12 +47,12 @@ type SafeResponse<T> = {
 // =============================================================================
 
 const CreateCheckoutSchema = v.object({
-	tier: v.picklist(["starter", "growth", "enterprise"]),
+	tier: v.picklist(["starter", "growth", "agency_pro"]),
 	interval: v.picklist(["month", "year"]),
 });
 
 const UpgradeSubscriptionSchema = v.object({
-	tier: v.picklist(["starter", "growth", "enterprise"]),
+	tier: v.picklist(["starter", "growth", "agency_pro"]),
 	interval: v.picklist(["month", "year"]),
 });
 

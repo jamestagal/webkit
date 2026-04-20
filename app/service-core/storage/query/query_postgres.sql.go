@@ -22,6 +22,131 @@ func (q *Queries) AcceptPendingMemberships(ctx context.Context, userID uuid.UUID
 	return err
 }
 
+const adminGetTopConsumers = `-- name: AdminGetTopConsumers :many
+SELECT
+    a.id AS agency_id,
+    a.name AS agency_name,
+    a.slug AS agency_slug,
+    u.feature,
+    u.count,
+    u.period
+FROM agency_usage u
+JOIN agencies a ON a.id = u.agency_id
+WHERE u.period = $1 AND u.feature = $2
+ORDER BY u.count DESC
+LIMIT $3
+`
+
+type AdminGetTopConsumersParams struct {
+	Period  string `json:"period"`
+	Feature string `json:"feature"`
+	Limit   int32  `json:"limit"`
+}
+
+type AdminGetTopConsumersRow struct {
+	AgencyID   uuid.UUID `json:"agency_id"`
+	AgencyName string    `json:"agency_name"`
+	AgencySlug string    `json:"agency_slug"`
+	Feature    string    `json:"feature"`
+	Count      int32     `json:"count"`
+	Period     string    `json:"period"`
+}
+
+// Super-admin anomaly detection — highest-usage agencies per feature/period.
+func (q *Queries) AdminGetTopConsumers(ctx context.Context, arg AdminGetTopConsumersParams) ([]AdminGetTopConsumersRow, error) {
+	rows, err := q.db.QueryContext(ctx, adminGetTopConsumers, arg.Period, arg.Feature, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AdminGetTopConsumersRow
+	for rows.Next() {
+		var i AdminGetTopConsumersRow
+		if err := rows.Scan(
+			&i.AgencyID,
+			&i.AgencyName,
+			&i.AgencySlug,
+			&i.Feature,
+			&i.Count,
+			&i.Period,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const consumeIfUnderLimit = `-- name: ConsumeIfUnderLimit :one
+INSERT INTO agency_usage (agency_id, feature, period, count)
+VALUES ($1, $2, $3, 1)
+ON CONFLICT (agency_id, feature, period)
+DO UPDATE SET
+    count = agency_usage.count + 1,
+    updated_at = NOW()
+WHERE agency_usage.count < $4
+RETURNING count
+`
+
+type ConsumeIfUnderLimitParams struct {
+	AgencyID uuid.UUID `json:"agency_id"`
+	Feature  string    `json:"feature"`
+	Period   string    `json:"period"`
+	MaxCount int32     `json:"max_count"`
+}
+
+// Atomic check + increment. Insert path always succeeds (count=1 is under
+// any real limit). Update path only fires when count < $4. When the update's
+// WHERE clause fails, no row is returned -> sql.ErrNoRows, mapped to
+// usage.ErrLimitExceeded by the service layer.
+func (q *Queries) ConsumeIfUnderLimit(ctx context.Context, arg ConsumeIfUnderLimitParams) (int32, error) {
+	row := q.db.QueryRowContext(ctx, consumeIfUnderLimit,
+		arg.AgencyID,
+		arg.Feature,
+		arg.Period,
+		arg.MaxCount,
+	)
+	var count int32
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countActiveMembers = `-- name: CountActiveMembers :one
+SELECT COUNT(*)::INTEGER AS count
+FROM agency_memberships
+WHERE agency_id = $1 AND status = 'active'
+`
+
+// Enforced at invite time (see app/pkg/usage docs). Status values:
+// 'active' | 'invited' — only active memberships count against MaxMembers.
+func (q *Queries) CountActiveMembers(ctx context.Context, agencyID uuid.UUID) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countActiveMembers, agencyID)
+	var count int32
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countNonArchivedClients = `-- name: CountNonArchivedClients :one
+SELECT COUNT(*)::INTEGER AS count
+FROM clients
+WHERE agency_id = $1 AND status != 'archived'
+`
+
+// Clients use status-based soft delete (no deleted_at column).
+// Valid status values: 'active' | 'archived'.
+func (q *Queries) CountNonArchivedClients(ctx context.Context, agencyID uuid.UUID) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countNonArchivedClients, agencyID)
+	var count int32
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countNotes = `-- name: CountNotes :one
 select count(*) from notes where user_id = $1
 `
@@ -170,6 +295,88 @@ func (q *Queries) GetAgencyByStripeCustomer(ctx context.Context, stripeCustomerI
 		&i.DeletionScheduledFor,
 	)
 	return i, err
+}
+
+const getStorageUsed = `-- name: GetStorageUsed :one
+SELECT COALESCE(used_bytes, 0)::BIGINT AS used_bytes
+FROM agency_storage
+WHERE agency_id = $1
+`
+
+func (q *Queries) GetStorageUsed(ctx context.Context, agencyID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getStorageUsed, agencyID)
+	var used_bytes int64
+	err := row.Scan(&used_bytes)
+	return used_bytes, err
+}
+
+const getUsageCount = `-- name: GetUsageCount :one
+
+SELECT COALESCE(
+    (SELECT count FROM agency_usage
+     WHERE agency_id = $1 AND feature = $2 AND period = $3),
+    0
+)::INTEGER AS count
+`
+
+type GetUsageCountParams struct {
+	AgencyID uuid.UUID `json:"agency_id"`
+	Feature  string    `json:"feature"`
+	Period   string    `json:"period"`
+}
+
+// ============================================================================
+// Usage tracking (agency_usage + agency_storage) — see migration 036
+// Enforcement point is usage.Service in app/pkg/usage/service.go.
+// ============================================================================
+// Returns 0 when no row exists for this (agency, feature, period) tuple.
+func (q *Queries) GetUsageCount(ctx context.Context, arg GetUsageCountParams) (int32, error) {
+	row := q.db.QueryRowContext(ctx, getUsageCount, arg.AgencyID, arg.Feature, arg.Period)
+	var count int32
+	err := row.Scan(&count)
+	return count, err
+}
+
+const getUsageSummary = `-- name: GetUsageSummary :many
+SELECT feature, count
+FROM agency_usage
+WHERE agency_id = $1 AND period = $2
+ORDER BY feature
+`
+
+type GetUsageSummaryParams struct {
+	AgencyID uuid.UUID `json:"agency_id"`
+	Period   string    `json:"period"`
+}
+
+type GetUsageSummaryRow struct {
+	Feature string `json:"feature"`
+	Count   int32  `json:"count"`
+}
+
+// Returns all feature counts for an agency in a given period.
+// Powers the /settings/billing dashboard.
+func (q *Queries) GetUsageSummary(ctx context.Context, arg GetUsageSummaryParams) ([]GetUsageSummaryRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUsageSummary, arg.AgencyID, arg.Period)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUsageSummaryRow
+	for rows.Next() {
+		var i GetUsageSummaryRow
+		if err := rows.Scan(&i.Feature, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const insertEmail = `-- name: InsertEmail :one
@@ -987,5 +1194,26 @@ func (q *Queries) UpdateUserSubscription(ctx context.Context, arg UpdateUserSubs
 		arg.SubscriptionEnd,
 		arg.CustomerID,
 	)
+	return err
+}
+
+const upsertIncrementStorage = `-- name: UpsertIncrementStorage :exec
+INSERT INTO agency_storage (agency_id, used_bytes)
+VALUES ($1, $2)
+ON CONFLICT (agency_id)
+DO UPDATE SET
+    used_bytes = GREATEST(agency_storage.used_bytes + $2, 0),
+    updated_at = NOW()
+`
+
+type UpsertIncrementStorageParams struct {
+	AgencyID  uuid.UUID `json:"agency_id"`
+	UsedBytes int64     `json:"used_bytes"`
+}
+
+// $2 is a signed delta (negative to decrement on file delete).
+// GREATEST guard prevents any path from leaving a negative balance.
+func (q *Queries) UpsertIncrementStorage(ctx context.Context, arg UpsertIncrementStorageParams) error {
+	_, err := q.db.ExecContext(ctx, upsertIncrementStorage, arg.AgencyID, arg.UsedBytes)
 	return err
 }

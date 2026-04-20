@@ -24,6 +24,29 @@
 	let { data }: { data: PageData } = $props();
 
 	let clientId = $derived(page.params.clientId!);
+	let agencySlug = $derived(page.params.agencySlug);
+	let upgradeHref = $derived(`/${agencySlug}/settings/billing`);
+
+	// SvelteKit's error() throws HttpError (not Error), so `err instanceof Error`
+	// is false. Read status + body.message directly to surface quota messages
+	// and flag limit-reached states so the upgrade CTA can render.
+	function classifyError(err: unknown, fallback: string): {
+		message: string;
+		isLimit: boolean;
+	} {
+		const status = (err as { status?: number } | null)?.status;
+		let message = fallback;
+		if (err && typeof err === "object" && "body" in err) {
+			const body = (err as { body?: { message?: string } }).body;
+			if (body?.message) message = body.message;
+		} else if (err instanceof Error && err.message) {
+			message = err.message;
+		}
+		const isLimit =
+			status === 429 ||
+			(status === 403 && /limit|not available|upgrade/i.test(message));
+		return { message, isLimit };
+	}
 
 	// Local mutable copy of brand data so we can update it from polling
 	let brand = $state<BrandProfileResponse | null>(data.brand);
@@ -35,6 +58,8 @@
 
 	// Generation state
 	let isGenerating = $state(false);
+	let generateError = $state("");
+	let generateAtLimit = $state(false);
 	let previousGeneratedAt = $state<string | null | undefined>(null);
 
 	// Edit state
@@ -152,11 +177,16 @@
 	async function handleGenerate() {
 		previousGeneratedAt = brand?.generated_at ?? null;
 		isGenerating = true;
+		generateError = "";
+		generateAtLimit = false;
 		try {
 			await generateBrandProfile(clientId);
 		} catch (e) {
-			console.error("Failed to start brand generation:", e);
+			const { message, isLimit } = classifyError(e, "Failed to start brand generation. Please try again.");
+			generateError = message;
+			generateAtLimit = isLimit;
 			isGenerating = false;
+			console.error("Failed to start brand generation:", e);
 		}
 	}
 
@@ -223,6 +253,18 @@
 			<Sparkles class="h-4 w-4" />
 			Generate Brand Profile
 		</button>
+		{#if generateError}
+			<div class="mt-4 w-full max-w-md">
+				<div class="alert alert-error">
+					<span>{generateError}</span>
+				</div>
+				{#if generateAtLimit}
+					<a href={upgradeHref} class="btn btn-sm btn-primary mt-2">
+						Upgrade plan →
+					</a>
+				{/if}
+			</div>
+		{/if}
 	</div>
 {:else}
 	<!-- State 3: Profile loaded -->

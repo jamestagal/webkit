@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { startAudit } from '$lib/api/content-audit.remote';
 
 	interface Props {
@@ -9,6 +10,11 @@
 	}
 
 	let { clientId, open, onClose, onStarted }: Props = $props();
+
+	// 403 = feature not on plan, 429 = monthly cap reached. Both paths deserve
+	// an in-modal upgrade CTA instead of a dead-end error message.
+	let isLimitError = $state(false);
+	let upgradeHref = $derived(`/${page.params.agencySlug ?? ''}/settings/billing`);
 
 	const REGIONS = [
 		{ value: 'au', label: 'Australia' },
@@ -27,12 +33,14 @@
 	function handleClose() {
 		if (loading) return;
 		errorMsg = null;
+		isLimitError = false;
 		onClose();
 	}
 
 	async function handleSubmit() {
 		loading = true;
 		errorMsg = null;
+		isLimitError = false;
 		try {
 			const result = await startAudit({
 				clientId,
@@ -42,12 +50,18 @@
 			onStarted?.(result.id);
 			onClose();
 		} catch (err) {
+			const status = (err as { status?: number })?.status;
 			if (err && typeof err === 'object' && 'body' in err) {
 				const body = (err as { body?: { message?: string } }).body;
 				errorMsg = body?.message ?? 'Failed to start audit.';
 			} else {
 				errorMsg = err instanceof Error ? err.message : 'Failed to start audit.';
 			}
+			// 429 = monthly cap; 403 with /limit/i = tier doesn't allow this feature.
+			// Both mean the user needs an upgrade — show the CTA.
+			isLimitError =
+				status === 429 ||
+				(status === 403 && /limit|not available|upgrade/i.test(errorMsg ?? ''));
 		} finally {
 			loading = false;
 		}
@@ -70,8 +84,19 @@
 			<h3 class="mb-4 text-lg font-semibold">Start SEO Audit</h3>
 
 			{#if errorMsg}
-				<div class="alert alert-error mb-4 py-2 text-sm">
-					<span>{errorMsg}</span>
+				<div class="mb-4">
+					<div class="alert alert-error py-2 text-sm">
+						<span>{errorMsg}</span>
+					</div>
+					{#if isLimitError}
+						<a
+							href={upgradeHref}
+							class="btn btn-sm btn-primary mt-2"
+							onclick={onClose}
+						>
+							Upgrade plan →
+						</a>
+					{/if}
 				</div>
 			{/if}
 

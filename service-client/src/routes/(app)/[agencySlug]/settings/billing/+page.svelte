@@ -19,6 +19,7 @@
 		upgradeSubscription
 	} from '$lib/api/billing.remote';
 	import { formatDate } from '$lib/utils/formatting';
+	import UsageWarningBanner from '$lib/components/UsageWarningBanner.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -27,6 +28,19 @@
 	let agencySlug = $derived(data.agency.slug);
 	let billingInfo = $derived(data.billingInfo);
 	let usageStats = $derived(data.usageStats);
+	let usageSummary = $derived(data.usageSummary ?? []);
+
+	// Helper for the inline usage tiles below — reads the Go-sourced summary
+	// so the displayed counts match what the backend actually enforces.
+	function feature(name: string): { current: number; limit: number; percentage: number } {
+		const row = usageSummary.find((s) => s.Feature === name);
+		if (!row || row.Limit <= 0) return { current: 0, limit: row?.Limit ?? 0, percentage: 0 };
+		return {
+			current: row.Current,
+			limit: row.Limit,
+			percentage: Math.round((row.Current / row.Limit) * 100)
+		};
+	}
 
 	// Check if we just completed checkout (server already synced via idempotent endpoint)
 	let hasShownCheckoutResult = $state(false);
@@ -98,8 +112,8 @@
 			]
 		},
 		{
-			id: 'enterprise',
-			name: 'Enterprise',
+			id: 'agency_pro',
+			name: 'Agency Pro',
 			description: 'For large agencies with advanced needs',
 			monthlyPrice: 199,
 			yearlyPrice: 1990,
@@ -136,7 +150,7 @@
 
 	// Check if tier is an upgrade
 	function isUpgrade(tierId: string): boolean {
-		const tierOrder = ['free', 'starter', 'growth', 'enterprise'];
+		const tierOrder = ['free', 'starter', 'growth', 'agency_pro'];
 		const currentIndex = tierOrder.indexOf(currentTier);
 		const targetIndex = tierOrder.indexOf(tierId);
 		return targetIndex > currentIndex;
@@ -152,7 +166,7 @@
 			// If user already has a paid subscription, use upgrade API (proration)
 			if (!hasActiveSubscription) {
 				const result = await createCheckoutSession({
-					tier: tierId as 'starter' | 'growth' | 'enterprise',
+					tier: tierId as 'starter' | 'growth' | 'agency_pro',
 					interval: billingInterval
 				});
 
@@ -162,7 +176,7 @@
 			} else {
 				// Existing subscriber - upgrade with proration
 				await upgradeSubscription({
-					tier: tierId as 'starter' | 'growth' | 'enterprise',
+					tier: tierId as 'starter' | 'growth' | 'agency_pro',
 					interval: billingInterval
 				});
 
@@ -225,6 +239,21 @@
 					{/if}
 				</p>
 			</div>
+		</div>
+	{/if}
+
+	<!-- Live usage banners (Go agency_usage is the source of truth) -->
+	{#if usageSummary.length > 0}
+		<div class="space-y-2">
+			{#each usageSummary as s (s.Feature)}
+				{#if s.AtWarning || s.AtLimit}
+					<UsageWarningBanner
+						feature={s.Feature}
+						current={s.Current}
+						limit={s.Limit}
+					/>
+				{/if}
+			{/each}
 		</div>
 	{/if}
 
@@ -293,28 +322,7 @@
 					></progress>
 				</div>
 
-				<!-- Consultations -->
-				<div class="space-y-2">
-					<div class="flex items-center justify-between text-sm">
-						<span class="flex items-center gap-2">
-							<FileText class="h-4 w-4 text-base-content/60" />
-							Consultations
-						</span>
-						<span class="font-medium">
-							{formatUsage(
-								usageStats.usage.consultationsThisMonth.current,
-								usageStats.usage.consultationsThisMonth.limit
-							)}
-						</span>
-					</div>
-					<progress
-						class="progress progress-primary w-full"
-						value={usageStats.usage.consultationsThisMonth.percentage}
-						max="100"
-					></progress>
-				</div>
-
-				<!-- AI Generations -->
+				<!-- AI Generations (Go agency_usage SSoT) -->
 				<div class="space-y-2">
 					<div class="flex items-center justify-between text-sm">
 						<span class="flex items-center gap-2">
@@ -322,20 +330,17 @@
 							AI Generations
 						</span>
 						<span class="font-medium">
-							{formatUsage(
-								usageStats.usage.aiGenerationsThisMonth.current,
-								usageStats.usage.aiGenerationsThisMonth.limit
-							)}
+							{formatUsage(feature('ai_generation').current, feature('ai_generation').limit)}
 						</span>
 					</div>
 					<progress
 						class="progress progress-primary w-full"
-						value={usageStats.usage.aiGenerationsThisMonth.percentage}
+						value={feature('ai_generation').percentage}
 						max="100"
 					></progress>
 				</div>
 
-				<!-- SEO Audits -->
+				<!-- SEO Audits (Go agency_usage SSoT) -->
 				<div class="space-y-2">
 					<div class="flex items-center justify-between text-sm">
 						<span class="flex items-center gap-2">
@@ -343,15 +348,30 @@
 							SEO Audits
 						</span>
 						<span class="font-medium">
-							{formatUsage(
-								usageStats.usage.seoAuditsThisMonth.current,
-								usageStats.usage.seoAuditsThisMonth.limit
-							)}
+							{formatUsage(feature('seo_audit').current, feature('seo_audit').limit)}
 						</span>
 					</div>
 					<progress
 						class="progress progress-primary w-full"
-						value={usageStats.usage.seoAuditsThisMonth.percentage}
+						value={feature('seo_audit').percentage}
+						max="100"
+					></progress>
+				</div>
+
+				<!-- PDF Exports (Go agency_usage SSoT) -->
+				<div class="space-y-2">
+					<div class="flex items-center justify-between text-sm">
+						<span class="flex items-center gap-2">
+							<FileText class="h-4 w-4 text-base-content/60" />
+							PDF Exports
+						</span>
+						<span class="font-medium">
+							{formatUsage(feature('pdf_export').current, feature('pdf_export').limit)}
+						</span>
+					</div>
+					<progress
+						class="progress progress-primary w-full"
+						value={feature('pdf_export').percentage}
 						max="100"
 					></progress>
 				</div>
@@ -360,7 +380,7 @@
 	</div>
 
 	<!-- Pricing Plans -->
-	{#if currentTier !== 'enterprise' && !isFreemium}
+	{#if currentTier !== 'agency_pro' && currentTier !== 'enterprise' && !isFreemium}
 		<div class="card bg-base-100 border border-base-300">
 			<div class="card-body">
 				<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">

@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"app/pkg/usage"
 	"database/sql"
 	"encoding/json"
 	"log/slog"
@@ -114,6 +115,18 @@ func (h *Handler) handleGenerateBrandProfile(w http.ResponseWriter, r *http.Requ
 	}
 	if !clientExists {
 		writeJSON(w, http.StatusNotFound, errorResponse("client not found"))
+		return
+	}
+
+	// Enforce monthly AI-generation cap before queuing the async job —
+	// consume here rather than in the NATS consumer so over-cap requests
+	// fail fast with a visible 429 at the point of user action.
+	if _, err := h.usage.Consume(r.Context(), agencyID, usage.FeatureAIGeneration); err != nil {
+		if writeUsageError(w, err) {
+			return
+		}
+		slog.Error("Error consuming AI generation quota", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse("internal error"))
 		return
 	}
 

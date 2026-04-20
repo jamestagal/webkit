@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Mail, Users } from 'lucide-svelte';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import Modal from '$lib/components/shared/Modal.svelte';
 
@@ -20,6 +19,12 @@
 	let isLoading = $state(false);
 	let errors = $state<{ email?: string }>({});
 
+	// Plan-limit error state — rendered as an inline alert at the top of the
+	// modal with an Upgrade CTA. Mirrors the New Client modal pattern.
+	let inviteError = $state('');
+	let inviteAtLimit = $state(false);
+	let upgradeHref = $derived(`/${agency.slug}/settings/billing`);
+
 	const roles = [
 		{
 			value: 'member' as const,
@@ -33,9 +38,15 @@
 		}
 	];
 
+	let currentRoleDescription = $derived(
+		roles.find((r) => r.value === role)?.description ?? ''
+	);
+
 	async function handleInvite() {
 		// Reset errors
 		errors = {};
+		inviteError = '';
+		inviteAtLimit = false;
 
 		// Validate
 		if (!email) {
@@ -67,21 +78,37 @@
 
 			// Notify parent
 			onInvite();
-		} catch (error) {
-			console.error('Failed to invite member:', error);
+		} catch (err) {
+			console.error('Failed to invite member:', err);
 
-			const errorMessage = (error as Error).message || 'Unknown error';
+			// SvelteKit's error() throws HttpError, so read status + body.message
+			// directly (same pattern as commit 9704e02).
+			const status = (err as { status?: number } | null)?.status;
+			let message = 'Something went wrong';
+			if (err && typeof err === 'object' && 'body' in err) {
+				const body = (err as { body?: { message?: string } }).body;
+				if (body?.message) message = body.message;
+			} else if (err instanceof Error && err.message) {
+				message = err.message;
+			}
 
-			// Handle specific error messages
-			if (errorMessage.includes('already a member')) {
+			const isLimit =
+				status === 429 ||
+				((status === 403 || status === 422) &&
+					/limit|not available|upgrade|plan supports/i.test(message));
+
+			// Keep the existing per-field handling for validation-style errors so
+			// the message attaches to the email input. Route everything else —
+			// including plan-limit errors — through the top-of-modal alert.
+			if (message.includes('already a member')) {
 				errors.email = 'This user is already a member of the agency';
-			} else if (errorMessage.includes('already invited')) {
+			} else if (message.includes('already invited')) {
 				errors.email = 'This user has already been invited';
-			} else if (errorMessage.includes('permission')) {
+			} else if (!isLimit && message.includes('permission')) {
 				errors.email = 'You do not have permission to invite members';
 			} else {
-				toast.error(`Failed to send invitation: ${errorMessage}`);
-				errors.email = errorMessage;
+				inviteError = message;
+				inviteAtLimit = isLimit;
 			}
 		} finally {
 			isLoading = false;
@@ -94,6 +121,8 @@
 			displayName = '';
 			role = 'member';
 			errors = {};
+			inviteError = '';
+			inviteAtLimit = false;
 			showModal = false;
 		}
 	}
@@ -101,19 +130,21 @@
 
 <Modal bind:isOpen={showModal} title="Invite Team Member" maxWidth="max-w-md">
 	{#snippet children()}
-		<div class="p-6">
-			<div class="flex items-center gap-3 mb-6">
-				<div
-					class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"
-				>
-					<Mail class="h-5 w-5" />
+		<div class="p-5">
+			<p class="text-base-content/70 text-sm mb-4">
+				Send an invitation to join {agency.name}.
+			</p>
+
+			{#if inviteError}
+				<div class="mb-4">
+					<div class="alert alert-error">
+						<span>{inviteError}</span>
+					</div>
+					{#if inviteAtLimit}
+						<a href={upgradeHref} class="btn btn-sm btn-primary mt-2">Upgrade plan →</a>
+					{/if}
 				</div>
-				<div>
-					<p class="text-base-content/70 text-sm">
-						Send an invitation to join {agency.name}
-					</p>
-				</div>
-			</div>
+			{/if}
 
 			<form
 				onsubmit={(e) => {
@@ -121,7 +152,7 @@
 					handleInvite();
 				}}
 			>
-				<div class="space-y-4">
+				<div class="space-y-3">
 					<!-- Email Input -->
 					<div class="form-control">
 						<label for="email" class="label">
@@ -159,57 +190,32 @@
 						/>
 					</div>
 
-					<!-- Role Selection -->
+					<!-- Role Selection — compact segmented control + dynamic description -->
 					<div class="form-control">
-						<label class="label">
+						<div class="label">
 							<span class="label-text">Role</span>
-						</label>
-						<div class="space-y-2">
+						</div>
+						<div class="join w-full" role="radiogroup" aria-label="Role">
 							{#each roles as roleOption}
-								<label
-									class="flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors hover:bg-base-200 {role ===
-									roleOption.value
-										? 'bg-primary/5 border-primary'
-										: 'border-base-300'}"
+								<button
+									type="button"
+									class="join-item btn btn-sm flex-1 {role === roleOption.value
+										? 'btn-primary'
+										: 'btn-outline'}"
+									onclick={() => (role = roleOption.value)}
+									disabled={isLoading}
+									aria-pressed={role === roleOption.value}
 								>
-									<input
-										type="radio"
-										name="role"
-										value={roleOption.value}
-										bind:group={role}
-										disabled={isLoading}
-										class="radio radio-primary mt-0.5"
-									/>
-									<div class="flex-1">
-										<div class="font-medium">{roleOption.label}</div>
-										<div class="text-base-content/60 text-sm">
-											{roleOption.description}
-										</div>
-									</div>
-								</label>
+									{roleOption.label}
+								</button>
 							{/each}
 						</div>
+						<p class="text-base-content/60 text-xs mt-2">{currentRoleDescription}</p>
 					</div>
 
-					<!-- Info Box -->
-					<div class="alert alert-info">
-						<Users class="h-5 w-5 shrink-0" />
-						<div class="text-sm">
-							<p class="font-medium mb-1">About Member Roles</p>
-							<ul class="space-y-1 text-xs">
-								<li>
-									• <strong>Members</strong> can create and manage their own consultations and proposals
-								</li>
-								<li>
-									• <strong>Admins</strong> can manage all agency work and invite new members
-								</li>
-								<li>• <strong>Owners</strong> have full control including billing and settings</li>
-							</ul>
-						</div>
-					</div>
 				</div>
 
-				<div class="flex justify-end gap-3 mt-6">
+				<div class="flex justify-end gap-3 mt-4">
 					<button type="button" class="btn" onclick={handleClose} disabled={isLoading}>
 						Cancel
 					</button>

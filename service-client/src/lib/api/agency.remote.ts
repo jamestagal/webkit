@@ -33,6 +33,7 @@ import {
 } from "$lib/server/agency";
 import { logActivity } from "$lib/server/db-helpers";
 import { getEffectiveBranding } from "$lib/server/document-branding";
+import { enforceMemberLimit } from "$lib/server/subscription";
 import { eq, and, desc, asc, sql } from "drizzle-orm";
 import { sendEmail } from "$lib/server/services/email.service";
 import {
@@ -183,9 +184,17 @@ const UpdateAgencyBrandingSchema = v.object({
 	name: v.optional(v.pipe(v.string(), v.minLength(2), v.maxLength(100))),
 	logoUrl: v.optional(v.string()), // Horizontal logo for documents
 	logoAvatarUrl: v.optional(v.string()), // Square avatar logo for nav/UI
-	primaryColor: v.optional(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/))),
-	secondaryColor: v.optional(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/))),
-	accentColor: v.optional(v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/))),
+	// Accept empty string as "unset" — the branding form clears fields to empty
+	// rather than undefined, so empty must be treated the same as missing.
+	primaryColor: v.optional(
+		v.union([v.literal(""), v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"))]),
+	),
+	secondaryColor: v.optional(
+		v.union([v.literal(""), v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"))]),
+	),
+	accentColor: v.optional(
+		v.union([v.literal(""), v.pipe(v.string(), v.regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"))]),
+	),
 	accentGradient: v.optional(v.string()), // CSS gradient string for backgrounds
 });
 
@@ -493,6 +502,13 @@ export const switchAgency = command(SwitchAgencySchema, async (agencyId: string)
  */
 export const inviteMember = command(InviteMemberSchema, async (data) => {
 	const context = await requireAgencyRole(["owner", "admin"]);
+
+	// Hard-ceiling guard (commit 42a76a9). Throws 403 when
+	// agency_memberships count (status='active') >= TIER_LIMITS[tier].max_members.
+	// Must run BEFORE we create users or membership rows so a blocked invite
+	// doesn't leave orphaned placeholder users behind.
+	await enforceMemberLimit(context.agencyId);
+
 	const currentUserId = getUserId();
 
 	// Get inviter details for email

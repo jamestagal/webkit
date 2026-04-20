@@ -306,7 +306,7 @@ export const updateAgencyAccess = command(UpdateAgencyAccessSchema, async (data)
 
 		if (data.subscriptionTier && data.subscriptionTier !== currentAgency.subscriptionTier) {
 			updates.subscriptionTier = data.subscriptionTier;
-			const tierOrder = ["free", "starter", "growth", "enterprise"];
+			const tierOrder = ["free", "starter", "growth", "agency_pro"];
 			const oldIdx = tierOrder.indexOf(currentAgency.subscriptionTier);
 			const newIdx = tierOrder.indexOf(data.subscriptionTier);
 			const action = newIdx > oldIdx ? "subscription.upgraded" : "subscription.downgraded";

@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"app/pkg/usage"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -205,6 +206,16 @@ func (h *Handler) handleStartAudit(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != sql.ErrNoRows {
 		slog.Error("Error checking for active audit", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse("internal error"))
+		return
+	}
+
+	// Enforce monthly SEO-audit cap (spec §8). Atomic check+increment.
+	if _, err := h.usage.Consume(r.Context(), agencyID, usage.FeatureSEOAudit); err != nil {
+		if writeUsageError(w, err) {
+			return
+		}
+		slog.Error("Error consuming SEO audit quota", "error", err)
 		writeJSON(w, http.StatusInternalServerError, errorResponse("internal error"))
 		return
 	}
@@ -669,6 +680,16 @@ func (h *Handler) handleGenerateAuditReport(w http.ResponseWriter, r *http.Reque
 	}
 	if auditStatus != "complete" {
 		writeJSON(w, http.StatusBadRequest, errorResponse(fmt.Sprintf("audit is not complete (status: %s)", auditStatus)))
+		return
+	}
+
+	// Enforce monthly PDF-export cap (every Gotenberg render counts).
+	if _, err := h.usage.Consume(r.Context(), agencyID, usage.FeaturePDFExport); err != nil {
+		if writeUsageError(w, err) {
+			return
+		}
+		slog.Error("Error consuming PDF export quota", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse("internal error"))
 		return
 	}
 

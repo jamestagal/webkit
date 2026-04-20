@@ -32,7 +32,7 @@
 				{/if}
 				{#if toast.action}
 					<button
-						class="text-base-300 hover:text-base-content mt-4 text-sm"
+						class="text-primary hover:text-primary-focus mt-4 text-sm font-medium"
 						aria-hidden="true"
 						onclick={() => {
 							toast.action?.onClick();
@@ -45,7 +45,7 @@
 			<div class="ml-4 flex shrink-0">
 				<button
 					type="button"
-					class="text-base-content relative rounded-sm hover:text-white focus:ring-2 focus:ring-white"
+					class="text-base-content/60 relative rounded-sm hover:text-base-content focus:ring-2 focus:ring-base-content/20"
 					onclick={() => {
 						t.removeToast(toast.id);
 					}}

@@ -11,9 +11,31 @@
 
 	let agencySlug = $derived(page.params.agencySlug);
 	let clientId = $derived(page.params.clientId);
+	let upgradeHref = $derived(`/${agencySlug}/settings/billing`);
 
 	function formatPlatform(p: string): string {
 		return p.charAt(0).toUpperCase() + p.slice(1);
+	}
+
+	// SvelteKit's error() throws HttpError (not Error), so `err instanceof Error`
+	// is false. Read status + body.message directly to surface the real message
+	// and flag quota-reached states so the upgrade CTA can render.
+	function classifyError(err: unknown, fallback: string): {
+		message: string;
+		isLimit: boolean;
+	} {
+		const status = (err as { status?: number } | null)?.status;
+		let message = fallback;
+		if (err && typeof err === "object" && "body" in err) {
+			const body = (err as { body?: { message?: string } }).body;
+			if (body?.message) message = body.message;
+		} else if (err instanceof Error && err.message) {
+			message = err.message;
+		}
+		const isLimit =
+			status === 429 ||
+			(status === 403 && /limit|not available|upgrade/i.test(message));
+		return { message, isLimit };
 	}
 
 	// Form state
@@ -24,6 +46,7 @@
 	let selectedPageId = $state("");
 	let isGenerating = $state(false);
 	let generateError = $state("");
+	let generateAtLimit = $state(false);
 	let result: SocialGenerateResult | null = $state(null);
 
 	// Clipboard feedback
@@ -34,6 +57,7 @@
 
 		isGenerating = true;
 		generateError = "";
+		generateAtLimit = false;
 		result = null;
 		try {
 			result = await generateSocial({
@@ -45,7 +69,9 @@
 				pageId: selectedPageId || undefined,
 			});
 		} catch (err: unknown) {
-			generateError = err instanceof Error ? err.message : "Failed to generate social posts. Please try again.";
+			const { message, isLimit } = classifyError(err, "Failed to generate social posts. Please try again.");
+			generateError = message;
+			generateAtLimit = isLimit;
 		} finally {
 			isGenerating = false;
 		}
@@ -79,8 +105,15 @@
 			</p>
 
 			{#if generateError}
-				<div class="alert alert-error mt-4">
-					<span>{generateError}</span>
+				<div class="mt-4">
+					<div class="alert alert-error">
+						<span>{generateError}</span>
+					</div>
+					{#if generateAtLimit}
+						<a href={upgradeHref} class="btn btn-sm btn-primary mt-2">
+							Upgrade plan →
+						</a>
+					{/if}
 				</div>
 			{/if}
 

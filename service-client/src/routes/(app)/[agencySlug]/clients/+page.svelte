@@ -28,6 +28,7 @@
 	let { data }: PageProps = $props();
 
 	let agencySlug = $derived(data.agency.slug);
+	let upgradeHref = $derived(`/${agencySlug}/settings/billing`);
 
 	// Search state - sync with URL param reactively
 	let searchInput = $state("");
@@ -46,6 +47,12 @@
 	let deletingClient = $state<(typeof data.clients)[0] | null>(null);
 	let isSaving = $state(false);
 	let isDeleting = $state(false);
+
+	// Create-client inline error state — toasts fire behind the modal where
+	// they aren't visible, so plan-limit (422) / auth (403) errors need to
+	// render inside the dialog with the Upgrade CTA.
+	let createError = $state("");
+	let createAtLimit = $state(false);
 
 	// Form state
 	let formData = $state({
@@ -105,6 +112,8 @@
 
 	function openCreateModal() {
 		formData = { businessName: "", email: "", phone: "", contactName: "", website: "", notes: "" };
+		createError = "";
+		createAtLimit = false;
 		showCreateModal = true;
 	}
 
@@ -123,11 +132,14 @@
 
 	async function handleCreate() {
 		if (!formData.businessName.trim() || !formData.email.trim()) {
-			toast.error("Business name and email are required");
+			createError = "Business name and email are required";
+			createAtLimit = false;
 			return;
 		}
 
 		isSaving = true;
+		createError = "";
+		createAtLimit = false;
 		try {
 			await createClient({
 				businessName: formData.businessName.trim(),
@@ -141,7 +153,23 @@
 			await invalidateAll();
 			toast.success("Client created successfully");
 		} catch (err) {
-			toast.error("Failed to create client", err instanceof Error ? err.message : "");
+			// Mirrors classifyError() from commit 9704e02: SvelteKit's error() throws
+			// HttpError (not Error), so the `instanceof Error` branch never fires.
+			// Read status + body.message directly, then flag isLimit on the plan-cap
+			// codes (422 new-row ceilings, 429 monthly caps, 403 feature-not-on-plan).
+			const status = (err as { status?: number } | null)?.status;
+			let message = "Failed to create client";
+			if (err && typeof err === "object" && "body" in err) {
+				const body = (err as { body?: { message?: string } }).body;
+				if (body?.message) message = body.message;
+			} else if (err instanceof Error && err.message) {
+				message = err.message;
+			}
+			createError = message;
+			createAtLimit =
+				status === 429 ||
+				((status === 403 || status === 422) &&
+					/limit|not available|upgrade|plan supports/i.test(message));
 		} finally {
 			isSaving = false;
 		}
@@ -521,6 +549,17 @@
 			</div>
 			<h3 class="font-bold text-lg">New Client</h3>
 		</div>
+
+		{#if createError}
+			<div class="mb-4">
+				<div class="alert alert-error">
+					<span>{createError}</span>
+				</div>
+				{#if createAtLimit}
+					<a href={upgradeHref} class="btn btn-sm btn-primary mt-2">Upgrade plan →</a>
+				{/if}
+			</div>
+		{/if}
 
 		<form onsubmit={(e) => { e.preventDefault(); handleCreate(); }}>
 			<div class="space-y-4">

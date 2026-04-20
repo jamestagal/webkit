@@ -15,6 +15,7 @@ import { eq, and } from "drizzle-orm";
 import { generateInvoicePdfHtml } from "$lib/templates/invoice-pdf";
 import { decryptProfileFields } from "$lib/server/crypto";
 import { convertHtmlToPdf, RateLimitError } from "$lib/server/gotenberg";
+import { consumePDFExport } from "$lib/server/usage";
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const { invoiceId } = params;
@@ -76,6 +77,13 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			profile: profile ? decryptProfileFields(profile) : null,
 		});
 
+		// Enforce monthly PDF-export cap before hitting Gotenberg.
+		// Throws 429 with reset_date on limit exceeded.
+		// TODO(usage): consume runs before convertHtmlToPdf — a Gotenberg failure
+		// here bills the agency for a PDF they never received. Acceptable while
+		// Gotenberg is reliable; revisit if failure rate climbs.
+		await consumePDFExport(invoice.agencyId);
+
 		// Convert to PDF
 		const pdfBuffer = await convertHtmlToPdf(html, locals.user.id);
 		const filename = `${invoice.invoiceNumber}.pdf`;
@@ -86,7 +94,10 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 				"Content-Type": "application/pdf",
 				"Content-Disposition": `attachment; filename="${filename}"`,
 				"Content-Length": pdfBuffer.byteLength.toString(),
-				"Cache-Control": "private, max-age=60",
+				// no-store: every download must hit the server so consumePDFExport runs.
+				// Prior `max-age=60` let browsers serve repeat downloads from cache and
+				// silently skip the usage counter.
+				"Cache-Control": "private, no-store",
 			},
 		});
 	} catch (err) {
@@ -94,7 +105,25 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			return json({ error: err.message }, { status: 429 });
 		}
 		console.error("PDF generation error:", err);
-		const message = err instanceof Error ? err.message : "PDF generation failed";
-		return json({ error: message }, { status: 500 });
+		// Forward HttpError status + structured body (limit/feature/resetDate)
+		// from consumePDFExport so the frontend can render a clean alert
+		// without regex-parsing the raw Go message.
+		const httpErr = err as {
+			status?: number;
+			body?: { message?: string; limit?: number; feature?: string; resetDate?: string };
+		};
+		const status = httpErr?.status ?? 500;
+		const message =
+			httpErr?.body?.message ??
+			(err instanceof Error ? err.message : "PDF generation failed");
+		return json(
+			{
+				error: message,
+				limit: httpErr?.body?.limit,
+				feature: httpErr?.body?.feature,
+				resetDate: httpErr?.body?.resetDate,
+			},
+			{ status },
+		);
 	}
 };

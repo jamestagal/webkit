@@ -2,6 +2,7 @@ package rest
 
 import (
 	"app/pkg/auth"
+	"app/pkg/usage"
 	"content-service/config"
 	"database/sql"
 
@@ -13,6 +14,7 @@ type Handler struct {
 	db          *sql.DB
 	natsConn    *nats.Conn
 	authService *auth.Service
+	usage       *usage.Service
 }
 
 func NewHandler(
@@ -20,11 +22,13 @@ func NewHandler(
 	db *sql.DB,
 	natsConn *nats.Conn,
 	authService *auth.Service,
+	usageService *usage.Service,
 ) *Handler {
 	return &Handler{
 		cfg:         cfg,
 		db:          db,
 		natsConn:    natsConn,
 		authService: authService,
+		usage:       usageService,
 	}
 }

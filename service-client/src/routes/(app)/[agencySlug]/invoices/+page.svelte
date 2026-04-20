@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, goto } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { deleteInvoice, cancelInvoice } from '$lib/api/invoices.remote';
 	import { sendInvoiceEmail, sendInvoiceReminder } from '$lib/api/email.remote';
@@ -24,6 +24,7 @@
 		RefreshCw
 	} from 'lucide-svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/formatting';
+	import { downloadPdf as downloadPdfFile, PDFDownloadError, formatLimitToast } from '$lib/utils/pdf-download';
 	import type { PageProps } from './$types';
 
 	const feature = FEATURES.invoices;
@@ -174,8 +175,28 @@
 		toast.success('Link copied to clipboard');
 	}
 
-	function downloadPdf(invoiceId: string) {
-		window.open(`/api/invoices/${invoiceId}/pdf`, '_blank');
+	async function downloadPdf(invoiceId: string, invoiceNumber: string) {
+		try {
+			await downloadPdfFile(`/api/invoices/${invoiceId}/pdf`, `${invoiceNumber}.pdf`);
+		} catch (err) {
+			if (err instanceof PDFDownloadError && err.isLimit) {
+				const { title, body } = formatLimitToast(err);
+				toast.error(title, body, {
+					duration: 0,
+					action: {
+						label: 'Upgrade plan →',
+						onClick: () => goto(`/${agencySlug}/settings/billing`),
+					},
+				});
+			} else if (err instanceof PDFDownloadError) {
+				toast.error('PDF download failed', err.message);
+			} else {
+				toast.error(
+					'PDF download failed',
+					err instanceof Error ? err.message : 'Please try again.'
+				);
+			}
+		}
 	}
 </script>
 
@@ -342,7 +363,7 @@
 											</a>
 										</li>
 										<li>
-											<button type="button" onclick={() => downloadPdf(invoice.id)}>
+											<button type="button" onclick={() => downloadPdf(invoice.id, invoice.invoiceNumber)}>
 												<Download class="h-4 w-4" />
 												Download PDF
 											</button>
@@ -500,7 +521,7 @@
 											</a>
 										</li>
 										<li>
-											<button type="button" onclick={() => downloadPdf(invoice.id)}>
+											<button type="button" onclick={() => downloadPdf(invoice.id, invoice.invoiceNumber)}>
 												<Download class="h-4 w-4" />
 												Download PDF
 											</button>

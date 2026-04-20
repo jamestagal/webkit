@@ -2,6 +2,7 @@ package rest
 
 import (
 	"app/pkg/auth"
+	"app/pkg/usage"
 	"service-core/config"
 	"service-core/domain/billing"
 	"service-core/domain/email"
@@ -20,6 +21,7 @@ type Handler struct {
 	emailService   *email.Service
 	fileService    *file.Service
 	noteService    *note.Service
+	usageService   *usage.Service
 }
 
 func NewHandler(
@@ -31,6 +33,7 @@ func NewHandler(
 	emailService *email.Service,
 	fileService *file.Service,
 	noteService *note.Service,
+	usageService *usage.Service,
 ) *Handler {
 	return &Handler{
 		cfg:            config,
@@ -41,5 +44,6 @@ func NewHandler(
 		emailService:   emailService,
 		fileService:    fileService,
 		noteService:    noteService,
+		usageService:   usageService,
 	}
 }

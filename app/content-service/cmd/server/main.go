@@ -3,9 +3,11 @@ package main
 import (
 	"app/pkg"
 	"app/pkg/auth"
+	"app/pkg/billing"
 	"app/pkg/cfbrowser"
 	"app/pkg/dataforseo"
 	"app/pkg/jina"
+	"app/pkg/usage"
 	"context"
 	"database/sql"
 	"fmt"
@@ -20,7 +22,9 @@ import (
 	"content-service/internal/embeddings"
 	"content-service/internal/jobs"
 	"content-service/rest"
+	"service-core/storage/query"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/nats-io/nats.go"
@@ -64,6 +68,24 @@ func main() {
 	// Create auth service
 	authService := auth.NewService()
 
+	// Build the usage service. TierLookup reads subscription_tier from
+	// the agencies table via a narrow raw query — no need to depend on
+	// service-core's billing service here, which would introduce an extra
+	// HTTP hop per Consume() call.
+	usageRepo := query.New(db)
+	tierLookup := func(ctx context.Context, agencyID uuid.UUID) (billing.SubscriptionTier, error) {
+		var tier string
+		err := db.QueryRowContext(ctx,
+			"SELECT subscription_tier FROM agencies WHERE id = $1",
+			agencyID,
+		).Scan(&tier)
+		if err != nil {
+			return "", fmt.Errorf("lookup tier for agency %s: %w", agencyID, err)
+		}
+		return billing.SubscriptionTier(tier), nil
+	}
+	usageService := usage.NewService(usageRepo, tierLookup)
+
 	// Create API clients
 	var cfClient *cfbrowser.Client
 	if cfg.CFBrowserWorkerURL != "" {
@@ -88,7 +110,7 @@ func main() {
 	defer jobMgr.Stop()
 
 	// Create REST handler
-	handler := rest.NewHandler(cfg, db, nc, authService)
+	handler := rest.NewHandler(cfg, db, nc, authService, usageService)
 
 	// Run HTTP server
 	server := rest.Run(handler)

@@ -7,9 +7,10 @@
 	 */
 
 	import { browser } from '$app/environment';
+	import { page } from '$app/state';
 	import { Sparkles, AlertTriangle, RefreshCw } from 'lucide-svelte';
 	import type { AIProposalOutput } from '$lib/types/ai-proposal';
-	import type { AIErrorCode } from '$lib/constants/ai-errors';
+	import { AIErrorCode } from '$lib/constants/ai-errors';
 
 	interface Props {
 		proposalId: string;
@@ -32,6 +33,14 @@
 	let isStreaming = $state(true);
 	let error = $state<{ code: string; message: string } | null>(null);
 	let abortController: AbortController | null = null;
+
+	// A monthly cap hit (RATE_LIMIT_EXCEEDED) is a dead-end unless we surface
+	// an upgrade path — same CTA pattern as UsageWarningBanner + the audit modal.
+	let isLimitError = $derived(
+		error?.code === AIErrorCode.RATE_LIMIT_EXCEEDED ||
+			error?.code === 'RATE_LIMIT_EXCEEDED',
+	);
+	let upgradeHref = $derived(`/${page.params.agencySlug ?? ''}/settings/billing`);
 
 	// Start streaming immediately when component mounts (browser only)
 	$effect(() => {
@@ -165,10 +174,17 @@
 					<button type="button" class="btn btn-ghost" onclick={handleCancel}>
 						Cancel
 					</button>
-					<button type="button" class="btn btn-primary" onclick={handleRetry}>
-						<RefreshCw class="h-4 w-4" />
-						Retry
-					</button>
+					{#if isLimitError}
+						<!-- Retry would just hit the same cap — send them to billing instead. -->
+						<a href={upgradeHref} class="btn btn-primary" onclick={handleCancel}>
+							Upgrade plan →
+						</a>
+					{:else}
+						<button type="button" class="btn btn-primary" onclick={handleRetry}>
+							<RefreshCw class="h-4 w-4" />
+							Retry
+						</button>
+					{/if}
 				</div>
 			</div>
 		{:else}

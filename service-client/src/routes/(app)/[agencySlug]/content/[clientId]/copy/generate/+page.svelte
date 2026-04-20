@@ -11,9 +11,34 @@
 
 	let agencySlug = $derived(page.params.agencySlug);
 	let clientId = $derived(page.params.clientId);
+	let upgradeHref = $derived(`/${agencySlug}/settings/billing`);
 
 	// Page-dependent copy types
 	const PAGE_REQUIRED_TYPES = ["page_rewrite", "meta_title", "meta_description", "h1_suggestion"];
+
+	/**
+	 * SvelteKit's error() helper throws an HttpError, which is NOT a standard
+	 * Error instance. Read status + body.message directly so we can surface
+	 * the server's actual message (including 429 quota text) and decide when
+	 * to show the upgrade CTA, instead of defaulting to a generic fallback.
+	 */
+	function classifyError(err: unknown, fallback: string): {
+		message: string;
+		isLimit: boolean;
+	} {
+		const status = (err as { status?: number } | null)?.status;
+		let message = fallback;
+		if (err && typeof err === "object" && "body" in err) {
+			const body = (err as { body?: { message?: string } }).body;
+			if (body?.message) message = body.message;
+		} else if (err instanceof Error && err.message) {
+			message = err.message;
+		}
+		const isLimit =
+			status === 429 ||
+			(status === 403 && /limit|not available|upgrade/i.test(message));
+		return { message, isLimit };
+	}
 
 	function formatCopyType(type: string): string {
 		return type
@@ -30,6 +55,7 @@
 	let selectedPageId = $state("");
 	let isGenerating = $state(false);
 	let generateError = $state("");
+	let generateAtLimit = $state(false);
 
 	let showPagePicker = $derived(PAGE_REQUIRED_TYPES.includes(copyType));
 
@@ -42,6 +68,7 @@
 
 		isGenerating = true;
 		generateError = "";
+		generateAtLimit = false;
 		try {
 			const result = await generateCopy({
 				clientId: data.clientId,
@@ -53,7 +80,9 @@
 			});
 			await goto(`/${agencySlug}/content/${data.clientId}/copy/${result.copy_id}`);
 		} catch (err: unknown) {
-			generateError = err instanceof Error ? err.message : "Failed to generate copy. Please try again.";
+			const { message, isLimit } = classifyError(err, "Failed to generate copy. Please try again.");
+			generateError = message;
+			generateAtLimit = isLimit;
 		} finally {
 			isGenerating = false;
 		}
@@ -64,6 +93,7 @@
 	let metaKeyword = $state("");
 	let isGeneratingMeta = $state(false);
 	let metaError = $state("");
+	let metaAtLimit = $state(false);
 	let metaResult: MetaResult | null = $state(null);
 
 	async function handleGenerateMeta() {
@@ -74,6 +104,7 @@
 
 		isGeneratingMeta = true;
 		metaError = "";
+		metaAtLimit = false;
 		metaResult = null;
 		try {
 			metaResult = await generateMeta({
@@ -82,7 +113,9 @@
 				targetKeyword: metaKeyword || undefined,
 			});
 		} catch (err: unknown) {
-			metaError = err instanceof Error ? err.message : "Failed to generate meta tags. Please try again.";
+			const { message, isLimit } = classifyError(err, "Failed to generate meta tags. Please try again.");
+			metaError = message;
+			metaAtLimit = isLimit;
 		} finally {
 			isGeneratingMeta = false;
 		}
@@ -108,8 +141,15 @@
 			</p>
 
 			{#if generateError}
-				<div class="alert alert-error mt-4">
-					<span>{generateError}</span>
+				<div class="mt-4">
+					<div class="alert alert-error">
+						<span>{generateError}</span>
+					</div>
+					{#if generateAtLimit}
+						<a href={upgradeHref} class="btn btn-sm btn-primary mt-2">
+							Upgrade plan →
+						</a>
+					{/if}
 				</div>
 			{/if}
 
@@ -237,8 +277,15 @@
 			</p>
 
 			{#if metaError}
-				<div class="alert alert-error mt-4">
-					<span>{metaError}</span>
+				<div class="mt-4">
+					<div class="alert alert-error">
+						<span>{metaError}</span>
+					</div>
+					{#if metaAtLimit}
+						<a href={upgradeHref} class="btn btn-sm btn-primary mt-2">
+							Upgrade plan →
+						</a>
+					{/if}
 				</div>
 			{/if}
 
