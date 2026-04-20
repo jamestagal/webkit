@@ -1,27 +1,29 @@
 <script lang="ts">
 	/**
-	 * ProposalDocument — renders the proposal article (cover → body → footer)
-	 * with all branding values injected as `--brand-*` CSS custom properties
-	 * on a zero-layout wrapper.
+	 * ProposalDocument — self-contained proposal renderer.
 	 *
-	 * Phase 2.1b: markup lifted from /p/[slug]/+page.svelte. All script state
-	 * (pricing derivations, JSONB parsing, response form state, helpers) still
-	 * lives on the parent page and is passed down via bag-shaped props.
-	 * Phase 2.1d will pull the state in. Phase 2.1c will translate inline
-	 * `{branding.X}` interpolations to `var(--brand-X)`.
+	 * Owns all derived state (JSONB parsing, pricing math, helper functions,
+	 * response form state) and injects branding values as `--brand-*` CSS
+	 * custom properties on a zero-layout wrapper (`display: contents`). All
+	 * descendant styles read through `var(--brand-*)` so the wrapper is the
+	 * single control surface — parent pages and preview iframes only need
+	 * to update props/vars and the full document rebrands.
 	 *
-	 * One substitution applied alongside the lift (deliberate — honours the
-	 * original L437 design intent that pre-dated the resolver tweak):
-	 *   L451 feature-card section background:
-	 *     before: `branding.accentGradient || branding.primaryColor`
-	 *     after : `branding.primaryColor`
-	 * Rationale: the `|| primaryColor` fallback was a deliberate design
-	 * signal (solid primary when no explicit gradient is set). The resolver
-	 * tweak made `branding.accentGradient` always-paintable, which turned
-	 * that branch into dead code — silently changing L437 from solid to
-	 * computed gradient. Making the primaryColor reference explicit preserves
-	 * the original visual without re-introducing any consumer-side `||`
-	 * plumbing.
+	 * Prop surface:
+	 *   data          — PageData from the loader (proposal + agency + profile
+	 *                   + selectedPackage + selectedAddons + isPreview + branding)
+	 *   form          — SvelteKit ActionData for accept/decline/revision
+	 *   branding      — ProposalEffectiveBranding (same object as data.branding;
+	 *                   passed separately so callers can swap it in preview
+	 *                   iframes without mutating `data`)
+	 *   previewMode   — hides the Accept / Request Changes / Decline response
+	 *                   section. Default false. Used by the branding preview
+	 *                   iframe (Phase 2.2) where clients cannot interact.
+	 *
+	 * Design note — L437 feature section background reads `branding.primaryColor`
+	 * directly (pre-resolver-tweak intent). See the 2.1b commit body for
+	 * rationale; the `|| accentGradient` fallback became dead code after the
+	 * resolver tweak and was deliberately dropped here.
 	 */
 	import {
 		Check,
@@ -42,6 +44,8 @@
 	} from 'lucide-svelte';
 	import { enhance } from '$app/forms';
 	import { parseSEOSummary, getStatusColorClass } from '$lib/types/seo-summary';
+	import { formatDate } from '$lib/utils/formatting';
+	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import type {
 		ChecklistItem,
 		PerformanceData,
@@ -52,85 +56,116 @@
 		CustomPricing
 	} from '$lib/server/schema';
 	import type { ProposalEffectiveBranding } from '$lib/server/document-branding';
-	import type { ActionData } from '../../../routes/p/[slug]/$types';
-
-	// Simplified shape types matching what the page passes down.
-	// `data` + derived-value bags + helper function refs + bindable form state.
-	type ProposalData = {
-		proposal: any;
-		agency: any;
-		profile: any;
-		selectedPackage: any;
-		selectedAddons: { id: string; name: string; price: string }[];
-		isPreview: boolean;
-	};
-	type ParsedSections = {
-		performanceData: PerformanceData;
-		currentIssues: ChecklistItem[];
-		roiAnalysis: RoiAnalysis;
-		performanceStandards: PerformanceStandard[];
-		proposedPages: ProposedPage[];
-		timeline: TimelinePhase[];
-		customPricing: CustomPricing | null;
-		canRespond: boolean;
-	};
-	type PricingTotals = {
-		setupFee: number;
-		monthlyPrice: number;
-		oneTimePrice: number;
-		hostingFee: number;
-		subtotal: number;
-		gstRate: number;
-		gst: number;
-		total: number;
-	};
-	type ProposalHelpers = {
-		parseMarkdown: (text: string) => string;
-		formatCurrency: (value: string | number) => string;
-		getScoreColor: (score: number) => string;
-		hasPerformanceData: () => boolean;
-		formatDate: (date: Date | string | null | undefined, format?: 'short' | 'long') => string;
-	};
-	type ResponseFormState = {
-		activeResponse: 'accept' | 'decline' | 'revision' | null;
-		isSubmitting: boolean;
-	};
+	import type { PageData, ActionData } from '../../../routes/p/[slug]/$types';
 
 	let {
-		branding,
 		data,
 		form,
-		parsed,
-		pricing,
-		helpers,
-		responseState = $bindable()
+		branding,
+		previewMode = false
 	}: {
-		branding: ProposalEffectiveBranding;
-		data: ProposalData;
+		data: PageData;
 		form: ActionData;
-		parsed: ParsedSections;
-		pricing: PricingTotals;
-		helpers: ProposalHelpers;
-		responseState: ResponseFormState;
+		branding: ProposalEffectiveBranding;
+		previewMode?: boolean;
 	} = $props();
 
-	// Unpack for markup compatibility with the lifted block. Non-reactive
-	// destructure matches the existing /p/[slug] pattern; deeper reactivity
-	// can be revisited when script state lands here in Phase 2.1d.
 	const { proposal, agency, profile, selectedPackage, selectedAddons, isPreview } = data;
-	const {
-		performanceData,
-		currentIssues,
-		roiAnalysis,
-		performanceStandards,
-		proposedPages,
-		timeline,
-		customPricing,
-		canRespond
-	} = parsed;
-	const { setupFee, monthlyPrice, oneTimePrice, hostingFee, subtotal, gstRate, gst, total } =
-		pricing;
-	const { parseMarkdown, formatCurrency, getScoreColor, hasPerformanceData, formatDate } = helpers;
+
+	// Parse JSONB fields off the raw proposal row.
+	const performanceData = (proposal.performanceData as PerformanceData) || {};
+	const currentIssues = (proposal.currentIssues as ChecklistItem[]) || [];
+	const roiAnalysis = (proposal.roiAnalysis as RoiAnalysis) || {};
+	const performanceStandards = (proposal.performanceStandards as PerformanceStandard[]) || [];
+	const proposedPages = (proposal.proposedPages as ProposedPage[]) || [];
+	const timeline = (proposal.timeline as TimelinePhase[]) || [];
+	const customPricing = (proposal.customPricing as CustomPricing) || null;
+
+	// Can the client respond? sent/viewed status, or admin-preview (?preview=true).
+	const canRespond =
+		proposal.status === 'sent' || proposal.status === 'viewed' || isPreview;
+
+	// Response form state — local to the component; no bindable needed since
+	// the parent no longer cares about these values.
+	let activeResponse = $state<'accept' | 'decline' | 'revision' | null>(null);
+	let isSubmitting = $state(false);
+
+	/**
+	 * Parse simple markdown to HTML with styled elements.
+	 * Accepts either rich HTML (from RichTextEditor — sanitised) or
+	 * plain-text markdown (bullets, bold, paragraphs).
+	 */
+	function parseMarkdown(text: string): string {
+		if (!text) return '';
+
+		if (/<[a-z][\s\S]*>/i.test(text)) {
+			return sanitizeHtml(text);
+		}
+
+		return text
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-base-content">$1</strong>')
+			.replace(/__([^_]+)__/g, '<strong class="font-semibold text-base-content">$1</strong>')
+			.split('\n')
+			.map((line) => {
+				const trimmed = line.trim();
+				if (trimmed.startsWith('• ') || trimmed.startsWith('- ')) {
+					const content = trimmed.slice(2);
+					return `<li class="flex items-start gap-3 py-1"><span class="shrink-0 mt-1.5 w-2 h-2 rounded-full bg-primary/70"></span><span>${content}</span></li>`;
+				}
+				if (trimmed === '') {
+					return '<div class="h-4"></div>';
+				}
+				return `<p class="leading-relaxed">${line}</p>`;
+			})
+			.join('')
+			.replace(/(<li[^>]*>.*?<\/li>)+/g, (match) => `<ul class="space-y-1 my-4">${match}</ul>`);
+	}
+
+	function formatCurrency(value: string | number): string {
+		const num = typeof value === 'string' ? parseFloat(value) : value;
+		if (isNaN(num)) return '$0';
+		return new Intl.NumberFormat('en-AU', {
+			style: 'currency',
+			currency: 'AUD',
+			minimumFractionDigits: 0,
+			maximumFractionDigits: 2
+		}).format(num);
+	}
+
+	function getScoreColor(score: number): string {
+		if (score >= 90) return 'text-success';
+		if (score >= 50) return 'text-warning';
+		return 'text-error';
+	}
+
+	function hasPerformanceData(): boolean {
+		return !!(
+			performanceData.performance ||
+			performanceData.accessibility ||
+			performanceData.bestPractices ||
+			performanceData.seo
+		);
+	}
+
+	// Pricing math.
+	const setupFee = parseFloat(customPricing?.setupFee ?? selectedPackage?.setupFee ?? '0');
+	const monthlyPrice = parseFloat(
+		customPricing?.monthlyPrice ?? selectedPackage?.monthlyPrice ?? '0'
+	);
+	const oneTimePrice = parseFloat(
+		customPricing?.oneTimePrice ?? selectedPackage?.oneTimePrice ?? '0'
+	);
+	const hostingFee = parseFloat(
+		customPricing?.hostingFee ?? selectedPackage?.hostingFee ?? '0'
+	);
+	const addonsTotal = selectedAddons.reduce((sum, a) => sum + parseFloat(a.price), 0);
+	const subtotal = setupFee + oneTimePrice + addonsTotal;
+	const gstRate = parseFloat(profile?.gstRate ?? '10');
+	const gst = subtotal * (gstRate / 100);
+	const total = subtotal + gst;
 </script>
 
 <div
@@ -996,8 +1031,9 @@
 			</section>
 		{/if}
 
-		<!-- Client Response Section (PART 2: Proposal Improvements) -->
-		{#if canRespond && !form?.success}
+		<!-- Client Response Section (PART 2: Proposal Improvements).
+		     Hidden entirely when `previewMode` is true (branding preview iframe). -->
+		{#if !previewMode && canRespond && !form?.success}
 			<section class="px-8 py-16">
 				<div class="mx-auto max-w-4xl">
 					<div class="text-center mb-8">
@@ -1011,12 +1047,12 @@
 					</div>
 
 					<!-- Response Action Buttons -->
-					{#if !responseState.activeResponse}
+					{#if !activeResponse}
 						<div class="flex flex-col sm:flex-row justify-center gap-4">
 							<button
 								type="button"
 								class="btn btn-success btn-lg gap-2"
-								onclick={() => (responseState.activeResponse = 'accept')}
+								onclick={() => (activeResponse = 'accept')}
 								disabled={isPreview}
 							>
 								<ThumbsUp class="h-5 w-5" />
@@ -1025,7 +1061,7 @@
 							<button
 								type="button"
 								class="btn btn-warning btn-lg gap-2"
-								onclick={() => (responseState.activeResponse = 'revision')}
+								onclick={() => (activeResponse = 'revision')}
 								disabled={isPreview}
 							>
 								<Edit3 class="h-5 w-5" />
@@ -1034,7 +1070,7 @@
 							<button
 								type="button"
 								class="btn btn-ghost btn-lg gap-2"
-								onclick={() => (responseState.activeResponse = 'decline')}
+								onclick={() => (activeResponse = 'decline')}
 								disabled={isPreview}
 							>
 								<ThumbsDown class="h-5 w-5" />
@@ -1044,7 +1080,7 @@
 					{/if}
 
 					<!-- Accept Form -->
-					{#if responseState.activeResponse === 'accept'}
+					{#if activeResponse === 'accept'}
 						<div class="card bg-base-200 max-w-xl mx-auto">
 							<div class="card-body">
 								<h3 class="card-title text-success">
@@ -1055,10 +1091,10 @@
 									method="POST"
 									action="?/accept"
 									use:enhance={() => {
-										responseState.isSubmitting = true;
+										isSubmitting = true;
 										return async ({ update }) => {
 											await update();
-											responseState.isSubmitting = false;
+											isSubmitting = false;
 										};
 									}}
 								>
@@ -1078,13 +1114,13 @@
 										<button
 											type="button"
 											class="btn btn-ghost"
-											onclick={() => (responseState.activeResponse = null)}
-											disabled={responseState.isSubmitting}
+											onclick={() => (activeResponse = null)}
+											disabled={isSubmitting}
 										>
 											Cancel
 										</button>
-										<button type="submit" class="btn btn-success" disabled={responseState.isSubmitting}>
-											{#if responseState.isSubmitting}
+										<button type="submit" class="btn btn-success" disabled={isSubmitting}>
+											{#if isSubmitting}
 												<span class="loading loading-spinner loading-sm"></span>
 											{/if}
 											Confirm Acceptance
@@ -1096,7 +1132,7 @@
 					{/if}
 
 					<!-- Revision Request Form -->
-					{#if responseState.activeResponse === 'revision'}
+					{#if activeResponse === 'revision'}
 						<div class="card bg-base-200 max-w-xl mx-auto">
 							<div class="card-body">
 								<h3 class="card-title text-warning">
@@ -1107,10 +1143,10 @@
 									method="POST"
 									action="?/requestRevision"
 									use:enhance={() => {
-										responseState.isSubmitting = true;
+										isSubmitting = true;
 										return async ({ update }) => {
 											await update();
-											responseState.isSubmitting = false;
+											isSubmitting = false;
 										};
 									}}
 								>
@@ -1135,13 +1171,13 @@
 										<button
 											type="button"
 											class="btn btn-ghost"
-											onclick={() => (responseState.activeResponse = null)}
-											disabled={responseState.isSubmitting}
+											onclick={() => (activeResponse = null)}
+											disabled={isSubmitting}
 										>
 											Cancel
 										</button>
-										<button type="submit" class="btn btn-warning" disabled={responseState.isSubmitting}>
-											{#if responseState.isSubmitting}
+										<button type="submit" class="btn btn-warning" disabled={isSubmitting}>
+											{#if isSubmitting}
 												<span class="loading loading-spinner loading-sm"></span>
 											{/if}
 											Submit Request
@@ -1153,7 +1189,7 @@
 					{/if}
 
 					<!-- Decline Form -->
-					{#if responseState.activeResponse === 'decline'}
+					{#if activeResponse === 'decline'}
 						<div class="card bg-base-200 max-w-xl mx-auto">
 							<div class="card-body">
 								<h3 class="card-title">
@@ -1167,10 +1203,10 @@
 									method="POST"
 									action="?/decline"
 									use:enhance={() => {
-										responseState.isSubmitting = true;
+										isSubmitting = true;
 										return async ({ update }) => {
 											await update();
-											responseState.isSubmitting = false;
+											isSubmitting = false;
 										};
 									}}
 								>
@@ -1190,13 +1226,13 @@
 										<button
 											type="button"
 											class="btn btn-ghost"
-											onclick={() => (responseState.activeResponse = null)}
-											disabled={responseState.isSubmitting}
+											onclick={() => (activeResponse = null)}
+											disabled={isSubmitting}
 										>
 											Cancel
 										</button>
-										<button type="submit" class="btn" disabled={responseState.isSubmitting}>
-											{#if responseState.isSubmitting}
+										<button type="submit" class="btn" disabled={isSubmitting}>
+											{#if isSubmitting}
 												<span class="loading loading-spinner loading-sm"></span>
 											{/if}
 											Confirm Decline
