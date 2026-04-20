@@ -47,7 +47,7 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	const { proposal, agency, profile, selectedPackage, selectedAddons, isPreview } = data;
+	const { proposal, agency, profile, selectedPackage, selectedAddons, isPreview, branding } = data;
 
 	// Response form state
 	let activeResponse = $state<'accept' | 'decline' | 'revision' | null>(null);
@@ -189,13 +189,13 @@
 		<!-- Cover Section -->
 		<header
 			class="relative flex min-h-[50vh] items-center justify-center px-8 py-16"
-			style="background: {agency?.secondaryColor || '#E3EDF7'}"
+			style:background={branding.coverBgColor}
 		>
-			<div class="relative z-10 text-center">
-				{#if agency?.logoUrl}
+			<div class="relative z-10 text-center" style:color={branding.coverTextColor}>
+				{#if branding.logoUrl}
 					<img
-						src={agency.logoUrl}
-						alt={agency.name}
+						src={branding.logoUrl}
+						alt={agency?.name ?? ''}
 						class="mx-auto mb-8 h-16 w-auto object-contain"
 					/>
 				{:else}
@@ -433,8 +433,9 @@
 		<!-- Package & Pricing -->
 		{#if selectedPackage || customPricing}
 			<section
-				class="px-8 py-16 text-white"
-				style="background: {agency?.accentGradient || agency?.primaryColor || '#4F46E5'}"
+				class="px-8 py-16"
+				style:background={branding.accentGradient || branding.ctaButtonColor}
+				style:color={branding.ctaButtonTextColor ?? '#FFFFFF'}
 			>
 				<div class="mx-auto max-w-4xl">
 					<h2 class="mb-8 text-3xl font-bold">
@@ -781,7 +782,7 @@
 								<div class="flex flex-col items-center">
 									<div
 										class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white font-semibold"
-										style="background-color: {agency?.primaryColor || '#4F46E5'}"
+										style="background-color: {branding.sectionHeadingColor}"
 									>
 										{index + 1}
 									</div>
@@ -809,18 +810,18 @@
 				<!-- Dramatic gradient background -->
 				<div
 					class="absolute inset-0"
-					style="background: linear-gradient(135deg, {agency?.primaryColor || '#4F46E5'}08 0%, transparent 50%, {agency?.secondaryColor || '#1E40AF'}08 100%);"
+					style="background: linear-gradient(135deg, {branding.primaryColor}08 0%, transparent 50%, {branding.coverBgColor}08 100%);"
 				></div>
 
 				<!-- Geometric accent shapes -->
 				<div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
 					<div
 						class="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-[0.03]"
-						style="background: {agency?.primaryColor || '#4F46E5'};"
+						style:background={branding.primaryColor}
 					></div>
 					<div
 						class="absolute -bottom-32 -left-32 w-[500px] h-[500px] rounded-full opacity-[0.03]"
-						style="background: {agency?.secondaryColor || '#1E40AF'};"
+						style:background={branding.coverBgColor}
 					></div>
 				</div>
 
@@ -829,9 +830,9 @@
 					<div class="text-center mb-16">
 						<div
 							class="inline-flex items-center gap-3 px-5 py-2 rounded-full text-sm font-medium mb-6"
-							style="background: {agency?.primaryColor || '#4F46E5'}12; color: {agency?.primaryColor || '#4F46E5'};"
+							style="background: {branding.sectionHeadingColor}12; color: {branding.sectionHeadingColor};"
 						>
-							<span class="w-2 h-2 rounded-full animate-pulse" style="background: {agency?.primaryColor || '#4F46E5'};"></span>
+							<span class="w-2 h-2 rounded-full animate-pulse" style="background: {branding.sectionHeadingColor};"></span>
 							Final Thoughts
 						</div>
 						<h2 class="text-3xl md:text-4xl font-bold tracking-tight">
@@ -844,7 +845,7 @@
 						<!-- Vertical accent line -->
 						<div
 							class="absolute left-0 top-8 bottom-8 w-1 rounded-full hidden md:block"
-							style="background: linear-gradient(180deg, {agency?.primaryColor || '#4F46E5'} 0%, {agency?.primaryColor || '#4F46E5'}40 50%, transparent 100%);"
+							style="background: linear-gradient(180deg, {branding.sectionHeadingColor} 0%, {branding.sectionHeadingColor}40 50%, transparent 100%);"
 						></div>
 
 						<div class="md:pl-8 space-y-8">
@@ -860,9 +861,9 @@
 								<div class="bg-base-100 rounded-xl p-4 text-center border border-base-200 hover:border-primary/30 transition-colors">
 									<div
 										class="w-10 h-10 mx-auto mb-2 rounded-full flex items-center justify-center"
-										style="background: {agency?.primaryColor || '#4F46E5'}15;"
+										style="background: {branding.sectionHeadingColor}15;"
 									>
-										<svg class="w-5 h-5" style="color: {agency?.primaryColor || '#4F46E5'};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<svg class="w-5 h-5" style="color: {branding.sectionHeadingColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
 										</svg>
 									</div>
@@ -871,9 +872,9 @@
 								<div class="bg-base-100 rounded-xl p-4 text-center border border-base-200 hover:border-primary/30 transition-colors">
 									<div
 										class="w-10 h-10 mx-auto mb-2 rounded-full flex items-center justify-center"
-										style="background: {agency?.primaryColor || '#4F46E5'}15;"
+										style="background: {branding.sectionHeadingColor}15;"
 									>
-										<svg class="w-5 h-5" style="color: {agency?.primaryColor || '#4F46E5'};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<svg class="w-5 h-5" style="color: {branding.sectionHeadingColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 										</svg>
 									</div>
@@ -882,9 +883,9 @@
 								<div class="bg-base-100 rounded-xl p-4 text-center border border-base-200 hover:border-primary/30 transition-colors">
 									<div
 										class="w-10 h-10 mx-auto mb-2 rounded-full flex items-center justify-center"
-										style="background: {agency?.primaryColor || '#4F46E5'}15;"
+										style="background: {branding.sectionHeadingColor}15;"
 									>
-										<svg class="w-5 h-5" style="color: {agency?.primaryColor || '#4F46E5'};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<svg class="w-5 h-5" style="color: {branding.sectionHeadingColor};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
 										</svg>
 									</div>
@@ -908,12 +909,12 @@
 
 					<div
 						class="relative overflow-hidden rounded-2xl border-2 shadow-2xl"
-						style="border-color: {agency?.primaryColor || '#4F46E5'}30;"
+						style="border-color: {branding.ctaButtonColor}30;"
 					>
 						<!-- Gradient header -->
 						<div
 							class="px-8 py-6"
-							style="background: {agency?.accentGradient || `linear-gradient(135deg, ${agency?.primaryColor || '#4F46E5'} 0%, ${agency?.accentColor || '#1E40AF'} 100%)`};"
+							style="background: {branding.accentGradient || `linear-gradient(135deg, ${branding.ctaButtonColor} 0%, ${branding.accentColor} 100%)`};"
 						>
 							<div class="text-white text-center">
 								<p class="text-sm font-medium opacity-80 uppercase tracking-wider">
@@ -955,7 +956,7 @@
 									{#each selectedAddons as addon}
 										<div class="flex justify-between items-center py-2 border-b border-base-200">
 											<dt class="text-base-content/70 flex items-center gap-2">
-												<span class="w-2 h-2 rounded-full" style="background: {agency?.primaryColor || '#4F46E5'};"></span>
+												<span class="w-2 h-2 rounded-full" style="background: {branding.sectionHeadingColor};"></span>
 												{addon.name}
 											</dt>
 											<dd class="font-semibold">{formatCurrency(addon.price)}</dd>
@@ -975,7 +976,7 @@
 									</div>
 									<div class="flex justify-between items-center py-2 mt-2">
 										<dt class="text-lg font-bold">Total (inc. GST)</dt>
-										<dd class="text-2xl font-bold" style="color: {agency?.primaryColor || '#4F46E5'};">
+										<dd class="text-2xl font-bold" style="color: {branding.sectionHeadingColor};">
 											{formatCurrency(total)}
 										</dd>
 									</div>
@@ -1232,13 +1233,13 @@
 		<!-- Contact / Footer -->
 		<footer
 			class="px-8 py-16"
-			style="background-color: {agency?.secondaryColor || '#E3EDF7'}"
+			style:background-color={branding.footerBgColor}
 		>
 			<div class="mx-auto max-w-4xl text-center">
-				{#if agency?.logoUrl}
+				{#if branding.logoUrl}
 					<img
-						src={agency.logoUrl}
-						alt={agency.name}
+						src={branding.logoUrl}
+						alt={agency?.name ?? ''}
 						class="mx-auto mb-6 h-12 w-auto object-contain"
 					/>
 				{:else}
@@ -1251,13 +1252,13 @@
 
 				<div class="flex flex-wrap justify-center gap-6 text-base-content/80">
 					{#if agency?.phone}
-						<a href="tel:{agency.phone}" class="flex items-center gap-2 hover:underline" style="color: {agency?.primaryColor || '#9C27B0'}">
+						<a href="tel:{agency.phone}" class="flex items-center gap-2 hover:underline" style:color={branding.primaryColor}>
 							<Phone class="h-5 w-5" />
 							{agency.phone}
 						</a>
 					{/if}
 					{#if agency?.email}
-						<a href="mailto:{agency.email}" class="flex items-center gap-2 hover:underline" style="color: {agency?.primaryColor || '#9C27B0'}">
+						<a href="mailto:{agency.email}" class="flex items-center gap-2 hover:underline" style:color={branding.primaryColor}>
 							<Mail class="h-5 w-5" />
 							{agency.email}
 						</a>
@@ -1268,7 +1269,7 @@
 							target="_blank"
 							rel="noopener noreferrer"
 							class="flex items-center gap-2 hover:underline"
-							style="color: {agency?.primaryColor || '#9C27B0'}"
+							style:color={branding.primaryColor}
 						>
 							<Globe class="h-5 w-5" />
 							{agency.website.replace(/^https?:\/\//, '')}

@@ -14,6 +14,7 @@ import { error, fail } from "@sveltejs/kit";
 import { decryptProfileFields } from "$lib/server/crypto";
 import { logActivity } from "$lib/server/db-helpers";
 import { isAgencyMember } from "$lib/server/agency";
+import { getEffectiveBranding } from "$lib/server/document-branding";
 
 function getEffectiveStatus(quotation: { status: string; expiryDate: Date | null }): string {
 	if (
@@ -89,14 +90,33 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	const profile = rawProfile ? decryptProfileFields(rawProfile) : null;
 
+	// Resolve effective branding for the quotation. Single source of truth for
+	// all colors on the page — do not read colors from `agency`.
+	const branding = await getEffectiveBranding(quotation.agencyId, "quotation");
+
+	const agencyWithoutBranding = agency
+		? (() => {
+				const {
+					logoUrl: _logoUrl,
+					primaryColor: _primaryColor,
+					secondaryColor: _secondaryColor,
+					accentColor: _accentColor,
+					accentGradient: _accentGradient,
+					...rest
+				} = agency;
+				return rest;
+			})()
+		: agency;
+
 	return {
 		quotation: {
 			...quotation,
 			effectiveStatus,
 		},
 		sections,
-		agency,
+		agency: agencyWithoutBranding,
 		profile,
+		branding,
 	};
 };
 

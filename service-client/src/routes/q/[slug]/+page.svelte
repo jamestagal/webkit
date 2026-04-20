@@ -24,6 +24,7 @@
 	let sections = $derived(data.sections);
 	let agency = $derived(data.agency);
 	let profile = $derived(data.profile);
+	let branding = $derived(data.branding);
 
 	let effectiveStatus = $derived(quotation.effectiveStatus);
 	let isAccepted = $derived(effectiveStatus === 'accepted');
@@ -225,14 +226,14 @@
 				<!-- Header -->
 				<div class="flex flex-col sm:flex-row justify-between gap-4 pb-6 border-b border-base-300">
 					<div>
-						{#if agency?.logoUrl}
+						{#if branding.logoUrl}
 							<img
-								src={agency.logoUrl}
-								alt={agency.name}
+								src={branding.logoUrl}
+								alt={agency?.name ?? ''}
 								class="h-12 object-contain mb-2"
 							/>
 						{:else}
-							<h2 class="text-2xl font-bold" style:color={agency?.primaryColor || undefined}>
+							<h2 class="text-2xl font-bold" style:color={branding.primaryColor}>
 								{agency?.name || 'Agency'}
 							</h2>
 						{/if}
