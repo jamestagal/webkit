@@ -18,7 +18,9 @@ The commands below close those gaps.
    Cowork (draft)
         ↓  paste spec path
    Claude Code /spec → Plan Mode
-        ↓  plan produced
+        ↓  plan produced (saved to ~/.claude/plans/)
+   exit Plan Mode + /plan-sync → copies plan into Cowork's visible dir
+        ↓
    Cowork (appraise)  ←→  Claude Code (iterate)
         ↓  plan approved
    Implementation
@@ -51,6 +53,26 @@ Load a Cowork spec into Plan Mode and produce an implementation plan.
 ```
 
 Loads the spec, reads linked decision/reference docs it mentions, reads any repo code it points to, then enters Plan Mode. **Do not exit Plan Mode** until you've taken the plan back to Cowork for appraisal and returned with approval.
+
+### `/plan-sync [filename | --list]`
+
+Copy a plan from `~/.claude/plans/` into `~/Documents/Claude/Projects/Webkit/planning/plans/` so the Cowork agent can read it during appraisal.
+
+| | |
+|---|---|
+| **When** | Immediately after you exit Plan Mode, before asking Cowork to appraise |
+| **Input** | Bare filename, `--list` for the 5 newest, or empty for "copy newest" |
+| **Why** | Cowork's sandboxed mount can't follow symlinks outside its root, so plans must be physically copied into its tree |
+| **Collision** | If dest exists and differs, shows diff and asks before overwriting; if identical, prints "already in sync" |
+
+**Example**
+```
+/plan-sync                                   # copies newest plan
+/plan-sync wiggly-cuddling-wombat.md         # copies specific plan
+/plan-sync --list                            # shows 5 newest, no copy
+```
+
+Claude Code writes plan files to `~/.claude/plans/` (outside Cowork's mount). `/plan-sync` bridges the two. Plan Mode is read-only, so the copy happens *after* you exit — not during.
 
 ### `/learn <insight>`
 
@@ -158,21 +180,22 @@ No-op = safe. The hook never fails a commit.
 Here's how a full feature ships end-to-end with these commands:
 
 ```
-1. User drafts spec in Cowork          → saves to planning/active/foo.md
-2. /spec foo.md                        → plan mode, produces plan
-3. User copies plan to Cowork          → appraisal, feedback
-4. /spec foo.md (again)                → iterate plan with feedback
-5. (approved) exit plan mode, implement
-6. /learn ...                          → capture patterns mid-session
-7. /gotcha ...                         → capture pitfalls after debug
-8. git commit -m "feat: ...
-                  Spec: foo.md"        → post-commit stamps foo.md
-9. Verify: tests pass, manual QA, etc.
-10. /ship foo.md                       → archive + tracker flip + board
-11. (later, if cross-project) /promote → stage entries to shared-context
+1.  User drafts spec in Cowork          → saves to planning/active/foo.md
+2.  /spec foo.md                        → plan mode, produces plan
+3.  exit plan mode + /plan-sync         → copies plan into Cowork-visible dir
+4.  User takes plan to Cowork           → appraisal, feedback
+5.  /spec foo.md (again)                → iterate plan with feedback
+6.  (approved) exit plan mode, implement
+7.  /learn ...                          → capture patterns mid-session
+8.  /gotcha ...                         → capture pitfalls after debug
+9.  git commit -m "feat: ...
+                   Spec: foo.md"        → post-commit stamps foo.md
+10. Verify: tests pass, manual QA, etc.
+11. /ship foo.md                        → archive + tracker flip + board
+12. (later, if cross-project) /promote  → stage entries to shared-context
 ```
 
-Steps 1-4 = Layer 1 (spec). Steps 5-9 = Layer 2 (build). Steps 10-11 = Layer 3 (close out + knowledge harvest).
+Steps 1-5 = Layer 1 (spec). Steps 6-10 = Layer 2 (build). Steps 11-12 = Layer 3 (close out + knowledge harvest).
 
 ## Knowledge capture pipeline
 
@@ -226,6 +249,8 @@ All commands defer to four behavioral guidelines, codified in [CLAUDE.md](../../
 
 **Multiple specs match `/ship foo.md`** — rare, but `find` returns more than one. The command lists candidates with paths; pick the intended one.
 
+**Cowork agent says "plan file not found"** — you forgot `/plan-sync` after exiting Plan Mode. Claude Code writes plans to `~/.claude/plans/`, which is outside Cowork's sandbox. Run `/plan-sync` and retry.
+
 ## Files & locations at a glance
 
 | Path | Role |
@@ -235,6 +260,8 @@ All commands defer to four behavioral guidelines, codified in [CLAUDE.md](../../
 | `.cowork/planning/active/` | Active spec files |
 | `.cowork/archive/{completed,superseded}/` | Archived specs |
 | `.cowork/FEATURE-TRACKER.md` | Portfolio-level status (slug-anchored entries) |
+| `~/.claude/plans/` | Claude Code's plan output dir (outside Cowork's sandbox) |
+| `~/Documents/Claude/Projects/Webkit/planning/plans/` | Cowork-visible plan dir (`/plan-sync` destination) |
 | `.claude/notes/{feature}/` | Project-local learnings + gotchas |
 | `~/Workspaces/shared-context/` | Cross-project standards, stack rules, gotchas |
 | `scripts/git-hooks/post-commit` | SHA-stamping hook (repo-tracked) |
