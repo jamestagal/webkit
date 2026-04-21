@@ -11,8 +11,9 @@ import { invoices, invoiceLineItems, agencies, agencyProfiles } from "$lib/serve
 import { eq, sql, asc } from "drizzle-orm";
 import { error } from "@sveltejs/kit";
 import { decryptProfileFields } from "$lib/server/crypto";
+import { isAgencyMember } from "$lib/server/agency";
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, locals }) => {
 	const { slug } = params;
 
 	// Fetch invoice by slug
@@ -22,24 +23,29 @@ export const load: PageServerLoad = async ({ params }) => {
 		throw error(404, "Invoice not found");
 	}
 
-	// Record view (fire-and-forget, don't await)
-	const updates: Record<string, unknown> = {
-		viewCount: sql`${invoices.viewCount} + 1`,
-		lastViewedAt: new Date(),
-	};
+	const viewerId = locals.user?.id;
+	const isInternalViewer = viewerId ? await isAgencyMember(viewerId, invoice.agencyId) : false;
 
-	// If status is 'sent', change to 'viewed'
-	if (invoice.status === "sent") {
-		updates["status"] = "viewed";
+	// Record view only if viewer is external (fire-and-forget, don't await)
+	if (!isInternalViewer) {
+		const updates: Record<string, unknown> = {
+			viewCount: sql`${invoices.viewCount} + 1`,
+			lastViewedAt: new Date(),
+		};
+
+		// If status is 'sent', change to 'viewed'
+		if (invoice.status === "sent") {
+			updates["status"] = "viewed";
+		}
+
+		db.update(invoices)
+			.set(updates)
+			.where(eq(invoices.id, invoice.id))
+			.then(() => {})
+			.catch((err) => {
+				console.error(`Failed to record invoice view for ${invoice.id}:`, err);
+			});
 	}
-
-	db.update(invoices)
-		.set(updates)
-		.where(eq(invoices.id, invoice.id))
-		.then(() => {})
-		.catch((err) => {
-			console.error(`Failed to record invoice view for ${invoice.id}:`, err);
-		});
 
 	// Fetch agency
 	const [agency] = await db

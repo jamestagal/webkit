@@ -285,6 +285,13 @@ async function verifyMembership(userId: string, agencyId: string) {
 }
 
 /**
+ * Public check: is this user an active member of this agency?
+ */
+export async function isAgencyMember(userId: string, agencyId: string): Promise<boolean> {
+	return Boolean(await verifyMembership(userId, agencyId));
+}
+
+/**
  * Get full agency context with agency details and role.
  */
 async function getFullAgencyContext(

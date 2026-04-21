@@ -17,8 +17,9 @@ import {
 } from "$lib/templates/email-templates";
 import { env } from "$env/dynamic/public";
 import { formatDateTime } from "$lib/utils/formatting";
+import { isAgencyMember } from "$lib/server/agency";
 
-export const load: PageServerLoad = async ({ params, url }) => {
+export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const { slug } = params;
 	const isPreview = url.searchParams.get("preview") === "true";
 
@@ -35,8 +36,11 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		new Date(contract.validUntil) < new Date() &&
 		!["signed", "completed"].includes(contract.status);
 
-	// Record view only if NOT in preview mode (fire-and-forget, don't await)
-	if (!isPreview) {
+	const viewerId = locals.user?.id;
+	const isInternalViewer = viewerId ? await isAgencyMember(viewerId, contract.agencyId) : false;
+
+	// Record view only if NOT in preview mode and viewer is external (fire-and-forget, don't await)
+	if (!isPreview && !isInternalViewer) {
 		const updates: Record<string, unknown> = {
 			viewCount: sql`${contracts.viewCount} + 1`,
 			lastViewedAt: new Date(),

@@ -13,6 +13,7 @@ import { eq, sql, asc } from "drizzle-orm";
 import { error, fail } from "@sveltejs/kit";
 import { decryptProfileFields } from "$lib/server/crypto";
 import { logActivity } from "$lib/server/db-helpers";
+import { isAgencyMember } from "$lib/server/agency";
 
 function getEffectiveStatus(quotation: { status: string; expiryDate: Date | null }): string {
 	if (
@@ -25,7 +26,7 @@ function getEffectiveStatus(quotation: { status: string; expiryDate: Date | null
 	return quotation.status;
 }
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, locals }) => {
 	const { slug } = params;
 
 	// Fetch quotation by slug
@@ -41,24 +42,29 @@ export const load: PageServerLoad = async ({ params }) => {
 
 	const effectiveStatus = getEffectiveStatus(quotation);
 
-	// Record view (fire-and-forget, don't await)
-	const updates: Record<string, unknown> = {
-		viewCount: sql`${quotations.viewCount} + 1`,
-		lastViewedAt: new Date(),
-	};
+	const viewerId = locals.user?.id;
+	const isInternalViewer = viewerId ? await isAgencyMember(viewerId, quotation.agencyId) : false;
 
-	// If status is 'sent', change to 'viewed'
-	if (quotation.status === "sent") {
-		updates["status"] = "viewed";
+	// Record view only if viewer is external (fire-and-forget, don't await)
+	if (!isInternalViewer) {
+		const updates: Record<string, unknown> = {
+			viewCount: sql`${quotations.viewCount} + 1`,
+			lastViewedAt: new Date(),
+		};
+
+		// If status is 'sent', change to 'viewed'
+		if (quotation.status === "sent") {
+			updates["status"] = "viewed";
+		}
+
+		db.update(quotations)
+			.set(updates)
+			.where(eq(quotations.id, quotation.id))
+			.then(() => {})
+			.catch((err) => {
+				console.error(`Failed to record quotation view for ${quotation.id}:`, err);
+			});
 	}
-
-	db.update(quotations)
-		.set(updates)
-		.where(eq(quotations.id, quotation.id))
-		.then(() => {})
-		.catch((err) => {
-			console.error(`Failed to record quotation view for ${quotation.id}:`, err);
-		});
 
 	// Fetch scope sections
 	const sections = await db
