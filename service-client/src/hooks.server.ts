@@ -108,6 +108,19 @@ const authHandle: Handle = async ({ event, resolve }) => {
 
 	// Allow public routes without authentication
 	if (isPublicRoute) {
+		// Opportunistic auth: hydrate locals.user for authenticated visitors so
+		// downstream loaders can distinguish agency-member views from anonymous
+		// client views. Any failure (no cookie, invalid JWT, refresh needed)
+		// falls through with the placeholder unchanged — the route still renders.
+		const access_token = event.cookies.get("access_token");
+		if (access_token) {
+			const user = await verifyJWT<User>(access_token);
+			if (user) {
+				event.locals.user = user;
+				event.locals.token = access_token;
+			}
+		}
+
 		if (!isNoisyPath && event.url.pathname !== "/login") {
 			logger.debug(`Public route: ${event.url.pathname}`);
 		}
