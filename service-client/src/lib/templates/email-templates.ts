@@ -73,6 +73,19 @@ function wrapEmail(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Email</title>
+    <style>
+        @media only screen and (max-width: 600px) {
+            h2 {
+                word-break: break-word !important;
+            }
+            .detail-table td {
+                display: block !important;
+                width: 100% !important;
+                text-align: left !important;
+                padding: 4px 0 !important;
+            }
+        }
+    </style>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5; line-height: 1.6;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f4f4f5;">
@@ -1219,7 +1232,7 @@ export function generateProposalAcceptedAgencyEmail(data: ProposalResponseNotifi
         </p>
 
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="8">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Proposal</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${proposal.number}</td>
