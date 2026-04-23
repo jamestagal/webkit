@@ -1288,7 +1288,7 @@ export function generateProposalAcceptedClientEmail(data: ProposalResponseNotifi
 
 	const content = `
         <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
-            Proposal Accepted
+            Acceptance Confirmed
         </h2>
 
         <p style="margin: 0 0 16px 0; color: #4b5563;">
