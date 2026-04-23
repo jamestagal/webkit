@@ -26,6 +26,7 @@ import {
 import { sendEmail } from "$lib/server/services/email.service";
 import {
 	generateProposalAcceptedAgencyEmail,
+	generateProposalAcceptedClientEmail,
 	generateProposalDeclinedAgencyEmail,
 	generateProposalRevisionRequestedAgencyEmail,
 } from "$lib/templates/email-templates";
@@ -156,6 +157,7 @@ export const actions: Actions = {
 						},
 						proposal: {
 							number: proposal.proposalNumber,
+							title: proposal.title,
 							publicUrl: `${baseUrl}/p/${params.slug}`,
 						},
 						client: {
@@ -186,6 +188,30 @@ export const actions: Actions = {
 						status: emailResult.success ? "sent" : "failed",
 						resendMessageId: emailResult.messageId || null,
 					});
+
+					// Client-facing acceptance confirmation (Reply-To set to agency
+					// so replies land with the agency, not the noreply sender)
+					if (proposal.clientEmail) {
+						const clientEmailTemplate = generateProposalAcceptedClientEmail(notificationData);
+						const clientEmailResult = await sendEmail({
+							to: proposal.clientEmail,
+							subject: clientEmailTemplate.subject,
+							html: clientEmailTemplate.bodyHtml,
+							...(agency.email ? { replyTo: agency.email } : {}),
+						});
+
+						await db.insert(emailLogs).values({
+							agencyId: proposal.agencyId,
+							proposalId: proposal.id,
+							emailType: "proposal_accepted_client",
+							recipientEmail: proposal.clientEmail,
+							recipientName: proposal.clientContactName || proposal.clientBusinessName || null,
+							subject: clientEmailTemplate.subject,
+							bodyHtml: clientEmailTemplate.bodyHtml,
+							status: clientEmailResult.success ? "sent" : "failed",
+							resendMessageId: clientEmailResult.messageId || null,
+						});
+					}
 				})
 				.catch((err) => {
 					console.error("Failed to send proposal accepted notification:", err);
@@ -237,6 +263,7 @@ export const actions: Actions = {
 						},
 						proposal: {
 							number: proposal.proposalNumber,
+							title: proposal.title,
 							publicUrl: `${baseUrl}/p/${params.slug}`,
 						},
 						client: {
@@ -317,6 +344,7 @@ export const actions: Actions = {
 						},
 						proposal: {
 							number: proposal.proposalNumber,
+							title: proposal.title,
 							publicUrl: `${baseUrl}/p/${params.slug}`,
 						},
 						client: {

@@ -1201,6 +1201,7 @@ export interface ProposalResponseNotificationData {
 	};
 	proposal: {
 		number: string;
+		title: string;
 		publicUrl: string;
 	};
 	client: {
@@ -1272,6 +1273,66 @@ export function generateProposalAcceptedAgencyEmail(data: ProposalResponseNotifi
 
 	return {
 		subject: `Proposal Accepted by ${client.businessName || client.name} - ${proposal.number}`,
+		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
+	};
+}
+
+/**
+ * Email sent to CLIENT confirming their acceptance of a proposal.
+ * Sent alongside the agency-side acceptance notification.
+ */
+export function generateProposalAcceptedClientEmail(data: ProposalResponseNotificationData): EmailTemplate {
+	const { agency, proposal, client, respondedAt } = data;
+	const primaryColor = getColor(agency.primaryColor);
+	const clientGreeting = client.name || client.businessName || "there";
+
+	const content = `
+        <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 20px;">
+            Thank you for accepting ${proposal.title}
+        </h2>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            Hi ${clientGreeting},
+        </p>
+
+        <p style="margin: 0 0 16px 0; color: #4b5563;">
+            Thank you for accepting <strong>${proposal.title}</strong> with <strong>${agency.name}</strong>.
+        </p>
+
+        <p style="margin: 0 0 24px 0; color: #4b5563;">
+            A contract will be sent to you shortly for review and signature.
+            Once the contract is signed, an invoice will follow.
+        </p>
+
+        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="8">
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Proposal</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${proposal.number}</td>
+                </tr>
+                <tr>
+                    <td style="color: #6b7280; font-size: 14px;">Accepted</td>
+                    <td style="text-align: right; color: #1f2937; font-weight: 600;">${respondedAt}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="${proposal.publicUrl}"
+               style="display: inline-block; background-color: ${primaryColor}; color: white; padding: 14px 32px;
+                      text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                View Proposal
+            </a>
+        </div>
+
+        <p style="margin: 24px 0 0 0; color: #6b7280; font-size: 14px;">
+            If you have any questions, reply to this email or reach out to
+            ${agency.name}${agency.email ? ` at <a href="mailto:${agency.email}" style="color: ${primaryColor};">${agency.email}</a>` : ""}.
+        </p>
+    `;
+
+	return {
+		subject: `Thank you for accepting ${proposal.title}`,
 		bodyHtml: wrapEmail(content, primaryColor, agency.logoUrl, agency.name),
 	};
 }
