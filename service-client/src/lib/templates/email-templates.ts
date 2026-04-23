@@ -143,7 +143,7 @@ export function generateProposalEmail(data: EmailTemplateData): EmailTemplate {
         </p>
 
         <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Proposal Number</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${document.number}</td>
@@ -218,7 +218,7 @@ export function generateInvoiceEmail(data: EmailTemplateData): EmailTemplate {
         </p>
 
         <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Invoice Number</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${document.number}</td>
@@ -334,7 +334,7 @@ export function generateInvoiceReminderEmail(data: ReminderEmailData): EmailTemp
         </p>
 
         <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Invoice Number</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${document.number}</td>
@@ -402,7 +402,7 @@ export function generateContractEmail(data: EmailTemplateData): EmailTemplate {
         </p>
 
         <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Contract Reference</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${document.number}</td>
@@ -877,7 +877,7 @@ export function generateFormEmail(data: FormEmailData): EmailTemplate {
         </p>
 
         <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Form</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${form.name}</td>
@@ -954,7 +954,7 @@ export function generateContractSignedClientEmail(data: ContractSignedNotificati
         </p>
 
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="8">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Contract</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${contract.number}</td>
@@ -1011,7 +1011,7 @@ export function generateContractSignedAgencyEmail(data: ContractSignedNotificati
         </p>
 
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="8">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Contract</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${contract.number}</td>
@@ -1088,7 +1088,7 @@ export function generateInvoicePaidClientEmail(data: InvoicePaidNotificationData
         </p>
 
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="8">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Invoice</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${invoice.number}</td>
@@ -1149,7 +1149,7 @@ export function generateInvoicePaidAgencyEmail(data: InvoicePaidNotificationData
         </p>
 
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="8">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Invoice</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${invoice.number}</td>
@@ -1293,7 +1293,7 @@ export function generateProposalDeclinedAgencyEmail(data: ProposalResponseNotifi
         </p>
 
         <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="8">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Proposal</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${proposal.number}</td>
@@ -1348,7 +1348,7 @@ export function generateProposalRevisionRequestedAgencyEmail(data: ProposalRespo
         </p>
 
         <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="8">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Proposal</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${proposal.number}</td>
@@ -1436,7 +1436,7 @@ export function generateQuotationEmail(data: EmailTemplateData): EmailTemplate {
         </p>
 
         <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Quotation Number</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${document.number}</td>
@@ -1495,7 +1495,7 @@ export function generateQuotationReminderEmail(data: EmailTemplateData & { expir
         </p>
 
         <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Quotation Number</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${document.number}</td>
@@ -1587,7 +1587,7 @@ export function generateQuotationAcceptedAgencyEmail(data: QuotationResponseNoti
         </p>
 
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="8">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Quotation</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${quotation.number}</td>
@@ -1649,7 +1649,7 @@ export function generateQuotationDeclinedAgencyEmail(data: QuotationResponseNoti
         </p>
 
         <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin: 24px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="8">
+            <table role="presentation" class="detail-table" width="100%" cellspacing="0" cellpadding="8">
                 <tr>
                     <td style="color: #6b7280; font-size: 14px;">Quotation</td>
                     <td style="text-align: right; color: #1f2937; font-weight: 600;">${quotation.number}</td>
