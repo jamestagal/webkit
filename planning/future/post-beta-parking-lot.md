@@ -101,11 +101,11 @@ Next time two branches touch `migrations/` in parallel. Given webkit's schema is
 
 - Today's incident was caught only because DB spot-checks were part of verification. A more typical verification (unit tests, UI click-through) wouldn't have surfaced the silent skip. That's the real severity: the failure mode is invisible to most verification styles.
 - Renumbering (as done in commit `2860001`) resolves the specific incident but doesn't prevent future occurrences.
-- Connected to no other parking-lot items; this one is strictly infra.
+- **Related entry:** "Migration runner — no `--single-transaction` on psql invocation" (below). Both are runner-hardening concerns and a single post-beta fix pass would naturally address them together.
 
 ---
 
-## Migration runner doesn't wrap files in a transaction
+## Migration runner — no `--single-transaction` on psql invocation
 
 **Surfaced:** 2026-04-24 during Thread 3 Phase 2 close-out (pre-deploy sanity check).
 **Source:** `scripts/run_migrations.sh` — L51 (prod) / L93 (local).
@@ -118,28 +118,29 @@ Concrete case: migration `038_rename_proposal_status_ready_to_live.sql` does `UP
 
 ### Proposal
 
-Three options, from easiest to most thorough:
+Three natural paths:
 
-- **A. Pass `--single-transaction` in the runner.** Change `psql ... < $file` to `psql ... --single-transaction -f $file`. One-character-ish fix. Every migration gets atomic semantics automatically.
-- **B. Wrap individual migration files in `BEGIN; ... COMMIT;` manually.** Self-protecting migrations; works even with the runner unchanged. More error-prone (easy to forget). Works for past migrations if needed.
-- **C. Both A and B.** Belt-and-suspenders — runner enforces transactional behavior, individual files are also self-contained for manual application.
+- **1. Add `--single-transaction` to the runner.** Change `psql ... < $migration` to `psql ... --single-transaction -f $migration` in both the local and prod branches of `run_migrations.sh`. Every migration file is wrapped in an implicit BEGIN/COMMIT automatically. **Side effect:** any migration file containing an explicit `BEGIN;` / `COMMIT;` will error with a nested-transaction warning. Need to audit existing migrations for that before shipping.
+- **2. Require explicit `BEGIN; ... COMMIT;` in each migration file.** Runner untouched; burden shifts to the author of each migration. More ceremony per migration, but transactional semantics become visible in the file itself rather than implicit in the invocation.
+- **3. Hybrid:** `--single-transaction` flag + a lint rule rejecting migrations that contain explicit `BEGIN`/`COMMIT`. Belt and braces — runner enforces atomicity, linter prevents the nested-transaction footgun that option 1 alone introduces.
 
-**Recommendation:** (A) alone. It's the cheapest fix, covers every migration past and future without touching the SQL files, and the runner is the natural place to enforce transactional semantics. Concrete diff is swapping `< "$migration"` for `--single-transaction -f "$migration"` in both the local and prod branches of `run_migrations.sh`.
+**Recommendation:** (1) after an audit of existing migrations; (3) if time permits, since the lint rule is a small addition that eliminates the future footgun of someone pasting `BEGIN;` into a migration file not realizing the runner already wraps it.
 
-Caveat: `--single-transaction` is incompatible with `CREATE INDEX CONCURRENTLY` and a few other operations that can't run inside a transaction. Webkit doesn't use any of those today; if it starts to, the migration would need an explicit escape hatch (per-file flag or manual handling).
+Caveat: `--single-transaction` is incompatible with `CREATE INDEX CONCURRENTLY` and a few other operations that can't run inside a transaction. Webkit doesn't use any of those today; if a future migration needs one, it would need an explicit escape hatch (per-file flag, separate runner path, or manual application).
 
 ### Trigger
 
-Any of:
+Either of (whichever comes first):
 
-- First post-beta migration that combines DDL with data writes, where intermediate state could be observed by prod traffic.
-- First incident where a multi-statement migration partially applies and leaves the DB in a wedged state requiring manual cleanup.
-- Before enabling any form of zero-downtime deploy with concurrent prod writes.
+- **First beta traffic.** The transient window between DDL statements becomes non-zero in terms of concurrent-write exposure.
+- **Next migration doing a multi-statement atomic change** — constraint swaps, column renames with backfill, partition rotation, or similar patterns where intermediate state would be observable and potentially harmful.
 
-First of these is likely to arrive within the first post-beta month given how often migrations ship.
+### Related work
+
+- Commit `546050b` (migration 038's constraint swap) — the specific migration that surfaced this concern.
+- **Sibling parking-lot entry** "Migration runner version-collision footgun" (commit `c13cbe5` introduced it). Same file, same fix window — both runner-hardening concerns that a single post-beta fix pass would address together.
 
 ### Notes
 
 - Today's migration 038 (DROP + ADD CONSTRAINT) applied without wrapping because pre-beta traffic is ~zero. No harm done; no state leaked through the window.
-- This is a sibling concern to the version-collision footgun above — both about migration runner robustness. Natural single-commit fix would address both.
 - Does not block today's prod deploy.
