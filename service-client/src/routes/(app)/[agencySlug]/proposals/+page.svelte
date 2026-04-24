@@ -49,7 +49,7 @@
 	let statusCounts = $derived({
 		all: proposals.length,
 		draft: proposals.filter((p) => p.status === 'draft').length,
-		ready: proposals.filter((p) => p.status === 'ready').length,
+		live: proposals.filter((p) => p.status === 'live').length,
 		sent: proposals.filter((p) => p.status === 'sent').length,
 		viewed: proposals.filter((p) => p.status === 'viewed').length,
 		accepted: proposals.filter((p) => p.status === 'accepted').length,
@@ -60,8 +60,8 @@
 		switch (status) {
 			case 'draft':
 				return { class: 'badge-ghost', label: 'Draft' };
-			case 'ready':
-				return { class: 'badge-warning', label: 'Ready' };
+			case 'live':
+				return { class: 'badge-warning', label: 'Live' };
 			case 'sent':
 				return { class: 'badge-info', label: 'Sent' };
 			case 'viewed':
@@ -184,10 +184,10 @@
 		</button>
 		<button
 			type="button"
-			class="btn btn-sm {statusFilter === 'ready' ? 'btn-primary' : 'btn-ghost'}"
-			onclick={() => (statusFilter = 'ready')}
+			class="btn btn-sm {statusFilter === 'live' ? 'btn-primary' : 'btn-ghost'}"
+			onclick={() => (statusFilter = 'live')}
 		>
-			Ready ({statusCounts.ready})
+			Live ({statusCounts.live})
 		</button>
 		<button
 			type="button"

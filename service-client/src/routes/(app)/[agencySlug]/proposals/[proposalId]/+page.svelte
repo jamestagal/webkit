@@ -8,7 +8,7 @@
 
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { updateProposal, markProposalReady, revertProposalToDraft } from '$lib/api/proposals.remote';
+	import { updateProposal, markProposalLive, revertProposalToDraft } from '$lib/api/proposals.remote';
 	import { sendProposalEmail } from '$lib/api/email.remote';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
 	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';
@@ -277,26 +277,26 @@
 		}
 	}
 
-	let isMarkingReady = $state(false);
+	let isMarkingLive = $state(false);
 
-	async function handleMarkReady() {
-		isMarkingReady = true;
+	async function handleMarkLive() {
+		isMarkingLive = true;
 		try {
 			await handleSave(false);
-			await markProposalReady(proposalId);
+			await markProposalLive(proposalId);
 			await invalidateAll();
-			toast.success('Proposal marked as ready', 'You can now review and send it');
+			toast.success('Proposal marked as live', 'You can now review and send it');
 		} catch (err) {
-			console.error('Mark ready error:', err);
+			console.error('Mark live error:', err);
 			const message =
 				err instanceof Error
 					? err.message
 					: typeof err === 'string'
 						? err
 						: JSON.stringify(err);
-			toast.error('Failed to mark as ready', message || 'Unknown error');
+			toast.error('Failed to mark as live', message || 'Unknown error');
 		} finally {
-			isMarkingReady = false;
+			isMarkingLive = false;
 		}
 	}
 
@@ -530,18 +530,18 @@
 							<button
 								type="button"
 								class="btn btn-outline btn-sm"
-								onclick={handleMarkReady}
-								disabled={isMarkingReady}
+								onclick={handleMarkLive}
+								disabled={isMarkingLive}
 							>
-								{#if isMarkingReady}
+								{#if isMarkingLive}
 									<span class="loading loading-spinner loading-sm"></span>
 								{:else}
 									<CheckCircle2 class="h-4 w-4" />
 								{/if}
-								Ready
+								Live
 							</button>
 						{/if}
-						{#if proposal.status === 'ready'}
+						{#if proposal.status === 'live'}
 							<button
 								type="button"
 								class="btn btn-ghost btn-sm"
@@ -556,7 +556,7 @@
 								Back to Draft
 							</button>
 						{/if}
-						{#if proposal.status === 'draft' || proposal.status === 'ready' || proposal.status === 'revision_requested'}
+						{#if proposal.status === 'draft' || proposal.status === 'live' || proposal.status === 'revision_requested'}
 							<button
 								type="button"
 								class="btn btn-primary btn-sm"

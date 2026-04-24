@@ -1995,7 +1995,7 @@ export type PaymentTerms = "DUE_ON_RECEIPT" | "NET_7" | "NET_14" | "NET_30";
 // Proposal status type
 export type ProposalStatus =
 	| "draft"
-	| "ready"
+	| "live"
 	| "sent"
 	| "viewed"
 	| "accepted"

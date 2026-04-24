@@ -697,9 +697,9 @@ export const duplicateProposal = command(
 );
 
 /**
- * Mark a proposal as ready (intermediate step before sending).
+ * Mark a proposal as live (intermediate step before sending).
  */
-export const markProposalReady = command(
+export const markProposalLive = command(
 	v.pipe(v.string(), v.uuid()),
 	async (proposalId: string) => {
 		const context = await getAgencyContext();
@@ -720,18 +720,18 @@ export const markProposalReady = command(
 			throw new Error("Permission denied");
 		}
 
-		// Only draft proposals can be marked as ready
+		// Only draft proposals can be marked as live
 		if (existing.status !== "draft") {
-			throw new Error("Only draft proposals can be marked as ready");
+			throw new Error("Only draft proposals can be marked as live");
 		}
 
-		// Update status to ready
+		// Update status to live
 		let proposal;
 		try {
 			const [updated] = await db
 				.update(proposals)
 				.set({
-					status: "ready",
+					status: "live",
 					updatedAt: new Date(),
 				})
 				.where(eq(proposals.id, proposalId))
@@ -747,8 +747,8 @@ export const markProposalReady = command(
 		}
 
 		// Log activity
-		await logActivity("proposal.ready", "proposal", proposalId, {
-			newValues: { status: "ready" },
+		await logActivity("proposal.live", "proposal", proposalId, {
+			newValues: { status: "live" },
 		});
 
 		return proposal;
@@ -756,7 +756,7 @@ export const markProposalReady = command(
 );
 
 /**
- * Revert a ready proposal back to draft.
+ * Revert a live proposal back to draft.
  */
 export const revertProposalToDraft = command(
 	v.pipe(v.string(), v.uuid()),
@@ -779,9 +779,9 @@ export const revertProposalToDraft = command(
 			throw new Error("Permission denied");
 		}
 
-		// Only ready proposals can be reverted to draft
-		if (existing.status !== "ready") {
-			throw new Error("Only ready proposals can be reverted to draft");
+		// Only live proposals can be reverted to draft
+		if (existing.status !== "live") {
+			throw new Error("Only live proposals can be reverted to draft");
 		}
 
 		// Update status to draft

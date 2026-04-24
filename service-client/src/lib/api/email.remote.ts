@@ -384,8 +384,8 @@ export const sendProposalEmail = command(SendProposalEmailSchema, async (data) =
 			updates["sentAt"] = new Date();
 		}
 
-		// Change status to 'sent' if in draft or ready
-		if (proposal.status === "draft" || proposal.status === "ready") {
+		// Change status to 'sent' if in draft or live
+		if (proposal.status === "draft" || proposal.status === "live") {
 			updates["status"] = "sent";
 		}
 
