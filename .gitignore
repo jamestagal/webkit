@@ -64,7 +64,7 @@ logs/
 
 # Cowork planning workspace (symlink to ~/Documents/Claude/Projects/Webkit)
 .cowork
-
+.comms
 # Playwright MCP runtime logs/snapshots
 .playwright-mcp/
 
