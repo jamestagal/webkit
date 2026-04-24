@@ -25,13 +25,14 @@
 		if (pathname.startsWith(`${base}/audit`)) return 'audit';
 		if (pathname.startsWith(`${base}/brand`)) return 'brand';
 		if (pathname.startsWith(`${base}/pages`)) return 'pages';
+		if (pathname.startsWith(`${base}/reports`)) return 'reports';
 		if (pathname.startsWith(`${base}/copy`)) return 'copy';
 		if (pathname.startsWith(`${base}/social`)) return 'social';
 		return 'overview';
 	});
 
 	let activeGroup = $derived.by<NavGroupId | null>(() => {
-		if (['audit', 'brand', 'gbp', 'pages'].includes(activeTabId)) return 'analysis';
+		if (['audit', 'brand', 'gbp', 'pages', 'reports'].includes(activeTabId)) return 'analysis';
 		if (['copy', 'articles', 'social'].includes(activeTabId)) return 'content';
 		return null;
 	});
@@ -66,6 +67,12 @@
 			id: 'pages',
 			label: 'Pages',
 			href: `${base}/pages`,
+			group: 'analysis'
+		},
+		{
+			id: 'reports',
+			label: 'Reports',
+			href: `${base}/reports`,
 			group: 'analysis'
 		}
 	]);

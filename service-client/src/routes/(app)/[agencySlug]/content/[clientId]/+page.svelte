@@ -82,11 +82,11 @@
 			<div class="flex items-center gap-2">
 				{#if hasAudit}
 					<a
-						href="/{agencySlug}/content/{clientId}/audit?share=1"
+						href="/{agencySlug}/content/{clientId}/reports"
 						class="btn btn-success btn-sm gap-2"
 					>
 						<Share2 size={14} />
-						Share Report
+						View Reports
 					</a>
 				{/if}
 				<a

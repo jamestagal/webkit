@@ -4,14 +4,14 @@
  */
 import { query, command } from "$app/server";
 import * as v from "valibot";
-import { env } from "$env/dynamic/public";
 import { contentFetch } from "$lib/server/content-fetch";
 import { db } from "$lib/server/db";
 import { seoAudits } from "$lib/server/schema";
 import { getAgencyContext } from "$lib/server/agency";
 import { canRunSeoAudit } from "$lib/server/subscription";
 import { generateShareToken } from "$lib/server/share-tokens";
-import { eq, and, desc } from "drizzle-orm";
+import { buildShareUrl, deriveShareStatus } from "$lib/server/share-helpers";
+import { eq, and, desc, isNotNull } from "drizzle-orm";
 import { error } from "@sveltejs/kit";
 import { formatDate } from "$lib/utils/formatting";
 import type {
@@ -43,6 +43,11 @@ const AuditIssuesSchema = v.object({
 });
 
 const CreateShareLinkSchema = v.object({
+	auditId: v.pipe(v.string(), v.uuid()),
+	expiresInDays: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(365))),
+});
+
+const UpdateShareExpirySchema = v.object({
 	auditId: v.pipe(v.string(), v.uuid()),
 	expiresInDays: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(365))),
 });
@@ -125,12 +130,6 @@ export const getClientAudits = query(ClientIdSchema, async (clientId) => {
 // =============================================================================
 // Share Links (Phase 1)
 // =============================================================================
-
-function buildShareUrl(agencySlug: string, token: string): string {
-	const host = env["PUBLIC_APP_DOMAIN"] || "app.webkit.au";
-	const protocol = host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https";
-	return `${protocol}://${host}/${agencySlug}/report/${token}`;
-}
 
 /**
  * Create (or re-use) a share link for a completed audit. Idempotent — if a
@@ -237,6 +236,55 @@ export const reinstateShareLink = command(AuditIdObjectSchema, async ({ auditId 
 });
 
 /**
+ * Change the expiry on an existing, non-revoked share link without
+ * rotating the token. Explicit counterpart to createShareLink so UI
+ * callers can't accidentally trigger a token rotation by calling
+ * createShareLink against a revoked row.
+ *
+ * 409s on revoked / never-shared rows; the UI is expected to offer
+ * Reinstate first in those cases.
+ */
+export const updateShareExpiry = command(UpdateShareExpirySchema, async ({ auditId, expiresInDays }) => {
+	const context = await getAgencyContext();
+
+	const [audit] = await db
+		.select({
+			id: seoAudits.id,
+			shareToken: seoAudits.shareToken,
+			shareRevokedAt: seoAudits.shareRevokedAt,
+		})
+		.from(seoAudits)
+		.where(and(eq(seoAudits.id, auditId), eq(seoAudits.agencyId, context.agencyId)))
+		.limit(1);
+
+	if (!audit) {
+		throw error(404, "Audit not found");
+	}
+
+	if (!audit.shareToken) {
+		throw error(409, "No share link to update");
+	}
+
+	if (audit.shareRevokedAt) {
+		throw error(409, "Cannot change expiry on a revoked link — reinstate first");
+	}
+
+	const expiresAt = expiresInDays
+		? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
+		: null;
+
+	await db
+		.update(seoAudits)
+		.set({ shareExpiresAt: expiresAt, updatedAt: new Date() })
+		.where(eq(seoAudits.id, auditId));
+
+	return {
+		shareUrl: buildShareUrl(context.agency.slug, audit.shareToken),
+		expiresAt: expiresAt?.toISOString() ?? null,
+	};
+});
+
+/**
  * Share-link status for an audit. Never throws for "no active token" — UI
  * renders the "Create share link" state instead.
  */
@@ -283,4 +331,51 @@ export const getShareStatus = query(AuditIdSchema, async (auditId) => {
 		firstViewedAt: audit.shareFirstViewedAt?.toISOString() ?? null,
 		lastViewedAt: audit.shareLastViewedAt?.toISOString() ?? null,
 	};
+});
+
+/**
+ * List all audits for a client that have ever had a share token (active,
+ * revoked, or expired). Powers the Reports page. Excludes audits with
+ * shareToken IS NULL — a "reports" list implies things that have been shared.
+ */
+export const getClientReports = query(ClientIdSchema, async (clientId) => {
+	const context = await getAgencyContext();
+
+	const rows = await db
+		.select({
+			id: seoAudits.id,
+			createdAt: seoAudits.createdAt,
+			overallScore: seoAudits.overallScore,
+			shareToken: seoAudits.shareToken,
+			shareCreatedAt: seoAudits.shareCreatedAt,
+			shareExpiresAt: seoAudits.shareExpiresAt,
+			shareRevokedAt: seoAudits.shareRevokedAt,
+			shareViewCount: seoAudits.shareViewCount,
+			shareFirstViewedAt: seoAudits.shareFirstViewedAt,
+			shareLastViewedAt: seoAudits.shareLastViewedAt,
+		})
+		.from(seoAudits)
+		.where(
+			and(
+				eq(seoAudits.clientId, clientId),
+				eq(seoAudits.agencyId, context.agencyId),
+				isNotNull(seoAudits.shareToken),
+			),
+		)
+		.orderBy(desc(seoAudits.shareCreatedAt));
+
+	return rows.map((r) => ({
+		id: r.id,
+		createdAt: r.createdAt.toISOString(),
+		overallScore: r.overallScore,
+		status: deriveShareStatus(r),
+		shareUrl: buildShareUrl(context.agency.slug, r.shareToken!),
+		token: r.shareToken!,
+		shareCreatedAt: r.shareCreatedAt?.toISOString() ?? null,
+		shareExpiresAt: r.shareExpiresAt?.toISOString() ?? null,
+		shareRevokedAt: r.shareRevokedAt?.toISOString() ?? null,
+		shareViewCount: r.shareViewCount,
+		shareFirstViewedAt: r.shareFirstViewedAt?.toISOString() ?? null,
+		shareLastViewedAt: r.shareLastViewedAt?.toISOString() ?? null,
+	}));
 });
