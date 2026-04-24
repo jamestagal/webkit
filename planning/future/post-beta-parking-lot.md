@@ -144,3 +144,88 @@ Either of (whichever comes first):
 
 - Today's migration 038 (DROP + ADD CONSTRAINT) applied without wrapping because pre-beta traffic is ~zero. No harm done; no state leaked through the window.
 - Does not block today's prod deploy.
+
+---
+
+## Audit page deep-link by `auditId`
+
+**Surfaced:** 2026-04-24 during planning of `feat/reports-management-page`.
+**Source:** `service-client/src/routes/(app)/[agencySlug]/content/[clientId]/audit/+page.server.ts:4-26` — destructures `params.clientId` only.
+
+### Problem
+
+Audit page always renders the latest audit — `latestAudit = audits[0]` after a `desc(createdAt)` sort. No URL param or selector UI lets a caller say "show me *this* specific audit." Grep confirms: zero `searchParams`, zero `?auditId`, no client-side history selector.
+
+This becomes a friction point the moment a row elsewhere wants to link to a specific historical audit:
+
+- Reports page (just landed) lists every shared audit, but the "Audit" date column is plain text because there's nowhere meaningful to link. Clicking a 2-week-old row and landing on today's audit would be worse UX than no link.
+- Audit-history table on the audit page itself surfaces historical rows but can't open them — same underlying gap.
+- Any future "view this audit" CTA (email notifications, Slack integrations, activity-feed cross-links) hits the same wall.
+
+### Proposal
+
+Accept an optional `?auditId=<uuid>` search param on `/content/[clientId]/audit`:
+
+1. Server load reads it, validates the audit belongs to the current `clientId` (defence against cross-client URL tampering).
+2. Falls back to `audits[0]` when absent — preserves existing default behaviour.
+3. Client-side: the audit-history table rows become clickable and update the URL (pushState or an `<a>` with the param).
+
+Straightforward scope (estimated <1h for load + UI wiring). Zero schema, zero new endpoints.
+
+### Trigger
+
+- **Reports row-link follow-up is picked up**, OR
+- **A beta user asks why historical share rows don't open** the specific audit they were shared from.
+
+Whichever comes first.
+
+### Notes
+
+- Reports page already filters out never-shared audits, so row-links would only open audits that had a share created at some point — the most likely case a user wants to revisit anyway.
+- Worth considering in the same session as this: should the audit page grow a visible audit-selector (dropdown or history sidebar) while we're in there? Probably yes if the deep-link lands — otherwise users arriving from a deep-link have no clear "back to latest" affordance beyond browser back.
+
+---
+
+## Share-link token rotation on revoked rows is a destructive default
+
+**Surfaced:** 2026-04-24 while diagnosing production 404s on share URLs that the Reports UI reported as "Active" for agency `plentify-web-designs`.
+**Source:** `service-client/src/lib/api/content-audit.remote.ts:160-163` — `createShareLink`'s rotation guard.
+
+### Problem
+
+Three share-lifecycle commands interact asymmetrically with `share_token`:
+
+- `reinstateShareLink` **preserves** the token. Same URL survives.
+- `revokeShareLink` **preserves** the token. Same URL comes back if reinstated.
+- `createShareLink` **rotates** the token when `share_token IS NULL OR share_revoked_at IS NOT NULL`.
+
+The trap: Revoke + Create Again silently breaks every URL previously sent to the client. Post-rotation the row looks fully active (`share_revoked_at = NULL`, new token present, status badge says "Active"), but the old URL now points at a token the DB no longer holds. `validateShareToken` ([share-tokens.ts:93-108](../../service-client/src/lib/server/share-tokens.ts#L93-L108)) returns `not-found` and the public route 404s. No visible UI signal that the URL was rotated; no audit log of rotation.
+
+Surface symptom: "my link shows Active in the dashboard, but my client gets a 404."
+
+### Resolution paths (three, not mutually exclusive)
+
+- **(a) Slug-mismatch observability.** `validateShareToken` collapses slug mismatch into `not-found` for information-hiding, but there's no telemetry on how often that branch fires. Add structured logging on the mismatch branch so a slug-rename incident is distinguishable from a token-rotation incident without re-running diagnostic SQL per case. No behaviour change.
+- **(b) `agency_slug_snapshot` column on `seo_audits`.** Snapshot the agency slug at share-creation time so URLs survive agency rename. Orthogonal to (c); addresses the slug-rename failure mode specifically, which is a separate class from token rotation.
+- **(c) [highest-impact] Make rotation the opt-in branch, not the default.** The Reports page's Reinstate row action already does this right — it calls `reinstateShareLink` (same URL) rather than `createShareLink` (rotate). The gap is on the audit-page ShareReportModal, where "Create again" on a revoked row silently rotates. Options:
+  - **c1.** Surface Reinstate more prominently than Create on revoked rows in ShareReportModal.
+  - **c2.** Inline warning in ShareReportModal when the user is about to rotate: *"The existing URL will stop working — use Reinstate instead to preserve it."*
+  - **c3.** Require `force: true` on `createShareLink` to rotate on a revoked row; 409 otherwise. Every existing caller keeps working unless it passes through a revoked state first.
+
+(c) is the real fix — (a) and (b) are observability/data-integrity complements.
+
+### Trigger
+
+First beta user complaint about a previously-working share URL going dead, OR when Revoke-vs-Reinstate usage metrics become visible and rotation frequency exceeds expectation. Reports page already routes Reinstate correctly, so this moves higher-priority only if the audit-page ShareReportModal continues to be the primary share-management surface in practice.
+
+### Notes
+
+- The Reports page (merged in commit `aaec1c0`) partially mitigates by making same-URL reinstatement the default management path. Does not mitigate on the audit-page ShareReportModal.
+- Diagnostic query to confirm rotation on a specific broken URL:
+  ```sql
+  SELECT id, client_id, share_token, share_revoked_at, share_created_at, share_expires_at
+  FROM seo_audits
+  WHERE share_token = '<token-from-broken-url>';
+  ```
+  Zero rows → token has been rotated. To locate the replacement, list currently-tokenized audits for the same agency (`WHERE agency_id = X AND share_token IS NOT NULL`) and cross-reference `share_created_at` / `updated_at` against the user's recollection of when they sent the broken URL.
+- AI Failure Review note: first live diagnosis of this failure mode pattern-matched 404 to the 2026-04-21 auth-gate incident rather than verifying the response shape (404 vs 302 to /login). Captured as a cross-cutting AI-assisted-debugging pattern, not only a product bug.
