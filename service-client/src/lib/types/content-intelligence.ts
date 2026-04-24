@@ -29,6 +29,7 @@ export type NavTabId =
 	| 'brand'
 	| 'gbp'
 	| 'pages'
+	| 'reports'
 	| 'copy'
 	| 'articles'
 	| 'social';
