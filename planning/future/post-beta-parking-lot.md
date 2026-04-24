@@ -30,7 +30,7 @@ First beta user confusion about activity feed wording. If an agency asks "why do
 ### Notes
 
 - Historical rows with unmapped verbs will continue to render via the `default` fallback until this lands.
-- The `live` case was added in commit 07310b4's follow-up (see git log on the `fix/rename-ready-to-live` branch) — that's a one-off patch, not a fix for the underlying structural issue.
+- The `live` case was added in commit `4ca4595` (see git log on `main`) — that's a one-off patch, not a fix for the underlying structural issue.
 
 ---
 
@@ -74,12 +74,12 @@ Whoever next touches `logActivity` in a non-trivial way (new activity type, refa
 
 The runner dedups applied migrations by **version number only**, not filename or content hash. If two branches independently cut the same next version number (e.g., both claim 037), whichever branch's migration applies first locks that version on the DB. When the second branch is later applied against the same DB, its migration is **silently skipped** — no log line, no warning, no indication that the UPDATE/DDL in it never ran.
 
-Today's incident (commit `07310b4` + `89af158`):
+Today's incident (commit `d6a523e` + `2860001`):
 
 - `feat/branding-live-preview` (06cc873) introduced `037_add_proposal_branding_overrides.sql` → applied to local DB on 2026-04-20.
-- `fix/rename-ready-to-live` (07310b4) independently introduced `037_rename_proposal_status_ready_to_live.sql`.
+- `fix/rename-ready-to-live` (`d6a523e` post-rebase) independently introduced `037_rename_proposal_status_ready_to_live.sql`.
 - `sh scripts/run_migrations.sh` on the rename branch silently skipped the rename migration because version 37 was already recorded with the branding filename.
-- Renumbered to 038 in commit `89af158` to resolve.
+- Renumbered to 038 in commit `2860001` to resolve.
 
 Caught this time because spot-check `SELECT status FROM proposals` would have surfaced stale `ready` rows on a DB with real data. **On a DB with zero `ready` rows, the failure would have passed silently through to production.**
 
@@ -100,5 +100,5 @@ Next time two branches touch `migrations/` in parallel. Given webkit's schema is
 ### Notes
 
 - Today's incident was caught only because DB spot-checks were part of verification. A more typical verification (unit tests, UI click-through) wouldn't have surfaced the silent skip. That's the real severity: the failure mode is invisible to most verification styles.
-- Renumbering (as done in commit `89af158`) resolves the specific incident but doesn't prevent future occurrences.
+- Renumbering (as done in commit `2860001`) resolves the specific incident but doesn't prevent future occurrences.
 - Connected to no other parking-lot items; this one is strictly infra.
