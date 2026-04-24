@@ -193,7 +193,7 @@ Flow: layout loads config in `[agencySlug]/+layout.server.ts` → `setAgencyConf
 
 ### Schema
 - `service-client/src/lib/server/schema.ts` — Drizzle schema (SvelteKit)
-- `app/service-core/storage/schema_postgres.sql` — Go reference schema (sqlc only)
+- `app/service-core/storage/schema_postgres.sql` — sqlc reference schema AND historical DB bootstrap (constraints here ARE enforced on the live DB; see Database Migrations section)
 
 ## Development Commands
 
@@ -254,8 +254,10 @@ Full workflow: `.claude/notes/database/migrations.md`.
 
 **The non-negotiables:**
 - All migrations in `/migrations/*.sql`, numbered, **idempotent** (`IF NOT EXISTS` / `IF EXISTS`)
-- Source of truth = `/migrations/*.sql`. Never use `atlas schema apply` (declarative, destructive)
-- Go schema (`app/service-core/storage/schema_postgres.sql`) is sqlc reference only — not for migrations
+- `/migrations/*.sql` is the source of truth for **ongoing** schema changes. Never use `atlas schema apply` (declarative, destructive).
+- `app/service-core/storage/schema_postgres.sql` serves **two** roles: (1) sqlc reference for Go query generation, (2) **historical DB bootstrap** — constraints, tables, and defaults present in this file ARE enforced on the live DB even if no migration file defines them. Verified 2026-04-22 (`valid_proposal_status` CHECK constraint lives on the DB but is declared only in this file, not in any migration).
+- When verifying DB-level enforcement (CHECK constraints, triggers, defaults, NOT NULL), **query live DB state directly** via `pg_constraint` / `information_schema` rather than inferring from `schema_postgres.sql` or `schema.ts`. Schema files can drift from runtime state; `pg_catalog` cannot.
+- New constraints or constraint changes must be added **via migration AND** reflected in `schema_postgres.sql` to keep the sqlc reference in sync with runtime.
 - **After adding columns to Go-queried tables** (esp. `users` — uses `SELECT *`): update Go schema, run `sh scripts/run_queries.sh postgres`, commit `models.go`/`query_postgres.sql.go`, restart `webkit-core`
 
 ## Query Development Checklist
