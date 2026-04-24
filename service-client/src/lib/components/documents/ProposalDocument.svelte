@@ -82,14 +82,14 @@
 	const customPricing = (proposal.customPricing as CustomPricing) || null;
 
 	// Can the client respond? ready/sent/viewed status, or admin-preview
-	// (?preview=true). `ready` is included because the proposal lifecycle
+	// (?preview=true). `live` is included because the proposal lifecycle
 	// treats "Send" as an optional agency workflow step, not a client-
-	// visibility gate — a proposal marked Ready is shareable and must be
+	// visibility gate — a proposal marked Live is shareable and must be
 	// actionable by the client regardless of whether the agency hit the
 	// Send button. Matches the server-side action gates in
 	// proposals.remote.ts (accept/decline/requestRevision).
 	const canRespond =
-		proposal.status === 'ready' ||
+		proposal.status === 'live' ||
 		proposal.status === 'sent' ||
 		proposal.status === 'viewed' ||
 		isPreview;

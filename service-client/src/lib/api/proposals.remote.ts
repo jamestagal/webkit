@@ -985,11 +985,11 @@ export const acceptProposal = command(AcceptProposalSchema, async (data) => {
 	}
 
 	// Validate status - ready/sent/viewed proposals can be accepted.
-	// `ready` is included because the Send action is an optional agency
-	// workflow step, not a client-action gate; a Ready proposal shared
+	// `live` is included because the Send action is an optional agency
+	// workflow step, not a client-action gate; a Live proposal shared
 	// directly via its /p/{slug} link must be actionable by the client.
 	if (
-		proposal.status !== "ready" &&
+		proposal.status !== "live" &&
 		proposal.status !== "sent" &&
 		proposal.status !== "viewed"
 	) {
@@ -1064,10 +1064,10 @@ export const declineProposal = command(DeclineProposalSchema, async (data) => {
 		throw new Error("Proposal not found");
 	}
 
-	// Validate status - ready/sent/viewed proposals can be declined. See
-	// accept handler above for why `ready` is included.
+	// Validate status - live/sent/viewed proposals can be declined. See
+	// accept handler above for why `live` is included.
 	if (
-		proposal.status !== "ready" &&
+		proposal.status !== "live" &&
 		proposal.status !== "sent" &&
 		proposal.status !== "viewed"
 	) {
@@ -1104,10 +1104,10 @@ export const requestProposalRevision = command(RequestRevisionSchema, async (dat
 		throw new Error("Proposal not found");
 	}
 
-	// Validate status - ready/sent/viewed proposals can request revision.
-	// See accept handler above for why `ready` is included.
+	// Validate status - live/sent/viewed proposals can request revision.
+	// See accept handler above for why `live` is included.
 	if (
-		proposal.status !== "ready" &&
+		proposal.status !== "live" &&
 		proposal.status !== "sent" &&
 		proposal.status !== "viewed"
 	) {
