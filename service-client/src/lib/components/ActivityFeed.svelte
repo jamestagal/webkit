@@ -98,6 +98,8 @@
 				return `${entityLabel} status updated`;
 			case 'status_changed':
 				return `${name} changed ${entityLabel} status`;
+			case 'live':
+				return `${name} marked a ${entityLabel} as live`;
 			default:
 				return `${name} ${verb} ${entityLabel}`;
 		}
