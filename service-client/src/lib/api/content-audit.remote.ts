@@ -10,8 +10,8 @@ import { seoAudits } from "$lib/server/schema";
 import { getAgencyContext } from "$lib/server/agency";
 import { canRunSeoAudit } from "$lib/server/subscription";
 import { generateShareToken } from "$lib/server/share-tokens";
-import { buildShareUrl } from "$lib/server/share-helpers";
-import { eq, and, desc } from "drizzle-orm";
+import { buildShareUrl, deriveShareStatus } from "$lib/server/share-helpers";
+import { eq, and, desc, isNotNull } from "drizzle-orm";
 import { error } from "@sveltejs/kit";
 import { formatDate } from "$lib/utils/formatting";
 import type {
@@ -277,4 +277,51 @@ export const getShareStatus = query(AuditIdSchema, async (auditId) => {
 		firstViewedAt: audit.shareFirstViewedAt?.toISOString() ?? null,
 		lastViewedAt: audit.shareLastViewedAt?.toISOString() ?? null,
 	};
+});
+
+/**
+ * List all audits for a client that have ever had a share token (active,
+ * revoked, or expired). Powers the Reports page. Excludes audits with
+ * shareToken IS NULL — a "reports" list implies things that have been shared.
+ */
+export const getClientReports = query(ClientIdSchema, async (clientId) => {
+	const context = await getAgencyContext();
+
+	const rows = await db
+		.select({
+			id: seoAudits.id,
+			createdAt: seoAudits.createdAt,
+			overallScore: seoAudits.overallScore,
+			shareToken: seoAudits.shareToken,
+			shareCreatedAt: seoAudits.shareCreatedAt,
+			shareExpiresAt: seoAudits.shareExpiresAt,
+			shareRevokedAt: seoAudits.shareRevokedAt,
+			shareViewCount: seoAudits.shareViewCount,
+			shareFirstViewedAt: seoAudits.shareFirstViewedAt,
+			shareLastViewedAt: seoAudits.shareLastViewedAt,
+		})
+		.from(seoAudits)
+		.where(
+			and(
+				eq(seoAudits.clientId, clientId),
+				eq(seoAudits.agencyId, context.agencyId),
+				isNotNull(seoAudits.shareToken),
+			),
+		)
+		.orderBy(desc(seoAudits.shareCreatedAt));
+
+	return rows.map((r) => ({
+		id: r.id,
+		createdAt: r.createdAt.toISOString(),
+		overallScore: r.overallScore,
+		status: deriveShareStatus(r),
+		shareUrl: buildShareUrl(context.agency.slug, r.shareToken!),
+		token: r.shareToken!,
+		shareCreatedAt: r.shareCreatedAt?.toISOString() ?? null,
+		shareExpiresAt: r.shareExpiresAt?.toISOString() ?? null,
+		shareRevokedAt: r.shareRevokedAt?.toISOString() ?? null,
+		shareViewCount: r.shareViewCount,
+		shareFirstViewedAt: r.shareFirstViewedAt?.toISOString() ?? null,
+		shareLastViewedAt: r.shareLastViewedAt?.toISOString() ?? null,
+	}));
 });
