@@ -47,6 +47,11 @@ const CreateShareLinkSchema = v.object({
 	expiresInDays: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(365))),
 });
 
+const UpdateShareExpirySchema = v.object({
+	auditId: v.pipe(v.string(), v.uuid()),
+	expiresInDays: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(365))),
+});
+
 const AuditIdObjectSchema = v.object({
 	auditId: v.pipe(v.string(), v.uuid()),
 });
@@ -227,6 +232,55 @@ export const reinstateShareLink = command(AuditIdObjectSchema, async ({ auditId 
 
 	return {
 		shareUrl: buildShareUrl(context.agency.slug, audit.shareToken),
+	};
+});
+
+/**
+ * Change the expiry on an existing, non-revoked share link without
+ * rotating the token. Explicit counterpart to createShareLink so UI
+ * callers can't accidentally trigger a token rotation by calling
+ * createShareLink against a revoked row.
+ *
+ * 409s on revoked / never-shared rows; the UI is expected to offer
+ * Reinstate first in those cases.
+ */
+export const updateShareExpiry = command(UpdateShareExpirySchema, async ({ auditId, expiresInDays }) => {
+	const context = await getAgencyContext();
+
+	const [audit] = await db
+		.select({
+			id: seoAudits.id,
+			shareToken: seoAudits.shareToken,
+			shareRevokedAt: seoAudits.shareRevokedAt,
+		})
+		.from(seoAudits)
+		.where(and(eq(seoAudits.id, auditId), eq(seoAudits.agencyId, context.agencyId)))
+		.limit(1);
+
+	if (!audit) {
+		throw error(404, "Audit not found");
+	}
+
+	if (!audit.shareToken) {
+		throw error(409, "No share link to update");
+	}
+
+	if (audit.shareRevokedAt) {
+		throw error(409, "Cannot change expiry on a revoked link — reinstate first");
+	}
+
+	const expiresAt = expiresInDays
+		? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
+		: null;
+
+	await db
+		.update(seoAudits)
+		.set({ shareExpiresAt: expiresAt, updatedAt: new Date() })
+		.where(eq(seoAudits.id, auditId));
+
+	return {
+		shareUrl: buildShareUrl(context.agency.slug, audit.shareToken),
+		expiresAt: expiresAt?.toISOString() ?? null,
 	};
 });
 
