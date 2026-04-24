@@ -228,4 +228,4 @@ First beta user complaint about a previously-working share URL going dead, OR wh
   WHERE share_token = '<token-from-broken-url>';
   ```
   Zero rows → token has been rotated. To locate the replacement, list currently-tokenized audits for the same agency (`WHERE agency_id = X AND share_token IS NOT NULL`) and cross-reference `share_created_at` / `updated_at` against the user's recollection of when they sent the broken URL.
-- AI Failure Review note: first live diagnosis of this failure mode pattern-matched 404 to the 2026-04-21 auth-gate incident rather than verifying the response shape (404 vs 302 to /login). Captured as a cross-cutting AI-assisted-debugging pattern, not only a product bug.
+- This entry was surfaced during a 2026-04-24 diagnostic chain that turned out to be a local-vs-prod DB mismatch (URLs generated against a local dev database, inspected against production) — not a rotation incident. The trap mechanism is real regardless — captured here so the next time it's hypothesized as a cause, the verification checklist (which DB were these URLs generated against?) is already written down.
