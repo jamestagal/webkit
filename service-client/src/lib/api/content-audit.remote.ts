@@ -4,13 +4,13 @@
  */
 import { query, command } from "$app/server";
 import * as v from "valibot";
-import { env } from "$env/dynamic/public";
 import { contentFetch } from "$lib/server/content-fetch";
 import { db } from "$lib/server/db";
 import { seoAudits } from "$lib/server/schema";
 import { getAgencyContext } from "$lib/server/agency";
 import { canRunSeoAudit } from "$lib/server/subscription";
 import { generateShareToken } from "$lib/server/share-tokens";
+import { buildShareUrl } from "$lib/server/share-helpers";
 import { eq, and, desc } from "drizzle-orm";
 import { error } from "@sveltejs/kit";
 import { formatDate } from "$lib/utils/formatting";
@@ -125,12 +125,6 @@ export const getClientAudits = query(ClientIdSchema, async (clientId) => {
 // =============================================================================
 // Share Links (Phase 1)
 // =============================================================================
-
-function buildShareUrl(agencySlug: string, token: string): string {
-	const host = env["PUBLIC_APP_DOMAIN"] || "app.webkit.au";
-	const protocol = host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https";
-	return `${protocol}://${host}/${agencySlug}/report/${token}`;
-}
 
 /**
  * Create (or re-use) a share link for a completed audit. Idempotent — if a
