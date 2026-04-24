@@ -102,3 +102,44 @@ Next time two branches touch `migrations/` in parallel. Given webkit's schema is
 - Today's incident was caught only because DB spot-checks were part of verification. A more typical verification (unit tests, UI click-through) wouldn't have surfaced the silent skip. That's the real severity: the failure mode is invisible to most verification styles.
 - Renumbering (as done in commit `2860001`) resolves the specific incident but doesn't prevent future occurrences.
 - Connected to no other parking-lot items; this one is strictly infra.
+
+---
+
+## Migration runner doesn't wrap files in a transaction
+
+**Surfaced:** 2026-04-24 during Thread 3 Phase 2 close-out (pre-deploy sanity check).
+**Source:** `scripts/run_migrations.sh` — L51 (prod) / L93 (local).
+
+### Problem
+
+The runner invokes `docker exec -i webkit-postgres psql -U <user> -d <db> < migration.sql` — piping the file as stdin. Without `--single-transaction` (or `-1`), psql autocommits every statement independently. A migration with multiple statements (e.g. DROP CONSTRAINT → ADD CONSTRAINT, or multiple ALTER TABLE steps) has a vulnerable window between statements where concurrent writers could observe intermediate state.
+
+Concrete case: migration `038_rename_proposal_status_ready_to_live.sql` does `UPDATE` → `DROP CONSTRAINT` → `ADD CONSTRAINT`. Between the DROP and the ADD, there's a brief window where `valid_proposal_status` doesn't exist. A concurrent INSERT with a malformed status value could slip through. Pre-beta prod traffic is effectively zero so this window was harmless, but the failure mode is real for post-beta traffic.
+
+### Proposal
+
+Three options, from easiest to most thorough:
+
+- **A. Pass `--single-transaction` in the runner.** Change `psql ... < $file` to `psql ... --single-transaction -f $file`. One-character-ish fix. Every migration gets atomic semantics automatically.
+- **B. Wrap individual migration files in `BEGIN; ... COMMIT;` manually.** Self-protecting migrations; works even with the runner unchanged. More error-prone (easy to forget). Works for past migrations if needed.
+- **C. Both A and B.** Belt-and-suspenders — runner enforces transactional behavior, individual files are also self-contained for manual application.
+
+**Recommendation:** (A) alone. It's the cheapest fix, covers every migration past and future without touching the SQL files, and the runner is the natural place to enforce transactional semantics. Concrete diff is swapping `< "$migration"` for `--single-transaction -f "$migration"` in both the local and prod branches of `run_migrations.sh`.
+
+Caveat: `--single-transaction` is incompatible with `CREATE INDEX CONCURRENTLY` and a few other operations that can't run inside a transaction. Webkit doesn't use any of those today; if it starts to, the migration would need an explicit escape hatch (per-file flag or manual handling).
+
+### Trigger
+
+Any of:
+
+- First post-beta migration that combines DDL with data writes, where intermediate state could be observed by prod traffic.
+- First incident where a multi-statement migration partially applies and leaves the DB in a wedged state requiring manual cleanup.
+- Before enabling any form of zero-downtime deploy with concurrent prod writes.
+
+First of these is likely to arrive within the first post-beta month given how often migrations ship.
+
+### Notes
+
+- Today's migration 038 (DROP + ADD CONSTRAINT) applied without wrapping because pre-beta traffic is ~zero. No harm done; no state leaked through the window.
+- This is a sibling concern to the version-collision footgun above — both about migration runner robustness. Natural single-commit fix would address both.
+- Does not block today's prod deploy.
