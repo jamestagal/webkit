@@ -446,6 +446,15 @@ export const agencyDocumentBranding = pgTable(
 		primaryColor: text("primary_color"),
 		accentColor: text("accent_color"),
 		accentGradient: text("accent_gradient"),
+
+		// Proposal-specific overrides (migration 037; null = use agency default
+		// for bg/heading/CTA fields, or inherit text-base-content for text fields).
+		coverBgColor: text("cover_bg_color"),
+		coverTextColor: text("cover_text_color"),
+		sectionHeadingColor: text("section_heading_color"),
+		ctaButtonColor: text("cta_button_color"),
+		ctaButtonTextColor: text("cta_button_text_color"),
+		footerBgColor: text("footer_bg_color"),
 	},
 	(table) => ({
 		uniqueAgencyDocType: unique().on(table.agencyId, table.documentType),

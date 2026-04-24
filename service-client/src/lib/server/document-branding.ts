@@ -19,6 +19,31 @@ export interface EffectiveBranding {
 	accentGradient: string;
 }
 
+/**
+ * Proposal-specific effective branding.
+ *
+ * Four fields are nullable and `null` means "no explicit override set —
+ * consumer should fall through to its own default fallback chain":
+ *   - coverTextColor / ctaButtonTextColor → `null` means inherit from
+ *     document's current text styling (omit inline `color`).
+ *   - sectionHeadingColor → `null` means the `<h2>` keeps `text-base-content`.
+ *   - ctaButtonColor → `null` means the price-card background uses
+ *     `branding.accentGradient || computed-gradient` (preserves the
+ *     pre-rewire agency-level gradient fallback path).
+ *
+ * coverBgColor and footerBgColor always have a value (cascade to
+ * agency.secondaryColor → '#E3EDF7') because they paint full-width
+ * sections that would look broken without a background.
+ */
+export interface ProposalEffectiveBranding extends EffectiveBranding {
+	coverBgColor: string;
+	coverTextColor: string | null;
+	sectionHeadingColor: string | null;
+	ctaButtonColor: string | null;
+	ctaButtonTextColor: string | null;
+	footerBgColor: string;
+}
+
 // Default branding values used when agency has no branding set
 const DEFAULT_BRANDING: EffectiveBranding = {
 	logoUrl: "",
@@ -27,6 +52,10 @@ const DEFAULT_BRANDING: EffectiveBranding = {
 	accentColor: "#F59E0B", // Amber-500
 	accentGradient: "",
 };
+
+// Cover-bg / footer-bg fall back to the secondaryColor cascade which itself
+// defaults to the existing inline fallback in /p/[slug] (#E3EDF7 light blue).
+const PROPOSAL_DEFAULT_COVER_BG = "#E3EDF7";
 
 /**
  * Get the effective branding for a specific document type.
@@ -79,8 +108,24 @@ export async function getEffectiveBranding(
 		primaryColor: agency.primaryColor || DEFAULT_BRANDING.primaryColor,
 		secondaryColor: agency.secondaryColor || DEFAULT_BRANDING.secondaryColor,
 		accentColor: agency.accentColor || DEFAULT_BRANDING.accentColor,
-		accentGradient: agency.accentGradient || DEFAULT_BRANDING.accentGradient,
+		// Replaced below with a computed-gradient fallback so consumers can
+		// read EffectiveBranding.accentGradient as an always-paintable string
+		// (no `||` logic at the call site).
+		accentGradient: "",
 	};
+
+	// Resolve an always-paintable accentGradient: explicit override wins,
+	// then the agency's own gradient, else compute a 2-stop gradient from
+	// primary → accent. This collapses the per-site `accentGradient || ...`
+	// conditional that would otherwise need to live at every consumer.
+	const explicitGradient =
+		override?.useCustomBranding && override?.accentGradient
+			? override.accentGradient
+			: agency.accentGradient || null;
+	const resolvedAccentGradient =
+		explicitGradient ||
+		`linear-gradient(135deg, ${baseBranding.primaryColor} 0%, ${baseBranding.accentColor} 100%)`;
+	baseBranding.accentGradient = resolvedAccentGradient;
 
 	// If no override or override is disabled, return agency defaults
 	if (!override || !override.useCustomBranding) {
@@ -93,7 +138,59 @@ export async function getEffectiveBranding(
 		primaryColor: override.primaryColor ?? baseBranding.primaryColor,
 		secondaryColor: baseBranding.secondaryColor, // No override for secondary
 		accentColor: override.accentColor ?? baseBranding.accentColor,
-		accentGradient: override.accentGradient ?? baseBranding.accentGradient,
+		accentGradient: baseBranding.accentGradient, // already resolved above
+	};
+}
+
+/**
+ * Get the effective branding for the proposal document type, including
+ * proposal-specific override fields (cover, section headings, CTA, footer).
+ *
+ * Cascade per field:
+ *   coverBgColor         → override → agency.secondaryColor → '#E3EDF7'
+ *   coverTextColor       → override → null (inherit — component omits inline style)
+ *   sectionHeadingColor  → override → agency.primaryColor   → '#4F46E5'
+ *   ctaButtonColor       → override → agency.primaryColor   → '#4F46E5'
+ *   ctaButtonTextColor   → override → null (inherit — component omits inline style)
+ *   footerBgColor        → override → agency.secondaryColor → '#E3EDF7'
+ */
+export async function getEffectiveProposalBranding(
+	agencyId: string,
+): Promise<ProposalEffectiveBranding> {
+	const base = await getEffectiveBranding(agencyId, "proposal");
+
+	const [override] = await db
+		.select()
+		.from(agencyDocumentBranding)
+		.where(
+			and(
+				eq(agencyDocumentBranding.agencyId, agencyId),
+				eq(agencyDocumentBranding.documentType, "proposal"),
+			),
+		)
+		.limit(1);
+
+	const useOverride = override?.useCustomBranding ?? false;
+
+	// Agency-level cascade targets for cover/footer bg (secondaryColor) default
+	// to the #E3EDF7 fallback that /p/[slug] has always used inline, NOT the
+	// generic EffectiveBranding.secondaryColor default of #1E40AF.
+	const [agency] = await db
+		.select({ secondaryColor: agencies.secondaryColor, primaryColor: agencies.primaryColor })
+		.from(agencies)
+		.where(eq(agencies.id, agencyId))
+		.limit(1);
+
+	const agencyCoverBg = agency?.secondaryColor || PROPOSAL_DEFAULT_COVER_BG;
+
+	return {
+		...base,
+		coverBgColor: (useOverride && override?.coverBgColor) || agencyCoverBg,
+		coverTextColor: useOverride ? (override?.coverTextColor ?? null) : null,
+		sectionHeadingColor: useOverride ? (override?.sectionHeadingColor ?? null) : null,
+		ctaButtonColor: useOverride ? (override?.ctaButtonColor ?? null) : null,
+		ctaButtonTextColor: useOverride ? (override?.ctaButtonTextColor ?? null) : null,
+		footerBgColor: (useOverride && override?.footerBgColor) || agencyCoverBg,
 	};
 }
 

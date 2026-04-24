@@ -17,6 +17,16 @@ Guidance for Claude Code when working in this repository. Reference docs in `.cl
 
 Downstream fork: leap-learn (`~/Projects/personal/leap-learn/`)
 
+## Cross-Agent Comms (`.comms/`)
+
+When working a thread with Cowork (the Claude desktop app acting as spec-drafter / appraiser), follow the protocol in `.comms/README.md` — specifically the **"Chat-vs-file discipline"** section:
+
+- Substantive appraisals, verification responses, clearance decisions, and design rationale go in a `.comms/` file. Chat gets a **one-line pointer** (filename + one-sentence verdict), not the full body.
+- Big decisions — anything that materially changes scope, security posture, or the spec contract — consult the user in chat *first*, get a call, *then* file the durable record.
+- At session start (or on user nudge), check `.comms/cowork-to-claude/` for files with `status: open` and address them before new requests.
+
+`.comms/` is gitignored — local-machine durable record only, not synced across machines.
+
 ## Three-Layer Workflow
 
 Specs flow: **Cowork (draft)** → **Claude Code plan mode (plan)** → **Cowork (appraise plan)** → **Claude Code (implement)**.

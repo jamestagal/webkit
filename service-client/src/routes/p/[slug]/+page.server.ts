@@ -18,6 +18,7 @@ import {
 } from "$lib/server/schema";
 import { eq, sql, inArray } from "drizzle-orm";
 import { error, fail } from "@sveltejs/kit";
+import { getEffectiveProposalBranding } from "$lib/server/document-branding";
 import {
 	acceptProposal,
 	declineProposal,
@@ -104,16 +105,38 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		selectedAddons = await db.select().from(agencyAddons).where(inArray(agencyAddons.id, addonIds));
 	}
 
+	// Resolve effective proposal branding (cascade: document override →
+	// agency defaults → hardcoded fallbacks). Source of truth for all colors
+	// and logo on the rendered page — do not read color fields from `agency`.
+	const branding = await getEffectiveProposalBranding(proposal.agencyId);
+
+	// Strip branding fields from `agency` to enforce single-source contract.
+	// Every color/logo the page paints must come from `branding`.
+	const agencyWithoutBranding = agency
+		? (() => {
+				const {
+					logoUrl: _logoUrl,
+					primaryColor: _primaryColor,
+					secondaryColor: _secondaryColor,
+					accentColor: _accentColor,
+					accentGradient: _accentGradient,
+					...rest
+				} = agency;
+				return rest;
+			})()
+		: agency;
+
 	return {
 		proposal: {
 			...proposal,
 			status: isExpired ? "expired" : proposal.status,
 		},
-		agency,
+		agency: agencyWithoutBranding,
 		profile,
 		selectedPackage,
 		selectedAddons,
 		isPreview,
+		branding,
 	};
 };
 

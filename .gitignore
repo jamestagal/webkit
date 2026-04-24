@@ -35,6 +35,10 @@ Thumbs.db
 .claude/package.json
 .claude/settings.json
 
+# Cross-agent message inbox (Cowork <-> in-app Claude Code)
+# Local-only durable record; not for sharing across machines.
+.comms/
+
 # Node modules
 node_modules/
 package-lock.json

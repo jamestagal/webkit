@@ -984,8 +984,15 @@ export const acceptProposal = command(AcceptProposalSchema, async (data) => {
 		throw new Error("Proposal not found");
 	}
 
-	// Validate status - only sent or viewed proposals can be accepted
-	if (proposal.status !== "sent" && proposal.status !== "viewed") {
+	// Validate status - ready/sent/viewed proposals can be accepted.
+	// `live` is included because the Send action is an optional agency
+	// workflow step, not a client-action gate; a Live proposal shared
+	// directly via its /p/{slug} link must be actionable by the client.
+	if (
+		proposal.status !== "live" &&
+		proposal.status !== "sent" &&
+		proposal.status !== "viewed"
+	) {
 		throw new Error("Proposal cannot be accepted");
 	}
 
@@ -1057,8 +1064,13 @@ export const declineProposal = command(DeclineProposalSchema, async (data) => {
 		throw new Error("Proposal not found");
 	}
 
-	// Validate status - only sent or viewed proposals can be declined
-	if (proposal.status !== "sent" && proposal.status !== "viewed") {
+	// Validate status - live/sent/viewed proposals can be declined. See
+	// accept handler above for why `live` is included.
+	if (
+		proposal.status !== "live" &&
+		proposal.status !== "sent" &&
+		proposal.status !== "viewed"
+	) {
 		throw new Error("Proposal cannot be declined");
 	}
 
@@ -1092,8 +1104,13 @@ export const requestProposalRevision = command(RequestRevisionSchema, async (dat
 		throw new Error("Proposal not found");
 	}
 
-	// Validate status - only sent or viewed proposals can request revision
-	if (proposal.status !== "sent" && proposal.status !== "viewed") {
+	// Validate status - live/sent/viewed proposals can request revision.
+	// See accept handler above for why `live` is included.
+	if (
+		proposal.status !== "live" &&
+		proposal.status !== "sent" &&
+		proposal.status !== "viewed"
+	) {
 		throw new Error("Proposal cannot request revision");
 	}
 

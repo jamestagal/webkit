@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { updateAgencyProfile } from '$lib/api/agency-profile.remote';
 	import { updateAgencyBranding } from '$lib/api/agency.remote';
 	import { updateDocumentBranding } from '$lib/api/document-branding.remote';
+	import { advancedDebounce } from '$lib/utils/debounce';
 	import type { DocumentType } from '$lib/server/schema';
 
 	const toast = getToast();
@@ -15,13 +17,22 @@
 	let { data }: PageProps = $props();
 
 	// Tab state
-	type TabId = 'defaults' | 'contracts' | 'invoices' | 'questionnaires' | 'emails';
+	type TabId =
+		| 'defaults'
+		| 'proposals'
+		| 'contracts'
+		| 'invoices'
+		| 'quotations'
+		| 'questionnaires'
+		| 'emails';
 	let activeTab = $state<TabId>('defaults');
 
 	const tabs: { id: TabId; label: string; icon: typeof FileText; docType?: DocumentType }[] = [
 		{ id: 'defaults', label: 'Agency Defaults', icon: Palette },
+		{ id: 'proposals', label: 'Proposals', icon: FileText, docType: 'proposal' },
 		{ id: 'contracts', label: 'Contracts', icon: FileText, docType: 'contract' },
 		{ id: 'invoices', label: 'Invoices', icon: Receipt, docType: 'invoice' },
+		{ id: 'quotations', label: 'Quotations', icon: Receipt, docType: 'quotation' },
 		{ id: 'questionnaires', label: 'Questionnaires', icon: ClipboardList, docType: 'questionnaire' },
 		{ id: 'emails', label: 'Emails', icon: Mail, docType: 'email' }
 	];
@@ -58,13 +69,21 @@
 	let isSavingDocBranding = $state(false);
 	let error = $state('');
 
-	// Document-specific branding state
+	// Document-specific branding state. Proposal-specific fields are stored on
+	// every record for shape consistency; they are only rendered for the
+	// Proposals tab and only persisted for docType === 'proposal'.
 	interface DocBrandingState {
 		useCustomBranding: boolean;
 		logoUrl: string;
 		primaryColor: string;
 		accentColor: string;
 		accentGradient: string;
+		coverBgColor: string;
+		coverTextColor: string;
+		sectionHeadingColor: string;
+		ctaButtonColor: string;
+		ctaButtonTextColor: string;
+		footerBgColor: string;
 	}
 
 	function getInitialDocBranding(docType: DocumentType): DocBrandingState {
@@ -74,7 +93,13 @@
 			logoUrl: override?.logoUrl ?? '',
 			primaryColor: override?.primaryColor ?? '',
 			accentColor: override?.accentColor ?? '',
-			accentGradient: override?.accentGradient ?? ''
+			accentGradient: override?.accentGradient ?? '',
+			coverBgColor: override?.coverBgColor ?? '',
+			coverTextColor: override?.coverTextColor ?? '',
+			sectionHeadingColor: override?.sectionHeadingColor ?? '',
+			ctaButtonColor: override?.ctaButtonColor ?? '',
+			ctaButtonTextColor: override?.ctaButtonTextColor ?? '',
+			footerBgColor: override?.footerBgColor ?? ''
 		};
 	}
 
@@ -86,6 +111,109 @@
 		email: getInitialDocBranding('email'),
 		quotation: getInitialDocBranding('quotation')
 	});
+
+	// ---------------------------------------------------------------------
+	// Phase 2.5: Live preview wiring.
+	//
+	// The `previewFrames` map holds `HTMLIFrameElement` refs populated by
+	// `bind:this` on each doc-type tab's preview iframe. When the user
+	// mutates any branding form field, an $effect below computes the
+	// effective branding for the active tab's docType and posts a
+	// `branding-update` message to that iframe. The debounced wrapper keeps
+	// the post rate sane during color-picker drags (color inputs can fire
+	// ~60 events/sec).
+	//
+	// `computeEffective` mirrors the server-side resolver in
+	// `$lib/server/document-branding.ts` (getEffectiveBranding /
+	// getEffectiveProposalBranding). Must stay in sync: if the server
+	// cascade changes, update the copy below, or the preview will silently
+	// drift from the saved render. The duplication is intentional — the
+	// server resolver reads DB state (post-save), this one reads live form
+	// state (pre-save), so they operate on different data sources.
+	// ---------------------------------------------------------------------
+	let previewFrames = $state<Partial<Record<DocumentType, HTMLIFrameElement>>>({});
+	let previewExpanded = $state<Partial<Record<DocumentType, boolean>>>({});
+
+	function computeEffective(docType: DocumentType) {
+		const override = docBrandings[docType];
+		const useOverride = override.useCustomBranding;
+
+		const primaryColor =
+			(useOverride && override.primaryColor) || brandingData.primaryColor || '#4F46E5';
+		const secondaryColor = brandingData.secondaryColor || '#1E40AF';
+		const accentColor =
+			(useOverride && override.accentColor) || brandingData.accentColor || '#F59E0B';
+		const logoUrl = (useOverride && override.logoUrl) || brandingData.logoUrl || '';
+
+		// accentGradient is always paintable (matches the server-side tweak
+		// that folded the computed-gradient fallback into the resolver).
+		const explicitGradient =
+			(useOverride && override.accentGradient) || brandingData.accentGradient || null;
+		const accentGradient =
+			explicitGradient ||
+			`linear-gradient(135deg, ${primaryColor} 0%, ${accentColor} 100%)`;
+
+		const base = { logoUrl, primaryColor, secondaryColor, accentColor, accentGradient };
+
+		if (docType === 'proposal') {
+			// Cover/footer bg fall back to agency.secondaryColor (matches
+			// getEffectiveProposalBranding's agencyCoverBg cascade). Text
+			// colors cascade to null when no explicit override is set.
+			const agencyCoverBg = brandingData.secondaryColor || '#E3EDF7';
+			return {
+				...base,
+				coverBgColor: (useOverride && override.coverBgColor) || agencyCoverBg,
+				coverTextColor: useOverride ? override.coverTextColor || null : null,
+				sectionHeadingColor: useOverride ? override.sectionHeadingColor || null : null,
+				ctaButtonColor: useOverride ? override.ctaButtonColor || null : null,
+				ctaButtonTextColor: useOverride ? override.ctaButtonTextColor || null : null,
+				footerBgColor: (useOverride && override.footerBgColor) || agencyCoverBg
+			};
+		}
+		return base;
+	}
+
+	function postBrandingNow(docType: DocumentType) {
+		const frame = previewFrames[docType];
+		if (!frame?.contentWindow) return;
+		frame.contentWindow.postMessage(
+			{ type: 'branding-update', payload: computeEffective(docType) },
+			window.location.origin
+		);
+	}
+
+	/**
+	 * Debounce window: 150ms. Rationale — color-picker input events can
+	 * fire at ~60fps during a drag. Posting a payload per frame saturates
+	 * the iframe's reactive pipeline without perceptual benefit (human
+	 * eye can't resolve updates faster than ~100ms). A 16ms (rAF) window
+	 * would be strictly faster but offers no perceptual gain for a
+	 * branding preview. A 50ms window would feel equivalent but doesn't
+	 * leave enough margin for slow connections between color-input events
+	 * (some input devices emit at odd cadences). 150ms is the revision
+	 * doc's recommended value — adopted.
+	 */
+	const postBranding = advancedDebounce(postBrandingNow, 150);
+
+	// Re-post whenever the active tab's branding form state (or agency
+	// defaults feeding it) changes. Mutating `brandingData.X` or
+	// `docBrandings[docType].X` triggers the effect; the debounced
+	// function coalesces bursts.
+	$effect(() => {
+		const tab = tabs.find((t) => t.id === activeTab);
+		const docType = tab?.docType;
+		if (!docType) return;
+		// Force $effect to read every watched field so mutations track.
+		// JSON.stringify of the state objects is the cheapest way to
+		// depend on every nested field without listing them all.
+		void JSON.stringify(docBrandings[docType]);
+		void JSON.stringify(brandingData);
+		postBranding(docType);
+	});
+
+	function togglePreviewExpanded(docType: DocumentType) {
+		previewExpanded[docType] = !previewExpanded[docType];
+	}
 
 	// Logo upload state - separate for each logo type
 	let logoPreview = $state<string | null>(null); // For horizontal logo
@@ -272,13 +400,22 @@
 
 		try {
 			const branding = docBrandings[docType];
+			const isProposal = docType === 'proposal';
 			await updateDocumentBranding({
 				documentType: docType,
 				useCustomBranding: branding.useCustomBranding,
 				logoUrl: branding.logoUrl || null,
 				primaryColor: branding.primaryColor || null,
 				accentColor: branding.accentColor || null,
-				accentGradient: branding.accentGradient || null
+				accentGradient: branding.accentGradient || null,
+				// Proposal-specific fields are only persisted for docType 'proposal'.
+				// Other doc types skip them entirely (undefined preserves existing DB values).
+				coverBgColor: isProposal ? branding.coverBgColor || null : undefined,
+				coverTextColor: isProposal ? branding.coverTextColor || null : undefined,
+				sectionHeadingColor: isProposal ? branding.sectionHeadingColor || null : undefined,
+				ctaButtonColor: isProposal ? branding.ctaButtonColor || null : undefined,
+				ctaButtonTextColor: isProposal ? branding.ctaButtonTextColor || null : undefined,
+				footerBgColor: isProposal ? branding.footerBgColor || null : undefined
 			});
 			await invalidateAll();
 			toast.success('Document branding updated', `${docType.charAt(0).toUpperCase() + docType.slice(1)} branding saved`);
@@ -888,6 +1025,85 @@
 						{/if}
 					</div>
 
+					{#if docType === 'proposal'}
+						<!-- Proposal-specific overrides -->
+						<div class="rounded-lg border border-base-300 p-4 space-y-4">
+							<div>
+								<p class="text-sm font-medium">Proposal-specific overrides</p>
+								<p class="text-xs text-base-content/60 mt-1">
+									Fine-tune the cover, section headings, CTA button, and footer. Leave any field
+									empty to inherit from your agency defaults (or, for text colors, your document's
+									built-in text styling).
+								</p>
+							</div>
+							<div class="grid gap-4 sm:grid-cols-2">
+								<!-- Explicit per-field bindings. Using `bind:value={branding[key]}` with
+								     a dynamic key via `{#each}` silently fails for the first entry in
+								     Svelte 5 runes mode (state proxy + dynamic indexed write). Always
+								     use static property paths here. -->
+								<FormField label="Cover background" hint="Hero section behind the proposal title">
+									<div class="flex items-center gap-3">
+										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.coverBgColor} />
+										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder="#E3EDF7" bind:value={branding.coverBgColor} pattern="^#[0-9A-Fa-f]{6}$" />
+										{#if branding.coverBgColor}
+											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.coverBgColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
+										{/if}
+									</div>
+								</FormField>
+
+								<FormField label="Cover text" hint="Hero heading + subtitle (leave empty to inherit)">
+									<div class="flex items-center gap-3">
+										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.coverTextColor} />
+										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder="inherit" bind:value={branding.coverTextColor} pattern="^#[0-9A-Fa-f]{6}$" />
+										{#if branding.coverTextColor}
+											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.coverTextColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
+										{/if}
+									</div>
+								</FormField>
+
+								<FormField label="Section heading" hint="Main section titles (The Opportunity, Timeline, etc.)">
+									<div class="flex items-center gap-3">
+										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.sectionHeadingColor} />
+										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder={data.agency?.primaryColor ?? '#4F46E5'} bind:value={branding.sectionHeadingColor} pattern="^#[0-9A-Fa-f]{6}$" />
+										{#if branding.sectionHeadingColor}
+											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.sectionHeadingColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
+										{/if}
+									</div>
+								</FormField>
+
+								<FormField label="CTA button bg" hint="Investment / price card background">
+									<div class="flex items-center gap-3">
+										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.ctaButtonColor} />
+										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder={data.agency?.primaryColor ?? '#4F46E5'} bind:value={branding.ctaButtonColor} pattern="^#[0-9A-Fa-f]{6}$" />
+										{#if branding.ctaButtonColor}
+											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.ctaButtonColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
+										{/if}
+									</div>
+								</FormField>
+
+								<FormField label="CTA button text" hint="Text inside the investment / price card (leave empty to inherit)">
+									<div class="flex items-center gap-3">
+										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.ctaButtonTextColor} />
+										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder="inherit" bind:value={branding.ctaButtonTextColor} pattern="^#[0-9A-Fa-f]{6}$" />
+										{#if branding.ctaButtonTextColor}
+											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.ctaButtonTextColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
+										{/if}
+									</div>
+								</FormField>
+
+								<FormField label="Footer background" hint="Footer panel at the bottom of the proposal">
+									<div class="flex items-center gap-3">
+										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.footerBgColor} />
+										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder="#E3EDF7" bind:value={branding.footerBgColor} pattern="^#[0-9A-Fa-f]{6}$" />
+										{#if branding.footerBgColor}
+											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.footerBgColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
+										{/if}
+									</div>
+								</FormField>
+							</div>
+						</div>
+					{/if}
+
 					<!-- Preview -->
 					<div class="rounded-lg border border-base-300 p-4">
 						<p class="mb-3 text-sm font-medium text-base-content/70">Effective Branding Preview</p>
@@ -945,6 +1161,65 @@
 				{/if}
 				Save {tab.label} Branding
 			</button>
+		</div>
+
+		<!-- Live Preview (Phase 2.5).
+		     The iframe loads /preview/{docType} under the (bare) layout
+		     group so chrome-less rendering matches what clients see. The
+		     branding settings page posts a debounced `branding-update`
+		     message to this iframe whenever any form field for the active
+		     tab changes; the iframe's listener mutates its overrideBranding
+		     $state and every descendant reading --brand-* CSS vars repaints.
+
+		     sandbox="allow-same-origin allow-scripts" — `allow-scripts` is
+		     necessary because the preview page runs a Svelte hydration +
+		     the postMessage listener. `allow-same-origin` is necessary so
+		     the parent can reach iframe.contentWindow and target posts to
+		     `window.location.origin` (not '*'). Any looser value (e.g.
+		     omitting sandbox entirely) would permit additional attack
+		     surface with no functional benefit. -->
+		<div class="mt-6 border border-base-300 rounded-xl overflow-hidden">
+			<div class="bg-base-200 px-4 py-2 flex items-center justify-between">
+				<span class="text-sm font-medium">Live Preview</span>
+				<div class="flex items-center gap-2">
+					<a
+						href="/{page.params.agencySlug}/preview/{docType}"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="btn btn-xs btn-ghost"
+					>
+						Open full preview ↗
+					</a>
+					<button
+						type="button"
+						class="btn btn-xs btn-ghost"
+						onclick={() => togglePreviewExpanded(docType)}
+					>
+						{previewExpanded[docType] ? 'Collapse' : 'Expand'}
+					</button>
+				</div>
+			</div>
+			<div
+				class="relative overflow-hidden bg-base-100"
+				style="height: {previewExpanded[docType] ? 600 : 400}px"
+			>
+				<iframe
+					bind:this={previewFrames[docType]}
+					src="/{page.params.agencySlug}/preview/{docType}"
+					onload={() => {
+						// Cancel any trailing debounced post queued before the iframe
+						// was ready — otherwise the scheduled call fires ~150ms after
+						// this synchronous one with the same payload (harmless but a
+						// redundant postMessage). Flagged by Cowork as probe 1.
+						postBranding.cancel();
+						postBrandingNow(docType);
+					}}
+					sandbox="allow-same-origin allow-scripts"
+					title="{tab.label} branding preview"
+					class="border-0"
+					style="transform: scale(0.65); transform-origin: top left; width: 154%; height: 154%;"
+				></iframe>
+			</div>
 		</div>
 	{/if}
 	{/if}
