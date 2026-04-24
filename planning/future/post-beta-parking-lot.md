@@ -62,3 +62,43 @@ Whoever next touches `logActivity` in a non-trivial way (new activity type, refa
 
 - This is a pre-existing inconsistency. Not introduced by any recent rename.
 - Connected to the activity feed rendering coverage item above — if Option B is chosen there (centralized verb→label map), `ACTIVITY_TYPES` becomes a natural keystone.
+
+---
+
+## Migration runner version-collision footgun
+
+**Surfaced:** 2026-04-24 during Thread 3 Phase 2 verification.
+**Source:** `scripts/run_migrations.sh` — the "already applied" check at L87 (local) / L45 (prod).
+
+### Problem
+
+The runner dedups applied migrations by **version number only**, not filename or content hash. If two branches independently cut the same next version number (e.g., both claim 037), whichever branch's migration applies first locks that version on the DB. When the second branch is later applied against the same DB, its migration is **silently skipped** — no log line, no warning, no indication that the UPDATE/DDL in it never ran.
+
+Today's incident (commit `07310b4` + `89af158`):
+
+- `feat/branding-live-preview` (06cc873) introduced `037_add_proposal_branding_overrides.sql` → applied to local DB on 2026-04-20.
+- `fix/rename-ready-to-live` (07310b4) independently introduced `037_rename_proposal_status_ready_to_live.sql`.
+- `sh scripts/run_migrations.sh` on the rename branch silently skipped the rename migration because version 37 was already recorded with the branding filename.
+- Renumbered to 038 in commit `89af158` to resolve.
+
+Caught this time because spot-check `SELECT status FROM proposals` would have surfaced stale `ready` rows on a DB with real data. **On a DB with zero `ready` rows, the failure would have passed silently through to production.**
+
+### Proposal
+
+Three options, from easiest to safest:
+
+- **C. CI lint (PR-time):** fail review if the highest migration number on the feature branch doesn't advance monotonically from main's tip. Catches collisions before merge.
+- **B. Runtime filename check:** if schema_migrations has version N recorded with filename X but the file on disk at version N is filename Y, fail loudly instead of skipping.
+- **A. Content hash:** record content hash alongside version in schema_migrations. Dedup on (version, hash). Silent-skip only if same version AND same content.
+
+**Recommendation:** (C) as an immediate cheap guard (a shell script in CI), (B) as a defensive belt for prod deploys. (A) is the strongest but requires migrating schema_migrations itself — worth only if collisions keep happening post-beta.
+
+### Trigger
+
+Next time two branches touch `migrations/` in parallel. Given webkit's schema is still evolving weekly pre-beta, this is likely to recur before beta-close. First repeat incident → bump to active.
+
+### Notes
+
+- Today's incident was caught only because DB spot-checks were part of verification. A more typical verification (unit tests, UI click-through) wouldn't have surfaced the silent skip. That's the real severity: the failure mode is invisible to most verification styles.
+- Renumbering (as done in commit `89af158`) resolves the specific incident but doesn't prevent future occurrences.
+- Connected to no other parking-lot items; this one is strictly infra.
