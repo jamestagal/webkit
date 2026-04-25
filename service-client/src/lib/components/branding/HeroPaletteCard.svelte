@@ -10,6 +10,7 @@
 	See branding-workspace-v2 plan, Cowork appraisal Flag 1 (2026-04-25).
 -->
 <script lang="ts">
+	import type { EffectiveBranding } from '$lib/server/document-branding';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import ColorOverrideRow from './ColorOverrideRow.svelte';
 	import GradientOverrideRow from './GradientOverrideRow.svelte';
@@ -30,11 +31,17 @@
 	type Props = {
 		agencySlug: string;
 		value: GlobalBrandingFormState;
+		/**
+		 * Globals-only effective branding for the preview iframe (Cowork Flag 1).
+		 * Parent must construct this from agency-level fields ONLY — do not pass
+		 * the result of getEffectiveProposalBranding(agencyId), which folds in
+		 * proposal overrides.
+		 */
+		globalsOnlyBranding: EffectiveBranding;
 		onSave: (next: GlobalBrandingFormState) => Promise<void>;
-		frame?: HTMLIFrameElement | undefined;
 	};
 
-	let { agencySlug, value, onSave, frame = $bindable() }: Props = $props();
+	let { agencySlug, value, globalsOnlyBranding, onSave }: Props = $props();
 
 	const toast = getToast();
 	const tracker = createDirtyTracker(() => value);
@@ -96,7 +103,7 @@
 		<BrandingPreviewFrame
 			{agencySlug}
 			docType="proposal"
-			bind:frame
+			branding={globalsOnlyBranding}
 			title="Global branding preview"
 		/>
 		<LogoOverrideField

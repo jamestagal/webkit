@@ -1,5 +1,9 @@
 <script lang="ts">
 	import type { DocumentType } from '$lib/server/schema';
+	import type {
+		EffectiveBranding,
+		ProposalEffectiveBranding
+	} from '$lib/server/document-branding';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { ChevronRight } from 'lucide-svelte';
 	import ColorOverrideRow from './ColorOverrideRow.svelte';
@@ -28,20 +32,13 @@
 		docType: DocumentType;
 		label: string;
 		value: DocBrandingFormState;
+		effectiveBranding: EffectiveBranding | ProposalEffectiveBranding;
 		globalPrimary: string;
 		onSave: (next: DocBrandingFormState) => Promise<void>;
-		frame?: HTMLIFrameElement | undefined;
 	};
 
-	let {
-		agencySlug,
-		docType,
-		label,
-		value,
-		globalPrimary,
-		onSave,
-		frame = $bindable()
-	}: Props = $props();
+	let { agencySlug, docType, label, value, effectiveBranding, globalPrimary, onSave }: Props =
+		$props();
 
 	const toast = getToast();
 	const tracker = createDirtyTracker(() => value);
@@ -161,7 +158,12 @@
 		<div
 			class="grid grid-cols-1 gap-4 border-t border-base-200 bg-base-200/40 p-5 md:grid-cols-[2fr_1fr]"
 		>
-			<BrandingPreviewFrame {agencySlug} {docType} bind:frame title="{label} preview" />
+			<BrandingPreviewFrame
+				{agencySlug}
+				{docType}
+				branding={effectiveBranding}
+				title="{label} preview"
+			/>
 			<LogoOverrideField
 				label="Logo Override"
 				value={value.logoUrl}
