@@ -3,6 +3,7 @@
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { ChevronRight } from 'lucide-svelte';
 	import ColorOverrideRow from './ColorOverrideRow.svelte';
+	import GradientOverrideRow from './GradientOverrideRow.svelte';
 	import LogoOverrideField from './LogoOverrideField.svelte';
 	import BrandingPreviewFrame from './BrandingPreviewFrame.svelte';
 	import StickyDirtySaveBar from './StickyDirtySaveBar.svelte';
@@ -117,6 +118,11 @@
 				label="Accent Color"
 				value={value.accentColor}
 				onChange={(v) => (value.accentColor = v)}
+			/>
+			<GradientOverrideRow
+				label="Accent Gradient"
+				value={value.accentGradient}
+				onChange={(v) => (value.accentGradient = v)}
 			/>
 			{#if isProposal}
 				<ColorOverrideRow

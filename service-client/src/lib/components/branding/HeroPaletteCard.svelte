@@ -12,6 +12,7 @@
 <script lang="ts">
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import ColorOverrideRow from './ColorOverrideRow.svelte';
+	import GradientOverrideRow from './GradientOverrideRow.svelte';
 	import LogoOverrideField from './LogoOverrideField.svelte';
 	import BrandingPreviewFrame from './BrandingPreviewFrame.svelte';
 	import StickyDirtySaveBar from './StickyDirtySaveBar.svelte';
@@ -82,11 +83,10 @@
 			value={value.accentColor}
 			onChange={(v) => (value.accentColor = v)}
 		/>
-		<ColorOverrideRow
+		<GradientOverrideRow
 			label="Accent Gradient"
 			value={value.accentGradient}
 			onChange={(v) => (value.accentGradient = v)}
-			description="Optional. Falls back to a primary→accent gradient when empty."
 		/>
 	</div>
 
