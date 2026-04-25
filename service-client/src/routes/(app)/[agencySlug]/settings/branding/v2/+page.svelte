@@ -4,12 +4,21 @@
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { updateAgencyBranding } from '$lib/api/agency.remote';
 	import { updateDocumentBranding } from '$lib/api/document-branding.remote';
-	import HeroPaletteCard, {
+	import {
+		FileText,
+		Mail,
+		Receipt,
+		ClipboardList,
+		Palette
+	} from 'lucide-svelte';
+	import AgencyDefaultsTab, {
 		type GlobalBrandingFormState
-	} from '$lib/components/branding/HeroPaletteCard.svelte';
-	import BrandingOverrideCard, {
+	} from '$lib/components/branding/AgencyDefaultsTab.svelte';
+	import DocBrandingTab, {
 		type DocBrandingFormState
-	} from '$lib/components/branding/BrandingOverrideCard.svelte';
+	} from '$lib/components/branding/DocBrandingTab.svelte';
+	import StickyDirtySaveBar from '$lib/components/branding/StickyDirtySaveBar.svelte';
+	import { createDirtyTracker } from '$lib/components/branding/useDirtyTracker.svelte';
 	import type {
 		EffectiveBranding,
 		ProposalEffectiveBranding
@@ -21,21 +30,24 @@
 	const toast = getToast();
 	const agencySlug = $derived(page.params.agencySlug ?? '');
 
+	type TabId = 'defaults' | DocumentType;
+
+	const TABS: { id: TabId; label: string; icon: typeof FileText }[] = [
+		{ id: 'defaults', label: 'Agency Defaults', icon: Palette },
+		{ id: 'proposal', label: 'Proposals', icon: FileText },
+		{ id: 'contract', label: 'Contracts', icon: FileText },
+		{ id: 'invoice', label: 'Invoices', icon: Receipt },
+		{ id: 'quotation', label: 'Quotations', icon: Receipt },
+		{ id: 'questionnaire', label: 'Questionnaires', icon: ClipboardList },
+		{ id: 'email', label: 'Emails', icon: Mail }
+	];
+
 	const DEFAULTS = {
 		primaryColor: '#4F46E5',
 		secondaryColor: '#1E40AF',
 		accentColor: '#F59E0B',
 		coverBg: '#E3EDF7'
 	} as const;
-
-	const DOC_CARDS: { docType: DocumentType; label: string }[] = [
-		{ docType: 'proposal', label: 'Proposals' },
-		{ docType: 'contract', label: 'Contracts' },
-		{ docType: 'invoice', label: 'Invoices' },
-		{ docType: 'quotation', label: 'Quotations' },
-		{ docType: 'questionnaire', label: 'Questionnaires' },
-		{ docType: 'email', label: 'Emails' }
-	];
 
 	function initialGlobal(): GlobalBrandingFormState {
 		return {
@@ -65,6 +77,10 @@
 		};
 	}
 
+	let activeTab = $state<TabId>('defaults');
+	let saving = $state(false);
+	let pendingTabSwitch = $state<TabId | null>(null);
+
 	let globalForm = $state<GlobalBrandingFormState>(initialGlobal());
 	let docForms = $state<Record<DocumentType, DocBrandingFormState>>({
 		proposal: initialDoc('proposal'),
@@ -75,10 +91,26 @@
 		email: initialDoc('email')
 	});
 
-	/**
-	 * Globals-only effective branding — no per-doc overrides folded in
-	 * (Cowork Flag 1). Used by the hero card's preview tile.
-	 */
+	const trackers = {
+		defaults: createDirtyTracker(() => globalForm),
+		proposal: createDirtyTracker(() => docForms.proposal),
+		contract: createDirtyTracker(() => docForms.contract),
+		invoice: createDirtyTracker(() => docForms.invoice),
+		quotation: createDirtyTracker(() => docForms.quotation),
+		questionnaire: createDirtyTracker(() => docForms.questionnaire),
+		email: createDirtyTracker(() => docForms.email)
+	};
+
+	const TAB_BY_ID: Record<TabId, (typeof TABS)[number]> = TABS.reduce(
+		(acc, t) => {
+			acc[t.id] = t;
+			return acc;
+		},
+		{} as Record<TabId, (typeof TABS)[number]>
+	);
+	const activeTabMeta = $derived(TAB_BY_ID[activeTab]);
+	const activeIsDirty = $derived(trackers[activeTab].isDirty);
+
 	const globalsOnly = $derived<EffectiveBranding>({
 		logoUrl: globalForm.logoUrl,
 		primaryColor: globalForm.primaryColor || DEFAULTS.primaryColor,
@@ -89,11 +121,6 @@
 			`linear-gradient(135deg, ${globalForm.primaryColor || DEFAULTS.primaryColor} 0%, ${globalForm.accentColor || DEFAULTS.accentColor} 100%)`
 	});
 
-	/**
-	 * Per-doc effective branding — mirrors getEffectiveBranding /
-	 * getEffectiveProposalBranding from $lib/server/document-branding so
-	 * the live preview matches the post-save server render.
-	 */
 	function computeEffective(docType: DocumentType): EffectiveBranding | ProposalEffectiveBranding {
 		const o = docForms[docType];
 		const useOverride = o.useCustomBranding;
@@ -141,65 +168,151 @@
 		email: computeEffective('email')
 	});
 
-	async function saveGlobal(next: GlobalBrandingFormState) {
-		await updateAgencyBranding({
-			logoUrl: next.logoUrl,
-			logoAvatarUrl: next.logoAvatarUrl,
-			primaryColor: next.primaryColor,
-			secondaryColor: next.secondaryColor,
-			accentColor: next.accentColor,
-			accentGradient: next.accentGradient
-		});
-		await invalidateAll();
-		toast.success('Global branding saved');
+	function attemptSwitch(next: TabId) {
+		if (next === activeTab) return;
+		if (activeIsDirty) {
+			pendingTabSwitch = next;
+		} else {
+			activeTab = next;
+		}
 	}
 
-	async function saveDoc(docType: DocumentType, next: DocBrandingFormState) {
-		const isProposal = docType === 'proposal';
-		await updateDocumentBranding({
-			documentType: docType,
-			useCustomBranding: next.useCustomBranding,
-			logoUrl: next.logoUrl || null,
-			primaryColor: next.primaryColor || null,
-			accentColor: next.accentColor || null,
-			accentGradient: next.accentGradient || null,
-			coverBgColor: isProposal ? next.coverBgColor || null : undefined,
-			coverTextColor: isProposal ? next.coverTextColor || null : undefined,
-			sectionHeadingColor: isProposal ? next.sectionHeadingColor || null : undefined,
-			ctaButtonColor: isProposal ? next.ctaButtonColor || null : undefined,
-			ctaButtonTextColor: isProposal ? next.ctaButtonTextColor || null : undefined,
-			footerBgColor: isProposal ? next.footerBgColor || null : undefined
-		});
-		await invalidateAll();
-		const label = docType.charAt(0).toUpperCase() + docType.slice(1);
-		toast.success(`${label} branding saved`);
+	function discardActive() {
+		const baseline = JSON.parse(trackers[activeTab].baseline);
+		if (activeTab === 'defaults') {
+			Object.assign(globalForm, baseline);
+		} else {
+			Object.assign(docForms[activeTab], baseline);
+		}
+	}
+
+	function discardAndSwitch() {
+		discardActive();
+		if (pendingTabSwitch) {
+			activeTab = pendingTabSwitch;
+			pendingTabSwitch = null;
+		}
+	}
+
+	async function saveActive() {
+		saving = true;
+		try {
+			if (activeTab === 'defaults') {
+				await updateAgencyBranding({
+					logoUrl: globalForm.logoUrl,
+					logoAvatarUrl: globalForm.logoAvatarUrl,
+					primaryColor: globalForm.primaryColor,
+					secondaryColor: globalForm.secondaryColor,
+					accentColor: globalForm.accentColor,
+					accentGradient: globalForm.accentGradient
+				});
+			} else {
+				const docType = activeTab;
+				const next = docForms[docType];
+				const isProposal = docType === 'proposal';
+				await updateDocumentBranding({
+					documentType: docType,
+					useCustomBranding: next.useCustomBranding,
+					logoUrl: next.logoUrl || null,
+					primaryColor: next.primaryColor || null,
+					accentColor: next.accentColor || null,
+					accentGradient: next.accentGradient || null,
+					coverBgColor: isProposal ? next.coverBgColor || null : undefined,
+					coverTextColor: isProposal ? next.coverTextColor || null : undefined,
+					sectionHeadingColor: isProposal ? next.sectionHeadingColor || null : undefined,
+					ctaButtonColor: isProposal ? next.ctaButtonColor || null : undefined,
+					ctaButtonTextColor: isProposal ? next.ctaButtonTextColor || null : undefined,
+					footerBgColor: isProposal ? next.footerBgColor || null : undefined
+				});
+			}
+			await invalidateAll();
+			trackers[activeTab].reset();
+			toast.success(`${activeTabMeta.label} branding saved`);
+		} catch (err) {
+			toast.error('Save failed', err instanceof Error ? err.message : 'Unknown error');
+		} finally {
+			saving = false;
+		}
 	}
 </script>
 
-<div class="mx-auto max-w-5xl space-y-6 p-6">
+<div class="mx-auto max-w-5xl space-y-6 p-6 pb-24">
 	<header>
 		<h1 class="text-2xl font-bold">Branding</h1>
-		<p class="mt-1 text-base-content/70">
+		<p class="mt-1 text-sm text-base-content/70">
 			Customize your agency's appearance. Per-document overrides cascade from your global palette.
 		</p>
 	</header>
 
-	<HeroPaletteCard
-		{agencySlug}
-		value={globalForm}
-		globalsOnlyBranding={globalsOnly}
-		onSave={saveGlobal}
-	/>
+	<div class="tabs tabs-bordered overflow-x-auto" role="tablist">
+		{#each TABS as tab (tab.id)}
+			{@const Icon = tab.icon}
+			{@const dirty = trackers[tab.id].isDirty}
+			<button
+				type="button"
+				role="tab"
+				aria-selected={activeTab === tab.id}
+				class="tab gap-2"
+				class:tab-active={activeTab === tab.id}
+				onclick={() => attemptSwitch(tab.id)}
+			>
+				<Icon class="h-4 w-4" />
+				{tab.label}
+				{#if dirty}
+					<span
+						class="inline-block h-1.5 w-1.5 rounded-full bg-warning"
+						aria-label="Unsaved changes"
+					></span>
+				{/if}
+			</button>
+		{/each}
+	</div>
 
-	{#each DOC_CARDS as { docType, label } (docType)}
-		<BrandingOverrideCard
-			{agencySlug}
-			{docType}
-			{label}
-			value={docForms[docType]}
-			effectiveBranding={effectiveByDocType[docType]}
-			globalPrimary={globalsOnly.primaryColor}
-			onSave={(next) => saveDoc(docType, next)}
-		/>
-	{/each}
+	<div>
+		{#if activeTab === 'defaults'}
+			<AgencyDefaultsTab {agencySlug} value={globalForm} globalsOnlyBranding={globalsOnly} />
+		{:else}
+			<DocBrandingTab
+				{agencySlug}
+				docType={activeTab}
+				label={activeTabMeta.label}
+				value={docForms[activeTab]}
+				effectiveBranding={effectiveByDocType[activeTab]}
+			/>
+		{/if}
+	</div>
 </div>
+
+<StickyDirtySaveBar
+	visible={activeIsDirty}
+	{saving}
+	saveLabel="Save {activeTabMeta.label}"
+	onSave={saveActive}
+	onDiscard={discardActive}
+/>
+
+{#if pendingTabSwitch}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="font-bold">Discard unsaved changes?</h3>
+			<p class="py-2 text-sm">
+				You have unsaved changes on <strong>{activeTabMeta.label}</strong>. Switching tabs will
+				discard them.
+			</p>
+			<div class="modal-action">
+				<button type="button" class="btn btn-ghost btn-sm" onclick={() => (pendingTabSwitch = null)}>
+					Cancel
+				</button>
+				<button type="button" class="btn btn-warning btn-sm" onclick={discardAndSwitch}>
+					Discard & switch
+				</button>
+			</div>
+		</div>
+		<button
+			type="button"
+			class="modal-backdrop"
+			onclick={() => (pendingTabSwitch = null)}
+			aria-label="Close"
+		></button>
+	</div>
+{/if}

@@ -11,13 +11,19 @@
 		docType: DocumentType;
 		branding: EffectiveBranding | ProposalEffectiveBranding;
 		title?: string;
-		class?: string;
+		controls?: boolean;
 	};
 
-	let { agencySlug, docType, branding, title = 'Branding preview', class: className = '' }: Props =
-		$props();
+	let {
+		agencySlug,
+		docType,
+		branding,
+		title = 'Branding preview',
+		controls = true
+	}: Props = $props();
 
 	let frame: HTMLIFrameElement | undefined = $state();
+	let expanded = $state(false);
 
 	function postNow(payload: object) {
 		if (!frame?.contentWindow) return;
@@ -35,12 +41,36 @@
 	});
 </script>
 
-<div class="relative overflow-hidden rounded-xl border border-base-300 bg-base-100 {className}">
+<div class="overflow-hidden rounded-xl border border-base-300 bg-base-100">
+	{#if controls}
+		<div class="flex items-center justify-between gap-2 bg-base-200 px-4 py-2">
+			<span class="text-sm font-medium">Live Preview</span>
+			<div class="flex items-center gap-2">
+				<a
+					href="/{agencySlug}/preview/{docType}"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="btn btn-xs btn-ghost"
+				>
+					Open full preview ↗
+				</a>
+				<button
+					type="button"
+					class="btn btn-xs btn-ghost"
+					onclick={() => (expanded = !expanded)}
+				>
+					{expanded ? 'Collapse' : 'Expand'}
+				</button>
+			</div>
+		</div>
+	{/if}
 	<iframe
 		bind:this={frame}
 		src="/{agencySlug}/preview/{docType}"
 		{title}
-		class="block h-full min-h-96 w-full border-0"
+		class="block w-full border-0"
+		style:height="{expanded ? 600 : 400}px"
 		loading="lazy"
+		sandbox="allow-same-origin allow-scripts"
 	></iframe>
 </div>
