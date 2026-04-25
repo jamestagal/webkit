@@ -2,1225 +2,317 @@
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getToast } from '$lib/ui/toast_store.svelte';
-	import { updateAgencyProfile } from '$lib/api/agency-profile.remote';
 	import { updateAgencyBranding } from '$lib/api/agency.remote';
 	import { updateDocumentBranding } from '$lib/api/document-branding.remote';
-	import { advancedDebounce } from '$lib/utils/debounce';
+	import {
+		FileText,
+		Mail,
+		Receipt,
+		ClipboardList,
+		Palette
+	} from 'lucide-svelte';
+	import AgencyDefaultsTab, {
+		type GlobalBrandingFormState
+	} from '$lib/components/branding/AgencyDefaultsTab.svelte';
+	import DocBrandingTab, {
+		type DocBrandingFormState
+	} from '$lib/components/branding/DocBrandingTab.svelte';
+	import StickyDirtySaveBar from '$lib/components/branding/StickyDirtySaveBar.svelte';
+	import { createDirtyTracker } from '$lib/components/branding/useDirtyTracker.svelte';
+	import type {
+		EffectiveBranding,
+		ProposalEffectiveBranding
+	} from '$lib/server/document-branding';
 	import type { DocumentType } from '$lib/server/schema';
-
-	const toast = getToast();
-	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
-	import FormField from '$lib/components/settings/FormField.svelte';
-	import { Share2, Type, Quote, Image, Palette, Upload, X, Check, FileText, Mail, Receipt, ClipboardList } from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	const toast = getToast();
+	const agencySlug = $derived(page.params.agencySlug ?? '');
 
-	// Tab state
-	type TabId =
-		| 'defaults'
-		| 'proposals'
-		| 'contracts'
-		| 'invoices'
-		| 'quotations'
-		| 'questionnaires'
-		| 'emails';
-	let activeTab = $state<TabId>('defaults');
+	type TabId = 'defaults' | DocumentType;
 
-	const tabs: { id: TabId; label: string; icon: typeof FileText; docType?: DocumentType }[] = [
+	const TABS: { id: TabId; label: string; icon: typeof FileText }[] = [
 		{ id: 'defaults', label: 'Agency Defaults', icon: Palette },
-		{ id: 'proposals', label: 'Proposals', icon: FileText, docType: 'proposal' },
-		{ id: 'contracts', label: 'Contracts', icon: FileText, docType: 'contract' },
-		{ id: 'invoices', label: 'Invoices', icon: Receipt, docType: 'invoice' },
-		{ id: 'quotations', label: 'Quotations', icon: Receipt, docType: 'quotation' },
-		{ id: 'questionnaires', label: 'Questionnaires', icon: ClipboardList, docType: 'questionnaire' },
-		{ id: 'emails', label: 'Emails', icon: Mail, docType: 'email' }
+		{ id: 'proposal', label: 'Proposals', icon: FileText },
+		{ id: 'contract', label: 'Contracts', icon: FileText },
+		{ id: 'invoice', label: 'Invoices', icon: Receipt },
+		{ id: 'quotation', label: 'Quotations', icon: Receipt },
+		{ id: 'questionnaire', label: 'Questionnaires', icon: ClipboardList },
+		{ id: 'email', label: 'Emails', icon: Mail }
 	];
 
-	// Extract initial values (wrapped in function to signal intentional non-reactive capture)
-	function getInitialFormData() {
-		return {
-			tagline: data.profile?.tagline ?? '',
-			brandFont: data.profile?.brandFont ?? '',
-			socialLinkedin: data.profile?.socialLinkedin ?? '',
-			socialFacebook: data.profile?.socialFacebook ?? '',
-			socialInstagram: data.profile?.socialInstagram ?? '',
-			socialTwitter: data.profile?.socialTwitter ?? ''
-		};
-	}
+	const DEFAULTS = {
+		primaryColor: '#4F46E5',
+		secondaryColor: '#1E40AF',
+		accentColor: '#F59E0B',
+		coverBg: '#E3EDF7'
+	} as const;
 
-	function getInitialBrandingData() {
+	function initialGlobal(): GlobalBrandingFormState {
 		return {
-			logoUrl: data.agency?.logoUrl ?? '', // Horizontal logo for documents
-			logoAvatarUrl: data.agency?.logoAvatarUrl ?? '', // Square avatar for nav/UI
-			primaryColor: data.agency?.primaryColor ?? '#3b82f6',
-			secondaryColor: data.agency?.secondaryColor ?? '#1e40af',
-			accentColor: data.agency?.accentColor ?? '#f59e0b',
+			logoUrl: data.agency?.logoUrl ?? '',
+			logoAvatarUrl: data.agency?.logoAvatarUrl ?? '',
+			primaryColor: data.agency?.primaryColor ?? '',
+			secondaryColor: data.agency?.secondaryColor ?? '',
+			accentColor: data.agency?.accentColor ?? '',
 			accentGradient: data.agency?.accentGradient ?? ''
 		};
 	}
 
-	// Form state - initialized once, maintains user edits until save
-	let formData = $state(getInitialFormData());
-	let brandingData = $state(getInitialBrandingData());
-
-	let isSaving = $state(false);
-	let isSavingBranding = $state(false);
-	let isSavingDocBranding = $state(false);
-	let error = $state('');
-
-	// Document-specific branding state. Proposal-specific fields are stored on
-	// every record for shape consistency; they are only rendered for the
-	// Proposals tab and only persisted for docType === 'proposal'.
-	interface DocBrandingState {
-		useCustomBranding: boolean;
-		logoUrl: string;
-		primaryColor: string;
-		accentColor: string;
-		accentGradient: string;
-		coverBgColor: string;
-		coverTextColor: string;
-		sectionHeadingColor: string;
-		ctaButtonColor: string;
-		ctaButtonTextColor: string;
-		footerBgColor: string;
-	}
-
-	function getInitialDocBranding(docType: DocumentType): DocBrandingState {
-		const override = data.documentBrandings?.[docType];
+	function initialDoc(docType: DocumentType): DocBrandingFormState {
+		const o = data.documentBrandings?.[docType];
 		return {
-			useCustomBranding: override?.useCustomBranding ?? false,
-			logoUrl: override?.logoUrl ?? '',
-			primaryColor: override?.primaryColor ?? '',
-			accentColor: override?.accentColor ?? '',
-			accentGradient: override?.accentGradient ?? '',
-			coverBgColor: override?.coverBgColor ?? '',
-			coverTextColor: override?.coverTextColor ?? '',
-			sectionHeadingColor: override?.sectionHeadingColor ?? '',
-			ctaButtonColor: override?.ctaButtonColor ?? '',
-			ctaButtonTextColor: override?.ctaButtonTextColor ?? '',
-			footerBgColor: override?.footerBgColor ?? ''
+			useCustomBranding: o?.useCustomBranding ?? false,
+			logoUrl: o?.logoUrl ?? '',
+			primaryColor: o?.primaryColor ?? '',
+			accentColor: o?.accentColor ?? '',
+			accentGradient: o?.accentGradient ?? '',
+			coverBgColor: o?.coverBgColor ?? '',
+			coverTextColor: o?.coverTextColor ?? '',
+			sectionHeadingColor: o?.sectionHeadingColor ?? '',
+			ctaButtonColor: o?.ctaButtonColor ?? '',
+			ctaButtonTextColor: o?.ctaButtonTextColor ?? '',
+			footerBgColor: o?.footerBgColor ?? ''
 		};
 	}
 
-	let docBrandings = $state<Record<DocumentType, DocBrandingState>>({
-		contract: getInitialDocBranding('contract'),
-		invoice: getInitialDocBranding('invoice'),
-		questionnaire: getInitialDocBranding('questionnaire'),
-		proposal: getInitialDocBranding('proposal'),
-		email: getInitialDocBranding('email'),
-		quotation: getInitialDocBranding('quotation')
+	let activeTab = $state<TabId>('defaults');
+	let saving = $state(false);
+	let pendingTabSwitch = $state<TabId | null>(null);
+
+	let globalForm = $state<GlobalBrandingFormState>(initialGlobal());
+	let docForms = $state<Record<DocumentType, DocBrandingFormState>>({
+		proposal: initialDoc('proposal'),
+		contract: initialDoc('contract'),
+		invoice: initialDoc('invoice'),
+		quotation: initialDoc('quotation'),
+		questionnaire: initialDoc('questionnaire'),
+		email: initialDoc('email')
 	});
 
-	// ---------------------------------------------------------------------
-	// Phase 2.5: Live preview wiring.
-	//
-	// The `previewFrames` map holds `HTMLIFrameElement` refs populated by
-	// `bind:this` on each doc-type tab's preview iframe. When the user
-	// mutates any branding form field, an $effect below computes the
-	// effective branding for the active tab's docType and posts a
-	// `branding-update` message to that iframe. The debounced wrapper keeps
-	// the post rate sane during color-picker drags (color inputs can fire
-	// ~60 events/sec).
-	//
-	// `computeEffective` mirrors the server-side resolver in
-	// `$lib/server/document-branding.ts` (getEffectiveBranding /
-	// getEffectiveProposalBranding). Must stay in sync: if the server
-	// cascade changes, update the copy below, or the preview will silently
-	// drift from the saved render. The duplication is intentional — the
-	// server resolver reads DB state (post-save), this one reads live form
-	// state (pre-save), so they operate on different data sources.
-	// ---------------------------------------------------------------------
-	let previewFrames = $state<Partial<Record<DocumentType, HTMLIFrameElement>>>({});
-	let previewExpanded = $state<Partial<Record<DocumentType, boolean>>>({});
+	const trackers = {
+		defaults: createDirtyTracker(() => globalForm),
+		proposal: createDirtyTracker(() => docForms.proposal),
+		contract: createDirtyTracker(() => docForms.contract),
+		invoice: createDirtyTracker(() => docForms.invoice),
+		quotation: createDirtyTracker(() => docForms.quotation),
+		questionnaire: createDirtyTracker(() => docForms.questionnaire),
+		email: createDirtyTracker(() => docForms.email)
+	};
 
-	function computeEffective(docType: DocumentType) {
-		const override = docBrandings[docType];
-		const useOverride = override.useCustomBranding;
+	const TAB_BY_ID: Record<TabId, (typeof TABS)[number]> = TABS.reduce(
+		(acc, t) => {
+			acc[t.id] = t;
+			return acc;
+		},
+		{} as Record<TabId, (typeof TABS)[number]>
+	);
+	const activeTabMeta = $derived(TAB_BY_ID[activeTab]);
+	const activeIsDirty = $derived(trackers[activeTab].isDirty);
+
+	const globalsOnly = $derived<EffectiveBranding>({
+		logoUrl: globalForm.logoUrl,
+		primaryColor: globalForm.primaryColor || DEFAULTS.primaryColor,
+		secondaryColor: globalForm.secondaryColor || DEFAULTS.secondaryColor,
+		accentColor: globalForm.accentColor || DEFAULTS.accentColor,
+		accentGradient:
+			globalForm.accentGradient ||
+			`linear-gradient(135deg, ${globalForm.primaryColor || DEFAULTS.primaryColor} 0%, ${globalForm.accentColor || DEFAULTS.accentColor} 100%)`
+	});
+
+	function computeEffective(docType: DocumentType): EffectiveBranding | ProposalEffectiveBranding {
+		const o = docForms[docType];
+		const useOverride = o.useCustomBranding;
 
 		const primaryColor =
-			(useOverride && override.primaryColor) || brandingData.primaryColor || '#4F46E5';
-		const secondaryColor = brandingData.secondaryColor || '#1E40AF';
+			(useOverride && o.primaryColor) || globalForm.primaryColor || DEFAULTS.primaryColor;
 		const accentColor =
-			(useOverride && override.accentColor) || brandingData.accentColor || '#F59E0B';
-		const logoUrl = (useOverride && override.logoUrl) || brandingData.logoUrl || '';
+			(useOverride && o.accentColor) || globalForm.accentColor || DEFAULTS.accentColor;
+		const logoUrl = (useOverride && o.logoUrl) || globalForm.logoUrl || '';
+		const secondaryColor = globalForm.secondaryColor || DEFAULTS.secondaryColor;
 
-		// accentGradient is always paintable (matches the server-side tweak
-		// that folded the computed-gradient fallback into the resolver).
 		const explicitGradient =
-			(useOverride && override.accentGradient) || brandingData.accentGradient || null;
+			(useOverride && o.accentGradient) || globalForm.accentGradient || null;
 		const accentGradient =
-			explicitGradient ||
-			`linear-gradient(135deg, ${primaryColor} 0%, ${accentColor} 100%)`;
+			explicitGradient || `linear-gradient(135deg, ${primaryColor} 0%, ${accentColor} 100%)`;
 
-		const base = { logoUrl, primaryColor, secondaryColor, accentColor, accentGradient };
+		const base: EffectiveBranding = {
+			logoUrl,
+			primaryColor,
+			secondaryColor,
+			accentColor,
+			accentGradient
+		};
 
-		if (docType === 'proposal') {
-			// Cover/footer bg fall back to agency.secondaryColor (matches
-			// getEffectiveProposalBranding's agencyCoverBg cascade). Text
-			// colors cascade to null when no explicit override is set.
-			const agencyCoverBg = brandingData.secondaryColor || '#E3EDF7';
-			return {
-				...base,
-				coverBgColor: (useOverride && override.coverBgColor) || agencyCoverBg,
-				coverTextColor: useOverride ? override.coverTextColor || null : null,
-				sectionHeadingColor: useOverride ? override.sectionHeadingColor || null : null,
-				ctaButtonColor: useOverride ? override.ctaButtonColor || null : null,
-				ctaButtonTextColor: useOverride ? override.ctaButtonTextColor || null : null,
-				footerBgColor: (useOverride && override.footerBgColor) || agencyCoverBg
-			};
-		}
-		return base;
+		if (docType !== 'proposal') return base;
+
+		const agencyCoverBg = globalForm.secondaryColor || DEFAULTS.coverBg;
+		return {
+			...base,
+			coverBgColor: (useOverride && o.coverBgColor) || agencyCoverBg,
+			coverTextColor: useOverride ? o.coverTextColor || null : null,
+			sectionHeadingColor: useOverride ? o.sectionHeadingColor || null : null,
+			ctaButtonColor: useOverride ? o.ctaButtonColor || null : null,
+			ctaButtonTextColor: useOverride ? o.ctaButtonTextColor || null : null,
+			footerBgColor: (useOverride && o.footerBgColor) || agencyCoverBg
+		};
 	}
 
-	function postBrandingNow(docType: DocumentType) {
-		const frame = previewFrames[docType];
-		if (!frame?.contentWindow) return;
-		frame.contentWindow.postMessage(
-			{ type: 'branding-update', payload: computeEffective(docType) },
-			window.location.origin
-		);
-	}
-
-	/**
-	 * Debounce window: 150ms. Rationale — color-picker input events can
-	 * fire at ~60fps during a drag. Posting a payload per frame saturates
-	 * the iframe's reactive pipeline without perceptual benefit (human
-	 * eye can't resolve updates faster than ~100ms). A 16ms (rAF) window
-	 * would be strictly faster but offers no perceptual gain for a
-	 * branding preview. A 50ms window would feel equivalent but doesn't
-	 * leave enough margin for slow connections between color-input events
-	 * (some input devices emit at odd cadences). 150ms is the revision
-	 * doc's recommended value — adopted.
-	 */
-	const postBranding = advancedDebounce(postBrandingNow, 150);
-
-	// Re-post whenever the active tab's branding form state (or agency
-	// defaults feeding it) changes. Mutating `brandingData.X` or
-	// `docBrandings[docType].X` triggers the effect; the debounced
-	// function coalesces bursts.
-	$effect(() => {
-		const tab = tabs.find((t) => t.id === activeTab);
-		const docType = tab?.docType;
-		if (!docType) return;
-		// Force $effect to read every watched field so mutations track.
-		// JSON.stringify of the state objects is the cheapest way to
-		// depend on every nested field without listing them all.
-		void JSON.stringify(docBrandings[docType]);
-		void JSON.stringify(brandingData);
-		postBranding(docType);
+	const effectiveByDocType = $derived<Record<DocumentType, EffectiveBranding | ProposalEffectiveBranding>>({
+		proposal: computeEffective('proposal'),
+		contract: computeEffective('contract'),
+		invoice: computeEffective('invoice'),
+		quotation: computeEffective('quotation'),
+		questionnaire: computeEffective('questionnaire'),
+		email: computeEffective('email')
 	});
 
-	function togglePreviewExpanded(docType: DocumentType) {
-		previewExpanded[docType] = !previewExpanded[docType];
-	}
-
-	// Logo upload state - separate for each logo type
-	let logoPreview = $state<string | null>(null); // For horizontal logo
-	let avatarPreview = $state<string | null>(null); // For avatar logo
-	let isDragging = $state(false);
-	let isDraggingAvatar = $state(false);
-	let fileInput: HTMLInputElement;
-	let avatarFileInput: HTMLInputElement;
-
-	// Common font options
-	const fontOptions = [
-		{ value: '', label: 'Default (System)' },
-		{ value: 'Inter', label: 'Inter' },
-		{ value: 'Roboto', label: 'Roboto' },
-		{ value: 'Open Sans', label: 'Open Sans' },
-		{ value: 'Lato', label: 'Lato' },
-		{ value: 'Montserrat', label: 'Montserrat' },
-		{ value: 'Poppins', label: 'Poppins' },
-		{ value: 'Raleway', label: 'Raleway' },
-		{ value: 'Playfair Display', label: 'Playfair Display' },
-		{ value: 'Source Sans Pro', label: 'Source Sans Pro' }
-	];
-
-	// Handle file selection for logo
-	function handleFileSelect(event: Event) {
-		const input = event.target as HTMLInputElement;
-		const file = input.files?.[0];
-		if (file) {
-			processLogoFile(file);
+	function attemptSwitch(next: TabId) {
+		if (next === activeTab) return;
+		if (activeIsDirty) {
+			pendingTabSwitch = next;
+		} else {
+			activeTab = next;
 		}
 	}
 
-	function handleDrop(event: DragEvent) {
-		event.preventDefault();
-		isDragging = false;
-		const file = event.dataTransfer?.files[0];
-		if (file && file.type.startsWith('image/')) {
-			processLogoFile(file);
+	function discardActive() {
+		const baseline = JSON.parse(trackers[activeTab].baseline);
+		if (activeTab === 'defaults') {
+			Object.assign(globalForm, baseline);
+		} else {
+			Object.assign(docForms[activeTab], baseline);
 		}
 	}
 
-	function handleDragOver(event: DragEvent) {
-		event.preventDefault();
-		isDragging = true;
-	}
-
-	function handleDragLeave() {
-		isDragging = false;
-	}
-
-	function processLogoFile(file: File) {
-		// Validate file size (max 2MB for logos)
-		if (file.size > 2 * 1024 * 1024) {
-			toast.error('File too large', 'Logo must be under 2MB');
-			return;
-		}
-
-		// Validate file type
-		if (!file.type.startsWith('image/')) {
-			toast.error('Invalid file', 'Please upload an image file');
-			return;
-		}
-
-		// Read file as base64 data URL
-		const reader = new FileReader();
-		reader.onload = (e) => {
-			const result = e.target?.result as string;
-			logoPreview = result;
-			brandingData.logoUrl = result;
-		};
-		reader.readAsDataURL(file);
-	}
-
-	function removeLogo() {
-		logoPreview = null;
-		brandingData.logoUrl = '';
-		if (fileInput) {
-			fileInput.value = '';
+	function discardAndSwitch() {
+		discardActive();
+		if (pendingTabSwitch) {
+			activeTab = pendingTabSwitch;
+			pendingTabSwitch = null;
 		}
 	}
 
-	// Avatar logo handling functions
-	function handleAvatarFileSelect(event: Event) {
-		const input = event.target as HTMLInputElement;
-		const file = input.files?.[0];
-		if (file) {
-			processAvatarFile(file);
-		}
-	}
-
-	function handleAvatarDrop(event: DragEvent) {
-		event.preventDefault();
-		isDraggingAvatar = false;
-		const file = event.dataTransfer?.files[0];
-		if (file && file.type.startsWith('image/')) {
-			processAvatarFile(file);
-		}
-	}
-
-	function handleAvatarDragOver(event: DragEvent) {
-		event.preventDefault();
-		isDraggingAvatar = true;
-	}
-
-	function handleAvatarDragLeave() {
-		isDraggingAvatar = false;
-	}
-
-	function processAvatarFile(file: File) {
-		// Validate file size (max 1MB for avatars)
-		if (file.size > 1 * 1024 * 1024) {
-			toast.error('File too large', 'Avatar must be under 1MB');
-			return;
-		}
-
-		// Validate file type
-		if (!file.type.startsWith('image/')) {
-			toast.error('Invalid file', 'Please upload an image file');
-			return;
-		}
-
-		// Read file as base64 data URL
-		const reader = new FileReader();
-		reader.onload = (e) => {
-			const result = e.target?.result as string;
-			avatarPreview = result;
-			brandingData.logoAvatarUrl = result;
-		};
-		reader.readAsDataURL(file);
-	}
-
-	function removeAvatar() {
-		avatarPreview = null;
-		brandingData.logoAvatarUrl = '';
-		if (avatarFileInput) {
-			avatarFileInput.value = '';
-		}
-	}
-
-	async function handleSaveBranding() {
-		isSavingBranding = true;
-		error = '';
-
+	async function saveActive() {
+		saving = true;
 		try {
-			await updateAgencyBranding({
-				logoUrl: brandingData.logoUrl,
-				logoAvatarUrl: brandingData.logoAvatarUrl,
-				primaryColor: brandingData.primaryColor,
-				secondaryColor: brandingData.secondaryColor,
-				accentColor: brandingData.accentColor,
-				accentGradient: brandingData.accentGradient
-			});
+			if (activeTab === 'defaults') {
+				await updateAgencyBranding({
+					logoUrl: globalForm.logoUrl,
+					logoAvatarUrl: globalForm.logoAvatarUrl,
+					primaryColor: globalForm.primaryColor,
+					secondaryColor: globalForm.secondaryColor,
+					accentColor: globalForm.accentColor,
+					accentGradient: globalForm.accentGradient
+				});
+			} else {
+				const docType = activeTab;
+				const next = docForms[docType];
+				const isProposal = docType === 'proposal';
+				await updateDocumentBranding({
+					documentType: docType,
+					useCustomBranding: next.useCustomBranding,
+					logoUrl: next.logoUrl || null,
+					primaryColor: next.primaryColor || null,
+					accentColor: next.accentColor || null,
+					accentGradient: next.accentGradient || null,
+					coverBgColor: isProposal ? next.coverBgColor || null : undefined,
+					coverTextColor: isProposal ? next.coverTextColor || null : undefined,
+					sectionHeadingColor: isProposal ? next.sectionHeadingColor || null : undefined,
+					ctaButtonColor: isProposal ? next.ctaButtonColor || null : undefined,
+					ctaButtonTextColor: isProposal ? next.ctaButtonTextColor || null : undefined,
+					footerBgColor: isProposal ? next.footerBgColor || null : undefined
+				});
+			}
 			await invalidateAll();
-			logoPreview = null; // Clear preview after successful save
-			avatarPreview = null; // Clear avatar preview after successful save
-			toast.success('Branding updated', 'Logos and colors saved successfully');
+			trackers[activeTab].reset();
+			toast.success(`${activeTabMeta.label} branding saved`);
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to save branding';
-			toast.error('Save failed', error);
+			toast.error('Save failed', err instanceof Error ? err.message : 'Unknown error');
 		} finally {
-			isSavingBranding = false;
+			saving = false;
 		}
 	}
-
-	async function handleSave() {
-		isSaving = true;
-		error = '';
-
-		try {
-			await updateAgencyProfile(formData);
-			await invalidateAll();
-			toast.success('Branding updated');
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to save branding';
-			toast.error('Save failed', error);
-		} finally {
-			isSaving = false;
-		}
-	}
-
-	async function handleSaveDocBranding(docType: DocumentType) {
-		isSavingDocBranding = true;
-		error = '';
-
-		try {
-			const branding = docBrandings[docType];
-			const isProposal = docType === 'proposal';
-			await updateDocumentBranding({
-				documentType: docType,
-				useCustomBranding: branding.useCustomBranding,
-				logoUrl: branding.logoUrl || null,
-				primaryColor: branding.primaryColor || null,
-				accentColor: branding.accentColor || null,
-				accentGradient: branding.accentGradient || null,
-				// Proposal-specific fields are only persisted for docType 'proposal'.
-				// Other doc types skip them entirely (undefined preserves existing DB values).
-				coverBgColor: isProposal ? branding.coverBgColor || null : undefined,
-				coverTextColor: isProposal ? branding.coverTextColor || null : undefined,
-				sectionHeadingColor: isProposal ? branding.sectionHeadingColor || null : undefined,
-				ctaButtonColor: isProposal ? branding.ctaButtonColor || null : undefined,
-				ctaButtonTextColor: isProposal ? branding.ctaButtonTextColor || null : undefined,
-				footerBgColor: isProposal ? branding.footerBgColor || null : undefined
-			});
-			await invalidateAll();
-			toast.success('Document branding updated', `${docType.charAt(0).toUpperCase() + docType.slice(1)} branding saved`);
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to save document branding';
-			toast.error('Save failed', error);
-		} finally {
-			isSavingDocBranding = false;
-		}
-	}
-
-	// Derived: check if branding has changes
-	let brandingHasChanges = $derived(
-		brandingData.logoUrl !== (data.agency?.logoUrl ?? '') ||
-		brandingData.logoAvatarUrl !== (data.agency?.logoAvatarUrl ?? '') ||
-		brandingData.primaryColor !== (data.agency?.primaryColor ?? '#3b82f6') ||
-		brandingData.secondaryColor !== (data.agency?.secondaryColor ?? '#1e40af') ||
-		brandingData.accentColor !== (data.agency?.accentColor ?? '#f59e0b') ||
-		brandingData.accentGradient !== (data.agency?.accentGradient ?? '')
-	);
-
-	// Helper: Get background style (gradient if set, otherwise solid accent color)
-	let accentBackground = $derived(
-		brandingData.accentGradient || brandingData.accentColor
-	);
-
-	// Current display logos (file preview takes precedence, then form state, then server data)
-	// The fallback to data.agency ensures saved values display even if form state wasn't initialized properly
-	let displayLogo = $derived(logoPreview || brandingData.logoUrl || data.agency?.logoUrl);
-	let displayAvatar = $derived(avatarPreview || brandingData.logoAvatarUrl || data.agency?.logoAvatarUrl);
-
-	// Sync branding data with server data on initial load
-	// This ensures form state matches server after navigation or page reload
-	$effect(() => {
-		const serverLogoUrl = data.agency?.logoUrl ?? '';
-		const serverAvatarUrl = data.agency?.logoAvatarUrl ?? '';
-
-		// Sync logo URLs if form is empty but server has values
-		if (!brandingData.logoUrl && serverLogoUrl) {
-			brandingData.logoUrl = serverLogoUrl;
-		}
-		if (!brandingData.logoAvatarUrl && serverAvatarUrl) {
-			brandingData.logoAvatarUrl = serverAvatarUrl;
-		}
-	});
 </script>
 
-<div class="space-y-6">
-	<!-- Page Header -->
-	<div>
+<div class="mx-auto max-w-5xl space-y-6 p-6 pb-24">
+	<header>
 		<h1 class="text-2xl font-bold">Branding</h1>
-		<p class="text-base-content/70 mt-1">Customize your agency's appearance and social presence</p>
-	</div>
+		<p class="mt-1 text-sm text-base-content/70">
+			Customize your agency's appearance. Per-document overrides cascade from your global palette.
+		</p>
+	</header>
 
-	{#if error}
-		<div class="alert alert-error">
-			<span>{error}</span>
-		</div>
-	{/if}
-
-	<!-- Tabs -->
-	<div class="tabs tabs-boxed bg-base-200 p-1">
-		{#each tabs as tab}
+	<div class="tabs tabs-bordered overflow-x-auto" role="tablist">
+		{#each TABS as tab (tab.id)}
+			{@const Icon = tab.icon}
+			{@const dirty = trackers[tab.id].isDirty}
 			<button
-				class="tab gap-2 {activeTab === tab.id ? 'tab-active' : ''}"
-				onclick={() => activeTab = tab.id}
+				type="button"
+				role="tab"
+				aria-selected={activeTab === tab.id}
+				class="tab gap-2"
+				class:tab-active={activeTab === tab.id}
+				onclick={() => attemptSwitch(tab.id)}
 			>
-				<svelte:component this={tab.icon} class="h-4 w-4" />
-				<span class="hidden sm:inline">{tab.label}</span>
+				<Icon class="h-4 w-4" />
+				{tab.label}
+				{#if dirty}
+					<span
+						class="inline-block h-1.5 w-1.5 rounded-full bg-warning"
+						aria-label="Unsaved changes"
+					></span>
+				{/if}
 			</button>
 		{/each}
 	</div>
 
-	<!-- Tab Content -->
-	{#if activeTab === 'defaults'}
-	<!-- Agency Defaults Tab -->
-
-	<!-- Tagline -->
-	<SettingsSection
-		title="Tagline"
-		description="A short phrase that describes your agency"
-		icon={Quote}
-	>
-		<FormField label="Tagline" hint="Appears on proposals and documents">
-			<input
-				type="text"
-				class="input input-bordered w-full"
-				placeholder="Building digital experiences that matter"
-				bind:value={formData.tagline}
+	<div>
+		{#if activeTab === 'defaults'}
+			<AgencyDefaultsTab {agencySlug} value={globalForm} globalsOnlyBranding={globalsOnly} />
+		{:else}
+			<DocBrandingTab
+				{agencySlug}
+				docType={activeTab}
+				label={activeTabMeta.label}
+				value={docForms[activeTab]}
+				effectiveBranding={effectiveByDocType[activeTab]}
 			/>
-		</FormField>
-	</SettingsSection>
-
-	<!-- Typography -->
-	<SettingsSection
-		title="Typography"
-		description="Font used in generated documents"
-		icon={Type}
-	>
-		<FormField label="Brand Font" hint="Font for proposals, contracts, and invoices">
-			<select class="select select-bordered w-full" bind:value={formData.brandFont}>
-				{#each fontOptions as font}
-					<option value={font.value}>{font.label}</option>
-				{/each}
-			</select>
-		</FormField>
-	</SettingsSection>
-
-	<!-- Social Links -->
-	<SettingsSection
-		title="Social Links"
-		description="Connect your social media profiles"
-		icon={Share2}
-	>
-		<div class="grid gap-4 sm:grid-cols-2">
-			<FormField label="LinkedIn">
-				<label class="input input-bordered flex items-center gap-1">
-					<span class="text-base-content/50 text-sm whitespace-nowrap">linkedin.com/company/</span>
-					<input
-						type="text"
-						class="flex-1 min-w-0 bg-transparent outline-none"
-						placeholder="your-company"
-						bind:value={formData.socialLinkedin}
-					/>
-				</label>
-			</FormField>
-
-			<FormField label="Facebook">
-				<label class="input input-bordered flex items-center gap-1">
-					<span class="text-base-content/50 text-sm whitespace-nowrap">facebook.com/</span>
-					<input
-						type="text"
-						class="flex-1 min-w-0 bg-transparent outline-none"
-						placeholder="your-page"
-						bind:value={formData.socialFacebook}
-					/>
-				</label>
-			</FormField>
-
-			<FormField label="Instagram">
-				<label class="input input-bordered flex items-center gap-1">
-					<span class="text-base-content/50 text-sm whitespace-nowrap">instagram.com/</span>
-					<input
-						type="text"
-						class="flex-1 min-w-0 bg-transparent outline-none"
-						placeholder="your-handle"
-						bind:value={formData.socialInstagram}
-					/>
-				</label>
-			</FormField>
-
-			<FormField label="X (Twitter)">
-				<label class="input input-bordered flex items-center gap-1">
-					<span class="text-base-content/50 text-sm whitespace-nowrap">x.com/</span>
-					<input
-						type="text"
-						class="flex-1 min-w-0 bg-transparent outline-none"
-						placeholder="your-handle"
-						bind:value={formData.socialTwitter}
-					/>
-				</label>
-			</FormField>
-		</div>
-	</SettingsSection>
-
-	<!-- Save Profile Button -->
-	<div class="flex justify-end gap-3">
-		<button type="button" class="btn btn-primary" onclick={handleSave} disabled={isSaving}>
-			{#if isSaving}
-				<span class="loading loading-spinner loading-sm"></span>
-			{/if}
-			Save Profile
-		</button>
-	</div>
-
-	<div class="divider"></div>
-
-	<!-- Square Logo (Avatar) -->
-	<SettingsSection
-		title="Square Logo (Avatar)"
-		description="Square logo for navigation and compact UI elements"
-		icon={Image}
-	>
-		<div class="flex flex-col gap-4 sm:flex-row sm:items-start">
-			<!-- Avatar Preview -->
-			<div class="flex flex-col items-center gap-3">
-				{#if displayAvatar}
-					<div class="relative">
-						<div class="flex h-16 w-16 items-center justify-center rounded-xl border-2 border-base-300 bg-base-200 p-1">
-							<img
-								src={displayAvatar}
-								alt="Avatar logo preview"
-								class="h-full w-full rounded-lg object-cover"
-							/>
-						</div>
-						<button
-							type="button"
-							class="btn btn-circle btn-error btn-xs absolute -right-2 -top-2"
-							onclick={removeAvatar}
-							title="Remove avatar"
-						>
-							<X class="h-3 w-3" />
-						</button>
-						{#if avatarPreview}
-							<span class="badge badge-warning badge-sm absolute -bottom-2 left-1/2 -translate-x-1/2">
-								Unsaved
-							</span>
-						{/if}
-					</div>
-				{:else}
-					<div class="flex h-16 w-16 items-center justify-center rounded-xl border-2 border-dashed border-base-300 bg-base-200">
-						<span class="text-2xl font-bold text-base-content/30">{data.agency?.name?.charAt(0) ?? 'A'}</span>
-					</div>
-				{/if}
-			</div>
-
-			<!-- Upload Area -->
-			<div class="flex-1">
-				<div
-					class="relative rounded-lg border-2 border-dashed p-4 text-center transition-colors
-						{isDraggingAvatar ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-primary/50'}"
-					role="button"
-					tabindex="0"
-					ondrop={handleAvatarDrop}
-					ondragover={handleAvatarDragOver}
-					ondragleave={handleAvatarDragLeave}
-					onclick={() => avatarFileInput?.click()}
-					onkeydown={(e) => e.key === 'Enter' && avatarFileInput?.click()}
-				>
-					<input
-						bind:this={avatarFileInput}
-						type="file"
-						accept="image/*"
-						class="hidden"
-						onchange={handleAvatarFileSelect}
-					/>
-					<Upload class="mx-auto h-6 w-6 text-base-content/40" />
-					<p class="mt-1 text-sm font-medium">
-						{isDraggingAvatar ? 'Drop here' : 'Click or drag to upload'}
-					</p>
-					<p class="mt-1 text-xs text-base-content/60">
-						Square image (1:1). Recommended: 256x256px, PNG/SVG
-					</p>
-				</div>
-
-				<!-- Or enter URL -->
-				<div class="mt-3">
-					<FormField label="Or enter URL">
-						<input
-							type="url"
-							class="input input-bordered input-sm w-full"
-							placeholder="https://example.com/avatar.png"
-							bind:value={brandingData.logoAvatarUrl}
-						/>
-					</FormField>
-				</div>
-			</div>
-		</div>
-
-		<!-- Used in indicator -->
-		<div class="mt-4 flex items-start gap-2 text-xs text-base-content/60">
-			<span class="font-medium">Used in:</span>
-			<span>Sidebar navigation, Agency switcher, Mobile menu</span>
-		</div>
-	</SettingsSection>
-
-	<!-- Full Logo (Horizontal) -->
-	<SettingsSection
-		title="Full Logo (Horizontal)"
-		description="Horizontal logo for documents and email headers"
-		icon={Image}
-	>
-		<div class="flex flex-col gap-4 sm:flex-row sm:items-start">
-			<!-- Logo Preview -->
-			<div class="flex flex-col items-center gap-3">
-				{#if displayLogo}
-					<div class="relative">
-						<div class="flex h-16 w-48 items-center justify-center rounded-xl border-2 border-base-300 bg-base-200 p-2">
-							<img
-								src={displayLogo}
-								alt="Full logo preview"
-								class="max-h-full max-w-full object-contain"
-							/>
-						</div>
-						<button
-							type="button"
-							class="btn btn-circle btn-error btn-xs absolute -right-2 -top-2"
-							onclick={removeLogo}
-							title="Remove logo"
-						>
-							<X class="h-3 w-3" />
-						</button>
-						{#if logoPreview}
-							<span class="badge badge-warning badge-sm absolute -bottom-2 left-1/2 -translate-x-1/2">
-								Unsaved
-							</span>
-						{/if}
-					</div>
-				{:else}
-					<div class="flex h-16 w-48 items-center justify-center rounded-xl border-2 border-dashed border-base-300 bg-base-200">
-						<Image class="h-8 w-8 text-base-content/30" />
-					</div>
-				{/if}
-			</div>
-
-			<!-- Upload Area -->
-			<div class="flex-1">
-				<div
-					class="relative rounded-lg border-2 border-dashed p-4 text-center transition-colors
-						{isDragging ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-primary/50'}"
-					role="button"
-					tabindex="0"
-					ondrop={handleDrop}
-					ondragover={handleDragOver}
-					ondragleave={handleDragLeave}
-					onclick={() => fileInput?.click()}
-					onkeydown={(e) => e.key === 'Enter' && fileInput?.click()}
-				>
-					<input
-						bind:this={fileInput}
-						type="file"
-						accept="image/*"
-						class="hidden"
-						onchange={handleFileSelect}
-					/>
-					<Upload class="mx-auto h-6 w-6 text-base-content/40" />
-					<p class="mt-1 text-sm font-medium">
-						{isDragging ? 'Drop here' : 'Click or drag to upload'}
-					</p>
-					<p class="mt-1 text-xs text-base-content/60">
-						Horizontal logo (e.g., 400x100px). PNG, JPG, SVG up to 2MB
-					</p>
-				</div>
-
-				<!-- Or enter URL -->
-				<div class="mt-3">
-					<FormField label="Or enter URL">
-						<input
-							type="url"
-							class="input input-bordered input-sm w-full"
-							placeholder="https://example.com/logo.png"
-							bind:value={brandingData.logoUrl}
-						/>
-					</FormField>
-				</div>
-			</div>
-		</div>
-
-		<!-- Used in indicator -->
-		<div class="mt-4 flex items-start gap-2 text-xs text-base-content/60">
-			<span class="font-medium">Used in:</span>
-			<span>Proposals, Contracts, Questionnaires, Invoices, Email headers, PDF documents</span>
-		</div>
-	</SettingsSection>
-
-	<!-- Brand Colors -->
-	<SettingsSection
-		title="Brand Colors"
-		description="Colors used in proposals, contracts, and other documents"
-		icon={Palette}
-	>
-		<div class="grid gap-6 sm:grid-cols-3">
-			<!-- Primary Color -->
-			<div>
-				<FormField label="Primary Color" hint="Main brand color">
-					<div class="flex items-center gap-3">
-						<input
-							type="color"
-							class="h-10 w-14 cursor-pointer rounded-lg border border-base-300"
-							bind:value={brandingData.primaryColor}
-						/>
-						<input
-							type="text"
-							class="input input-bordered flex-1 font-mono text-sm uppercase"
-							placeholder="#3b82f6"
-							bind:value={brandingData.primaryColor}
-							pattern="^#[0-9A-Fa-f]{6}$"
-						/>
-					</div>
-				</FormField>
-				<p class="mt-1 text-xs text-base-content/50">Used in: Email headers, CTA buttons, fallback text</p>
-			</div>
-
-			<!-- Secondary Color -->
-			<div>
-				<FormField label="Secondary Color" hint="Light background color">
-					<div class="flex items-center gap-3">
-						<input
-							type="color"
-							class="h-10 w-14 cursor-pointer rounded-lg border border-base-300"
-							bind:value={brandingData.secondaryColor}
-						/>
-						<input
-							type="text"
-							class="input input-bordered flex-1 font-mono text-sm uppercase"
-							placeholder="#1e40af"
-							bind:value={brandingData.secondaryColor}
-							pattern="^#[0-9A-Fa-f]{6}$"
-						/>
-					</div>
-				</FormField>
-				<p class="mt-1 text-xs text-base-content/50">Used in: Proposal cover background</p>
-			</div>
-
-			<!-- Accent Color -->
-			<div>
-				<FormField label="Accent Color" hint="Highlight color">
-					<div class="flex items-center gap-3">
-						<input
-							type="color"
-							class="h-10 w-14 cursor-pointer rounded-lg border border-base-300"
-							bind:value={brandingData.accentColor}
-						/>
-						<input
-							type="text"
-							class="input input-bordered flex-1 font-mono text-sm uppercase"
-							placeholder="#f59e0b"
-							bind:value={brandingData.accentColor}
-							pattern="^#[0-9A-Fa-f]{6}$"
-						/>
-					</div>
-				</FormField>
-				<p class="mt-1 text-xs text-base-content/50">Used in: PDF borders, section highlights, pricing cards</p>
-			</div>
-		</div>
-
-		<!-- Accent Gradient (Optional) -->
-		<div class="mt-6 pt-6 border-t border-base-300">
-			<FormField label="Accent Gradient (Optional)" hint="CSS gradient for premium elements">
-				<textarea
-					class="textarea textarea-bordered w-full font-mono text-sm"
-					rows="2"
-					placeholder="linear-gradient(180deg, rgba(247, 1, 120, 1) 0%, rgba(160, 8, 156, 1) 51%, rgba(99, 13, 178, 1) 100%)"
-					bind:value={brandingData.accentGradient}
-				></textarea>
-			</FormField>
-			<p class="mt-1 text-xs text-base-content/50">Used in: Proposal pricing section, premium UI elements</p>
-			<p class="mt-1 text-xs text-base-content/60">
-				Tip: Use CSS gradient syntax. Leave empty to use the solid accent color.
-			</p>
-		</div>
-
-		<!-- Color Preview -->
-		<div class="mt-6 rounded-lg border border-base-300 p-4">
-			<p class="mb-3 text-sm font-medium text-base-content/70">Preview</p>
-			<div class="flex flex-wrap items-center gap-4">
-				<div class="flex items-center gap-2">
-					<div
-						class="h-10 w-10 rounded-lg shadow-sm"
-						style="background-color: {brandingData.primaryColor}"
-					></div>
-					<span class="text-sm">Primary</span>
-				</div>
-				<div class="flex items-center gap-2">
-					<div
-						class="h-10 w-10 rounded-lg shadow-sm"
-						style="background-color: {brandingData.secondaryColor}"
-					></div>
-					<span class="text-sm">Secondary</span>
-				</div>
-				<div class="flex items-center gap-2">
-					<div
-						class="h-10 w-10 rounded-lg shadow-sm"
-						style="background-color: {brandingData.accentColor}"
-					></div>
-					<span class="text-sm">Accent</span>
-				</div>
-				{#if brandingData.accentGradient}
-					<div class="flex items-center gap-2">
-						<div
-							class="h-10 w-10 rounded-lg shadow-sm"
-							style="background: {brandingData.accentGradient}"
-						></div>
-						<span class="text-sm">Gradient</span>
-					</div>
-				{/if}
-			</div>
-
-			<!-- Sample CTA with gradient -->
-			<div class="mt-4 flex flex-wrap items-center gap-4">
-				<div class="flex items-center gap-2 rounded-lg px-4 py-2" style="background-color: {brandingData.primaryColor}">
-					<span class="font-medium text-white">Primary Button</span>
-				</div>
-				<div class="flex items-center gap-2 rounded-lg px-4 py-2" style="background: {accentBackground}">
-					<span class="font-medium text-white">Accent Button</span>
-				</div>
-			</div>
-		</div>
-	</SettingsSection>
-
-	<!-- Save Branding Button -->
-	<div class="flex justify-end gap-3">
-		{#if brandingHasChanges}
-			<span class="badge badge-warning self-center">Unsaved changes</span>
 		{/if}
+	</div>
+</div>
+
+<StickyDirtySaveBar
+	visible={activeIsDirty}
+	{saving}
+	saveLabel="Save {activeTabMeta.label}"
+	onSave={saveActive}
+	onDiscard={discardActive}
+/>
+
+{#if pendingTabSwitch}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="font-bold">Discard unsaved changes?</h3>
+			<p class="py-2 text-sm">
+				You have unsaved changes on <strong>{activeTabMeta.label}</strong>. Switching tabs will
+				discard them.
+			</p>
+			<div class="modal-action">
+				<button type="button" class="btn btn-ghost btn-sm" onclick={() => (pendingTabSwitch = null)}>
+					Cancel
+				</button>
+				<button type="button" class="btn btn-warning btn-sm" onclick={discardAndSwitch}>
+					Discard & switch
+				</button>
+			</div>
+		</div>
 		<button
 			type="button"
-			class="btn btn-primary"
-			onclick={handleSaveBranding}
-			disabled={isSavingBranding || !brandingHasChanges}
-		>
-			{#if isSavingBranding}
-				<span class="loading loading-spinner loading-sm"></span>
-			{:else}
-				<Check class="h-4 w-4" />
-			{/if}
-			Save Logo & Colors
-		</button>
+			class="modal-backdrop"
+			onclick={() => (pendingTabSwitch = null)}
+			aria-label="Close"
+		></button>
 	</div>
-
-	{:else}
-	<!-- Document-Specific Branding Tabs -->
-	{@const tab = tabs.find(t => t.id === activeTab)}
-	{@const docType = tab?.docType}
-
-	{#if docType}
-		{@const branding = docBrandings[docType]}
-
-		<SettingsSection
-			title="{tab.label} Branding"
-			description="Override branding for {tab.label.toLowerCase()} only"
-			icon={tab.icon}
-		>
-			<!-- Toggle: Use Custom Branding -->
-			<div class="mb-6">
-				<label class="flex items-center gap-3 cursor-pointer">
-					<input
-						type="checkbox"
-						class="toggle toggle-primary"
-						bind:checked={branding.useCustomBranding}
-					/>
-					<span class="font-medium">Use custom branding for {tab.label.toLowerCase()}</span>
-				</label>
-				<p class="text-sm text-base-content/60 mt-2">
-					When disabled, {tab.label.toLowerCase()} will use your agency's default branding.
-				</p>
-			</div>
-
-			{#if branding.useCustomBranding}
-				<div class="space-y-6 animate-in fade-in duration-200">
-					<!-- Logo Override -->
-					<FormField label="Logo Override" hint="Leave empty to use agency logo">
-						<input
-							type="url"
-							class="input input-bordered w-full"
-							placeholder="https://example.com/logo.png"
-							bind:value={branding.logoUrl}
-						/>
-					</FormField>
-
-					<!-- Color Overrides -->
-					<div class="grid gap-4 sm:grid-cols-2">
-						<FormField label="Primary Color" hint="Leave empty for agency default">
-							<div class="flex items-center gap-3">
-								<input
-									type="color"
-									class="h-10 w-14 cursor-pointer rounded-lg border border-base-300"
-									bind:value={branding.primaryColor}
-								/>
-								<input
-									type="text"
-									class="input input-bordered flex-1 font-mono text-sm uppercase"
-									placeholder={data.agency?.primaryColor ?? '#4F46E5'}
-									bind:value={branding.primaryColor}
-									pattern="^#[0-9A-Fa-f]{6}$"
-								/>
-								{#if branding.primaryColor}
-									<button
-										type="button"
-										class="btn btn-ghost btn-sm btn-square"
-										onclick={() => branding.primaryColor = ''}
-										title="Clear override"
-									>
-										<X class="h-4 w-4" />
-									</button>
-								{/if}
-							</div>
-						</FormField>
-
-						{#if docType === 'contract' || docType === 'proposal'}
-							<FormField label="Accent Color" hint="For borders and highlights">
-								<div class="flex items-center gap-3">
-									<input
-										type="color"
-										class="h-10 w-14 cursor-pointer rounded-lg border border-base-300"
-										bind:value={branding.accentColor}
-									/>
-									<input
-										type="text"
-										class="input input-bordered flex-1 font-mono text-sm uppercase"
-										placeholder={data.agency?.accentColor ?? '#F59E0B'}
-										bind:value={branding.accentColor}
-										pattern="^#[0-9A-Fa-f]{6}$"
-									/>
-									{#if branding.accentColor}
-										<button
-											type="button"
-											class="btn btn-ghost btn-sm btn-square"
-											onclick={() => branding.accentColor = ''}
-											title="Clear override"
-										>
-											<X class="h-4 w-4" />
-										</button>
-									{/if}
-								</div>
-							</FormField>
-						{/if}
-					</div>
-
-					{#if docType === 'proposal'}
-						<!-- Proposal-specific overrides -->
-						<div class="rounded-lg border border-base-300 p-4 space-y-4">
-							<div>
-								<p class="text-sm font-medium">Proposal-specific overrides</p>
-								<p class="text-xs text-base-content/60 mt-1">
-									Fine-tune the cover, section headings, CTA button, and footer. Leave any field
-									empty to inherit from your agency defaults (or, for text colors, your document's
-									built-in text styling).
-								</p>
-							</div>
-							<div class="grid gap-4 sm:grid-cols-2">
-								<!-- Explicit per-field bindings. Using `bind:value={branding[key]}` with
-								     a dynamic key via `{#each}` silently fails for the first entry in
-								     Svelte 5 runes mode (state proxy + dynamic indexed write). Always
-								     use static property paths here. -->
-								<FormField label="Cover background" hint="Hero section behind the proposal title">
-									<div class="flex items-center gap-3">
-										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.coverBgColor} />
-										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder="#E3EDF7" bind:value={branding.coverBgColor} pattern="^#[0-9A-Fa-f]{6}$" />
-										{#if branding.coverBgColor}
-											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.coverBgColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
-										{/if}
-									</div>
-								</FormField>
-
-								<FormField label="Cover text" hint="Hero heading + subtitle (leave empty to inherit)">
-									<div class="flex items-center gap-3">
-										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.coverTextColor} />
-										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder="inherit" bind:value={branding.coverTextColor} pattern="^#[0-9A-Fa-f]{6}$" />
-										{#if branding.coverTextColor}
-											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.coverTextColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
-										{/if}
-									</div>
-								</FormField>
-
-								<FormField label="Section heading" hint="Main section titles (The Opportunity, Timeline, etc.)">
-									<div class="flex items-center gap-3">
-										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.sectionHeadingColor} />
-										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder={data.agency?.primaryColor ?? '#4F46E5'} bind:value={branding.sectionHeadingColor} pattern="^#[0-9A-Fa-f]{6}$" />
-										{#if branding.sectionHeadingColor}
-											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.sectionHeadingColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
-										{/if}
-									</div>
-								</FormField>
-
-								<FormField label="CTA button bg" hint="Investment / price card background">
-									<div class="flex items-center gap-3">
-										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.ctaButtonColor} />
-										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder={data.agency?.primaryColor ?? '#4F46E5'} bind:value={branding.ctaButtonColor} pattern="^#[0-9A-Fa-f]{6}$" />
-										{#if branding.ctaButtonColor}
-											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.ctaButtonColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
-										{/if}
-									</div>
-								</FormField>
-
-								<FormField label="CTA button text" hint="Text inside the investment / price card (leave empty to inherit)">
-									<div class="flex items-center gap-3">
-										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.ctaButtonTextColor} />
-										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder="inherit" bind:value={branding.ctaButtonTextColor} pattern="^#[0-9A-Fa-f]{6}$" />
-										{#if branding.ctaButtonTextColor}
-											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.ctaButtonTextColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
-										{/if}
-									</div>
-								</FormField>
-
-								<FormField label="Footer background" hint="Footer panel at the bottom of the proposal">
-									<div class="flex items-center gap-3">
-										<input type="color" class="h-10 w-14 cursor-pointer rounded-lg border border-base-300" bind:value={branding.footerBgColor} />
-										<input type="text" class="input input-bordered flex-1 font-mono text-sm uppercase" placeholder="#E3EDF7" bind:value={branding.footerBgColor} pattern="^#[0-9A-Fa-f]{6}$" />
-										{#if branding.footerBgColor}
-											<button type="button" class="btn btn-ghost btn-sm btn-square" onclick={() => (branding.footerBgColor = '')} title="Clear override"><X class="h-4 w-4" /></button>
-										{/if}
-									</div>
-								</FormField>
-							</div>
-						</div>
-					{/if}
-
-					<!-- Preview -->
-					<div class="rounded-lg border border-base-300 p-4">
-						<p class="mb-3 text-sm font-medium text-base-content/70">Effective Branding Preview</p>
-						<div class="flex flex-wrap items-center gap-4">
-							<div class="flex items-center gap-2">
-								{#if branding.logoUrl || data.agency?.logoUrl}
-									<img
-										src={branding.logoUrl || data.agency?.logoUrl}
-										alt="Logo"
-										class="h-10 max-w-[120px] object-contain"
-									/>
-								{:else}
-									<div
-										class="flex h-10 w-10 items-center justify-center rounded-lg text-white font-bold"
-										style="background-color: {branding.primaryColor || data.agency?.primaryColor || '#4F46E5'}"
-									>
-										{data.agency?.name?.charAt(0) ?? 'A'}
-									</div>
-								{/if}
-							</div>
-							<div class="flex items-center gap-2">
-								<div
-									class="h-8 w-8 rounded shadow-sm"
-									style="background-color: {branding.primaryColor || data.agency?.primaryColor || '#4F46E5'}"
-								></div>
-								<span class="text-sm">{branding.primaryColor || 'Agency default'}</span>
-							</div>
-							{#if docType === 'contract' || docType === 'proposal'}
-								<div class="flex items-center gap-2">
-									<div
-										class="h-8 w-8 rounded shadow-sm"
-										style="background-color: {branding.accentColor || data.agency?.accentColor || '#F59E0B'}"
-									></div>
-									<span class="text-sm">{branding.accentColor || 'Agency default'}</span>
-								</div>
-							{/if}
-						</div>
-					</div>
-				</div>
-			{/if}
-		</SettingsSection>
-
-		<!-- Save Document Branding Button -->
-		<div class="flex justify-end">
-			<button
-				type="button"
-				class="btn btn-primary"
-				onclick={() => handleSaveDocBranding(docType)}
-				disabled={isSavingDocBranding}
-			>
-				{#if isSavingDocBranding}
-					<span class="loading loading-spinner loading-sm"></span>
-				{:else}
-					<Check class="h-4 w-4" />
-				{/if}
-				Save {tab.label} Branding
-			</button>
-		</div>
-
-		<!-- Live Preview (Phase 2.5).
-		     The iframe loads /preview/{docType} under the (bare) layout
-		     group so chrome-less rendering matches what clients see. The
-		     branding settings page posts a debounced `branding-update`
-		     message to this iframe whenever any form field for the active
-		     tab changes; the iframe's listener mutates its overrideBranding
-		     $state and every descendant reading --brand-* CSS vars repaints.
-
-		     sandbox="allow-same-origin allow-scripts" — `allow-scripts` is
-		     necessary because the preview page runs a Svelte hydration +
-		     the postMessage listener. `allow-same-origin` is necessary so
-		     the parent can reach iframe.contentWindow and target posts to
-		     `window.location.origin` (not '*'). Any looser value (e.g.
-		     omitting sandbox entirely) would permit additional attack
-		     surface with no functional benefit. -->
-		<div class="mt-6 border border-base-300 rounded-xl overflow-hidden">
-			<div class="bg-base-200 px-4 py-2 flex items-center justify-between">
-				<span class="text-sm font-medium">Live Preview</span>
-				<div class="flex items-center gap-2">
-					<a
-						href="/{page.params.agencySlug}/preview/{docType}"
-						target="_blank"
-						rel="noopener noreferrer"
-						class="btn btn-xs btn-ghost"
-					>
-						Open full preview ↗
-					</a>
-					<button
-						type="button"
-						class="btn btn-xs btn-ghost"
-						onclick={() => togglePreviewExpanded(docType)}
-					>
-						{previewExpanded[docType] ? 'Collapse' : 'Expand'}
-					</button>
-				</div>
-			</div>
-			<div
-				class="relative overflow-hidden bg-base-100"
-				style="height: {previewExpanded[docType] ? 600 : 400}px"
-			>
-				<iframe
-					bind:this={previewFrames[docType]}
-					src="/{page.params.agencySlug}/preview/{docType}"
-					onload={() => {
-						// Cancel any trailing debounced post queued before the iframe
-						// was ready — otherwise the scheduled call fires ~150ms after
-						// this synchronous one with the same payload (harmless but a
-						// redundant postMessage). Flagged by Cowork as probe 1.
-						postBranding.cancel();
-						postBrandingNow(docType);
-					}}
-					sandbox="allow-same-origin allow-scripts"
-					title="{tab.label} branding preview"
-					class="border-0"
-					style="transform: scale(0.65); transform-origin: top left; width: 154%; height: 154%;"
-				></iframe>
-			</div>
-		</div>
-	{/if}
-	{/if}
-</div>
+{/if}
