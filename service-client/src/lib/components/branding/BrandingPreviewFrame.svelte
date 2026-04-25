@@ -39,6 +39,17 @@
 		void JSON.stringify(branding);
 		postBranding(branding);
 	});
+
+	// Initial $effect post races the iframe's listener registration — by the
+	// time postMessage fires (~150ms after mount), the iframe page may still
+	// be hydrating. Cancel any pending debounce and re-fire synchronously
+	// once the iframe load event confirms the listener is ready. This is the
+	// pattern from the existing /settings/branding/ page (line 1210) — its
+	// reliability is already proven against this race.
+	function handleLoad() {
+		postBranding.cancel();
+		postNow(branding);
+	}
 </script>
 
 <div class="overflow-hidden rounded-xl border border-base-300 bg-base-100">
@@ -70,7 +81,7 @@
 		{title}
 		class="block w-full border-0"
 		style:height="{expanded ? 600 : 400}px"
-		loading="lazy"
+		onload={handleLoad}
 		sandbox="allow-same-origin allow-scripts"
 	></iframe>
 </div>
