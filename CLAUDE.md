@@ -19,13 +19,43 @@ Downstream fork: leap-learn (`~/Projects/personal/leap-learn/`)
 
 ## Cross-Agent Comms (`.comms/`)
 
-When working a thread with Cowork (the Claude desktop app acting as spec-drafter / appraiser), follow the protocol in `.comms/README.md` — specifically the **"Chat-vs-file discipline"** section:
+When working a thread with Cowork (the Claude desktop app acting as spec-drafter / appraiser), follow the protocol in `.comms/README.md`. The chat-vs-file and big-decisions rules:
 
 - Substantive appraisals, verification responses, clearance decisions, and design rationale go in a `.comms/` file. Chat gets a **one-line pointer** (filename + one-sentence verdict), not the full body.
 - Big decisions — anything that materially changes scope, security posture, or the spec contract — consult the user in chat *first*, get a call, *then* file the durable record.
-- At session start (or on user nudge), check `.comms/cowork-to-claude/` for files with `status: open` and address them before new requests.
+- `.comms/` is gitignored — local-machine durable record only, not synced across machines.
 
-`.comms/` is gitignored — local-machine durable record only, not synced across machines.
+### Inbox handling — the four-step ritual (not optional)
+
+At session start (or on user nudge), check `.comms/cowork-to-claude/` for files with `status: open`. When you find one, do these in order, **every time**:
+
+1. **Read the content fully** — frontmatter + body.
+2. **Flip the source file's `status` from `open` to `answered`** before doing anything else. Single Edit; takes 2 seconds. This is a *precondition* to addressing the content, not an afterthought.
+3. **Address the content** — do the work the message describes, ask for clarification if needed, etc.
+4. **Write a brief reply file in `.comms/claude-to-cowork/`** with `in_reply_to: <source-filename>` and a short body — even if the substantive response is just "acknowledged, addressed via X, proceeding." One-liner replies are fine; the loop closure matters more than length.
+
+**Steps 2 and 4 are not optional.** They are how the protocol works. Skipping them re-surfaces "already addressed" messages on the next session-start scan as if they were new — wasting context, wasting time, and degrading the cross-session decision thread the protocol exists to preserve.
+
+If you're tempted to skip step 2 or 4 because you want to "get to the real work," resist. The file hygiene IS part of the work. Two seconds now saves a confused inbox scan later.
+
+### Reply file template
+
+Minimum-viable reply when the appraisal/instruction was clear and you're proceeding without negotiation:
+
+```yaml
+---
+from: claude-code
+to: cowork
+thread: <slug from source file>
+status: acknowledged
+in_reply_to: <source-filename>
+created: <ISO-8601 with TZ>
+---
+
+Acknowledged appraisal. Flag 1 addressed via <one-line how>. Proceeding with PR1.
+```
+
+Longer replies (post-PR verification reports, design pushback, blocker reports) get the full PR-comment treatment. The minimum-viable form above is for "no negotiation needed" cases — most acknowledgments fall there.
 
 ## Three-Layer Workflow
 
