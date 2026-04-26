@@ -6,7 +6,17 @@
 		dim;
 }
 
-@import "../../../packages/tokens/brand.css";
+/*
+ * Brand-identity tokens live in packages/tokens/brand.css (canonical
+ * source of truth, consumed by apps/marketing/ in PR2). service-client
+ * inlines the same single token here for now because its Dockerfile
+ * build context = apps/service-client/ only and can't reach packages/.
+ * Switching to @import requires a monorepo-aware Dockerfile rewrite —
+ * deferred to a follow-up PR alongside the pnpm-Dockerfile migration.
+ */
+@theme {
+	--font-poppins: Poppins, sans-serif;
+}
 
 * {
 	min-width: 0;
