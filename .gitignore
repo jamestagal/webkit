@@ -47,6 +47,8 @@ package-lock.json
 dist/
 build/
 tmp/
+.astro/
+.wrangler/
 
 # Go binaries
 app/server
