@@ -20,6 +20,18 @@
 /* layer definitions */
 @layer theme, base, components, utilities;
 
+/* Token-bridge alias layer (per spec §7.2) — exposes the resolved Tailwind v4
+ * tokens under the variable names plain-CSS components (e.g. CodeStitch) read
+ * directly. Stub today; populate as new CodeStitch swaps land in PR3. Keeps
+ * brand identity one source of truth across both styling flavours. */
+:root {
+  --primary: var(--color-primary-500);
+  --background: var(--color-base-900);
+  --headerColor: var(--color-base-50);
+  --bodyTextColor: var(--color-base-100);
+  /* …add aliases as new CodeStitch components are adopted */
+}
+
 @layer base {
   :root {
     /* starwind component variables */

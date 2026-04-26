@@ -1,11 +1,16 @@
 /**
  * * Tailwind theme settings
- * 
+ *
  * These are in a separate file so it can be imported into <style> tags in .astro components
  */
+
+/* Layer A — shared Webkit brand identity (logo, primary brand color, font family,
+ * typography scale). Currently exposes --font-poppins; brand colour values land
+ * via separate Cowork follow-up. Same source of truth used by apps/service-client. */
+@import "../../../../packages/tokens/brand.css";
+
 @theme {
-  /* cosmic themes theme config */
-  /* primary colors */
+  /* primary colors — Galaxy default until brand colour values land */
   --color-primary-50: var(--color-violet-50);
   --color-primary-100: var(--color-violet-100);
   --color-primary-200: var(--color-violet-200);
@@ -18,7 +23,12 @@
   --color-primary-900: var(--color-violet-900);
   --color-primary-950: var(--color-violet-950);
 
-  /* base colors */
+  /* Layer B — marketing-specific dark-premium surface tokens. Galaxy ships
+   * zinc-as-base; we shift the dark end toward true near-black for a more
+   * premium feel (per spec §6.1 step 7 + §7 surface-treatment freedom).
+   * Light end of the scale stays zinc-aligned in case a light section is
+   * ever needed; the marketing site renders in dark mode by default
+   * (.dark class on <html>). */
   --color-base-50: var(--color-zinc-50);
   --color-base-100: var(--color-zinc-100);
   --color-base-200: var(--color-zinc-200);
@@ -26,10 +36,10 @@
   --color-base-400: var(--color-zinc-400);
   --color-base-500: var(--color-zinc-500);
   --color-base-600: var(--color-zinc-600);
-  --color-base-700: var(--color-zinc-700);
-  --color-base-800: var(--color-zinc-800);
-  --color-base-900: var(--color-zinc-900);
-  --color-base-950: var(--color-zinc-950);
+  --color-base-700: #2a2628;
+  --color-base-800: #1a1819;
+  --color-base-900: #0e0c0c;
+  --color-base-950: #050404;
 
   /* Breakpoints */
   --breakpoint-xs: 400px;
