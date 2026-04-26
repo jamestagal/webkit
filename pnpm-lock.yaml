@@ -116,6 +116,9 @@ importers:
       typescript-eslint:
         specifier: 8.46.1
         version: 8.46.1(eslint@9.37.0(jiti@2.6.1))(typescript@5.9.3)
+      wrangler:
+        specifier: ^4.85.0
+        version: 4.85.0(@cloudflare/workers-types@4.20260426.1)
 
   apps/service-client:
     dependencies:
