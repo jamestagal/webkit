@@ -301,6 +301,7 @@
 				label={activeTabMeta.label}
 				value={docForms[activeTab]}
 				effectiveBranding={effectiveByDocType[activeTab]}
+				globalsBranding={globalsOnly}
 			/>
 		{/if}
 	</div>
