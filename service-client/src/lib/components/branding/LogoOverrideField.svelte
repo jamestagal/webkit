@@ -101,7 +101,7 @@
 		ondragleave={() => (isDragging = false)}
 		ondrop={handleDrop}
 		{disabled}
-		class="flex min-h-24 w-full items-center justify-center rounded-xl border-2 border-dashed border-base-300 bg-base-100 p-3 text-left transition-all hover:border-primary/40 hover:bg-base-200 disabled:cursor-not-allowed disabled:opacity-40"
+		class="flex min-h-24 w-full items-center justify-center rounded-xl border-2 border-dashed border-base-300 bg-base-100 p-3 text-left shadow-sm transition-all hover:border-primary/40 hover:bg-base-200 disabled:cursor-not-allowed disabled:opacity-40"
 		class:border-primary={isDragging}
 		class:bg-base-200={isDragging}
 	>

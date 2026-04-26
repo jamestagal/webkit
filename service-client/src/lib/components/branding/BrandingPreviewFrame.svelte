@@ -52,7 +52,7 @@
 	}
 </script>
 
-<div class="overflow-hidden rounded-xl border border-base-300 bg-base-100">
+<div class="overflow-hidden rounded-xl border border-base-300 bg-base-100 shadow-sm">
 	{#if controls}
 		<div class="flex items-center justify-between gap-2 bg-base-200 px-4 py-2">
 			<span class="text-sm font-medium">Live Preview</span>

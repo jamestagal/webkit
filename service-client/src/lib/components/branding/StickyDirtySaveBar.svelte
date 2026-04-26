@@ -12,7 +12,7 @@
 
 {#if visible}
 	<div
-		class="fixed bottom-0 left-0 right-0 z-30 border-t border-base-300 bg-base-100/95 px-6 py-3 shadow-lg backdrop-blur"
+		class="fixed bottom-0 left-0 right-0 z-30 border-t border-base-300 bg-base-100/95 px-6 py-3 shadow-sm backdrop-blur"
 	>
 		<div class="mx-auto flex max-w-5xl items-center justify-end gap-2">
 			<button

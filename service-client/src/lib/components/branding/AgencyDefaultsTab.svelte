@@ -1,24 +1,28 @@
 <!--
-	Agency Defaults tab — agency profile + logos + global palette + preview.
+	Agency Defaults tab — agency profile + logos + global palette.
 
-	The internal preview MUST use globals-only branding (the agency's
-	primary/secondary/accent/accentGradient/logoUrl directly). Mixing in
-	per-doc overrides would break the "this is what your global brand looks
-	like" semantic. See branding-workspace-v2 plan, Cowork appraisal Flag 1.
+	Sections render as cards (bg-base-100 rounded-xl border + shadow-sm)
+	mirroring the Content Intelligence page's elevation pattern. Inner
+	leaves (ColorOverrideRow, GradientOverrideRow, LogoOverrideField,
+	ColorPreviewTiles) carry their own shadow-sm.
+
+	NOTE: no internal proposal preview iframe here. PR1.6 removed it
+	(was scoped from a superseded spec section; per-doc tabs each have
+	their own iframe — that's the correct affordance for "preview this
+	doc type"). The ColorPreviewTiles block (3 swatches + 2 sample
+	buttons) is the agency-level "what your colors look like" preview.
 
 	Profile fields (tagline, brandFont, social*) persist via
-	updateAgencyProfile; logo + color fields via updateAgencyBranding. The
-	parent +page.svelte's saveActive dispatches both via Promise.all on the
-	unified sticky save bar (PR1.5 A1).
+	updateAgencyProfile; logo + color fields via updateAgencyBranding.
+	The parent +page.svelte's saveActive dispatches both via Promise.all
+	on the unified sticky save bar (PR1.5 A1).
 -->
 <script lang="ts">
-	import type { EffectiveBranding } from '$lib/server/document-branding';
 	import { Info } from 'lucide-svelte';
 	import ColorOverrideRow from './ColorOverrideRow.svelte';
 	import ColorPreviewTiles from './ColorPreviewTiles.svelte';
 	import GradientOverrideRow from './GradientOverrideRow.svelte';
 	import LogoOverrideField from './LogoOverrideField.svelte';
-	import BrandingPreviewFrame from './BrandingPreviewFrame.svelte';
 
 	export type GlobalBrandingFormState = {
 		logoUrl: string;
@@ -38,12 +42,10 @@
 	};
 
 	type Props = {
-		agencySlug: string;
 		value: GlobalBrandingFormState;
-		globalsOnlyBranding: EffectiveBranding;
 	};
 
-	let { agencySlug, value, globalsOnlyBranding }: Props = $props();
+	let { value }: Props = $props();
 
 	const fontOptions = [
 		{ value: '', label: 'Default (System)' },
@@ -64,8 +66,8 @@
 		The source-of-truth for your agency's brand. Per-document overrides cascade from here.
 	</p>
 
-	<!-- Agency Profile (items 1-3: Tagline / Typography / Social Links) -->
-	<div class="space-y-3">
+	<!-- Agency Profile (items 1-3) -->
+	<div class="space-y-3 rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
 		<h3 class="text-[11px] font-bold uppercase tracking-wider text-base-content/60">
 			Agency Profile
 		</h3>
@@ -157,7 +159,7 @@
 	</div>
 
 	<!-- Logos (items 5-6) -->
-	<div class="space-y-2">
+	<div class="space-y-2 rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
 		<h3 class="text-[11px] font-bold uppercase tracking-wider text-base-content/60">Logos</h3>
 		<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
 			<LogoOverrideField
@@ -177,7 +179,7 @@
 	</div>
 
 	<!-- Brand Colors (items 7-10) -->
-	<div class="space-y-3">
+	<div class="space-y-3 rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
 		<h3 class="text-[11px] font-bold uppercase tracking-wider text-base-content/60">
 			Brand Colors
 		</h3>
@@ -218,11 +220,4 @@
 			accentGradient={value.accentGradient}
 		/>
 	</div>
-
-	<BrandingPreviewFrame
-		{agencySlug}
-		docType="proposal"
-		branding={globalsOnlyBranding}
-		title="Global branding preview"
-	/>
 </section>

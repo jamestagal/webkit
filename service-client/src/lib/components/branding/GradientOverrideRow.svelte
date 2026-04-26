@@ -31,7 +31,7 @@
 </script>
 
 <div
-	class="group relative flex items-center gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1.5 transition-colors focus-within:border-primary/40 hover:border-primary/40"
+	class="group relative flex items-center gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1.5 shadow-sm transition-colors focus-within:border-primary/40 hover:border-primary/40"
 	class:opacity-50={disabled}
 >
 	<span

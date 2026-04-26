@@ -40,7 +40,7 @@
 </script>
 
 <div
-	class="group relative flex items-center gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1.5 transition-colors hover:border-primary/40"
+	class="group relative flex items-center gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1.5 shadow-sm transition-colors hover:border-primary/40"
 	class:opacity-50={disabled}
 	class:opacity-80={readonly && !disabled}
 >

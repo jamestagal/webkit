@@ -293,7 +293,7 @@
 
 	<div>
 		{#if activeTab === 'defaults'}
-			<AgencyDefaultsTab {agencySlug} value={globalForm} globalsOnlyBranding={globalsOnly} />
+			<AgencyDefaultsTab value={globalForm} />
 		{:else}
 			<DocBrandingTab
 				{agencySlug}
