@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getToast } from '$lib/ui/toast_store.svelte';
-	import { Upload, X } from 'lucide-svelte';
+	import { Upload, X, Info } from 'lucide-svelte';
 
 	type Props = {
 		label: string;
@@ -9,6 +9,7 @@
 		description?: string;
 		disabled?: boolean;
 		maxBytes?: number;
+		tooltip?: string;
 	};
 
 	let {
@@ -17,8 +18,13 @@
 		onChange,
 		description,
 		disabled = false,
-		maxBytes = 2 * 1024 * 1024
+		maxBytes = 2 * 1024 * 1024,
+		tooltip
 	}: Props = $props();
+
+	function handleUrlInput(event: Event) {
+		onChange((event.currentTarget as HTMLInputElement).value);
+	}
 
 	const toast = getToast();
 	let fileInput: HTMLInputElement | undefined = $state();
@@ -65,7 +71,16 @@
 
 <div class="flex flex-col gap-2">
 	<div class="flex items-center justify-between">
-		<span class="text-[11px] font-bold uppercase tracking-wider text-base-content/60">{label}</span>
+		<span class="flex items-center gap-1">
+			<span class="text-[11px] font-bold uppercase tracking-wider text-base-content/60">
+				{label}
+			</span>
+			{#if tooltip}
+				<span class="tooltip tooltip-top" data-tip={tooltip}>
+					<Info class="h-3 w-3 text-base-content/40" />
+				</span>
+			{/if}
+		</span>
 		{#if value && !disabled}
 			<button
 				type="button"
@@ -99,6 +114,20 @@
 			</span>
 		{/if}
 	</button>
+
+	<div class="flex flex-col gap-1">
+		<span class="text-[10px] font-medium uppercase tracking-wider text-base-content/50">
+			Or enter URL
+		</span>
+		<input
+			type="url"
+			class="input input-bordered input-xs w-full font-mono text-xs"
+			placeholder="https://example.com/logo.png"
+			{value}
+			oninput={handleUrlInput}
+			{disabled}
+		/>
+	</div>
 
 	{#if description}
 		<span class="text-[11px] text-base-content/50">{description}</span>

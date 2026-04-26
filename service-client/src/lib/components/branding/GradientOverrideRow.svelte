@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { X } from 'lucide-svelte';
+	import { X, Info } from 'lucide-svelte';
 
 	type Props = {
 		label: string;
@@ -7,6 +7,7 @@
 		onChange: (next: string) => void;
 		placeholder?: string;
 		disabled?: boolean;
+		tooltip?: string;
 	};
 
 	let {
@@ -14,7 +15,8 @@
 		value,
 		onChange,
 		placeholder = 'linear-gradient(135deg, #4F46E5 0%, #F59E0B 100%)',
-		disabled = false
+		disabled = false,
+		tooltip
 	}: Props = $props();
 
 	function handleInput(event: Event) {
@@ -38,12 +40,19 @@
 			'repeating-linear-gradient(45deg, transparent 0 4px, rgba(0,0,0,0.06) 4px 8px)'}
 		aria-hidden="true"
 	></span>
-	<label
-		for="gradient-{label}"
-		class="shrink-0 truncate text-[11px] font-bold uppercase tracking-wider text-base-content/60"
-	>
-		{label}
-	</label>
+	<span class="flex shrink-0 items-center gap-1">
+		<label
+			for="gradient-{label}"
+			class="truncate text-[11px] font-bold uppercase tracking-wider text-base-content/60"
+		>
+			{label}
+		</label>
+		{#if tooltip}
+			<span class="tooltip tooltip-top" data-tip={tooltip}>
+				<Info class="h-3 w-3 text-base-content/40" />
+			</span>
+		{/if}
+	</span>
 	<input
 		id="gradient-{label}"
 		type="text"
