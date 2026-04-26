@@ -86,7 +86,7 @@ describe("Social Posts Page", () => {
 	async function importPage() {
 		const mod = await import(
 			/* @vite-ignore */
-			"/Users/benjaminwaller/Projects/GoFast/webkit/service-client/src/routes/(app)/[agencySlug]/content/[clientId]/social/+page.svelte"
+			"/Users/benjaminwaller/Projects/GoFast/webkit/apps/service-client/src/routes/(app)/[agencySlug]/content/[clientId]/social/+page.svelte"
 		);
 		return mod.default;
 	}

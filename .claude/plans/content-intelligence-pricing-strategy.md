@@ -136,10 +136,10 @@ Preferred: Check in the `.remote.ts` function that triggers audit creation, befo
 
 | File | Changes |
 |------|---------|
-| `service-client/src/lib/server/subscription.ts` | Add SEO audit limits, features, checking functions |
-| `service-client/src/lib/server/schema.ts` | Add seoAuditsThisMonth, seoAuditsResetAt columns |
-| `service-client/src/lib/components/LandingPage.svelte` | Add CI feature card, update tier features, fix Enterprise pricing |
-| `service-client/src/routes/(app)/[agencySlug]/settings/billing/+page.svelte` | Add CI to tier cards, add SEO usage bar |
+| `apps/service-client/src/lib/server/subscription.ts` | Add SEO audit limits, features, checking functions |
+| `apps/service-client/src/lib/server/schema.ts` | Add seoAuditsThisMonth, seoAuditsResetAt columns |
+| `apps/service-client/src/lib/components/LandingPage.svelte` | Add CI feature card, update tier features, fix Enterprise pricing |
+| `apps/service-client/src/routes/(app)/[agencySlug]/settings/billing/+page.svelte` | Add CI to tier cards, add SEO usage bar |
 | `migrations/0XX_seo_audit_quotas.sql` | Add quota tracking columns |
 | Content audit remote function | Add `enforceSeoAuditLimit()` call before triggering audit |
 

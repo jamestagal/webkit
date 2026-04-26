@@ -54,7 +54,7 @@ EOF
 1. **Start services:** `docker compose up`
 2. **Create migration file:** `migrations/0XX_description.sql` (idempotent SQL)
 3. **Run migration:** `sh scripts/run_migrations.sh`
-4. **Update Drizzle schema:** add tables/columns to `service-client/src/lib/server/schema.ts`
+4. **Update Drizzle schema:** add tables/columns to `apps/service-client/src/lib/server/schema.ts`
 5. **Update Go schema** (if Go needs the tables): `app/service-core/storage/schema_postgres.sql`
 6. **Regenerate sqlc:** `sh scripts/run_queries.sh postgres`
 7. **Type check:** `cd service-client && npm run check`
@@ -64,7 +64,7 @@ EOF
 | File | Purpose | When to Update |
 |------|---------|----------------|
 | `migrations/*.sql` | Source of truth for DB structure | Always (create new migration) |
-| `service-client/src/lib/server/schema.ts` | Drizzle ORM schema for SvelteKit | After running migration |
+| `apps/service-client/src/lib/server/schema.ts` | Drizzle ORM schema for SvelteKit | After running migration |
 | `app/service-core/storage/schema_postgres.sql` | Go sqlc reference schema | Only if Go queries the new tables |
 
 ## Important Notes

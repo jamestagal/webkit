@@ -1,0 +1,13 @@
+/*
+ * Webkit brand-identity tokens — shared by SvelteKit (apps/service-client,
+ * light/productivity) and Astro (apps/marketing, dark/premium — lands in
+ * marketing-site-astro PR2). Surface tokens (base-100/200/content) live
+ * per-app and are NOT defined here.
+ *
+ * PR1 ships only the tokens that existed in apps/service-client/src/app.css
+ * before extraction. Brand-color values + type-scale arrive via a separate
+ * Cowork follow-up so this PR stays a pure no-functional-change refactor.
+ */
+@theme {
+	--font-poppins: Poppins, sans-serif;
+}

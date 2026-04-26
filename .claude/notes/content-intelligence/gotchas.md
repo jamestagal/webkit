@@ -2,7 +2,7 @@
 
 ## CONTENT_URL env var required for local dev
 
-All content intelligence pages use `contentFetch()` (in `$lib/server/content-fetch.ts`) to proxy requests to the Go content service. This requires `CONTENT_URL` in `service-client/.env`:
+All content intelligence pages use `contentFetch()` (in `$lib/server/content-fetch.ts`) to proxy requests to the Go content service. This requires `CONTENT_URL` in `apps/service-client/.env`:
 
 ```
 CONTENT_URL=http://localhost:5001

@@ -8,18 +8,18 @@
 - Claude API (Anthropic) - AI-powered proposal generation
   - SDK: `@anthropic-ai/sdk` 0.71.2
   - Auth: `ANTHROPIC_API_KEY` environment variable
-  - Implementation: `service-client/src/lib/server/services/claude.service.ts`
+  - Implementation: `apps/service-client/src/lib/server/services/claude.service.ts`
   - Model: Claude Haiku 4.5 (claude-haiku-4-5-20251001) for cost efficiency
-  - Used for: Generating proposal content sections via `service-client/src/routes/api/proposals/[proposalId]/generate-stream/+server.ts`
+  - Used for: Generating proposal content sections via `apps/service-client/src/routes/api/proposals/[proposalId]/generate-stream/+server.ts`
 
 **Payment Processing:**
 - Stripe - Payment processing and subscriptions
   - SDK: `stripe` 20.1.0 (TypeScript), `stripe/stripe-go/v82` (Go)
   - Auth: `STRIPE_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
-  - Implementation: `service-client/src/lib/api/stripe.remote.ts`
-  - Webhooks: `service-client/src/routes/api/stripe/webhook/+server.ts` (handles checkout, payments, account updates)
-  - OAuth2: Stripe Connect for agency account linking via `service-client/src/routes/api/stripe/connect/+server.ts`
-  - Callback: `service-client/src/routes/api/stripe/callback/+server.ts`
+  - Implementation: `apps/service-client/src/lib/api/stripe.remote.ts`
+  - Webhooks: `apps/service-client/src/routes/api/stripe/webhook/+server.ts` (handles checkout, payments, account updates)
+  - OAuth2: Stripe Connect for agency account linking via `apps/service-client/src/routes/api/stripe/connect/+server.ts`
+  - Callback: `apps/service-client/src/routes/api/stripe/callback/+server.ts`
   - Used for: Invoice payments, subscription management, payout processing
 
 **SMS/Voice:**
@@ -59,8 +59,8 @@
   - Connection: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
   - Client: Drizzle ORM (`drizzle-orm` 0.45.1, `pg` 8.16.3)
   - Location: Docker container `webkit-postgres` on internal network
-  - Schema: `service-client/src/lib/server/schema.ts` (Drizzle definitions mirror Go backend)
-  - Direct connection for SvelteKit remote functions: `service-client/src/lib/server/db.ts`
+  - Schema: `apps/service-client/src/lib/server/schema.ts` (Drizzle definitions mirror Go backend)
+  - Direct connection for SvelteKit remote functions: `apps/service-client/src/lib/server/db.ts`
 
 **Database Alternatives:**
 - SQLite (via `modernc.org/sqlite`)
@@ -87,12 +87,12 @@
 **Implementation:**
 - JWT tokens (access_token: 15 min, refresh_token: 30 days)
 - HTTP-only cookies (`access_token`, `refresh_token`)
-- Token refresh via `service-client/src/lib/server/refresh.ts`
-- JWT verification: `service-client/src/lib/server/jwt.ts`
-- Auth hooks: `service-client/src/hooks.server.ts`
+- Token refresh via `apps/service-client/src/lib/server/refresh.ts`
+- JWT verification: `apps/service-client/src/lib/server/jwt.ts`
+- Auth hooks: `apps/service-client/src/hooks.server.ts`
 - Login endpoints: `app/service-core/rest/login_route.go`
 - Magic Link authentication support
-- User context extraction: `service-client/src/lib/server/auth.ts`
+- User context extraction: `apps/service-client/src/lib/server/auth.ts`
 
 ## Email Services
 
@@ -100,7 +100,7 @@
 - Resend API (production)
   - SDK: `resend` 6.6.0
   - Auth: `RESEND_API_KEY`
-  - Implementation: `service-client/src/lib/server/services/email.service.ts`
+  - Implementation: `apps/service-client/src/lib/server/services/email.service.ts`
 
 **SMTP (Local Development):**
 - Mailpit (development email testing)
@@ -199,7 +199,7 @@ Development (.env file):
 **Incoming Webhooks:**
 - Stripe webhook endpoint: `/api/stripe/webhook` (POST)
   - Events: checkout.session.completed, payment_intent.succeeded, account.updated, account.application.deauthorized
-  - Implementation: `service-client/src/routes/api/stripe/webhook/+server.ts`
+  - Implementation: `apps/service-client/src/routes/api/stripe/webhook/+server.ts`
 
 **Outgoing Webhooks/Callbacks:**
 - Stripe OAuth callback: `/api/stripe/callback` (GET)
@@ -208,7 +208,7 @@ Development (.env file):
 
 **Data Export Endpoints:**
 - GDPR export: `/api/agency/export` and `/api/user/export`
-- Implementation: `service-client/src/routes/api/agency/export/+server.ts`, `service-client/src/routes/api/user/export/+server.ts`
+- Implementation: `apps/service-client/src/routes/api/agency/export/+server.ts`, `apps/service-client/src/routes/api/user/export/+server.ts`
 
 ## PDF Generation
 
@@ -219,7 +219,7 @@ Development (.env file):
   - Method: HTML to PDF via Chromium
 
 **PDF Endpoints:**
-- Proposals: `/api/proposals/[proposalId]/pdf` (`service-client/src/routes/api/proposals/[proposalId]/pdf/+server.ts`)
+- Proposals: `/api/proposals/[proposalId]/pdf` (`apps/service-client/src/routes/api/proposals/[proposalId]/pdf/+server.ts`)
 - Invoices: `/api/invoices/[invoiceId]/pdf`
 - Contracts: `/api/contracts/[contractId]/pdf`
 - Questionnaires: `/api/questionnaires/[questionnaireId]/pdf`

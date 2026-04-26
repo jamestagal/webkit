@@ -10,7 +10,7 @@ webkit/
 │   ├── service-core/                       # Core business logic service
 │   ├── service-admin/                      # Admin panel service
 │   └── pkg/                                # Shared Go packages (auth, utilities)
-├── service-client/                         # SvelteKit frontend application
+├── apps/service-client/                         # SvelteKit frontend application
 ├── proto/                                  # Protobuf definitions for gRPC
 ├── migrations/                             # PostgreSQL migration files
 ├── scripts/                                # Development automation scripts
@@ -68,11 +68,11 @@ webkit/
 - Contains: auth/, str/ (string utilities), testing/
 - Key: `auth/auth.go` - JWT token generation/validation, `auth/service.go` - authentication service
 
-**`service-client/src/`:**
+**`apps/service-client/src/`:**
 - Purpose: SvelteKit frontend application
 - Contains: routes (pages), components, remote functions (API), stores, server utilities, styling
 
-**`service-client/src/routes/`:**
+**`apps/service-client/src/routes/`:**
 - Purpose: SvelteKit file-based routing
 - Pattern: Directory structure maps to URL routes; `+page.svelte` renders page content, `+layout.svelte` for layout, `+page.server.ts` for server-only code
 - Key directories:
@@ -86,7 +86,7 @@ webkit/
   - `invite/` - Agency invite acceptance
   - `api/` - API endpoints (GDPR export)
 
-**`service-client/src/lib/api/`:**
+**`apps/service-client/src/lib/api/`:**
 - Purpose: Remote functions - server-side functions callable from client components
 - Contains: *.remote.ts files (query/command functions), *.types.ts files (TypeScript types)
 - CRITICAL: Must use `.remote.ts` extension; only remote function exports allowed (no regular functions/types)
@@ -100,7 +100,7 @@ webkit/
   - `email.remote.ts` - Email operations
   - `questionnaire.remote.ts` - Questionnaire operations
 
-**`service-client/src/lib/server/`:**
+**`apps/service-client/src/lib/server/`:**
 - Purpose: Server-only utilities (cannot be accessed from client)
 - Contains: Database connection, authentication, permissions, agency context, helpers
 - Key files:
@@ -113,29 +113,29 @@ webkit/
   - `refresh.ts` - JWT token refresh logic
   - `super-admin.ts` - Super admin impersonation
 
-**`service-client/src/lib/components/`:**
+**`apps/service-client/src/lib/components/`:**
 - Purpose: Reusable Svelte components for UI
 - Contains: Form inputs (Input, Select, Textarea), layout (SideNavigation, Card, Tabs), specialized components
 - Pattern: Components use Svelte 5 runes (`$props`, `$state`, `$derived`, `$effect`)
 - Subdirectories by feature: consultation/, proposal/, contracts/, forms/, questionnaire/, emails/, addons/, analytics/, audit/, package/, settings/
 
-**`service-client/src/lib/stores/`:**
+**`apps/service-client/src/lib/stores/`:**
 - Purpose: Reactive state management using Svelte 5 runes
 - Contains: agency-config.svelte.ts (form dropdown options), consultation-draft.svelte.ts, and other feature-specific stores
 - Pattern: File-based stores using `$state` for reactive variables
 - Usage: Components import and use stores via `import { store } from '$lib/stores/...'`
 
-**`service-client/src/lib/schema/`:**
+**`apps/service-client/src/lib/schema/`:**
 - Purpose: Valibot validation schemas for form inputs and remote function parameters
 - Contains: consultation.ts, proposals.ts, contracts.ts, forms.ts (schema definitions)
 - Pattern: Define schema once, use in remote function parameter validation
 - Used by: Remote functions automatically validate inputs against schema
 
-**`service-client/src/lib/utils/`:**
+**`apps/service-client/src/lib/utils/`:**
 - Purpose: Helper functions for date formatting, validation, DOM utilities
 - Contains: Utility functions shared across components and routes
 
-**`service-client/src/lib/types/`:**
+**`apps/service-client/src/lib/types/`:**
 - Purpose: TypeScript type definitions
 - Contains: User types, Agency types, Consultation types, API response types
 
@@ -169,13 +169,13 @@ webkit/
 **Entry Points:**
 - `app/service-core/main.go` - Core service startup
 - `app/service-admin/main.go` - Admin service startup
-- `service-client/src/routes/+page.svelte` - Frontend landing page
-- `service-client/svelte.config.js` - SvelteKit configuration
+- `apps/service-client/src/routes/+page.svelte` - Frontend landing page
+- `apps/service-client/svelte.config.js` - SvelteKit configuration
 
 **Configuration:**
 - `app/service-core/config/config.go` - Core service config loading
 - `app/service-admin/config/config.go` - Admin service config loading
-- `service-client/svelte.config.js` - Frontend build config
+- `apps/service-client/svelte.config.js` - Frontend build config
 - `.env` - Local environment variables
 - `docker-compose.yml` - Local development setup
 
@@ -183,19 +183,19 @@ webkit/
 - Domain: `app/service-core/domain/consultation/service.go`
 - Repository: `app/service-core/domain/consultation/repository.go`
 - REST handlers: `app/service-core/rest/` (routes that call domain services)
-- Frontend remote: `service-client/src/lib/api/consultation.remote.ts`
-- Frontend components: `service-client/src/lib/components/consultation/`
-- Frontend routes: `service-client/src/routes/(app)/[agencySlug]/consultation/`
+- Frontend remote: `apps/service-client/src/lib/api/consultation.remote.ts`
+- Frontend components: `apps/service-client/src/lib/components/consultation/`
+- Frontend routes: `apps/service-client/src/routes/(app)/[agencySlug]/consultation/`
 
 **Testing:**
 - Go tests: Alongside source files (e.g., `app/service-core/integration/consultation_test.go`)
-- Frontend unit tests: `service-client/src/lib/api/consultation.remote.test.ts` and component tests
-- Frontend e2e tests: `service-client/tests/`
-- Fixtures: `service-client/src/lib/tests/` and `app/service-core/integration/fixtures.go`
+- Frontend unit tests: `apps/service-client/src/lib/api/consultation.remote.test.ts` and component tests
+- Frontend e2e tests: `apps/service-client/tests/`
+- Fixtures: `apps/service-client/src/lib/tests/` and `app/service-core/integration/fixtures.go`
 
 **Database Schema:**
 - Go backend: `app/service-core/storage/schema_postgres.sql`
-- SvelteKit: `service-client/src/lib/server/schema.ts` (Drizzle ORM mirror)
+- SvelteKit: `apps/service-client/src/lib/server/schema.ts` (Drizzle ORM mirror)
 
 ## Naming Conventions
 
@@ -233,21 +233,21 @@ webkit/
 - Backend domain: `app/service-core/domain/[feature]/repository.go` (data access)
 - Backend REST: `app/service-core/rest/[feature]_route.go` (HTTP handlers)
 - Database: `app/service-core/storage/schema_postgres.sql` (add table)
-- Frontend remote: `service-client/src/lib/api/[feature].remote.ts` (server functions)
-- Frontend schema: `service-client/src/lib/schema/[feature].ts` (Valibot validation)
-- Frontend types: `service-client/src/lib/types/[feature].ts` (TypeScript types)
-- Frontend routes: `service-client/src/routes/(app)/[agencySlug]/[feature]/` (pages)
-- Frontend components: `service-client/src/lib/components/[feature]/` (UI components)
+- Frontend remote: `apps/service-client/src/lib/api/[feature].remote.ts` (server functions)
+- Frontend schema: `apps/service-client/src/lib/schema/[feature].ts` (Valibot validation)
+- Frontend types: `apps/service-client/src/lib/types/[feature].ts` (TypeScript types)
+- Frontend routes: `apps/service-client/src/routes/(app)/[agencySlug]/[feature]/` (pages)
+- Frontend components: `apps/service-client/src/lib/components/[feature]/` (UI components)
 
 **New Component/Module:**
-- Svelte component: `service-client/src/lib/components/[feature]/FeatureName.svelte`
-- Component tests: `service-client/src/lib/components/[feature]/FeatureName.spec.ts`
+- Svelte component: `apps/service-client/src/lib/components/[feature]/FeatureName.svelte`
+- Component tests: `apps/service-client/src/lib/components/[feature]/FeatureName.spec.ts`
 - Styling: Use TailwindCSS classes in component; no separate CSS files needed
 
 **Shared Utilities:**
-- Frontend helpers: `service-client/src/lib/utils/`
+- Frontend helpers: `apps/service-client/src/lib/utils/`
 - Go helpers: `app/pkg/`
-- Type definitions: `service-client/src/lib/types/`
+- Type definitions: `apps/service-client/src/lib/types/`
 
 **API Endpoints:**
 - REST routes: `app/service-core/rest/server.go` (register route) + `app/service-core/rest/[feature]_route.go` (implement handler)
@@ -256,11 +256,11 @@ webkit/
 **Database Changes:**
 1. Create migration: `migrations/NNN_description.sql`
 2. Update Go schema: `app/service-core/storage/schema_postgres.sql`
-3. Update Drizzle schema: `service-client/src/lib/server/schema.ts`
+3. Update Drizzle schema: `apps/service-client/src/lib/server/schema.ts`
 4. If Go queries affected: Add SQL to `app/service-core/storage/sql/` → run `sh scripts/run_queries.sh postgres`
 
 **Authentication/Authorization:**
-- Roles: Update `service-client/src/lib/server/permissions.ts` (RBAC matrix)
+- Roles: Update `apps/service-client/src/lib/server/permissions.ts` (RBAC matrix)
 - Permissions: Add permission check before sensitive operations
 - Token claims: Update JWT payload in `app/service-core/domain/login/service.go`
 

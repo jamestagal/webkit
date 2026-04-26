@@ -123,6 +123,6 @@ Treat handler-owned side effects (log writes, webhooks, cache busts, counter inc
 
 ### Related Files
 
-- `service-client/src/lib/api/super-admin.remote.ts` — `updateAgencyAccess` command wraps agency update + log insert in `db.transaction`
-- `service-client/src/lib/server/schema.ts:198-222` — `agencyActivityLog` table
+- `apps/service-client/src/lib/api/super-admin.remote.ts` — `updateAgencyAccess` command wraps agency update + log insert in `db.transaction`
+- `apps/service-client/src/lib/server/schema.ts:198-222` — `agencyActivityLog` table
 - `docs/planning/quizzical-yawning-swan.md` — full context on the freemium grant feature that exposed this gap

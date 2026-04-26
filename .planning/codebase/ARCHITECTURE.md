@@ -30,29 +30,29 @@
 - Depends on: Core service (gRPC), NATS message broker, PostgreSQL (read-only)
 - Used by: Administrators via web UI, SSE for real-time updates
 
-**Client Service (SvelteKit Frontend - `service-client/`):**
+**Client Service (SvelteKit Frontend - `apps/service-client/`):**
 - Purpose: User-facing application, remote functions as server-side API, Svelte 5 components
-- Location: `service-client/src/`
+- Location: `apps/service-client/src/`
 - Contains: Remote functions (query/command), routes, components, stores, server utilities, hooks
 - Depends on: Core service (REST), PostgreSQL (direct for remote functions), authentication
 - Used by: Agency users, clients accessing forms/proposals
 
 **Storage Layer (Shared Across Services):**
 - Purpose: Data persistence and isolation
-- Location: `app/service-core/storage/`, `service-client/src/lib/server/schema.ts`
+- Location: `app/service-core/storage/`, `apps/service-client/src/lib/server/schema.ts`
 - Contains: PostgreSQL schema, Drizzle ORM schema (for SvelteKit), sqlc queries (for Go)
 - Pattern: Row-level isolation via `agency_id` columns; all queries filtered by agency context
 
 **Authentication & Authorization:**
 - Purpose: JWT-based auth, token refresh, role-based access control (RBAC)
-- Location: `service-client/src/hooks.server.ts`, `service-client/src/lib/server/auth.ts`, `app/service-core/domain/login/`
+- Location: `apps/service-client/src/hooks.server.ts`, `apps/service-client/src/lib/server/auth.ts`, `app/service-core/domain/login/`
 - Pattern: Magic link + optional 2FA, tokens stored in HTTP-only cookies, automatic refresh via hooks
 
 ## Data Flow
 
 **User Login Flow:**
 
-1. User submits email/phone in Client frontend (`service-client/src/routes/login/`)
+1. User submits email/phone in Client frontend (`apps/service-client/src/routes/login/`)
 2. Client → Core REST (`POST /login`) → Core validates, sends magic link/OTP
 3. User verifies code
 4. Core → JWT tokens created, stored in cookies
@@ -62,7 +62,7 @@
 
 1. Agency member opens form in Client frontend
 2. Client loads agency context via `[agencySlug]/+layout.server.ts` → queries database
-3. Frontend form submission → Remote function `createConsultation()` (`service-client/src/lib/api/consultation.remote.ts`)
+3. Frontend form submission → Remote function `createConsultation()` (`apps/service-client/src/lib/api/consultation.remote.ts`)
 4. Remote function validates agency context via `getAgencyId()`, inserts via Drizzle ORM
 5. Database row includes `agency_id` for isolation
 6. Admin service receives SSE event via NATS broker about new consultation
@@ -87,10 +87,10 @@
 
 **Remote Functions (Frontend ↔ Backend Communication):**
 - Purpose: Type-safe server function calls from client components
-- Examples: `service-client/src/lib/api/consultation.remote.ts`, `agency.remote.ts`, `proposals.remote.ts`
+- Examples: `apps/service-client/src/lib/api/consultation.remote.ts`, `agency.remote.ts`, `proposals.remote.ts`
 - Pattern: `query()` for reads (cacheable), `command()` for writes, `form()` for form submissions
 - Validation: All functions with parameters use Valibot schemas as first argument
-- Location: `service-client/src/lib/api/*.remote.ts` (CRITICAL: `.remote.ts` extension required)
+- Location: `apps/service-client/src/lib/api/*.remote.ts` (CRITICAL: `.remote.ts` extension required)
 
 **Domain Services (Go Backend Business Logic):**
 - Purpose: Encapsulate domain-specific operations
@@ -100,20 +100,20 @@
 
 **Agency Context & Data Isolation:**
 - Purpose: Ensure multi-tenant data safety
-- Location: `service-client/src/lib/server/agency.ts`, `service-client/src/lib/server/db-helpers.ts`
+- Location: `apps/service-client/src/lib/server/agency.ts`, `apps/service-client/src/lib/server/db-helpers.ts`
 - Pattern: `getAgencyContext()` retrieves auth context → `withAgencyScope()` enforces filtering
 - Critical: All remote functions must call `getAgencyId()` or use helpers like `getAgencyConsultations()`
 
 **Stores for Reactive UI State:**
 - Purpose: Manage frontend state with reactivity
-- Examples: `service-client/src/lib/stores/agency-config.svelte.ts` (form options), consultation state
+- Examples: `apps/service-client/src/lib/stores/agency-config.svelte.ts` (form options), consultation state
 - Pattern: Svelte 5 runes (`$state`, `$derived`), file-based state management
-- Location: `service-client/src/lib/stores/`
+- Location: `apps/service-client/src/lib/stores/`
 
 ## Entry Points
 
 **Frontend Entry Point:**
-- Location: `service-client/src/routes/+page.svelte`, `service-client/svelte.config.js`
+- Location: `apps/service-client/src/routes/+page.svelte`, `apps/service-client/svelte.config.js`
 - Triggers: User navigates to app URL
 - Responsibilities: Render landing page or dashboard based on auth state
 
@@ -128,12 +128,12 @@
 - Responsibilities: Connect to Core gRPC, NATS broker, start REST web server + SSE server
 
 **Client Route Entry Points (Agency-Scoped):**
-- Location: `service-client/src/routes/(app)/[agencySlug]/`
+- Location: `apps/service-client/src/routes/(app)/[agencySlug]/`
 - Triggers: User navigates to agency URL (e.g., `/acme-agency/consultation/`)
 - Responsibilities: Validate agency access, load agency context, render protected pages
 
 **Public Route Entry Points (No Auth Required):**
-- Location: `service-client/src/routes/login/`, `service-client/src/routes/invite/`, `service-client/src/routes/q/` (questionnaire), `service-client/src/routes/p/` (proposal public view)
+- Location: `apps/service-client/src/routes/login/`, `apps/service-client/src/routes/invite/`, `apps/service-client/src/routes/q/` (questionnaire), `apps/service-client/src/routes/p/` (proposal public view)
 - Triggers: Unauthenticated users
 - Responsibilities: Render login, invites, public questionnaires, proposal previews
 
@@ -145,13 +145,13 @@
 
 **Server Routes (SvelteKit):**
 - Use `throw error(status, message)` from `@sveltejs/kit` for route-level errors
-- Example: `throw error(403, "Agency access denied")` (`service-client/src/lib/server/agency.ts`)
-- Example: `throw error(404, "Agency not found")` (`service-client/src/routes/(app)/[agencySlug]/+layout.server.ts`)
+- Example: `throw error(403, "Agency access denied")` (`apps/service-client/src/lib/server/agency.ts`)
+- Example: `throw error(404, "Agency not found")` (`apps/service-client/src/routes/(app)/[agencySlug]/+layout.server.ts`)
 - Redirects via `throw redirect(302, '/login')` for unauthorized access
 
 **Remote Functions:**
 - Throw `Error` with message for validation failures
-- Example: `throw new Error("Consultation not found")` (`service-client/src/lib/api/consultation.remote.ts:60`)
+- Example: `throw new Error("Consultation not found")` (`apps/service-client/src/lib/api/consultation.remote.ts:60`)
 - Client-side catch blocks handle these errors and show user-friendly messages
 - Valibot schema validation happens before function body executes
 
@@ -161,7 +161,7 @@
 - Middleware logs all errors with context
 
 **Validation:**
-- Frontend: Valibot schema validation in remote functions (`service-client/src/lib/schema/`)
+- Frontend: Valibot schema validation in remote functions (`apps/service-client/src/lib/schema/`)
 - Backend: Domain service validation (e.g., checking business rules before database insert)
 - Database: Constraints enforce data integrity (unique emails, valid statuses via CHECK)
 
@@ -179,14 +179,14 @@
 **Authentication:**
 - JWT tokens (access + refresh) issued by Core service
 - Stored in HTTP-only cookies with domain and path restrictions
-- Automatic refresh via `service-client/src/lib/server/refresh.ts` when expiring
-- Hooks validate on every request (`service-client/src/hooks.server.ts`)
+- Automatic refresh via `apps/service-client/src/lib/server/refresh.ts` when expiring
+- Hooks validate on every request (`apps/service-client/src/hooks.server.ts`)
 
 **Authorization (Role-Based Access Control):**
-- Roles defined: owner, admin, member (`service-client/src/lib/server/permissions.ts`)
+- Roles defined: owner, admin, member (`apps/service-client/src/lib/server/permissions.ts`)
 - Agency membership status: active, invited, suspended
 - Permission checks via `requirePermission()` helpers before sensitive operations
-- Location: `service-client/src/lib/server/permissions.ts`
+- Location: `apps/service-client/src/lib/server/permissions.ts`
 
 **Multi-Tenancy Isolation:**
 - All database queries filtered by `agency_id` using `withAgencyScope()` wrapper

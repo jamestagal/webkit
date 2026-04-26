@@ -107,9 +107,9 @@ event.cookies.set("access_token", token, {
 
 ## Key Auth Files
 
-- `service-client/src/hooks.server.ts` — auth middleware, token validation
-- `service-client/src/lib/server/refresh.ts` — token refresh logic
-- `service-client/src/lib/server/jwt.ts` — JWT verification
+- `apps/service-client/src/hooks.server.ts` — auth middleware, token validation
+- `apps/service-client/src/lib/server/refresh.ts` — token refresh logic
+- `apps/service-client/src/lib/server/jwt.ts` — JWT verification
 - `app/service-core/rest/login_route.go` — login endpoints, cookie setting
 
 ## PostgreSQL Version Pinning (CRITICAL)

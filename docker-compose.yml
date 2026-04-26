@@ -110,15 +110,15 @@ services:
     container_name: webkit-client
     working_dir: /service
     build:
-      context: ./service-client
+      context: ./apps/service-client
       target: dev
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
-      - ./service-client/src:/service/src
-      - ./service-client/.svelte-kit:/service/.svelte-kit
-      - ./service-client/.env:/service/.env
+      - ./apps/service-client/src:/service/src
+      - ./apps/service-client/.svelte-kit:/service/.svelte-kit
+      - ./apps/service-client/.env:/service/.env
       - /service/node_modules
     ports:
       - 3000:3000

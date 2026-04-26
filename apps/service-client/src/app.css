@@ -6,9 +6,7 @@
 		dim;
 }
 
-@theme {
-	--font-poppins: Poppins, sans-serif;
-}
+@import "../../../packages/tokens/brand.css";
 
 * {
 	min-width: 0;

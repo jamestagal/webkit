@@ -31,8 +31,8 @@ jobs:
             dockerfile: app/content-service/Dockerfile
             image: content-service-r
           - service: service-client
-            context: service-client
-            dockerfile: service-client/Dockerfile
+            context: apps/service-client
+            dockerfile: apps/service-client/Dockerfile
             image: service-client-r
 
     steps:
@@ -48,7 +48,7 @@ jobs:
       - name: Create key files (SvelteKit)
         if: matrix.service == 'service-client'
         run: |
-          echo "${{ secrets.PUBLIC_KEY_PEM }}" > service-client/public.pem
+          echo "${{ secrets.PUBLIC_KEY_PEM }}" > apps/service-client/public.pem
 
       - name: Login to Container Registry
         uses: docker/login-action@v3
@@ -78,7 +78,7 @@ jobs:
       - name: Clean up key files (SvelteKit)
         if: always() && matrix.service == 'service-client'
         run: |
-          rm -f service-client/public.pem
+          rm -f apps/service-client/public.pem
 
   # Deploy to Hostinger VPS
   deploy:

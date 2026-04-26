@@ -188,7 +188,7 @@ Services communicate via gRPC (internal) and REST (external). Protobuf defs in `
 All database queries MUST use `withAgencyScope()`:
 
 ```typescript
-// service-client/src/lib/server/db-helpers.ts
+// apps/service-client/src/lib/server/db-helpers.ts
 const consultations = await withAgencyScope(agencyId, async (id) => {
     return db.query.consultations.findMany({
         where: eq(consultations.agencyId, id)
@@ -202,12 +202,12 @@ Agencies customize dropdowns via `agency_form_options` table. 14 configurable ca
 
 Flow: layout loads config in `[agencySlug]/+layout.server.ts` → `setAgencyConfig()` module state → components call `getAgencyConfig()` → falls back to defaults.
 
-### Permissions & Roles (`service-client/src/lib/server/permissions.ts`)
+### Permissions & Roles (`apps/service-client/src/lib/server/permissions.ts`)
 - **Owner**: full access, billing, member role changes
 - **Admin**: settings, member management (except roles), templates
 - **Member**: create/edit own consultations and proposals
 
-### Subscription Tiers (`service-client/src/lib/server/subscription.ts`)
+### Subscription Tiers (`apps/service-client/src/lib/server/subscription.ts`)
 - `free`: 1 member, 5 consultations/month, 1 template
 - `starter`: 3 members, 25/month, 5 templates
 - `growth`: 10 members, 100/month, 20 templates
@@ -216,23 +216,23 @@ Flow: layout loads config in `[agencySlug]/+layout.server.ts` → `setAgencyConf
 ## Key Files & Locations
 
 ### Multi-Tenancy Core
-- `service-client/src/lib/server/agency.ts` — agency context helpers
-- `service-client/src/lib/server/db-helpers.ts` — data isolation
-- `service-client/src/lib/server/permissions.ts` — permission matrix
-- `service-client/src/lib/server/subscription.ts` — tier enforcement
-- `service-client/src/lib/stores/agency-config.svelte.ts` — form options store
+- `apps/service-client/src/lib/server/agency.ts` — agency context helpers
+- `apps/service-client/src/lib/server/db-helpers.ts` — data isolation
+- `apps/service-client/src/lib/server/permissions.ts` — permission matrix
+- `apps/service-client/src/lib/server/subscription.ts` — tier enforcement
+- `apps/service-client/src/lib/stores/agency-config.svelte.ts` — form options store
 
 ### Remote Functions
-- `service-client/src/lib/api/*.remote.ts` — all client-callable server functions
+- `apps/service-client/src/lib/api/*.remote.ts` — all client-callable server functions
 - See `.claude/notes/remote-functions/reference.md` for full rules
 
 ### Routes
-- `service-client/src/routes/(app)/[agencySlug]/` — agency-scoped routes
-- `service-client/src/routes/(app)/agencies/` — agency management
-- `service-client/src/routes/api/` — REST endpoints (GDPR export)
+- `apps/service-client/src/routes/(app)/[agencySlug]/` — agency-scoped routes
+- `apps/service-client/src/routes/(app)/agencies/` — agency management
+- `apps/service-client/src/routes/api/` — REST endpoints (GDPR export)
 
 ### Schema
-- `service-client/src/lib/server/schema.ts` — Drizzle schema (SvelteKit)
+- `apps/service-client/src/lib/server/schema.ts` — Drizzle schema (SvelteKit)
 - `app/service-core/storage/schema_postgres.sql` — sqlc reference schema AND historical DB bootstrap (constraints here ARE enforced on the live DB; see Database Migrations section)
 
 ## Development Commands
@@ -304,7 +304,7 @@ Full workflow: `.claude/notes/database/migrations.md`.
 
 When writing/modifying database queries in remote functions:
 
-1. **Read schema first:** check the table in `service-client/src/lib/server/schema.ts`
+1. **Read schema first:** check the table in `apps/service-client/src/lib/server/schema.ts`
 2. **Run `npm run check`** before committing — catches schema mismatches
 3. **Never ignore TypeScript errors** — they indicate real bugs (e.g., selecting non-existent columns)
 4. **Match exact column names** — use Drizzle names, not assumed (e.g., `clientSignedAt` not `signedAt`)

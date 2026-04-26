@@ -10,8 +10,8 @@ cp public.pem ../app/service-core/public.pem
 cp public.pem ../app/service-admin/public.pem
 cp public.pem ../app/content-service/public.pem
 
-if [ -d "../service-client" ]; then
-    cp public.pem ../service-client/public.pem
+if [ -d "../apps/service-client" ]; then
+    cp public.pem ../apps/service-client/public.pem
 fi
 
 rm private.pem public.pem

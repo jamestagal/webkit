@@ -5,7 +5,7 @@
 ## Languages
 
 **Primary:**
-- TypeScript 5.0+ - Frontend code and remote functions (`service-client/src`)
+- TypeScript 5.0+ - Frontend code and remote functions (`apps/service-client/src`)
 - Go 1.24-1.25 - Backend services (`app/service-core`, `app/service-admin`)
 
 **Secondary:**
@@ -19,7 +19,7 @@
 - Go 1.24+ with workspace support (`app/go.work`)
 
 **Package Managers:**
-- npm - Frontend (`service-client/package.json`)
+- npm - Frontend (`apps/service-client/package.json`)
 - Go modules - Backend (`app/service-core/go.mod`, `app/service-admin/go.mod`)
 - Lockfile: `package-lock.json` (npm)
 

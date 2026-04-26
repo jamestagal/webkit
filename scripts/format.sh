@@ -3,12 +3,12 @@
 cd "$(dirname "$0")"
 cd ..
 
-if [ -d "service-client" ]; then
+if [ -d "apps/service-client" ]; then
     echo ""
     echo "Formatting client"
-    cd service-client
+    cd apps/service-client
     npm run format
-    cd ..
+    cd ../..
 fi
 
 if [ -d "service-svelte" ]; then

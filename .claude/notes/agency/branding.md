@@ -22,5 +22,5 @@ Used in proposals and UI elements. Falls back to `accentColor` when not set.
 
 ## Files
 
-- `service-client/src/routes/(app)/[agencySlug]/settings/branding/+page.svelte` — branding settings UI
-- `service-client/src/lib/api/agency-profile.remote.ts` — save branding data
+- `apps/service-client/src/routes/(app)/[agencySlug]/settings/branding/+page.svelte` — branding settings UI
+- `apps/service-client/src/lib/api/agency-profile.remote.ts` — save branding data

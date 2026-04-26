@@ -19,7 +19,7 @@ No changes needed to: database schema, JSON validation schema, response parser, 
 
 ### 1. Update section prompt
 
-**File:** `service-client/src/lib/server/prompts/proposal-sections.ts` (lines 61-75)
+**File:** `apps/service-client/src/lib/server/prompts/proposal-sections.ts` (lines 61-75)
 
 Replace the `seoSummary` prompt. New prompt should instruct the AI to output HTML with:
 
@@ -37,7 +37,7 @@ Remove the "Plain text only" instruction. Replace with guidance on which HTML ta
 
 ### 2. Update schema hint in prompt builder
 
-**File:** `service-client/src/lib/server/prompts/prompt-builder.ts` (~line 298)
+**File:** `apps/service-client/src/lib/server/prompts/prompt-builder.ts` (~line 298)
 
 Change the seoSummary schema hint from:
 ```
@@ -50,8 +50,8 @@ To:
 
 ## Files to modify
 
-1. `service-client/src/lib/server/prompts/proposal-sections.ts` — rewrite seoSummary prompt
-2. `service-client/src/lib/server/prompts/prompt-builder.ts` — update schema hint string
+1. `apps/service-client/src/lib/server/prompts/proposal-sections.ts` — rewrite seoSummary prompt
+2. `apps/service-client/src/lib/server/prompts/prompt-builder.ts` — update schema hint string
 
 ## What stays the same
 

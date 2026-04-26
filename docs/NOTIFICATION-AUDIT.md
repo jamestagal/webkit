@@ -180,13 +180,13 @@ Current types in schema:
 ## Code Locations
 
 ### Email Infrastructure
-- `service-client/src/lib/server/services/email.service.ts` - Email sending service
-- `service-client/src/lib/templates/email-templates.ts` - HTML templates
-- `service-client/src/lib/api/email.remote.ts` - Remote functions
+- `apps/service-client/src/lib/server/services/email.service.ts` - Email sending service
+- `apps/service-client/src/lib/templates/email-templates.ts` - HTML templates
+- `apps/service-client/src/lib/api/email.remote.ts` - Remote functions
 
 ### TODO Markers (search for these)
 ```bash
-grep -r "TODO.*email" service-client/src/
+grep -r "TODO.*email" apps/service-client/src/
 ```
 
 Key files with TODOs:

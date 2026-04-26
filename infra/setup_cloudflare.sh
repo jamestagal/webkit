@@ -5,7 +5,7 @@ set -o pipefail
 
 # --- Configuration ---
 GITHUB_ENV="staging"
-WRANGLER_CONFIG="../app/service-client/wrangler.jsonc"
+WRANGLER_CONFIG="../apps/service-client/wrangler.jsonc"
 
 echo "🚀 Starting Cloudflare Worker and DNS Setup..."
 
@@ -232,7 +232,7 @@ echo "✅ wrangler.jsonc configured with name: $CONTEXT, domain: $CLIENT_DOMAIN"
 
 # --- Create Client Environment File ---
 echo "🔄 Creating environment file for client build..."
-CLIENT_ENV_PATH="../app/service-client/.env"
+CLIENT_ENV_PATH="../apps/service-client/.env"
 cat > "$CLIENT_ENV_PATH" << EOF
 PUBLIC_CORE_URL=https://$CORE_DOMAIN
 EOF
@@ -311,7 +311,7 @@ echo "✅ DNS setup complete!"
 # --- Deploy Cloudflare Worker ---
 echo ""
 echo "🔄 Deploying Cloudflare Worker..."
-CLIENT_SERVICE_DIR="../app/service-client"
+CLIENT_SERVICE_DIR="../apps/service-client"
 cd "$CLIENT_SERVICE_DIR"
 npm install
 if ! wrangler deploy; then
