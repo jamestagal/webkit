@@ -1,5 +1,5 @@
+import cloudflare from "@astrojs/cloudflare";
 import mdx from "@astrojs/mdx";
-import netlify from "@astrojs/netlify";
 import sitemap from "@astrojs/sitemap";
 import compress from "@playform/compress";
 import tailwindcss from "@tailwindcss/vite";
@@ -9,10 +9,9 @@ import icon from "astro-icon";
 
 // https://astro.build/config
 export default defineConfig({
-  site: "https://galaxy.cosmicthemes.com",
-  adapter: netlify({
-    imageCDN: false,
-  }),
+  site: "https://webkit.au",
+  output: "static",
+  adapter: cloudflare(),
   markdown: {
     shikiConfig: {
       // Shiki Themes: https://shiki.style/themes

@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "webkit-marketing",
+  // Latest date the bundled Miniflare (4.20260424.0) recognises — using install
+  // date (2026-04-27) tripped Miniflare's "date in the future" validator during
+  // local build. Cloudflare runtime knows all dates; the lag is a local-tooling
+  // artefact. Bump deliberately when adopting newer runtime features (and when
+  // wrangler/Miniflare ships a newer baseline), not as a chore.
+  "compatibility_date": "2026-04-24",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
