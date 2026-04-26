@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { updateAgencyBranding } from '$lib/api/agency.remote';
+	import { updateAgencyProfile } from '$lib/api/agency-profile.remote';
 	import { updateDocumentBranding } from '$lib/api/document-branding.remote';
 	import {
 		FileText,
@@ -56,7 +57,13 @@
 			primaryColor: data.agency?.primaryColor ?? '',
 			secondaryColor: data.agency?.secondaryColor ?? '',
 			accentColor: data.agency?.accentColor ?? '',
-			accentGradient: data.agency?.accentGradient ?? ''
+			accentGradient: data.agency?.accentGradient ?? '',
+			tagline: data.profile?.tagline ?? '',
+			brandFont: data.profile?.brandFont ?? '',
+			socialLinkedin: data.profile?.socialLinkedin ?? '',
+			socialFacebook: data.profile?.socialFacebook ?? '',
+			socialInstagram: data.profile?.socialInstagram ?? '',
+			socialTwitter: data.profile?.socialTwitter ?? ''
 		};
 	}
 
@@ -198,14 +205,30 @@
 		saving = true;
 		try {
 			if (activeTab === 'defaults') {
-				await updateAgencyBranding({
-					logoUrl: globalForm.logoUrl,
-					logoAvatarUrl: globalForm.logoAvatarUrl,
-					primaryColor: globalForm.primaryColor,
-					secondaryColor: globalForm.secondaryColor,
-					accentColor: globalForm.accentColor,
-					accentGradient: globalForm.accentGradient
-				});
+				// PR1.5: profile + branding save in parallel via the unified
+				// sticky bar (item 4 reinterpretation per appraisal A1). The
+				// OLD page had two separate save buttons (Save Profile / Save
+				// Logo & Colors); v2 IA uses one sticky-bar save per active
+				// tab, so both backend updates fire together. Partial failure
+				// surfaces via the catch — toast reports whichever rejected.
+				await Promise.all([
+					updateAgencyProfile({
+						tagline: globalForm.tagline,
+						brandFont: globalForm.brandFont,
+						socialLinkedin: globalForm.socialLinkedin,
+						socialFacebook: globalForm.socialFacebook,
+						socialInstagram: globalForm.socialInstagram,
+						socialTwitter: globalForm.socialTwitter
+					}),
+					updateAgencyBranding({
+						logoUrl: globalForm.logoUrl,
+						logoAvatarUrl: globalForm.logoAvatarUrl,
+						primaryColor: globalForm.primaryColor,
+						secondaryColor: globalForm.secondaryColor,
+						accentColor: globalForm.accentColor,
+						accentGradient: globalForm.accentGradient
+					})
+				]);
 			} else {
 				const docType = activeTab;
 				const next = docForms[docType];

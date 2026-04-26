@@ -20,6 +20,14 @@
 		secondaryColor: string;
 		accentColor: string;
 		accentGradient: string;
+		// Agency profile fields (PR1.5 — restored from OLD page).
+		// Persisted via updateAgencyProfile, not updateAgencyBranding.
+		tagline: string;
+		brandFont: string;
+		socialLinkedin: string;
+		socialFacebook: string;
+		socialInstagram: string;
+		socialTwitter: string;
 	};
 
 	type Props = {
