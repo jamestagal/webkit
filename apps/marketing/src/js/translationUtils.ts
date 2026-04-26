@@ -1,8 +1,14 @@
 import type { CollectionKey } from "astro:content";
 import { getCollection } from "astro:content";
-import { getRelativeLocaleUrl } from "astro:i18n";
 
 import { defaultLocale, locales } from "@/config/siteSettings.json";
+
+// English-only stub for astro:i18n's getRelativeLocaleUrl — Astro i18n config
+// removed in marketing-site-astro PR2 commit 3 (no per-locale routing). Single
+// consumer is getLocalizedPathname below; signature matches Astro's API.
+function getRelativeLocaleUrl(_locale: string, route: string): string {
+  return "/" + route.replace(/^\/+/, "");
+}
 import {
   dataTranslations,
   localizedCollections,

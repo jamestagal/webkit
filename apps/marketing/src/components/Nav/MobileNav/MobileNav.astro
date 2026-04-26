@@ -1,6 +1,5 @@
 ---
 import Button from "@components/Button/Button.astro";
-import LanguageSelect from "@components/LanguageSelect/MobileLanguageSelect.astro";
 import MobileNavDropdown from "@components/Nav/MobileNav/MobileNavDropdown.astro";
 import NavLink from "@components/Nav/NavLink.astro";
 import SiteLogo from "@components/SiteLogo/SiteLogo.astro";
@@ -13,7 +12,6 @@ import { getLocalizedRoute } from "@/js/translationUtils";
 
 const currLocale = getLocaleFromUrl(Astro.url);
 const navData = getTranslatedData("navData", currLocale);
-import { locales } from "@config/siteSettings.json";
 // console.log(JSON.stringify(navData, null, 2));
 ---
 
@@ -97,7 +95,6 @@ import { locales } from "@config/siteSettings.json";
         <!-- <hr class="mx-2 mb-2 border-base-300 dark:border-base-600/60" /> -->
         <div class="-mr-1 flex items-start justify-between">
           <ThemeToggle />
-          {locales.length > 1 && <LanguageSelect />}
         </div>
         <Button
           variant="outline"

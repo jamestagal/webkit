@@ -1,6 +1,5 @@
 ---
 import Button from "@components/Button/Button.astro";
-import LanguageSelect from "@components/LanguageSelect/LanguageSelect.astro";
 import MobileNav from "@components/Nav/MobileNav/MobileNav.astro";
 import NavDropdownToggle from "@components/Nav/NavDropdown/NavDropdownToggle.astro";
 import NavLink from "@components/Nav/NavLink.astro";
@@ -16,7 +15,6 @@ import MegaMenuDropdownToggle from "./NavDropdown/MegaMenuDropdownToggle.astro";
 
 const currLocale = getLocaleFromUrl(Astro.url);
 const navData = getTranslatedData("navData", currLocale);
-import { locales } from "@config/siteSettings.json";
 // console.log(JSON.stringify(navData, null, 2));
 ---
 
@@ -73,8 +71,6 @@ import { locales } from "@config/siteSettings.json";
               >
 
               <Search class="md:ml-2" />
-
-              {locales.length > 1 && <LanguageSelect class="ml-2 hidden md:flex" />}
             </div>
 
             <!-- mobile nav menu, only load on small screens where it is visible -->
