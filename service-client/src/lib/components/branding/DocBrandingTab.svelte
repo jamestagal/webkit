@@ -83,8 +83,13 @@
 		</label>
 	</header>
 
-	<!-- LEFT/RIGHT split (item 12). Stacks below xl breakpoint. -->
-	<div class="flex flex-col gap-6 xl:flex-row xl:gap-8">
+	<!-- LEFT/RIGHT split (item 12). Single wide card wraps both panels —
+	     mirrors the GridCardLayout-01 mockup's "one card, internal
+	     LEFT/RIGHT divider" treatment. Stacks below xl breakpoint;
+	     internal `xl:border-l` provides the divider on wide viewports. -->
+	<div
+		class="flex flex-col gap-6 rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm xl:flex-row xl:gap-8"
+	>
 		<div class="xl:w-1/3">
 			<InheritedPaletteColumn
 				primaryColor={globalsBranding.primaryColor}
