@@ -8,7 +8,7 @@
     "winsearch": "robocopy dist/pagefind public/pagefind /E",
     "osxsearch": "cp -r dist/pagefind public/",
     "start": "astro dev",
-    "build": "astro build && pagefind --site dist",
+    "build": "astro build && pagefind --site dist/client",
     "preview": "astro preview",
     "astro": "astro",
     "format": "eslint . --fix && prettier -w \"**/*\" --ignore-unknown --cache",
