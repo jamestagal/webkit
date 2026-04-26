@@ -204,7 +204,7 @@ ConsultationWizard (Orchestrator)
 ## 📁 File Structure
 
 ```
-service-client/src/lib/
+apps/service-client/src/lib/
 ├── components/consultation/
 │   ├── ClientInfoForm.svelte          # Contact information form
 │   ├── BusinessContext.svelte         # Business details form

@@ -15,7 +15,7 @@ jobs:
   lint-service-client:
     uses: ./.github/workflows/lint-ts.yml
     with:
-      working-directory: service-client
+      working-directory: apps/service-client
   tier-limits-drift:
     runs-on: ubuntu-latest
     steps:
@@ -28,4 +28,4 @@ jobs:
         run: go generate ./...
         working-directory: app
       - name: Fail if generated TS diverges from Go source
-        run: git diff --exit-code -- service-client/src/lib/generated/
+        run: git diff --exit-code -- apps/service-client/src/lib/generated/

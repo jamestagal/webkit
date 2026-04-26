@@ -6,7 +6,7 @@
 
 **Runner:**
 - Vitest 3.0.0 with workspace configuration
-- Config: `service-client/vite.config.ts`
+- Config: `apps/service-client/vite.config.ts`
 - Environments: jsdom (client), node (server)
 
 **Assertion Library:**

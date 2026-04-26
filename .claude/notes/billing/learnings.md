@@ -31,8 +31,8 @@ This eliminates race conditions between checkout redirect and webhook processing
 
 **Files:**
 - `app/service-core/domain/billing/service.go` - `syncIfNeeded()` helper
-- `service-client/src/routes/(app)/[agencySlug]/settings/billing/+page.server.ts`
-- `service-client/src/lib/api/billing.remote.ts`
+- `apps/service-client/src/routes/(app)/[agencySlug]/settings/billing/+page.server.ts`
+- `apps/service-client/src/lib/api/billing.remote.ts`
 
 ## Stripe SDK Compatibility
 

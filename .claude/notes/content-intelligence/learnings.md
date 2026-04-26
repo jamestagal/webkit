@@ -18,7 +18,7 @@ contentCopy → seoIssues → seoAudits → brandProfiles → contentChunks → 
 
 ## Constants live in demo-data.ts
 
-All demo content intelligence data (pages, chunks, brand profile, SEO audit/issues, copy, social posts) defined as exported constants in `service-client/src/lib/api/demo-data.ts`. The `demo.remote.ts` file imports and inserts them.
+All demo content intelligence data (pages, chunks, brand profile, SEO audit/issues, copy, social posts) defined as exported constants in `apps/service-client/src/lib/api/demo-data.ts`. The `demo.remote.ts` file imports and inserts them.
 
 ## Murray's Plumbing demo content
 

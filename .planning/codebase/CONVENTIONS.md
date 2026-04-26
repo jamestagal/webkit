@@ -43,7 +43,7 @@
 - Print width: 100 characters
 - HTML whitespace: `ignore` mode
 
-**Prettier Configuration** (`service-client/.prettierrc`):
+**Prettier Configuration** (`apps/service-client/.prettierrc`):
 ```json
 {
   "useTabs": true,
@@ -57,7 +57,7 @@
 
 **Linting:**
 - Tool: ESLint 9 with TypeScript support
-- Config: `service-client/eslint.config.js` (flat config)
+- Config: `apps/service-client/eslint.config.js` (flat config)
 - Key rules:
   - `@typescript-eslint/explicit-function-return-type` - Required for all functions (except expressions)
   - TypeScript strict mode enabled

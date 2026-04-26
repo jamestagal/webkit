@@ -160,20 +160,20 @@ export const clientLogger = {
 
 ```bash
 # Find all @icons imports
-grep -r "@icons" service-client/src/
+grep -r "@icons" apps/service-client/src/
 
 # Find server imports in client code
-grep -r "from.*server" service-client/src/lib/services/
-grep -r "from.*server" service-client/src/lib/components/
+grep -r "from.*server" apps/service-client/src/lib/services/
+grep -r "from.*server" apps/service-client/src/lib/components/
 
 # Find type imports that should be type-only
-grep -r "import.*Safe" service-client/src/
+grep -r "import.*Safe" apps/service-client/src/
 ```
 
 ## File Structure Best Practice
 
 ```
-service-client/src/
+apps/service-client/src/
 ├── lib/
 │   ├── server/          # Server-only code (ONLY imported in +*.server.ts files)
 │   │   ├── db.ts

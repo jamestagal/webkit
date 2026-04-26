@@ -63,7 +63,7 @@ iteration.
   detection.
 - `app/content-service/internal/crawler/transport.go` — Jina → direct HTTP
   fallback chain; deadline constants live here.
-- `service-client/src/routes/(app)/[agencySlug]/content/[clientId]/pages/+page.svelte`
+- `apps/service-client/src/routes/(app)/[agencySlug]/content/[clientId]/pages/+page.svelte`
   — surface the failed-URL count from crawl summary in the header.
 
 ### Not in scope for these changes

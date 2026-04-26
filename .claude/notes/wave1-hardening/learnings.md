@@ -18,7 +18,7 @@ Ran 4 agents in parallel for Group 1, then D and F sequentially. Total: ~45 minu
 
 **Pattern:** Use `UPDATE ... SET counter = counter + 1 ... RETURNING counter - 1` to atomically get-and-increment in a single query. Eliminates read-then-write race conditions.
 
-**File:** `service-client/src/lib/server/document-numbers.ts`
+**File:** `apps/service-client/src/lib/server/document-numbers.ts`
 
 ```typescript
 const result = await db.execute(sql`
@@ -42,7 +42,7 @@ const result = await db.execute(sql`
 
 **Pattern:** Use a single UPDATE with CASE WHEN to handle month-reset logic atomically.
 
-**File:** `service-client/src/lib/server/subscription.ts:339-356`
+**File:** `apps/service-client/src/lib/server/subscription.ts:339-356`
 
 The old code did: read counter → check if reset needed → update. Two queries = race condition window. New code does it in one query with CASE expressions for both the counter and the reset timestamp.
 

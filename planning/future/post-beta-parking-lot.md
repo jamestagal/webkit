@@ -7,7 +7,7 @@ Items captured during pre-beta work that shouldn't be acted on now but shouldn't
 ## Activity feed rendering coverage
 
 **Surfaced:** 2026-04-24 during Thread 3 (status rename `ready` → `live`).
-**Source:** `service-client/src/lib/components/ActivityFeed.svelte` — `formatAction()` at L38-L104.
+**Source:** `apps/service-client/src/lib/components/ActivityFeed.svelte` — `formatAction()` at L38-L104.
 
 ### Problem
 
@@ -37,7 +37,7 @@ First beta user confusion about activity feed wording. If an agency asks "why do
 ## `ACTIVITY_TYPES` constant map — unused or inconsistent
 
 **Surfaced:** 2026-04-24 during Thread 3 grep sweep.
-**Source:** `service-client/src/lib/server/db-helpers.ts` — `ACTIVITY_TYPES` constant at L355+.
+**Source:** `apps/service-client/src/lib/server/db-helpers.ts` — `ACTIVITY_TYPES` constant at L355+.
 
 ### Problem
 
@@ -150,7 +150,7 @@ Either of (whichever comes first):
 ## Audit page deep-link by `auditId`
 
 **Surfaced:** 2026-04-24 during planning of `feat/reports-management-page`.
-**Source:** `service-client/src/routes/(app)/[agencySlug]/content/[clientId]/audit/+page.server.ts:4-26` — destructures `params.clientId` only.
+**Source:** `apps/service-client/src/routes/(app)/[agencySlug]/content/[clientId]/audit/+page.server.ts:4-26` — destructures `params.clientId` only.
 
 ### Problem
 
@@ -189,7 +189,7 @@ Whichever comes first.
 ## Share-link token rotation on revoked rows is a destructive default
 
 **Surfaced:** 2026-04-24 while diagnosing production 404s on share URLs that the Reports UI reported as "Active" for agency `plentify-web-designs`.
-**Source:** `service-client/src/lib/api/content-audit.remote.ts:160-163` — `createShareLink`'s rotation guard.
+**Source:** `apps/service-client/src/lib/api/content-audit.remote.ts:160-163` — `createShareLink`'s rotation guard.
 
 ### Problem
 
@@ -199,7 +199,7 @@ Three share-lifecycle commands interact asymmetrically with `share_token`:
 - `revokeShareLink` **preserves** the token. Same URL comes back if reinstated.
 - `createShareLink` **rotates** the token when `share_token IS NULL OR share_revoked_at IS NOT NULL`.
 
-The trap: Revoke + Create Again silently breaks every URL previously sent to the client. Post-rotation the row looks fully active (`share_revoked_at = NULL`, new token present, status badge says "Active"), but the old URL now points at a token the DB no longer holds. `validateShareToken` ([share-tokens.ts:93-108](../../service-client/src/lib/server/share-tokens.ts#L93-L108)) returns `not-found` and the public route 404s. No visible UI signal that the URL was rotated; no audit log of rotation.
+The trap: Revoke + Create Again silently breaks every URL previously sent to the client. Post-rotation the row looks fully active (`share_revoked_at = NULL`, new token present, status badge says "Active"), but the old URL now points at a token the DB no longer holds. `validateShareToken` ([share-tokens.ts:93-108](../../apps/service-client/src/lib/server/share-tokens.ts#L93-L108)) returns `not-found` and the public route 404s. No visible UI signal that the URL was rotated; no audit log of rotation.
 
 Surface symptom: "my link shows Active in the dashboard, but my client gets a 404."
 
