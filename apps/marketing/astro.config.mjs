@@ -3,7 +3,7 @@ import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 import compress from "@playform/compress";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig, passthroughImageService } from "astro/config";
+import { defineConfig } from "astro/config";
 import AutoImport from "astro-auto-import";
 import icon from "astro-icon";
 
@@ -12,19 +12,14 @@ export default defineConfig({
   site: "https://webkit.au",
   output: "static",
   adapter: cloudflare({
-    // Disable adapter's auto-bound IMAGES (Cloudflare Images) — we use the
-    // passthrough image service below so <Image /> renders <img src=original>
-    // instead of /_image?href=… (which 404s on static deploys without the
-    // runtime image-transform endpoint).
-    imageService: "passthrough",
+    // imageService default is "cloudflare-binding" → /_image?…&f=webp URLs
+    // hit a runtime IMAGES binding (paid Cloudflare Images plan only). For
+    // output: 'static' we pre-render variants at build time via workerd,
+    // emitting final hashed URLs that need no runtime endpoint. Verified
+    // via @astrojs/cloudflare/dist/utils/image-config.js — "compile" sets
+    // buildService=compile (workerd) + runtimeService=passthrough.
+    imageService: "compile",
   }),
-  // <Image /> on output: 'static' + Cloudflare adapter would need either a
-  // paid Cloudflare Images plan or the runtime /_image endpoint (only present
-  // in 'server' mode). Passthrough renders originals — fine for marketing
-  // content where Galaxy already ships pre-optimised assets in src/.
-  image: {
-    service: passthroughImageService(),
-  },
   markdown: {
     shikiConfig: {
       // Shiki Themes: https://shiki.style/themes
