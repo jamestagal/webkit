@@ -34,12 +34,15 @@ jobs:
       - run: pnpm --filter @webkit/marketing build
 
       - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: apps/marketing
-          # Astro adapter generates dist/server/wrangler.json with canonical
-          # asset paths (assets serve from dist/client). User-config
-          # apps/marketing/wrangler.jsonc is metadata-only.
-          command: deploy --config dist/server/wrangler.json
+        # Bypass cloudflare/wrangler-action@v3 — its `npx --no-install wrangler`
+        # lookup can't see pnpm symlinks, then falls back to npm-installing
+        # wrangler@3.90.0 (older than our v4 transitive dep, plus the global
+        # install trips nested postinstall failures). Direct pnpm exec is the
+        # same path as local dev and uses the workspace-pinned wrangler.
+        # Astro adapter generates dist/server/wrangler.json with canonical
+        # asset paths (assets serve from dist/client); user-config
+        # apps/marketing/wrangler.jsonc is metadata-only.
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm --filter @webkit/marketing exec wrangler deploy --config dist/server/wrangler.json
