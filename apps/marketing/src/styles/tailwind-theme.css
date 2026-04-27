@@ -10,18 +10,39 @@
 @import "../../../../packages/tokens/brand.css";
 
 @theme {
-  /* primary colors — Galaxy default until brand colour values land */
+  /* Primary shade scale — Galaxy components reference --color-primary-{shade}.
+   * Anchored at -600 to the locked deep-violet #4f1ad6 (per packages/tokens/
+   * brand.css). -500 and -700 derived from the anchor; -50…400 and -800…950
+   * stay on the violet ramp for visual continuity in gradients and tints.
+   * The bare DaisyUI semantic tokens (--color-primary, --color-secondary,
+   * --color-accent) come from packages/tokens/brand.css via @import above. */
   --color-primary-50: var(--color-violet-50);
   --color-primary-100: var(--color-violet-100);
   --color-primary-200: var(--color-violet-200);
   --color-primary-300: var(--color-violet-300);
   --color-primary-400: var(--color-violet-400);
-  --color-primary-500: var(--color-violet-500);
-  --color-primary-600: var(--color-violet-600);
-  --color-primary-700: var(--color-violet-700);
+  --color-primary-500: #5d28e6;
+  --color-primary-600: #4f1ad6;
+  --color-primary-700: #3d1399;
   --color-primary-800: var(--color-violet-800);
   --color-primary-900: var(--color-violet-900);
   --color-primary-950: var(--color-violet-950);
+
+  /* Secondary shade scale — vivid blue, anchored at -600 = #2f6aff.
+   * Used for gradient pairs (from-primary-{x} to-secondary-{x}) and
+   * secondary CTAs. Galaxy doesn't ship this scale; we add it for the
+   * Webkit landing's gradient accents (per inventory §2 hero "win clients"
+   * gradient text and §5 logo gradients). */
+  --color-secondary-400: #6d92ff;
+  --color-secondary-500: #4d7cff;
+  --color-secondary-600: #2f6aff;
+  --color-secondary-700: #1850e6;
+
+  /* Accent shade scale — Tailwind blue-500 family, anchored at -600 = #3b82f6.
+   * Used for tertiary highlights, link hover, subtle decoration. */
+  --color-accent-500: #60a5fa;
+  --color-accent-600: #3b82f6;
+  --color-accent-700: #2563eb;
 
   /* Layer B — marketing-specific dark-premium surface tokens. Galaxy ships
    * zinc-as-base; we shift the dark end toward true near-black for a more

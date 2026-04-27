@@ -7,14 +7,22 @@
 }
 
 /*
- * Brand-identity tokens live in packages/tokens/brand.css (canonical
- * source of truth, consumed by apps/marketing/ in PR2). service-client
- * inlines the same single token here for now because its Dockerfile
- * build context = apps/service-client/ only and can't reach packages/.
- * Switching to @import requires a monorepo-aware Dockerfile rewrite —
- * deferred to a follow-up PR alongside the pnpm-Dockerfile migration.
+ * Brand-identity tokens — canonical source of truth lives at
+ * packages/tokens/brand.css; consumed by apps/marketing/ via @import.
+ * service-client inlines the same values here because its Dockerfile
+ * build-context = apps/service-client/ only and can't reach packages/.
+ * Keep both files in sync; @import migration is a follow-up PR.
  */
 @theme {
+	--color-primary: #4f1ad6;
+	--color-primary-content: #fff6f6;
+
+	--color-secondary: #2f6aff;
+	--color-secondary-content: #ffffff;
+
+	--color-accent: #3b82f6;
+	--color-accent-content: #ffffff;
+
 	--font-poppins: Poppins, sans-serif;
 }
 

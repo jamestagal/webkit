@@ -1,13 +1,33 @@
 /*
  * Webkit brand-identity tokens — shared by SvelteKit (apps/service-client,
- * light/productivity) and Astro (apps/marketing, dark/premium — lands in
- * marketing-site-astro PR2). Surface tokens (base-100/200/content) live
- * per-app and are NOT defined here.
+ * light/productivity) and Astro (apps/marketing, dark/premium). Surface
+ * tokens (base-100/200/content) live per-app and are NOT defined here.
  *
- * PR1 ships only the tokens that existed in apps/service-client/src/app.css
- * before extraction. Brand-color values + type-scale arrive via a separate
- * Cowork follow-up so this PR stays a pure no-functional-change refactor.
+ * Brand palette agreed 2026-04-27 (.comms/cowork-to-claude/
+ * 20260427T124000-brand-color-values-locked.md). Source: Upstart Astro theme
+ * aesthetic — primary captured via DevTools from the live Upstart demo,
+ * secondary/accent extracted from the saved demo HTML.
+ *
+ * Note: apps/service-client/src/app.css inlines the same values because its
+ * Dockerfile build-context can't reach packages/. Keep both files in sync;
+ * a follow-up PR will switch the SvelteKit app to @import once a monorepo-
+ * aware Dockerfile lands.
  */
 @theme {
+	/* Primary — deep violet, for primary CTAs, headings emphasis, gradient lead */
+	--color-primary: #4f1ad6;
+	--color-primary-content: #fff6f6;
+
+	/* Secondary — vivid blue, for gradient pair (from-primary to-secondary),
+	   secondary CTAs, link states */
+	--color-secondary: #2f6aff;
+	--color-secondary-content: #ffffff;
+
+	/* Accent — Tailwind blue-500, for tertiary highlights, link hover, subtle
+	   decoration */
+	--color-accent: #3b82f6;
+	--color-accent-content: #ffffff;
+
+	/* Typography */
 	--font-poppins: Poppins, sans-serif;
 }
