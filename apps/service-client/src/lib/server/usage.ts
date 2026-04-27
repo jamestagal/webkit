@@ -21,7 +21,7 @@ import {
 	FEATURE_GATES,
 	type Tier,
 	type UsageFeature,
-} from "$lib/generated/tier-limits";
+} from "@webkit/billing-tokens";
 
 export { TIER_LIMITS, FEATURE_GATES };
 export type { Tier, UsageFeature };

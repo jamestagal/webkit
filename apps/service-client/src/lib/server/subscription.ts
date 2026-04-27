@@ -37,7 +37,7 @@ export type SelfServeTier = "free" | "starter" | "growth" | "agency_pro";
 export type SubscriptionTier = SelfServeTier | "enterprise";
 
 export interface TierLimits {
-	// All numeric caps are authoritative in $lib/generated/tier-limits (Go is
+	// All numeric caps are authoritative in @webkit/billing-tokens (Go is
 	// SSoT). The fields below are legacy and retained only for the `features`
 	// array used by hasFeature/tierHasFeature; PR 4+ will migrate those too.
 	maxMembers: number; // kept for legacy getAgencyTierLimits consumers
@@ -210,7 +210,7 @@ export async function getMemberCount(agencyId: string): Promise<number> {
 /**
  * Check if agency can add more members.
  *
- * Reads the cap from the generated $lib/generated/tier-limits file so Go
+ * Reads the cap from the @webkit/billing-tokens package so Go
  * remains the single source of truth. Enterprise maps to Agency Pro's cap
  * until the first sales deal defines per-agency overrides — `unlimited`
  * is therefore always false in the current model, but the field is kept

@@ -1,10 +1,10 @@
 /**
- * Runtime shape validation for the generated tier-limits.ts file.
+ * Runtime shape validation for the @webkit/billing-tokens package.
  * Catches drift between the UI's expectations and the generator output —
  * e.g. a renamed key or dropped field on the Go side.
  */
 import { describe, it, expect } from "vitest";
-import { TIER_LIMITS, FEATURE_GATES } from "./tier-limits";
+import { TIER_LIMITS, FEATURE_GATES } from "@webkit/billing-tokens";
 
 const REQUIRED_TIERS = ["free", "starter", "growth", "agency_pro"] as const;
 const REQUIRED_KEYS = [

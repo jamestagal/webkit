@@ -1,4 +1,4 @@
-//go:generate go run ../../cmd/gentiers -out ../../../apps/service-client/src/lib/generated/tier-limits.ts
+//go:generate go run ../../cmd/gentiers -out ../../../packages/billing-tokens/src/tier-limits.ts
 
 package billing
 

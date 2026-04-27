@@ -49,6 +49,7 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.71.2",
+		"@webkit/billing-tokens": "workspace:*",
 		"@floating-ui/dom": "^1.6.5",
 		"@sentry/sveltekit": "^8.55.0",
 		"@sveltejs/adapter-node": "^5.5.4",
