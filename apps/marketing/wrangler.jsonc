@@ -19,13 +19,15 @@
   // project's apex binding removed; webkit.au added as a Custom Domain
   // on the webkit-marketing Worker in the Cloudflare dashboard.
   //
-  // www.webkit.au intentionally NOT in this block. Either it gets added
-  // as a Custom Domain on this Worker in a follow-up commit (preferred),
-  // or stays redirected/CNAME'd to apex at the DNS layer. Drop-now is
-  // the lower-risk path: a partial deploy where www binding fails would
-  // hold up the apex cutover too. Apex-only succeeds atomically.
+  // Apex + www both claimed as Custom Domains on this Worker. Both must
+  // be pre-added in the Cloudflare dashboard (Custom Domains tab on the
+  // webkit-marketing Worker) — Cloudflare validates the binding at
+  // deploy time and rejects the wrangler push if either is missing.
   //
   // Rollback: revert this routes block + redeploy. Cloudflare Custom
   // Domain detach is non-destructive; underlying DNS zone untouched.
-  "routes": [{ "pattern": "webkit.au", "custom_domain": true }]
+  "routes": [
+    { "pattern": "webkit.au", "custom_domain": true },
+    { "pattern": "www.webkit.au", "custom_domain": true }
+  ]
 }
