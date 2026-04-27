@@ -1,0 +1,36 @@
+---
+const stats: Array<{ title: string; description: string }> = [
+  {
+    title: "10× Faster Proposals",
+    description: "Consultation to signed proposal in minutes.",
+  },
+  {
+    title: "85% Close Rate",
+    description: "Branded touchpoints that win the work.",
+  },
+  {
+    title: "4hrs Saved Weekly",
+    description: "One workflow. Every client document.",
+  },
+];
+---
+
+<section id="stats" class="my-16 md:my-20">
+  <div class="site-container mx-auto">
+    <ul class="grid gap-x-12 gap-y-10 md:grid-cols-2 lg:grid-cols-3">
+      {
+        stats.map((s, i) => (
+          <li
+            class="border-primary-600/40 before:bg-primary-600 relative space-y-5 before:absolute before:-left-px before:content-[''] last:border-b-0 last:pb-0 max-sm:border-b max-sm:pb-10 before:max-sm:bottom-0 before:max-sm:h-px before:max-sm:w-1/4 last:before:max-sm:hidden sm:border-l sm:pl-10 before:sm:top-1/2 before:sm:h-1/4 before:sm:w-px before:sm:-translate-y-1/2"
+            data-mos="fade-up"
+            data-mos-delay={i * 0.1}
+            data-mos-anchor="#stats"
+          >
+            <h3 class="text-base-50 text-2xl font-semibold md:text-3xl">{s.title}</h3>
+            <p class="text-base-300 text-base leading-relaxed">{s.description}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>

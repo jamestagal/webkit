@@ -6,6 +6,7 @@ import FinalCTA from "@components/landing/FinalCTA.astro";
 import HeroWebkit from "@components/landing/HeroWebkit.astro";
 import HowItWorks from "@components/landing/HowItWorks.astro";
 import Pricing from "@components/landing/Pricing.astro";
+import StatsRow from "@components/landing/StatsRow.astro";
 import TrustSignals from "@components/landing/TrustSignals.astro";
 import BaseLayout from "@layouts/BaseLayout.astro";
 
@@ -16,6 +17,7 @@ const description =
 
 <BaseLayout title={title} description={description}>
   <HeroWebkit />
+  <StatsRow />
   <FeatureGrid />
   <AISection />
   <BrandingHighlight />
