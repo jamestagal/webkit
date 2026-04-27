@@ -1,7 +1,22 @@
 ---
 import Button from "@components/Button/Button.astro";
 import MarketingIcon from "@components/landing/MarketingIcon.astro";
-import { TIER_LIMITS } from "../../../../service-client/src/lib/generated/tier-limits";
+
+// Inline copy of feature counts from the canonical Go-source-of-truth at
+// apps/service-client/src/lib/generated/tier-limits.ts. The plan's R5
+// fallback: cross-app import broke CI because Vite traversed service-client's
+// tsconfig → .svelte-kit/tsconfig.json (SvelteKit-generated, absent in the
+// marketing-only CI build). Inline-copy + sync-by-hand until the
+// packages/billing-tokens/ workspace package lands (Flag 4 follow-up).
+//
+// IF you change a value below, also bump app/pkg/billing/limits.go and
+// regenerate apps/service-client/src/lib/generated/tier-limits.ts.
+const TIER_LIMITS = {
+  free: { seo_audit: 2, ai_generation: 5, max_clients: 3, max_members: 1 },
+  starter: { seo_audit: 10, ai_generation: 25, max_clients: 10, max_members: 3 },
+  growth: { seo_audit: 50, ai_generation: 100, max_clients: 50, max_members: 10 },
+  agency_pro: { seo_audit: 200, ai_generation: 500, max_clients: 200, max_members: 25 },
+} as const;
 
 // Feature counts pulled from the canonical Go-source-of-truth tier-limits.ts.
 // Dollar amounts are hardcoded to match the current Stripe products
