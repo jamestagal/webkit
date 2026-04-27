@@ -13,5 +13,19 @@
   },
   "observability": {
     "enabled": true
-  }
+  },
+  // DNS cutover: claims webkit.au apex for the webkit-marketing Worker.
+  // Pre-step (manual, completed by Benjamin): old webkit-landing Pages
+  // project's apex binding removed; webkit.au added as a Custom Domain
+  // on the webkit-marketing Worker in the Cloudflare dashboard.
+  //
+  // www.webkit.au intentionally NOT in this block. Either it gets added
+  // as a Custom Domain on this Worker in a follow-up commit (preferred),
+  // or stays redirected/CNAME'd to apex at the DNS layer. Drop-now is
+  // the lower-risk path: a partial deploy where www binding fails would
+  // hold up the apex cutover too. Apex-only succeeds atomically.
+  //
+  // Rollback: revert this routes block + redeploy. Cloudflare Custom
+  // Domain detach is non-destructive; underlying DNS zone untouched.
+  "routes": [{ "pattern": "webkit.au", "custom_domain": true }]
 }
