@@ -29,6 +29,7 @@
     "astro-auto-import": "0.4.5",
     "astro-icon": "1.1.5",
     "astro-seo": "0.8.4",
+    "lucide-static": "^1.11.0",
     "motion-on-scroll": "^1.0.0",
     "tailwind-merge": "^3.3.1",
     "tailwind-variants": "^3.1.1",
