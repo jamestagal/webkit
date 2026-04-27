@@ -158,9 +158,6 @@ importers:
       '@types/nodemailer':
         specifier: ^7.0.4
         version: 7.0.11
-      '@webkit/billing-tokens':
-        specifier: workspace:*
-        version: link:../../packages/billing-tokens
       chart.js:
         specifier: ^4.5.1
         version: 4.5.1

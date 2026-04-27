@@ -4,7 +4,7 @@
  * e.g. a renamed key or dropped field on the Go side.
  */
 import { describe, it, expect } from "vitest";
-import { TIER_LIMITS, FEATURE_GATES } from "@webkit/billing-tokens";
+import { TIER_LIMITS, FEATURE_GATES } from "$lib/generated/tier-limits";
 
 const REQUIRED_TIERS = ["free", "starter", "growth", "agency_pro"] as const;
 const REQUIRED_KEYS = [
