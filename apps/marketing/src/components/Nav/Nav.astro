@@ -43,10 +43,19 @@ const navItems = [
               </ul>
             </nav>
             <div class="flex items-center gap-1">
-              <Button variant="ghost" href="/login" class="hidden whitespace-nowrap md:flex">
+              {/* cross-domain: marketing → app */}
+              <Button
+                variant="ghost"
+                href="https://app.webkit.au/login"
+                class="hidden whitespace-nowrap md:flex"
+              >
                 Log In
               </Button>
-              <Button variant="primary" href="/login" class="hidden whitespace-nowrap md:flex">
+              <Button
+                variant="primary"
+                href="https://app.webkit.au/login"
+                class="hidden whitespace-nowrap md:flex"
+              >
                 Get Started Free
               </Button>
             </div>

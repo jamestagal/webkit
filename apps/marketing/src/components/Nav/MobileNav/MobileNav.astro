@@ -70,8 +70,17 @@ const navItems = [
         </ul>
       </nav>
       <div class="mt-2 flex w-full flex-col gap-3 px-2">
-        <Button variant="outline" href="/login" class="mx-2 whitespace-nowrap">Log In</Button>
-        <Button class="mx-2" variant="primary" href="/login">Get Started Free</Button>
+        {/* cross-domain: marketing → app */}
+        <Button
+          variant="outline"
+          href="https://app.webkit.au/login"
+          class="mx-2 whitespace-nowrap"
+        >
+          Log In
+        </Button>
+        <Button class="mx-2" variant="primary" href="https://app.webkit.au/login">
+          Get Started Free
+        </Button>
       </div>
     </div>
   </dialog>

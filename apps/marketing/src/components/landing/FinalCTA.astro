@@ -37,7 +37,12 @@ import MarketingIcon from "@components/landing/MarketingIcon.astro";
         data-mos-delay="0.2"
         data-mos-anchor="#final-cta"
       >
-        <Button variant="primary" href="/login" class="shadow-lg shadow-primary-600/40">
+        {/* cross-domain: marketing → app */}
+        <Button
+          variant="primary"
+          href="https://app.webkit.au/login"
+          class="shadow-lg shadow-primary-600/40"
+        >
           Get Started Free
           <MarketingIcon name="arrow-right" class="ml-1 h-4 w-4" />
         </Button>
