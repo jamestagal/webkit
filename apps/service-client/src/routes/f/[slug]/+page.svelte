@@ -3,11 +3,11 @@
 	 * Public Form Page — thin wrapper.
 	 *
 	 * Owns only SEO metadata; hands `data` / `branding` to
-	 * QuestionnaireDocument, which renders the DynamicForm-branded
+	 * FormDocument, which renders the DynamicForm-branded
 	 * surface and owns auto-save + submission state.
 	 */
 	import SvelteSeo from 'svelte-seo';
-	import QuestionnaireDocument from '$lib/components/documents/QuestionnaireDocument.svelte';
+	import FormDocument from '$lib/components/documents/FormDocument.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -32,4 +32,4 @@
 	<title>{form?.name || 'Form'} - {agency?.name}</title>
 </svelte:head>
 
-<QuestionnaireDocument {data} {branding} previewMode={false} />
+<FormDocument {data} {branding} previewMode={false} />

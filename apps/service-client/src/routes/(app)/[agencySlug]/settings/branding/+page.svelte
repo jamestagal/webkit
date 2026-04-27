@@ -39,7 +39,7 @@
 		{ id: 'contract', label: 'Contracts', icon: FileText },
 		{ id: 'invoice', label: 'Invoices', icon: Receipt },
 		{ id: 'quotation', label: 'Quotations', icon: Receipt },
-		{ id: 'questionnaire', label: 'Questionnaires', icon: ClipboardList },
+		{ id: 'form', label: 'Forms', icon: ClipboardList },
 		{ id: 'email', label: 'Emails', icon: Mail }
 	];
 
@@ -94,7 +94,7 @@
 		contract: initialDoc('contract'),
 		invoice: initialDoc('invoice'),
 		quotation: initialDoc('quotation'),
-		questionnaire: initialDoc('questionnaire'),
+		form: initialDoc('form'),
 		email: initialDoc('email')
 	});
 
@@ -104,7 +104,7 @@
 		contract: createDirtyTracker(() => docForms.contract),
 		invoice: createDirtyTracker(() => docForms.invoice),
 		quotation: createDirtyTracker(() => docForms.quotation),
-		questionnaire: createDirtyTracker(() => docForms.questionnaire),
+		form: createDirtyTracker(() => docForms.form),
 		email: createDirtyTracker(() => docForms.email)
 	};
 
@@ -171,7 +171,7 @@
 		contract: computeEffective('contract'),
 		invoice: computeEffective('invoice'),
 		quotation: computeEffective('quotation'),
-		questionnaire: computeEffective('questionnaire'),
+		form: computeEffective('form'),
 		email: computeEffective('email')
 	});
 

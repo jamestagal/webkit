@@ -19,7 +19,7 @@ import { eq, and } from "drizzle-orm";
 const DocumentTypeSchema = v.picklist([
 	"contract",
 	"invoice",
-	"questionnaire",
+	"form",
 	"proposal",
 	"email",
 	"quotation",

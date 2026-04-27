@@ -462,7 +462,7 @@ create table if not exists agency_document_branding (
 
     agency_id uuid not null references agencies(id) on delete cascade,
 
-    -- Document type: 'contract', 'invoice', 'questionnaire', 'proposal', 'email'
+    -- Document type: 'contract', 'invoice', 'form', 'proposal', 'email'
     document_type varchar(50) not null,
 
     -- Toggle: use custom branding vs agency defaults
@@ -475,7 +475,7 @@ create table if not exists agency_document_branding (
     accent_gradient text,
 
     unique(agency_id, document_type),
-    constraint valid_document_type check (document_type in ('contract', 'invoice', 'questionnaire', 'proposal', 'email'))
+    constraint valid_document_type check (document_type in ('contract', 'invoice', 'form', 'proposal', 'email'))
 );
 
 -- Indexes for agency_document_branding

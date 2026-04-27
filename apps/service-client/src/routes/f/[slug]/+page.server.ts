@@ -7,11 +7,11 @@ export const load: PageServerLoad = async ({ params }) => {
 	try {
 		const result = await getSubmissionBySlug(params.slug);
 
-		// Resolve effective branding for questionnaire. Single source of truth
-		// for all colors + logo on the rendered page — do not read colors from
-		// `agency`. The QuestionnaireDocument wrapper converts this to HSL for
-		// DaisyUI and injects `--p`/`--s`/`--a` alongside `--brand-*`.
-		const branding = await getEffectiveBranding(result.agency.id, "questionnaire");
+		// Resolve effective branding for the form document type. Single source
+		// of truth for all colors + logo on the rendered page — do not read
+		// colors from `agency`. The FormDocument wrapper converts this to HSL
+		// for DaisyUI and injects `--p`/`--s`/`--a` alongside `--brand-*`.
+		const branding = await getEffectiveBranding(result.agency.id, "form");
 
 		const {
 			logoUrl: _logoUrl,

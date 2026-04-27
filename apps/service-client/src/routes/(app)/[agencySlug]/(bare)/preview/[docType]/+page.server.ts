@@ -48,7 +48,7 @@ const ALLOWED_DOC_TYPES: DocumentType[] = [
 	"contract",
 	"invoice",
 	"quotation",
-	"questionnaire",
+	"form",
 	"email",
 ];
 
@@ -184,7 +184,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			};
 		}
 
-		case "questionnaire": {
+		case "form": {
 			// Find the agency's most recent form template.
 			const [form] = await db
 				.select()

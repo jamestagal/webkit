@@ -166,7 +166,7 @@
 				label="Horizontal Logo"
 				value={value.logoUrl}
 				onChange={(v) => (value.logoUrl = v)}
-				tooltip="Used in: Proposals, Contracts, Questionnaires, Invoices, Email headers, PDF documents"
+				tooltip="Used in: Proposals, Contracts, Forms, Invoices, Email headers, PDF documents"
 			/>
 			<LogoOverrideField
 				label="Avatar Logo"

@@ -34,7 +34,7 @@
 	import ContractDocument from '$lib/components/documents/ContractDocument.svelte';
 	import InvoiceDocument from '$lib/components/documents/InvoiceDocument.svelte';
 	import QuotationDocument from '$lib/components/documents/QuotationDocument.svelte';
-	import QuestionnaireDocument from '$lib/components/documents/QuestionnaireDocument.svelte';
+	import FormDocument from '$lib/components/documents/FormDocument.svelte';
 	import type {
 		EffectiveBranding,
 		ProposalEffectiveBranding
@@ -142,8 +142,8 @@
 		branding={genericBranding}
 		previewMode={true}
 	/>
-{:else if data.docType === 'questionnaire'}
-	<QuestionnaireDocument
+{:else if data.docType === 'form'}
+	<FormDocument
 		data={{
 			submission: data.submission,
 			form: data.form,

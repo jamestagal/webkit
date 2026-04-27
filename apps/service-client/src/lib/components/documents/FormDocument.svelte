@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * QuestionnaireDocument — self-contained form/questionnaire renderer.
+	 * FormDocument — self-contained form/questionnaire renderer.
 	 *
 	 * Phase 2.1g-c-1 (markup lift only): lifts the existing /f/[slug]/+page.svelte
 	 * body into a component with branding plumbed through getEffectiveBranding.

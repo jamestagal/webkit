@@ -66,7 +66,7 @@ const PROPOSAL_DEFAULT_COVER_BG = "#E3EDF7";
  * 3. For any missing agency branding, fall back to defaults
  *
  * @param agencyId - The agency UUID
- * @param documentType - The document type ('contract', 'invoice', 'questionnaire', 'proposal', 'email')
+ * @param documentType - The document type ('contract', 'invoice', 'form', 'proposal', 'email', 'quotation')
  * @returns EffectiveBranding with resolved values
  */
 export async function getEffectiveBranding(

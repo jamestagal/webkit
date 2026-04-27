@@ -435,7 +435,7 @@ export const agencyDocumentBranding = pgTable(
 			.notNull()
 			.references(() => agencies.id, { onDelete: "cascade" }),
 
-		// Document type: 'contract', 'invoice', 'questionnaire', 'proposal', 'email'
+		// Document type: 'contract', 'invoice', 'form', 'proposal', 'email', 'quotation'
 		documentType: varchar("document_type", { length: 50 }).notNull(),
 
 		// Toggle: use custom branding vs agency defaults
@@ -461,7 +461,7 @@ export const agencyDocumentBranding = pgTable(
 	}),
 );
 
-export type DocumentType = "contract" | "invoice" | "questionnaire" | "proposal" | "email" | "quotation";
+export type DocumentType = "contract" | "invoice" | "form" | "proposal" | "email" | "quotation";
 
 // =============================================================================
 // FORM BUILDER TABLES
