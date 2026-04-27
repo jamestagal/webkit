@@ -1,0 +1,165 @@
+---
+import Button from "@components/Button/Button.astro";
+import MarketingIcon from "@components/landing/MarketingIcon.astro";
+import { TIER_LIMITS } from "../../../../service-client/src/lib/generated/tier-limits";
+
+// Feature counts pulled from the canonical Go-source-of-truth tier-limits.ts.
+// Dollar amounts are hardcoded to match the current Stripe products
+// (verify against Stripe dashboard before relying on these values).
+//
+// Per Q1 / Option A: 4 self-serve tiles (Free / Starter / Growth / Agency Pro).
+// Enterprise is custom-quote only — surfaced as a separate "Need more?"
+// Contact Sales section below the grid (NOT as a 5th tile), matching the
+// canonical billing model where enterprise tiers are negotiated per-agency.
+//
+// Inventory metric labels rephrased where they don't match what tier-limits.ts
+// actually tracks: "consultations/month" and "templates" don't appear in
+// tier-limits.ts and were drift from the 2026-02 LandingPage.svelte. Replaced
+// with metrics that are tracked (team members, AI generations, SEO audits,
+// client records).
+
+const tiers = [
+  {
+    name: "Free",
+    price: "$0",
+    period: "forever",
+    description: "Perfect for solo freelancers getting started",
+    features: [
+      `${TIER_LIMITS.free.max_members} team member`,
+      `${TIER_LIMITS.free.ai_generation} AI generations/mo`,
+      `${TIER_LIMITS.free.seo_audit} SEO audits/mo`,
+      `${TIER_LIMITS.free.max_clients} client records`,
+      "Basic proposals",
+    ],
+    cta: "Get Started Free",
+    featured: false,
+  },
+  {
+    name: "Starter",
+    price: "$29",
+    period: "/month",
+    description: "For small agencies building their client base",
+    features: [
+      `${TIER_LIMITS.starter.max_members} team members`,
+      `${TIER_LIMITS.starter.ai_generation} AI generations/mo`,
+      `${TIER_LIMITS.starter.seo_audit} SEO audits/mo`,
+      `${TIER_LIMITS.starter.max_clients} client records`,
+      "PDF export",
+      "Email delivery",
+    ],
+    cta: "Start Free Trial",
+    featured: false,
+  },
+  {
+    name: "Growth",
+    price: "$79",
+    period: "/month",
+    description: "For growing agencies that need more power",
+    features: [
+      `${TIER_LIMITS.growth.max_members} team members`,
+      `${TIER_LIMITS.growth.ai_generation} AI generations/mo`,
+      `${TIER_LIMITS.growth.seo_audit} SEO audits/mo`,
+      `${TIER_LIMITS.growth.max_clients} client records`,
+      "Custom branding",
+      "API access",
+    ],
+    cta: "Start Free Trial",
+    featured: true,
+  },
+  {
+    name: "Agency Pro",
+    price: "$199",
+    period: "/month",
+    description: "For established agencies with advanced needs",
+    features: [
+      `${TIER_LIMITS.agency_pro.max_members} team members`,
+      `${TIER_LIMITS.agency_pro.ai_generation} AI generations/mo`,
+      `${TIER_LIMITS.agency_pro.seo_audit} SEO audits/mo`,
+      `${TIER_LIMITS.agency_pro.max_clients} client records`,
+      "Priority support",
+      "Custom domain & SSO",
+    ],
+    cta: "Get Started",
+    featured: false,
+  },
+];
+---
+
+<section id="pricing" class="relative my-20 md:my-32">
+  <div class="site-container mx-auto">
+    <div class="mx-auto max-w-2xl text-center" data-mos="fade-up" data-mos-anchor="#pricing">
+      <h2 class="text-base-50 text-3xl font-bold tracking-tight md:text-4xl">
+        Simple, transparent pricing
+      </h2>
+      <p class="text-base-300 mt-4 text-base md:text-lg">
+        Start free. Upgrade as your agency grows. No hidden fees.
+      </p>
+    </div>
+
+    <ul class="mx-auto mt-14 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      {
+        tiers.map((t, i) => (
+          <li
+            class:list={[
+              "relative flex flex-col rounded-2xl border p-7",
+              t.featured
+                ? "border-primary-500/50 bg-base-800/60 shadow-2xl shadow-primary-600/20 ring-1 ring-primary-500/20"
+                : "border-base-800 bg-base-800/30",
+            ]}
+            data-mos="fade-up"
+            data-mos-delay={i * 0.08}
+            data-mos-anchor="#pricing"
+          >
+            {t.featured && (
+              <span class="from-primary-600 to-secondary-600 absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r px-3 py-1 text-xs font-semibold text-white shadow-md">
+                Most Popular
+              </span>
+            )}
+            <h3 class="text-base-50 text-xl font-semibold">{t.name}</h3>
+            <p class="text-base-400 mt-1 text-sm">{t.description}</p>
+            <p class="mt-4 flex items-baseline gap-1">
+              <span class="text-base-50 text-4xl font-extrabold">{t.price}</span>
+              <span class="text-base-400 text-sm">{t.period}</span>
+            </p>
+            <ul class="mt-6 flex flex-col gap-2.5">
+              {t.features.map((f) => (
+                <li class="flex items-start gap-2">
+                  <span class="bg-primary-600/15 text-primary-400 mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full">
+                    <MarketingIcon name="check" class="h-3 w-3" />
+                  </span>
+                  <span class="text-base-200 text-sm">{f}</span>
+                </li>
+              ))}
+            </ul>
+            <div class="mt-7">
+              <Button
+                variant={t.featured ? "primary" : "outline"}
+                href="/login"
+                class="w-full justify-center"
+              >
+                {t.cta}
+              </Button>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+
+    <!-- Contact Sales section (per Q1 Option A): Enterprise is custom-quote
+         only, surfaced as a separate band beneath the 4-tile grid. Internal
+         Astro link to /contact (NOT cross-domain). -->
+    <div
+      class="border-primary-500/20 bg-base-800/40 mt-10 flex flex-col items-start gap-4 rounded-2xl border p-7 backdrop-blur md:flex-row md:items-center md:justify-between"
+      data-mos="fade-up"
+      data-mos-anchor="#pricing"
+    >
+      <div>
+        <p class="text-base-50 text-lg font-semibold">Need more?</p>
+        <p class="text-base-300 mt-1 text-sm md:text-base">
+          Custom limits, dedicated support, SSO, and per-agency pricing for established teams.
+        </p>
+      </div>
+      <Button variant="outline" href="/contact">Contact Sales</Button>
+    </div>
+  </div>
+</section>

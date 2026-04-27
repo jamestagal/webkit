@@ -1,0 +1,47 @@
+---
+import Button from "@components/Button/Button.astro";
+import MarketingIcon from "@components/landing/MarketingIcon.astro";
+---
+
+<section id="final-cta" class="relative my-20 md:my-32">
+  <div class="site-container mx-auto">
+    <div
+      class="border-primary-500/30 from-primary-600/15 via-secondary-600/10 relative overflow-hidden rounded-3xl border bg-gradient-to-br to-transparent p-10 text-center md:p-16"
+    >
+      <!-- inside glow -->
+      <div
+        class="bg-primary-600/30 absolute -top-1/2 left-1/2 -z-10 aspect-square w-[80%] -translate-x-1/2 rounded-full blur-3xl"
+        aria-hidden="true"
+      >
+      </div>
+
+      <h2
+        class="text-base-50 mx-auto max-w-2xl text-3xl font-bold tracking-tight md:text-4xl"
+        data-mos="fade-up"
+        data-mos-anchor="#final-cta"
+      >
+        Ready to streamline your agency workflow?
+      </h2>
+      <p
+        class="text-base-300 mx-auto mt-5 max-w-xl text-base md:text-lg"
+        data-mos="fade-up"
+        data-mos-delay="0.1"
+        data-mos-anchor="#final-cta"
+      >
+        Join web agencies using Webkit to create professional client experiences. Start with our
+        free plan — no credit card required.
+      </p>
+      <div
+        class="mt-8 flex justify-center"
+        data-mos="fade-up"
+        data-mos-delay="0.2"
+        data-mos-anchor="#final-cta"
+      >
+        <Button variant="primary" href="/login" class="shadow-lg shadow-primary-600/40">
+          Get Started Free
+          <MarketingIcon name="arrow-right" class="ml-1 h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,50 @@
+---
+import MarketingIcon from "@components/landing/MarketingIcon.astro";
+
+const badges: Array<{
+  icon: Parameters<typeof MarketingIcon>[0]["name"];
+  title: string;
+  description: string;
+}> = [
+  {
+    icon: "shield",
+    title: "GDPR Compliant",
+    description: "Data export & deletion built in",
+  },
+  {
+    icon: "bolt",
+    title: "Stripe Payments",
+    description: "Accept payments on invoices",
+  },
+  {
+    icon: "chart-bar",
+    title: "Analytics & Reports",
+    description: "Track revenue & conversion",
+  },
+];
+---
+
+<section id="trust" class="my-16 md:my-20">
+  <div class="site-container mx-auto">
+    <ul class="grid gap-6 sm:grid-cols-3">
+      {
+        badges.map((b, i) => (
+          <li
+            class="border-base-800 bg-base-800/30 flex items-start gap-4 rounded-xl border p-5"
+            data-mos="fade-up"
+            data-mos-delay={i * 0.1}
+            data-mos-anchor="#trust"
+          >
+            <span class="bg-primary-600/15 text-primary-400 flex h-11 w-11 flex-none items-center justify-center rounded-lg">
+              <MarketingIcon name={b.icon} class="h-5 w-5" />
+            </span>
+            <div>
+              <p class="text-base-50 font-semibold">{b.title}</p>
+              <p class="text-base-400 mt-0.5 text-sm">{b.description}</p>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
