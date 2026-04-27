@@ -3,6 +3,9 @@
 *.pem
 
 # Environment files
+# Bare `.env` matches at any depth — git applies no-slash patterns
+# recursively. Verified apps/service-client/.env is caught by this
+# rule via `git check-ignore -v`. No need for `**/.env`.
 .env
 .env.local
 .env.*.local
