@@ -1,38 +1,37 @@
 <script lang="ts">
 	import { Building2, Plus } from 'lucide-svelte';
-	import LandingPage from '$lib/components/LandingPage.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 </script>
 
-{#if data.isAuthenticated}
-	<!-- Authenticated user with no agency — show create agency card -->
-	<div class="flex min-h-[60vh] items-center justify-center">
-		<div class="card bg-base-100 border border-base-300 max-w-md w-full">
-			<div class="card-body items-center text-center">
-				<div
-					class="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4"
-				>
-					<Building2 class="h-8 w-8" />
-				</div>
-				<h1 class="text-2xl font-bold">Welcome to Webkit</h1>
-				<p class="text-base-content/70">
-					You don't have an agency yet. Create one to get started with consultations and proposals.
-				</p>
-				<div class="mt-6 flex flex-col gap-3 w-full">
-					<a href="/agencies/create" class="btn btn-primary">
-						<Plus class="h-4 w-4" />
-						Create Agency
-					</a>
-				</div>
-				<div class="mt-4 text-sm text-base-content/50">
-					Logged in as {data.email}
-				</div>
+<!--
+	Post-cutover (PR3 / marketing-site-astro): the public landing has moved
+	to webkit.au (Astro Worker). Unauthenticated visitors are redirected to
+	/login by +page.server.ts before reaching this component, so the only
+	remaining UX path here is the authenticated-but-no-agency case.
+-->
+<div class="flex min-h-[60vh] items-center justify-center">
+	<div class="card bg-base-100 border border-base-300 max-w-md w-full">
+		<div class="card-body items-center text-center">
+			<div
+				class="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4"
+			>
+				<Building2 class="h-8 w-8" />
+			</div>
+			<h1 class="text-2xl font-bold">Welcome to Webkit</h1>
+			<p class="text-base-content/70">
+				You don't have an agency yet. Create one to get started with consultations and proposals.
+			</p>
+			<div class="mt-6 flex flex-col gap-3 w-full">
+				<a href="/agencies/create" class="btn btn-primary">
+					<Plus class="h-4 w-4" />
+					Create Agency
+				</a>
+			</div>
+			<div class="mt-4 text-sm text-base-content/50">
+				Logged in as {data.email}
 			</div>
 		</div>
 	</div>
-{:else}
-	<!-- Not authenticated — show public landing page -->
-	<LandingPage />
-{/if}
+</div>
