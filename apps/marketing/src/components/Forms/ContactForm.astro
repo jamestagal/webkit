@@ -3,9 +3,9 @@ import Button from "@components/Button/Button.astro";
 ---
 
 <div
-  class=`group max-w-xl relative h-full w-full rounded-2xl bg-gradient-to-br from-primary-400 via-base-300/70 to-base-300/70
+  class={`group max-w-xl relative h-full w-full rounded-2xl bg-gradient-to-br from-primary-400 via-base-300/70 to-base-300/70
   dark:from-primary-500 dark:via-base-300/50 dark:to-base-300/50
-  after:absolute after:rounded-[calc(1rem-1px)] after:bg-base-100/30 dark:after:bg-base-800/50 after:inset-[1px]`
+  after:absolute after:rounded-[calc(1rem-1px)] after:bg-base-100/30 dark:after:bg-base-800/50 after:inset-[1px]`}
 >
   <!-- background glow -->
   <div class="bg-primary-600/70 absolute top-0 left-0 -z-10 mx-auto aspect-square w-[60%] blur-3xl">
@@ -20,8 +20,13 @@ import Button from "@components/Button/Button.astro";
       <p class="description mt-2 text-sm">
         Inputs marked with <span class="text-primary-600 dark:text-primary-400">*</span> are required.
       </p>
-      <form id="contact-form" name="contact form" class="mt-8 flex flex-col gap-4 text-start">
-        <!-- <input type="hidden" name="form-name" value="contact" /> -->
+      <form
+        id="contact-form"
+        name="contact-form"
+        method="POST"
+        action="/api/contact"
+        class="mt-8 flex flex-col gap-4 text-start"
+      >
         <div>
           <div class="xs:grid-cols-2 grid gap-4">
             <div>
@@ -87,8 +92,88 @@ import Button from "@components/Button/Button.astro";
             placeholder="How can we help?"
             required></textarea>
         </div>
-        <Button variant="primary" type="submit" class="mt-1">Submit</Button>
+        <Button variant="primary" type="submit" class="mt-1">
+          <span data-state="idle">Submit</span>
+          <span data-state="sending" class="hidden">Sending…</span>
+        </Button>
+        <p
+          id="contact-form__status"
+          role="status"
+          aria-live="polite"
+          class="text-sm font-medium hidden"
+        ></p>
       </form>
     </div>
   </div>
 </div>
+
+<script>
+  function initContactForm() {
+    const form = document.getElementById("contact-form") as HTMLFormElement | null;
+    const status = document.getElementById("contact-form__status");
+    const submitBtn = form?.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+    const idleLabel = submitBtn?.querySelector('[data-state="idle"]') as HTMLElement | null;
+    const sendingLabel = submitBtn?.querySelector('[data-state="sending"]') as HTMLElement | null;
+    if (!form || !status || !submitBtn || !idleLabel || !sendingLabel) return;
+
+    function setStatus(message: string, kind: "ok" | "error"): void {
+      if (!status) return;
+      status.textContent = message;
+      status.classList.remove(
+        "hidden",
+        "text-primary-600",
+        "dark:text-primary-400",
+        "text-red-600",
+        "dark:text-red-400",
+      );
+      status.classList.add(
+        kind === "ok" ? "text-primary-600" : "text-red-600",
+        kind === "ok" ? "dark:text-primary-400" : "dark:text-red-400",
+      );
+    }
+
+    function setSending(sending: boolean): void {
+      if (!submitBtn || !idleLabel || !sendingLabel) return;
+      submitBtn.disabled = sending;
+      idleLabel.classList.toggle("hidden", sending);
+      sendingLabel.classList.toggle("hidden", !sending);
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!form || !status) return;
+      setSending(true);
+      status.classList.add("hidden");
+      try {
+        const response = await fetch(form.action, {
+          method: "POST",
+          body: new FormData(form),
+          headers: { Accept: "application/json" },
+        });
+        const body = (await response.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+        };
+        if (response.ok && body.ok) {
+          setStatus("Thanks — we'll be in touch shortly.", "ok");
+          form.reset();
+        } else {
+          setStatus(
+            body.error ?? "Could not send your message. Please try again.",
+            "error",
+          );
+        }
+      } catch {
+        setStatus(
+          "Network error. Please try again or email hello@webkit.au directly.",
+          "error",
+        );
+      } finally {
+        setSending(false);
+      }
+    });
+  }
+
+  initContactForm();
+  document.addEventListener("astro:after-swap", initContactForm);
+</script>
