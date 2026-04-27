@@ -1,24 +1,22 @@
 import { type SiteDataProps } from "../types/configDataTypes";
 
-// Update this file with your site specific information
 const siteData: SiteDataProps = {
-  name: "Galaxy",
-  // Your website's title and description (meta fields)
-  title: "Galaxy - a slick startup / SaaS theme built using Astro and Tailwind CSS",
+  name: "Webkit",
+  title: "Webkit — Client Consultation & Proposal Platform for Web Agencies",
   description:
-    "Get your new startup website up and running quickly with our beautiful website theme designed using Astro and Tailwind CSS. Perfect for freelancers, developers, startups, and personal use.",
+    "Create professional consultations, proposals, quotations, contracts and invoices for your web agency. Customizable forms, agency branding, AI-powered generation, and Content Intelligence with SEO audits. Free tier available.",
 
-  // Your information for blog post purposes
   author: {
-    name: "Cosmic Themes",
-    email: "creator@cosmicthemes.com",
-    twitter: "Cosmic_Themes",
+    name: "Webkit",
+    email: "hello@webkit.au",
+    twitter: "webkit",
   },
 
-  // default image for meta tags if the page doesn't have an image already
+  // OG image fallback for pages that don't supply their own. 1200x630 PNG —
+  // copied from apps/service-client/static/og-image.png in this commit.
   defaultImage: {
-    src: "/images/cosmic-themes-logo.jpg",
-    alt: "Cosmic Themes logo",
+    src: "/og-image.png",
+    alt: "Webkit — Client Consultation & Proposal Platform",
   },
 };
 
