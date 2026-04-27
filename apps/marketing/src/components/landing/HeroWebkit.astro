@@ -1,0 +1,108 @@
+---
+import Button from "@components/Button/Button.astro";
+import MarketingIcon from "@components/landing/MarketingIcon.astro";
+---
+
+<section
+  id="hero"
+  class="relative flex w-full overflow-hidden pt-32 pb-24 md:pt-40 md:pb-32"
+>
+  <!-- decorative gradient blur (primary→secondary) -->
+  <div
+    class="from-primary-600/40 via-secondary-600/30 absolute inset-0 bottom-1/2 -z-10 mx-auto aspect-square w-[65%] max-w-5xl -translate-y-2/3 rounded-full bg-gradient-to-br to-transparent blur-[100px]"
+    aria-hidden="true"
+  >
+  </div>
+
+  <!-- subtle background grid -->
+  <div class="absolute inset-0 -z-20 flex overflow-hidden" aria-hidden="true">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      class="text-base-500/10 relative h-full w-full xl:scale-125"
+    >
+      <defs>
+        <pattern id="hero-grid" width="60" height="60" patternUnits="userSpaceOnUse">
+          <path d="M 60 0 L 0 0 0 60" fill="none" stroke="currentColor" stroke-width="1.5"></path>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#hero-grid)"></rect>
+    </svg>
+  </div>
+
+  <div class="site-container mx-auto max-w-4xl gap-8 text-center">
+    <!-- AI badge -->
+    <div
+      class="mb-6 flex w-full items-center justify-center"
+      data-mos="fade-up"
+      data-mos-anchor="#hero"
+    >
+      <span
+        class="border-primary-500/30 bg-base-800/60 text-base-100 ring-primary-500/20 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm ring-2 backdrop-blur"
+      >
+        <MarketingIcon name="sparkles" class="text-primary-400 h-4 w-4" />
+        Now with AI-powered proposal generation
+      </span>
+    </div>
+
+    <!-- Headline with gradient span -->
+    <h1
+      class="text-base-50 pb-2 text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl"
+      data-mos="fade-up"
+      data-mos-delay="0.1"
+      data-mos-anchor="#hero"
+    >
+      Everything your agency needs to{" "}
+      <span
+        class="from-primary-500 via-secondary-600 to-accent-600 bg-gradient-to-r bg-clip-text text-transparent"
+      >win clients</span>
+    </h1>
+
+    <p
+      class="text-base-300 mx-auto mt-6 max-w-2xl text-base sm:text-lg md:text-xl"
+      data-mos="fade-up"
+      data-mos-delay="0.2"
+      data-mos-anchor="#hero"
+    >
+      From first consultation to final invoice — Webkit gives web agencies a complete, branded
+      workflow for proposals, quotations, contracts, and more. Start free.
+    </p>
+
+    <!-- CTAs -->
+    <div
+      class="mx-auto mt-10 flex max-w-md flex-col justify-center gap-3 px-4 sm:flex-row"
+      data-mos="fade-up"
+      data-mos-delay="0.4"
+      data-mos-anchor="#hero"
+    >
+      <Button variant="primary" href="/login" class="shadow-lg shadow-primary-600/30">
+        Get Started Free
+        <MarketingIcon name="arrow-right" class="ml-1 h-4 w-4" />
+      </Button>
+      <Button variant="ghost" href="#features">
+        See Features
+        <MarketingIcon name="chevron-right" class="ml-1 h-4 w-4" />
+      </Button>
+    </div>
+
+    <!-- Trust signals row -->
+    <ul
+      class="text-base-400 mx-auto mt-10 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm"
+      data-mos="fade-up"
+      data-mos-delay="0.6"
+      data-mos-anchor="#hero"
+    >
+      <li class="flex items-center gap-1.5">
+        <MarketingIcon name="check" class="text-primary-400 h-4 w-4" />
+        Free forever plan
+      </li>
+      <li class="flex items-center gap-1.5">
+        <MarketingIcon name="check" class="text-primary-400 h-4 w-4" />
+        No credit card required
+      </li>
+      <li class="flex items-center gap-1.5">
+        <MarketingIcon name="check" class="text-primary-400 h-4 w-4" />
+        Set up in 2 minutes
+      </li>
+    </ul>
+  </div>
+</section>

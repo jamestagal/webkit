@@ -1,0 +1,74 @@
+---
+import MarketingIcon from "@components/landing/MarketingIcon.astro";
+
+const aiCards: Array<{
+  icon: Parameters<typeof MarketingIcon>[0]["name"];
+  title: string;
+  description: string;
+}> = [
+  {
+    icon: "file-text",
+    title: "Proposal Generation",
+    description:
+      "AI-generated executive summaries, scope recommendations, and pricing suggestions based on your consultation data.",
+  },
+  {
+    icon: "sparkles",
+    title: "Content Enhancement",
+    description:
+      "Smart content analysis and optimization suggestions that help you deliver polished, professional deliverables.",
+  },
+  {
+    icon: "search",
+    title: "SEO Intelligence",
+    description:
+      "Automated technical audits, keyword research, and competitor analysis. Generate branded PDF reports for clients.",
+  },
+];
+---
+
+<section id="ai" class="relative my-20 overflow-hidden md:my-32">
+  <!-- gradient background -->
+  <div
+    class="via-primary-600/10 absolute inset-0 -z-10 bg-gradient-to-b from-transparent to-transparent"
+    aria-hidden="true"
+  >
+  </div>
+
+  <div class="site-container mx-auto">
+    <div class="mx-auto max-w-2xl text-center" data-mos="fade-up" data-mos-anchor="#ai">
+      <span
+        class="border-primary-500/30 bg-base-800/60 text-base-100 ring-primary-500/20 mb-4 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm ring-2 backdrop-blur"
+      >
+        <MarketingIcon name="sparkles" class="text-primary-400 h-4 w-4" />
+        AI-Powered Platform
+      </span>
+      <h2 class="text-base-50 text-3xl font-bold tracking-tight md:text-4xl">
+        AI that works across your entire workflow
+      </h2>
+      <p class="text-base-300 mt-4 text-base md:text-lg">
+        From generating proposals to analyzing SEO performance, AI is woven into every tool —
+        saving your team hours on every project.
+      </p>
+    </div>
+
+    <ul class="mt-14 grid gap-5 md:grid-cols-3">
+      {
+        aiCards.map((c, i) => (
+          <li
+            class="border-primary-500/20 bg-base-900/60 hover:border-primary-500/50 group relative flex flex-col rounded-2xl border p-6 backdrop-blur transition"
+            data-mos="fade-up"
+            data-mos-delay={i * 0.1}
+            data-mos-anchor="#ai"
+          >
+            <span class="from-primary-600 to-secondary-600 shadow-primary-600/30 mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg">
+              <MarketingIcon name={c.icon} class="h-6 w-6" />
+            </span>
+            <h3 class="text-base-50 text-xl font-semibold">{c.title}</h3>
+            <p class="text-base-300 mt-3 text-sm leading-relaxed">{c.description}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>

@@ -1,0 +1,90 @@
+---
+import MarketingIcon from "@components/landing/MarketingIcon.astro";
+
+const features: Array<{
+  icon: Parameters<typeof MarketingIcon>[0]["name"];
+  title: string;
+  description: string;
+}> = [
+  {
+    icon: "clipboard-list",
+    title: "Consultations",
+    description:
+      "Structured discovery sessions with customizable forms. Capture client needs, goals, and technical requirements in one place.",
+  },
+  {
+    icon: "file-text",
+    title: "Proposals",
+    description:
+      "Professional proposals with executive summaries, scope breakdowns, and pricing. Rich text editing with PDF export.",
+  },
+  {
+    icon: "receipt",
+    title: "Quotations",
+    description:
+      "Detailed quotations with line items, optional packages, terms and conditions. Share via branded public links.",
+  },
+  {
+    icon: "signature",
+    title: "Contracts",
+    description:
+      "Digital contracts with e-signatures. Template system for reusable agreements. Track signing status in real-time.",
+  },
+  {
+    icon: "send",
+    title: "Invoices",
+    description:
+      "Generate invoices from quotations or scratch. Stripe integration for online payments. Automated email delivery.",
+  },
+  {
+    icon: "layout-grid",
+    title: "Custom Forms",
+    description:
+      "Build branded intake forms with 14 configurable categories. Embed on your site or share direct links with clients.",
+  },
+  {
+    icon: "users",
+    title: "Client Management",
+    description:
+      "Centralized client directory with contact details, communication history, and linked documents across all workflows.",
+  },
+  {
+    icon: "search",
+    title: "Content Intelligence",
+    description:
+      "SEO audits with technical analysis, keyword rankings, competitor insights, and PageSpeed performance. Generate branded PDF reports for clients.",
+  },
+];
+---
+
+<section id="features" class="relative my-20 md:my-32">
+  <div class="site-container mx-auto">
+    <div class="mx-auto max-w-2xl text-center" data-mos="fade-up" data-mos-anchor="#features">
+      <h2 class="text-base-50 text-3xl font-bold tracking-tight md:text-4xl">
+        One platform for your entire client workflow
+      </h2>
+      <p class="text-base-300 mt-4 text-base md:text-lg">
+        Stop juggling separate tools. Webkit connects every step from discovery to delivery.
+      </p>
+    </div>
+
+    <ul class="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {
+        features.map((f, i) => (
+          <li
+            class="border-base-800 bg-base-800/40 hover:border-primary-500/40 hover:bg-base-800/60 group relative flex flex-col rounded-2xl border p-6 transition"
+            data-mos="fade-up"
+            data-mos-delay={(i % 4) * 0.1}
+            data-mos-anchor="#features"
+          >
+            <span class="from-primary-600 to-secondary-600 shadow-primary-600/25 mb-4 inline-flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br text-white shadow-md">
+              <MarketingIcon name={f.icon} class="h-5 w-5" />
+            </span>
+            <h3 class="text-base-50 text-lg font-semibold">{f.title}</h3>
+            <p class="text-base-300 mt-2 text-sm leading-relaxed">{f.description}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>

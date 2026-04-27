@@ -1,0 +1,119 @@
+---
+import MarketingIcon from "@components/landing/MarketingIcon.astro";
+
+const checklistItems = [
+  "Custom logo & color palette",
+  "Branded public links for clients",
+  "Customizable form categories & options",
+  "Gradient accents for premium feel",
+  "Per-agency document templates",
+];
+---
+
+<section id="branding" class="relative my-20 md:my-32">
+  <div class="site-container mx-auto">
+    <div class="grid gap-12 lg:grid-cols-2 lg:items-center lg:gap-16">
+      <!-- Left column: copy + checklist -->
+      <div data-mos="fade-up" data-mos-anchor="#branding">
+        <span
+          class="border-primary-500/30 bg-base-800/60 text-base-100 ring-primary-500/20 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm ring-2 backdrop-blur"
+        >
+          <MarketingIcon name="palette" class="text-primary-400 h-4 w-4" />
+          Your brand, everywhere
+        </span>
+        <h2 class="text-base-50 mt-5 text-3xl font-bold tracking-tight md:text-4xl">
+          White-label everything with your agency branding
+        </h2>
+        <p class="text-base-300 mt-4 text-base md:text-lg">
+          Every client touchpoint — forms, proposals, contracts, invoices — carries your agency's
+          logo, colors, and identity. No "powered by" watermarks.
+        </p>
+        <ul class="mt-8 space-y-3">
+          {
+            checklistItems.map((item) => (
+              <li class="flex items-start gap-3">
+                <span class="bg-primary-600/15 text-primary-400 mt-0.5 inline-flex h-6 w-6 flex-none items-center justify-center rounded-full">
+                  <MarketingIcon name="check" class="h-4 w-4" />
+                </span>
+                <span class="text-base-200">{item}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+
+      <!-- Right column: hand-rolled decorative agency-preview tile (per Flag 1).
+           Static SVG/HTML mock — no live data. References LandingPage.svelte
+           lines 398-425 for structure. -->
+      <div
+        class="relative"
+        data-mos="fade-up"
+        data-mos-delay="0.2"
+        data-mos-anchor="#branding"
+      >
+        <!-- glow halo -->
+        <div
+          class="from-primary-600/30 to-secondary-600/20 absolute inset-0 -z-10 mx-auto aspect-square w-3/4 -translate-y-6 translate-x-6 rounded-full bg-gradient-to-br blur-3xl"
+          aria-hidden="true"
+        >
+        </div>
+        <div
+          class="border-primary-500/20 bg-base-900/80 shadow-primary-600/10 relative rounded-2xl border p-7 shadow-xl backdrop-blur"
+        >
+          <!-- top: logo square + agency name -->
+          <div class="flex items-center gap-3">
+            <span
+              class="from-primary-600 to-secondary-600 shadow-primary-600/30 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br shadow-md"
+              aria-hidden="true"
+            >
+              <MarketingIcon name="world" class="h-6 w-6 text-white" />
+            </span>
+            <div>
+              <p class="text-base-50 font-semibold">Your Agency Name</p>
+              <p class="text-base-400 text-xs">your-agency.webkit.au</p>
+            </div>
+          </div>
+
+          <!-- color swatches -->
+          <div class="mt-6 grid grid-cols-3 gap-2">
+            <div class="bg-primary-600/10 border-primary-500/30 rounded-md border p-2 text-center">
+              <span class="bg-primary-600 mx-auto block h-4 w-full rounded"></span>
+              <span class="text-base-400 mt-1 block text-[10px]">Primary</span>
+            </div>
+            <div
+              class="bg-secondary-600/10 border-secondary-500/30 rounded-md border p-2 text-center"
+            >
+              <span class="bg-secondary-600 mx-auto block h-4 w-full rounded"></span>
+              <span class="text-base-400 mt-1 block text-[10px]">Secondary</span>
+            </div>
+            <div class="bg-accent-600/10 border-accent-500/30 rounded-md border p-2 text-center">
+              <span class="bg-accent-600 mx-auto block h-4 w-full rounded"></span>
+              <span class="text-base-400 mt-1 block text-[10px]">Accent</span>
+            </div>
+          </div>
+
+          <!-- placeholder content lines -->
+          <div class="mt-6 space-y-2">
+            <span class="bg-base-700 block h-2 w-full rounded"></span>
+            <span class="bg-base-700 block h-2 w-5/6 rounded"></span>
+            <span class="bg-base-700 block h-2 w-3/4 rounded"></span>
+          </div>
+
+          <!-- mock buttons -->
+          <div class="mt-6 flex gap-2">
+            <span
+              class="from-primary-600 to-secondary-600 inline-flex flex-1 items-center justify-center rounded-md bg-gradient-to-r px-3 py-1.5 text-xs font-medium text-white"
+            >
+              Send Proposal
+            </span>
+            <span
+              class="border-base-600 text-base-200 inline-flex items-center justify-center rounded-md border px-3 py-1.5 text-xs font-medium"
+            >
+              Preview
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
