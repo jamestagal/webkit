@@ -100,7 +100,7 @@
 		isSearching = true;
 		searchCompleted = false;
 		try {
-			searchResults = await searchClients({ query: clientSearch, limit: 5 });
+			searchResults = await searchClients({ query: clientSearch, limit: 5 }).run();
 			showSearchResults = true;
 			searchCompleted = true;
 		} catch (err) {
