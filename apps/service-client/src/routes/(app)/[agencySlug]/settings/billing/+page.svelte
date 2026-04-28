@@ -20,6 +20,7 @@
 	} from '$lib/api/billing.remote';
 	import { formatDate } from '$lib/utils/formatting';
 	import UsageWarningBanner from '$lib/components/UsageWarningBanner.svelte';
+	import { TIER_LIMITS, type Tier } from '$lib/generated/tier-limits';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -73,7 +74,21 @@
 	let isUpgrading = $state<string | null>(null);
 	let isOpeningPortal = $state(false);
 
-	// Pricing data
+	function formatLimit(value: number): string {
+		return value === -1 ? 'Unlimited' : value.toLocaleString();
+	}
+
+	function deriveQuotaFeatures(tier: Tier): string[] {
+		const limits = TIER_LIMITS[tier];
+		return [
+			`${formatLimit(limits.max_members)} team members`,
+			`${formatLimit(limits.ai_generation)} AI generations/month`,
+			`${formatLimit(limits.seo_audit)} SEO audits/month`
+		];
+	}
+
+	// Pricing data — numeric quotas derived from TIER_LIMITS (Go SSoT).
+	// Non-numeric features (PDF export, custom branding, etc.) remain explicit.
 	const tiers = [
 		{
 			id: 'starter',
@@ -82,10 +97,7 @@
 			monthlyPrice: 29,
 			yearlyPrice: 290,
 			features: [
-				'3 team members',
-				'25 consultations/month',
-				'25 AI generations/month',
-				'5 SEO audits/month',
+				...deriveQuotaFeatures('starter'),
 				'5 templates',
 				'PDF export',
 				'Email delivery'
@@ -99,10 +111,7 @@
 			yearlyPrice: 790,
 			popular: true,
 			features: [
-				'10 team members',
-				'100 consultations/month',
-				'100 AI generations/month',
-				'15 SEO audits/month',
+				...deriveQuotaFeatures('growth'),
 				'Backlink analysis',
 				'20 templates',
 				'Custom branding',
@@ -118,10 +127,7 @@
 			monthlyPrice: 199,
 			yearlyPrice: 1990,
 			features: [
-				'Unlimited team members',
-				'Unlimited consultations',
-				'Unlimited AI generations',
-				'Unlimited SEO audits',
+				...deriveQuotaFeatures('agency_pro'),
 				'Backlink analysis',
 				'Unlimited templates',
 				'Priority support',
