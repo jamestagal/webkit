@@ -99,7 +99,7 @@
 				ownersOnly: ownersOnly || undefined,
 				limit: pageSize,
 				offset: (currentPage - 1) * pageSize
-			}).run();
+			});
 			users = result.users;
 			total = result.total;
 		} catch (e) {
@@ -154,7 +154,7 @@
 					'Updated',
 					selectedUser.user.isSuperAdmin ? 'Super admin access revoked' : 'Super admin access granted'
 				);
-				selectedUser = await getUserDetails(selectedUser.user.id).run();
+				selectedUser = await getUserDetails(selectedUser.user.id);
 				await loadUsers();
 			} else {
 				toast.error('Error', result.error || 'Failed to update user');
@@ -189,7 +189,7 @@
 				const name = removingAgency.agencyName;
 				closeRemoveAgencyModal();
 				toast.success('Removed', `User removed from ${name}`);
-				selectedUser = await getUserDetails(selectedUser.user.id).run();
+				selectedUser = await getUserDetails(selectedUser.user.id);
 				await loadUsers();
 			} else {
 				toast.error('Error', result.error || 'Failed to remove user');
@@ -217,7 +217,7 @@
 					'Updated',
 					selectedUser.user.suspended ? 'User account restored' : 'User account suspended'
 				);
-				selectedUser = await getUserDetails(selectedUser.user.id).run();
+				selectedUser = await getUserDetails(selectedUser.user.id);
 				await loadUsers();
 			} else {
 				toast.error('Error', result.error || 'Failed to update user');

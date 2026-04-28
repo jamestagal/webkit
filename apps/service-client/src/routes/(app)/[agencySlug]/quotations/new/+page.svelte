@@ -79,7 +79,7 @@
 	// Template loading
 	async function loadTemplate(templateId: string) {
 		try {
-			const result = await getTemplateForQuotation(templateId).run();
+			const result = await getTemplateForQuotation(templateId);
 			sections = result.sections.map((s, i) => ({
 				...s,
 				sortOrder: i,
