@@ -208,10 +208,12 @@ Flow: layout loads config in `[agencySlug]/+layout.server.ts` → `setAgencyConf
 - **Member**: create/edit own consultations and proposals
 
 ### Subscription Tiers (`apps/service-client/src/lib/server/subscription.ts`)
-- `free`: 1 member, 5 consultations/month, 1 template
-- `starter`: 3 members, 25/month, 5 templates
-- `growth`: 10 members, 100/month, 20 templates
-- `enterprise`: unlimited
+
+Self-serve tiers: `free`, `starter`, `growth`, `agency_pro`. Numeric quotas are the Go SSoT — generated into `apps/service-client/src/lib/generated/tier-limits.ts` and derived in the pricing card via `deriveQuotaFeatures()`. Don't list per-tier numbers here; they drift. Read the generated file.
+
+`enterprise` is reserved for sales-negotiated contracts — no `TIER_DEFINITIONS` entry yet; falls back to `agency_pro` caps until a contract defines its own.
+
+Consultations and templates are **not metered** (decided in billing spec §7); don't reintroduce them as tier quotas.
 
 ## Key Files & Locations
 
