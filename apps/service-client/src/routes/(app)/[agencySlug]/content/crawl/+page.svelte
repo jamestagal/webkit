@@ -117,7 +117,7 @@
 				maxDepth,
 			});
 			// Fetch full status after starting
-			crawlJob = await getCrawlStatus(result.id);
+			crawlJob = await getCrawlStatus(result.id).run();
 		} catch (e) {
 			console.error("Failed to start crawl:", e);
 		} finally {
@@ -131,7 +131,7 @@
 		isCancelling = true;
 		try {
 			await cancelCrawl(crawlJob.id);
-			const updated = await getCrawlStatus(crawlJob.id);
+			const updated = await getCrawlStatus(crawlJob.id).run();
 			crawlJob = updated;
 		} catch (e) {
 			console.error("Failed to cancel crawl:", e);
