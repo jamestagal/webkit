@@ -350,6 +350,27 @@ Full details: `.claude/notes/deployment/production.md`. Critical warnings: `.cla
 
 **Deploy:** GitHub → Actions → "Deploy to Production" → "Run workflow". Fully automated.
 
+### Production database access
+
+When SSH'd to the VPS, production Postgres uses different credentials than local:
+
+| Resource | Local | Production |
+|----------|-------|-----------|
+| Container name | `webkit-postgres` | `webkit-postgres` (same) |
+| Postgres role | `postgres` | `webkit` |
+| Database name | `postgres` | `webkit` |
+
+Per `docker-compose.production.yml` defaults: `POSTGRES_USER=${POSTGRES_USER:-webkit}`, `POSTGRES_DB=${POSTGRES_DB:-webkit}`. Local `.env.example` uses `postgres/postgres`; prod `.env.production.example` uses `webkit/webkit`.
+
+Verification queries on VPS:
+
+```bash
+docker exec webkit-postgres psql -U webkit -d webkit \
+  -c "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'valid_document_type';"
+```
+
+Trying `-U postgres -d postgres` (local pattern) on production fails with `FATAL: role "postgres" does not exist` — use `-U webkit -d webkit` instead.
+
 ## Troubleshooting
 
 See `.claude/notes/troubleshooting.md` for common issues (auth redirect loops, database connection failures, PostgreSQL version issues, inter-service connectivity, login failures after column additions).
