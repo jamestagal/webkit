@@ -98,7 +98,6 @@
 			yearlyPrice: 290,
 			features: [
 				...deriveQuotaFeatures('starter'),
-				'5 templates',
 				'PDF export',
 				'Email delivery'
 			]
@@ -113,7 +112,6 @@
 			features: [
 				...deriveQuotaFeatures('growth'),
 				'Backlink analysis',
-				'20 templates',
 				'Custom branding',
 				'Analytics',
 				'White label',
@@ -129,7 +127,6 @@
 			features: [
 				...deriveQuotaFeatures('agency_pro'),
 				'Backlink analysis',
-				'Unlimited templates',
 				'Priority support',
 				'Custom domain',
 				'SSO integration',
