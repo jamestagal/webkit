@@ -77,7 +77,7 @@
 
 		const interval = setInterval(async () => {
 			try {
-				const updated = await getCrawlStatus(crawlJob!.id);
+				const updated = await getCrawlStatus(crawlJob!.id).run();
 				crawlJob = updated;
 			} catch (e) {
 				console.error("Poll failed:", e);
