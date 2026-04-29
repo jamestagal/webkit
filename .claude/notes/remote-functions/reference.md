@@ -225,3 +225,100 @@ See `.claude/notes/sveltekit-data-loading/` for incident details.
 | File | Types For |
 |------|-----------|
 | `questionnaire.types.ts` | Questionnaire responses, access results |
+
+## Query Instance Anchoring — When To Use `.run()` vs Anchored `$derived`
+
+**The boundary that matters** is NOT "render context vs non-render context" or "direct vs wrapped binding." It's whether the **query instance** is anchored at component setup, or whether you're creating a **fresh unanchored query** inside an imperative path.
+
+| Where the query is created | What works |
+|----------------------------|------------|
+| At component setup (top-level `<script>` or `$derived`) | `await` directly anywhere — render context, event handlers, `$effect`, lifecycle hooks. NO `.run()` needed. |
+| Fresh inside an event handler / `$effect` body | `await query(...).run()` — `.run()` produces a plain Promise. Or refactor to anchored `$derived`. |
+| Fresh inside `setInterval` / `setTimeout` callback (even if scheduled inside `$effect`) | `await query(...).run()` — the timer callback fires post-effect-setup, in pure imperative async context. The `$effect` lexical scope does NOT carry the reactive context into the callback. |
+| Fresh inside any Promise chain after a `setTimeout` | `await query(...).run()` — same imperative-async reason. |
+
+### The two error modes — opposite errors, opposite fixes
+
+- **`Cannot call query while not in reactive context`** / `not created in reactive context` → fresh unanchored query. Either add `.run()` or refactor to anchored `$derived`.
+- **`Cannot call .run() outside of render`** (or similar) → already anchored. `.run()` is wrong. Just `await` the existing instance.
+
+Misreading these as the same error caused the original Stage 1 regression in commit `cb19f31` (added `.run()` to anchored sites, broke them — see revert `840a1f9`). Read the actual error string before reaching for `.run()`.
+
+### `RemoteQuery<T>` type surface
+
+Sourced from `node_modules/@sveltejs/kit/src/exports/public.d.ts:2185`:
+
+```typescript
+type RemoteResource<T> = Promise<T> & {
+    get error(): any;
+    get loading(): boolean;
+} & ({ get current(): undefined; ready: false }
+   | { get current(): T;          ready: true });
+
+type RemoteQuery<T> = RemoteResource<T> & {
+    run(): Promise<T>;
+    set(value: T): void;
+    refresh(): Promise<void>;
+    withOverride(update: (current: T) => T): RemoteQueryOverride;
+};
+```
+
+The `ready` discriminator gives type-safe `current` access in templates without `{#await}`. Pattern:
+
+```svelte
+{#if !usersQuery.ready}
+    <Spinner />
+{:else if usersQuery.error}
+    <Error>{usersQuery.error?.message ?? 'Failed'}</Error>
+{:else if usersQuery.ready && usersQuery.current.users.length === 0}
+    <Empty />
+{:else if usersQuery.ready}
+    {#each usersQuery.current.users as u (u.id)}...{/each}
+{/if}
+```
+
+`ready: true` narrows `current` from `undefined` to `T`, so `usersQuery.current.users` is type-safe inside the `{:else if usersQuery.ready}` branch.
+
+### Anchored `$derived` pattern — canonical for dual-path filter/search
+
+When a remote query is called from BOTH a lifecycle path (`onMount`, `$effect`) AND event handlers (filter checkbox onchange, mutation refetch, pagination), neither `.run()` nor a bare `await` works for both paths. The fix is to anchor the query at component setup so every caller reads from the same anchored instance:
+
+```svelte
+<script lang="ts">
+    let filters = $state({ search: '', superAdminOnly: false, ownersOnly: false });
+    let currentPage = $state(1);
+    const pageSize = 20;
+
+    // Anchored: $derived recomputes when filters/pagination change → query auto-refetches
+    const usersQuery = $derived(
+        getUsers({
+            search: filters.search || undefined,
+            superAdminOnly: filters.superAdminOnly || undefined,
+            ownersOnly: filters.ownersOnly || undefined,
+            limit: pageSize,
+            offset: (currentPage - 1) * pageSize
+        })
+    );
+
+    async function handleToggleSuperAdmin() {
+        await updateUserAccess({ ... });
+        await usersQuery.refresh();   // replaces imperative `await loadUsers()`
+    }
+</script>
+```
+
+**Reference implementation:** the `super-admin/users` Phase B refactor (commit `9771e2a`). Key properties:
+- Pagination MUST be in the derived payload (`limit` / `offset`) so `currentPage++` triggers refetch
+- Mutation post-refresh uses `await usersQuery.refresh()` (the `RemoteQuery` API), not imperative refetch
+- Filter changes write to the `$state` object; the `$derived` recomputes automatically — no event handler "trigger" needed
+- Search debounce: bind to a separate `searchInput` $state, debounce-write into `filters.search` so the derived doesn't refire on every keystroke
+
+### When the docs aren't enough, read the runtime source
+
+The SvelteKit experimental remote functions docs don't yet cover the anchoring rule completely. The deciding rule today came from reading runtime source directly:
+
+- `node_modules/@sveltejs/kit/src/runtime/app/server/remote/query.js:290` — `refresh()` API shape and Promise return
+- `node_modules/@sveltejs/kit/src/exports/public.d.ts:2185` — `RemoteQuery<T>` / `RemoteResource<T>` type surface (the source of truth for `ready`, `current`, `loading`, `error`, `refresh`)
+- The runtime tracks "is in reactive context" via render-tracking primitives — the lexical scope of `$effect` does NOT carry into a `setInterval` callback even though the callback was scheduled there
+
+For experimental SvelteKit features, the `node_modules/@sveltejs/kit/src/runtime/...` and `.../src/exports/public.d.ts` are the authoritative rule source. Three premise revisions during the 2026-04-29 audit were avoidable if we'd gone to source first instead of cycling on docs interpretations.

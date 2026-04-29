@@ -283,6 +283,7 @@ Full reference: `.claude/notes/remote-functions/reference.md`. Pitfalls: `.claud
 - **No regular function exports** — move server-only utilities to `$lib/server/*.ts` and import them
 - Valibot schema MUST be the first argument to `query()`/`command()` (not validated inside)
 - For optional filter objects: wrap the schema with `v.optional()`, access as `filters || {}`
+- For dual-path sites (called from BOTH `onMount`/`$effect` AND event handlers), don't use `.run()` — refactor to anchored `$derived(getX(...))`. See `.claude/notes/remote-functions/reference.md` §"Query instance anchoring"
 
 **Function types:** `query` (read, cacheable), `command` (write, can't run during render), `form` (progressive enhancement), `prerender` (build-time).
 

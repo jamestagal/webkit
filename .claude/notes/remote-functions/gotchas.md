@@ -126,3 +126,176 @@ Treat handler-owned side effects (log writes, webhooks, cache busts, counter inc
 - `apps/service-client/src/lib/api/super-admin.remote.ts` — `updateAgencyAccess` command wraps agency update + log insert in `db.transaction`
 - `apps/service-client/src/lib/server/schema.ts:198-222` — `agencyActivityLog` table
 - `docs/planning/quizzical-yawning-swan.md` — full context on the freemium grant feature that exposed this gap
+
+---
+
+## The Two `.run()` Error Modes — Opposite Errors, Opposite Fixes
+
+**Discovered:** 2026-04-29 (run-audit Stage 1 → Phase A/A.5/B)
+**Impact:** Adding `.run()` to anchored sites breaks them; omitting it from unanchored sites breaks them. Same `.run()` token, opposite remedy.
+
+### The Two Errors
+
+- **`Cannot call query while not in reactive context`** / `not created in reactive context` → the call site has a **fresh unanchored query** inside an imperative path. Fix: add `.run()` to produce a plain Promise, OR refactor the caller to use an anchored `$derived(getX(...))`.
+- **`On the client, .run() can only be called outside render, e.g. in universal load functions and event handlers. In render, await the query directly`** → the call site is **already anchored** (e.g. inside `loadUsers()` called from `onMount`). `.run()` is wrong. Just `await` the existing query instance.
+
+### Real Incident
+
+Stage 1 (commit `cb19f31`) added `.run()` to seven sites including `users.svelte:96` (`loadUsers` function — called from BOTH `onMount` AND event handlers). The `onMount` path then surfaced the second error mode rendered AS PAGE CONTENT, not just console — this is the diagnostic signal that the throw happened in render-tracking context. Reverted in `840a1f9`. The fix was to split into:
+
+- **Phase A (`e7e095e`)** — `.run()` on event-handler-only callers
+- **Phase B (`9771e2a`)** — anchored `$derived(getUsers(...))` refactor for the dual-path `loadUsers` site
+
+### Detection Method
+
+Before reaching for `.run()`, **read the actual error string in the Svelte runtime warning, not the broad framing in your head**. The two errors look superficially similar ("not in reactive context" / "outside render") but they describe opposite states.
+
+If a site is dual-path (called from BOTH lifecycle AND event handlers) — see the Dual-Path gotcha below — neither raw `.run()` nor raw `await` works for both callers. Refactor.
+
+---
+
+## `setInterval` / `setTimeout` Inside `$effect` Needs `.run()`
+
+**Discovered:** 2026-04-29 (Phase A.5)
+**Impact:** Polling that looks like it's in reactive context (because it's inside `$effect`) actually fires in imperative async context. The query inside the timer callback errors with "not in reactive context" if it lacks `.run()`.
+
+### Counterintuitive Mechanic
+
+`$effect` runs synchronously to set up tracked dependencies. Anything **scheduled** by the effect (a `setInterval`, `setTimeout`, or unawaited Promise) fires AFTER `$effect` returns, in plain async context. The lexical scope of `$effect` does NOT carry the reactive tracking into the deferred callback.
+
+### Reference Bug + Fix
+
+Site: `apps/service-client/src/routes/(app)/[agencySlug]/content/crawl/+page.svelte:80`
+
+```svelte
+$effect(() => {
+    if (!crawlJob) return;
+    const status = crawlJob.status;
+    if (status === "complete" || status === "failed" || status === "cancelled") return;
+
+    const interval = setInterval(async () => {
+        try {
+            // BEFORE Phase A.5 — errored with "not in reactive context"
+            // const updated = await getCrawlStatus(crawlJob!.id);
+
+            // AFTER Phase A.5 (commit b573580) — works
+            const updated = await getCrawlStatus(crawlJob!.id).run();
+            crawlJob = updated;
+        } catch (e) {
+            console.error("Poll failed:", e);
+        }
+    }, 2000);
+
+    return () => clearInterval(interval);
+});
+```
+
+### Rule
+
+Any query call inside a `setInterval`, `setTimeout`, or Promise chain scheduled from `$effect` (or from an event handler) needs `.run()`, regardless of how the parent code looks. The deciding factor is when the query is **invoked**, not when it's syntactically nested.
+
+### Other Sites To Audit On This Pattern
+
+The Phase A.5 fix was the canonical example, but three other content-polling sites use the same scheduling pattern and are queued for the same fix in a future template-apply phase:
+
+- `content/[clientId]/brand:199`
+- `content/[clientId]/audit:63`
+- `agencies/create:50`
+
+Smaller blast radius than Phase A.5 (these don't have a tight 2-second loop), but the same rule applies.
+
+---
+
+## Dual-Path Sites — Refactor To Anchored `$derived`, Don't Add `.run()`
+
+**Discovered:** 2026-04-29 (Phase B)
+**Impact:** Sites called from BOTH lifecycle paths (`onMount`, `$effect`) AND event handlers cannot be fixed by adding `.run()` — `.run()` rejects in render context, while a bare `await` rejects in event-handler context. The two paths have opposite requirements.
+
+### Detection: Call-Graph Triage
+
+Grep every caller of the function. Classify each:
+
+- **Lifecycle:** called from `onMount`, `$effect`, top-level `<script>` await, `+page.server.ts` `load`
+- **Event-handler-only:** called from `onclick`, `onsubmit`, `oninput`, mutation handlers, post-mutation refetch chains
+- **Timer:** called from `setInterval`, `setTimeout` callbacks (these are event-handler-equivalent — see the previous gotcha)
+
+If callers span more than one category, the site is dual-path and `.run()` is the wrong fix.
+
+### The Refactor — Anchored `$derived(getX(...))`
+
+The fix is to remove the function entirely and anchor the query at component setup. Every caller — lifecycle, event handler, mutation refetch, pagination — reads from the same anchored instance, so the runtime sees one consistent reactive context.
+
+Reference implementation: `apps/service-client/src/routes/(app)/super-admin/users/+page.svelte` (commit `9771e2a`):
+
+```svelte
+<script lang="ts">
+    let filters = $state({ search: '', superAdminOnly: false, ownersOnly: false });
+    let searchInput = $state('');
+    let currentPage = $state(1);
+    const pageSize = 20;
+
+    // Anchored — replaces the old loadUsers() imperative function
+    const usersQuery = $derived(
+        getUsers({
+            search: filters.search || undefined,
+            superAdminOnly: filters.superAdminOnly || undefined,
+            ownersOnly: filters.ownersOnly || undefined,
+            limit: pageSize,
+            offset: (currentPage - 1) * pageSize
+        })
+    );
+
+    // Mutation post-refresh — replaces `await loadUsers()`
+    async function handleToggleSuperAdmin() {
+        await updateUserAccess({ ... });
+        await usersQuery.refresh();
+    }
+</script>
+
+<!-- Filter handlers just write to filters; $derived recomputes -->
+<input bind:checked={filters.superAdminOnly} onchange={() => currentPage = 1} />
+
+<!-- Pagination just mutates currentPage; $derived recomputes -->
+<button onclick={() => currentPage--}>Previous</button>
+```
+
+### Other Sites Queued For This Refactor
+
+Per the run-audit final-result (`9771e2a` close-the-loop), four more dual-path sites need the same template-apply: `super-admin/freemium`, `super-admin/audit-log`, `super-admin/beta-invites`, `super-admin/agencies`, `super-admin/form-templates`. Per-site commit, smoke each, bisect-clean.
+
+---
+
+## When Docs Aren't Enough, Read The Runtime Source
+
+**Discovered:** 2026-04-29 (run-audit, after three premise revisions)
+**Impact:** Methodological — for experimental SvelteKit features, docs interpretation alone produces wrong rules. The runtime source is the only authoritative rule source.
+
+### What Happened
+
+The original Stage 1 spec for the `.run()` audit cycled through three docs-derived rules:
+
+1. **"Add `.run()` everywhere outside render"** — broke onMount paths
+2. **"Add `.run()` only in event handlers"** — broke dual-path callers
+3. **"Add `.run()` only inside imperative wrappers"** — broke `$effect`/`setInterval` (the timer callbacks ARE imperative wrappers but the rule didn't capture that)
+
+Each revision was based on docs reading + edge-case extrapolation. Each broke something on the next click-test.
+
+The fourth (and holding) rule came from reading runtime source directly:
+
+- `node_modules/@sveltejs/kit/src/runtime/app/server/remote/query.js` — confirmed `refresh()` exists, returns `Promise<void>`, sets `loading=true` during refetch
+- `node_modules/@sveltejs/kit/src/exports/public.d.ts:2185` — full `RemoteQuery<T>` type surface, including the `ready` discriminator for type-safe `current` access
+- The runtime's "is in reactive context" check uses render-tracking primitives — confirmed by reading the call sites, not by inferring from the docs
+
+### Rule
+
+If a hypothesis fails empirical test more than twice, **stop iterating on the hypothesis**. Go to the authoritative source — runtime source code, public type declarations, the actual error-throw site in the framework. The premise is wrong, not the edge cases.
+
+For SvelteKit experimental features specifically, the authoritative sources are:
+
+- `node_modules/@sveltejs/kit/src/runtime/...` — runtime behavior
+- `node_modules/@sveltejs/kit/src/exports/public.d.ts` — public type contract
+- The actual error message text in the Svelte/SvelteKit warnings (read it verbatim, don't paraphrase)
+
+### Related
+
+This is also a project-agnostic learning. The cross-project version lives in `~/Workspaces/shared-context/learnings/` (queued via `/learn`).
