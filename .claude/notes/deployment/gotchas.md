@@ -35,3 +35,19 @@ Docker health checks in `docker-compose.production.yml` must use tools that exis
 **What happens if wrong:** Traefik excludes unhealthy containers from routing, causing 404 for all requests. The service is actually running fine but Traefik won't send traffic to it.
 
 **The deploy script health checks (`deploy-production.yml`) run on the VPS host**, not inside containers, so they should use `curl` (available on the VPS).
+
+## VPS SSH connection timeout on deploy (intermittent)
+
+**Date:** 2026-04-29
+**Severity:** P3 — transient, retry-recoverable
+
+**Symptom:** GitHub Actions "Deploy to Production" workflow fails at the `appleboy/scp-action` or `appleboy/ssh-action` step with `dial tcp ***:22: i/o timeout` or `ssh: handshake failed`. The build/push job completes successfully and Docker images land in ghcr.io; only the VPS sync/deploy steps fail. Frequency: ~25-30% of runs as of 2026-04-29 (3 failures in last 11 deploys).
+
+**Workaround:** Re-run the failed workflow from the Actions UI or via `gh workflow run deploy-production.yml --ref main`. Always clears on first retry — confirmed across three separate occurrences (2026-04-27 23:44 → 23:53, 2026-04-28 23:23 → 23:30, 2026-04-29 05:06 → 05:14).
+
+**When to escalate (NOT yet):**
+- A single retry stops clearing the failure
+- Frequency climbs above ~40% of runs
+- Failure correlates with VPS-side health (CPU/memory/network) at the failure timestamp
+
+**Likely candidates if escalating:** Hetzner network jitter, SSH agent keepalive on the GH Actions runner, GitHub Actions runner-pool routing to a network segment the VPS firewall doesn't see, or fail2ban on the VPS rate-limiting GH Actions IP ranges.
