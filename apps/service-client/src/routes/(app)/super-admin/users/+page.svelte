@@ -130,7 +130,7 @@
 		loadingDetails = true;
 		showDetailModal = true;
 		try {
-			selectedUser = await getUserDetails(userId);
+			selectedUser = await getUserDetails(userId).run();
 		} catch (e) {
 			toast.error('Error', 'Failed to load user details');
 			showDetailModal = false;
@@ -154,7 +154,7 @@
 					'Updated',
 					selectedUser.user.isSuperAdmin ? 'Super admin access revoked' : 'Super admin access granted'
 				);
-				selectedUser = await getUserDetails(selectedUser.user.id);
+				selectedUser = await getUserDetails(selectedUser.user.id).run();
 				await loadUsers();
 			} else {
 				toast.error('Error', result.error || 'Failed to update user');
@@ -189,7 +189,7 @@
 				const name = removingAgency.agencyName;
 				closeRemoveAgencyModal();
 				toast.success('Removed', `User removed from ${name}`);
-				selectedUser = await getUserDetails(selectedUser.user.id);
+				selectedUser = await getUserDetails(selectedUser.user.id).run();
 				await loadUsers();
 			} else {
 				toast.error('Error', result.error || 'Failed to remove user');
@@ -217,7 +217,7 @@
 					'Updated',
 					selectedUser.user.suspended ? 'User account restored' : 'User account suspended'
 				);
-				selectedUser = await getUserDetails(selectedUser.user.id);
+				selectedUser = await getUserDetails(selectedUser.user.id).run();
 				await loadUsers();
 			} else {
 				toast.error('Error', result.error || 'Failed to update user');
