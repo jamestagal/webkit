@@ -83,21 +83,28 @@ export function generateDaisyTheme(themeName: string, branding: AgencyBranding):
 	const fontBody = t.bodyFont || "system-ui, sans-serif";
 	const fontHeading = t.headingFont || fontBody;
 
-	// Convert all HSL values to comma-separated format
+	// Convert all HSL values to comma-separated format.
+	//
+	// Note: --p / --s / --a are deliberately NOT emitted here. They cascade
+	// from the outer FormDocument wrapper's inline style:--p / style:--s /
+	// style:--a directives so the form preview reacts live to color picker
+	// drags. The wrapper's inline values would otherwise be shadowed by the
+	// closer-ancestor [data-theme="X"] rule below, breaking live-reactivity.
+	// All companion vars (--pf, --pc, --sf, --sc, --af, --ac) ARE emitted —
+	// they don't change during a color-picker drag and provide DaisyUI's
+	// hover/contrast/focus fallbacks. See spec branding-live-preview-
+	// completion §4.4.
 	return `
     [data-theme="${themeName}"] {
-      /* Primary */
-      --p: ${toCommaHSL(c.primary)};
+      /* Primary (--p emitted by FormDocument wrapper for live reactivity) */
       --pf: ${toCommaHSL(primaryFocus)};
       --pc: ${toCommaHSL(primaryContent)};
 
-      /* Secondary */
-      --s: ${toCommaHSL(secondary)};
+      /* Secondary (--s emitted by FormDocument wrapper for live reactivity) */
       --sf: ${toCommaHSL(secondaryFocus)};
       --sc: ${toCommaHSL(secondaryContent)};
 
-      /* Accent */
-      --a: ${toCommaHSL(accent)};
+      /* Accent (--a emitted by FormDocument wrapper for live reactivity) */
       --af: ${toCommaHSL(accentFocus)};
       --ac: ${toCommaHSL(accentContent)};
 
