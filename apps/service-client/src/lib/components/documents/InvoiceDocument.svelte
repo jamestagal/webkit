@@ -398,6 +398,7 @@
 						<button
 							type="button"
 							class="btn btn-primary btn-lg w-full gap-2"
+							style="background-color: var(--brand-primary); border-color: var(--brand-primary); color: var(--brand-cta-text, white)"
 							disabled
 							aria-disabled="true"
 						>
@@ -411,6 +412,7 @@
 						<a
 							href={invoice.stripePaymentLinkUrl}
 							class="btn btn-primary btn-lg w-full gap-2"
+							style="background-color: var(--brand-primary); border-color: var(--brand-primary); color: var(--brand-cta-text, white)"
 							target="_blank"
 							rel="noopener noreferrer"
 						>
