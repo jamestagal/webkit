@@ -356,7 +356,7 @@
 								<div class="border border-base-300 rounded-lg overflow-hidden">
 									<div class="bg-base-200/50 px-4 py-3 flex justify-between items-center">
 										<h3 class="font-semibold">{section.title}</h3>
-										<span class="font-bold text-primary">
+										<span class="font-bold" style="color: var(--brand-primary, inherit)">
 											{formatCurrency(section.sectionTotal)}
 											{#if quotation.gstRegistered}
 												<span class="text-xs text-base-content/60 font-normal">inc GST</span>
@@ -368,7 +368,7 @@
 											<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
 												{#each items as item}
 													<div class="flex items-start gap-2 text-sm">
-														<span class="text-primary mt-0.5 shrink-0">&#x2022;</span>
+														<span class="mt-0.5 shrink-0" style="color: var(--brand-primary, inherit)">&#x2022;</span>
 														<span>{item}</span>
 													</div>
 												{/each}
@@ -438,7 +438,7 @@
 					<!-- Acceptance Section. Visible in `previewMode` for visual
 					     fidelity, but submit + expand handlers disabled. -->
 					{#if canRespond && !acceptSuccess && !declineSuccess}
-						<div class="mt-8 pt-6 border-t-2 border-primary print-hidden">
+						<div class="mt-8 pt-6 border-t-2 print-hidden" style="border-color: var(--brand-primary)">
 							<div class="flex items-center justify-between mb-4">
 								<h2 class="text-lg font-bold">Acceptance</h2>
 								{#if previewMode}
@@ -501,6 +501,7 @@
 									<button
 										type="submit"
 										class="btn btn-primary flex-1"
+										style="background-color: var(--brand-primary); border-color: var(--brand-primary); color: var(--brand-cta-text, white)"
 										disabled={isSubmitting || !acceptedByName || previewMode}
 									>
 										{#if isSubmitting}
