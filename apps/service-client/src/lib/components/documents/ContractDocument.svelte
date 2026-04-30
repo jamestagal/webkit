@@ -93,8 +93,11 @@
 					{#if branding.logoUrl}
 						<img src={branding.logoUrl} alt={agency?.name ?? ''} class="h-12 w-auto object-contain" />
 					{:else}
-						<div class="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-							<Building2 class="h-6 w-6 text-primary" />
+						<div
+							class="h-12 w-12 rounded-lg flex items-center justify-center"
+							style="background-color: color-mix(in srgb, var(--brand-primary) 10%, transparent)"
+						>
+							<Building2 class="h-6 w-6" style="color: var(--brand-primary, inherit)" />
 						</div>
 					{/if}
 					<div>
@@ -290,7 +293,7 @@
 							<div class="card-body">
 								<h2 class="card-title text-lg">Contract Value</h2>
 
-								<div class="text-3xl font-bold text-primary mt-4">
+								<div class="text-3xl font-bold mt-4" style="color: var(--brand-primary, inherit)">
 									{formatCurrency(contract.totalPrice)}
 								</div>
 								<p class="text-sm text-base-content/60">
@@ -435,6 +438,7 @@
 										<button
 											type="submit"
 											class="btn btn-primary w-full"
+											style="background-color: var(--brand-primary); border-color: var(--brand-primary); color: var(--brand-cta-text, white)"
 											disabled={isSubmitting || !signatoryName || !agreedToTerms || isPreview || previewMode}
 										>
 											{#if isSubmitting}
