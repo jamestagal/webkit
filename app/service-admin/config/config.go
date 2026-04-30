@@ -43,6 +43,10 @@ type Config struct {
 	WriteTimeout   time.Duration
 	ContextTimeout time.Duration
 	ToastDuration  int
+
+	// OAuth providers — empty string means "not configured", login UI hides the button
+	GithubClientID string
+	GoogleClientID string
 }
 
 func LoadConfig() *Config {
@@ -70,6 +74,8 @@ func LoadConfig() *Config {
 		WriteTimeout:   WriteTimeout,
 		ContextTimeout: ContextTimeout,
 		ToastDuration:  ToastDuration,
+		GithubClientID: os.Getenv("GITHUB_CLIENT_ID"),
+		GoogleClientID: os.Getenv("GOOGLE_CLIENT_ID"),
 	}
 }
 

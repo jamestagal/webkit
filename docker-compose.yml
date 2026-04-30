@@ -105,6 +105,8 @@ services:
       NATS_URL: nats://nats:4222
       CORE_URL: http://localhost:4001
       CORE_URI: core:4002
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
 
   client:
     container_name: webkit-client
