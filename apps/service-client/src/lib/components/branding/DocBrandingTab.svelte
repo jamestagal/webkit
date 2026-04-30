@@ -106,7 +106,7 @@
 				</p>
 			</header>
 
-			<div class="grid grid-cols-2 gap-2 md:grid-cols-2 lg:grid-cols-3">
+			<div class="grid grid-cols-2 gap-2 md:grid-cols-2 lg:grid-cols-2">
 				<ColorOverrideRow
 					label="Primary"
 					value={value.primaryColor}
