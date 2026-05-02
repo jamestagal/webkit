@@ -6,6 +6,7 @@
 	 * Uses invalidateAll() after mutations to re-run server load.
 	 */
 
+	import { untrack } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { updateProposal, markProposalLive, revertProposalToDraft } from '$lib/api/proposals.remote';
@@ -73,48 +74,80 @@
 	const addons = $derived(data.addons);
 	const seoSummary = $derived(data.seoSummary);
 
-	// Form state
-	let formData = $state({
-		// Client info
-		clientBusinessName: proposal.clientBusinessName,
-		clientContactName: proposal.clientContactName,
-		clientEmail: proposal.clientEmail,
-		clientPhone: proposal.clientPhone,
-		clientWebsite: proposal.clientWebsite,
+	// =========================================================================
+	// Form snapshot pattern (mirrors quotations/[quotationId]:156-215)
+	// Initialised via untrack() so the per-field reads at mount don't fire
+	// state_referenced_locally. Reactivity to server-side mutations
+	// (invalidateAll() after AI gen, mark-as-live, save, send-email) provided
+	// by syncFormFromServer() called from each mutation handler.
+	// No $effect — avoids effect_update_depth_exceeded in production builds
+	// (gotcha confirmed in [run-audit] Phase A.5).
+	// =========================================================================
+	type ProposalFormSnapshot = {
+		clientBusinessName: string;
+		clientContactName: string;
+		clientEmail: string;
+		clientPhone: string;
+		clientWebsite: string;
+		title: string;
+		coverImage: string;
+		performanceData: PerformanceData;
+		opportunityContent: string;
+		currentIssues: ChecklistItem[];
+		complianceIssues: ChecklistItem[];
+		roiAnalysis: RoiAnalysis;
+		performanceStandards: PerformanceStandard[];
+		localAdvantageContent: string;
+		proposedPages: ProposedPage[];
+		timeline: TimelinePhase[];
+		closingContent: string;
+		executiveSummary: string;
+		seoSummary: string;
+		nextSteps: NextStepItem[];
+		selectedPackageId: string;
+		selectedAddons: string[];
+		customPricing: CustomPricing | null;
+		validUntil: string;
+	};
 
-		// Cover
-		title: proposal.title,
-		coverImage: proposal.coverImage || '',
+	function snapshotFromServer(p: typeof data.proposal): ProposalFormSnapshot {
+		return {
+			clientBusinessName: p.clientBusinessName,
+			clientContactName: p.clientContactName,
+			clientEmail: p.clientEmail,
+			clientPhone: p.clientPhone,
+			clientWebsite: p.clientWebsite,
+			title: p.title,
+			coverImage: p.coverImage || '',
+			performanceData: (p.performanceData as PerformanceData) || {},
+			opportunityContent: p.opportunityContent,
+			currentIssues: (p.currentIssues as ChecklistItem[]) || [],
+			complianceIssues: (p.complianceIssues as ChecklistItem[]) || [],
+			roiAnalysis: (p.roiAnalysis as RoiAnalysis) || {},
+			performanceStandards: (p.performanceStandards as PerformanceStandard[]) || [],
+			localAdvantageContent: p.localAdvantageContent,
+			proposedPages: (p.proposedPages as ProposedPage[]) || [],
+			timeline: (p.timeline as TimelinePhase[]) || [],
+			closingContent: p.closingContent,
+			executiveSummary: p.executiveSummary || '',
+			seoSummary: p.seoSummary || '',
+			nextSteps: (p.nextSteps as NextStepItem[]) || [],
+			selectedPackageId: p.selectedPackageId || '',
+			selectedAddons: (p.selectedAddons as string[]) || [],
+			customPricing: (p.customPricing as CustomPricing) || null,
+			validUntil: p.validUntil
+				? new Date(p.validUntil).toISOString().split('T')[0] ?? ''
+				: ''
+		};
+	}
 
-		// Performance
-		performanceData: (proposal.performanceData as PerformanceData) || {},
+	let formData = $state<ProposalFormSnapshot>(
+		untrack(() => snapshotFromServer(data.proposal))
+	);
 
-		// Content
-		opportunityContent: proposal.opportunityContent,
-		currentIssues: (proposal.currentIssues as ChecklistItem[]) || [],
-		complianceIssues: (proposal.complianceIssues as ChecklistItem[]) || [],
-		roiAnalysis: (proposal.roiAnalysis as RoiAnalysis) || {},
-		performanceStandards: (proposal.performanceStandards as PerformanceStandard[]) || [],
-		localAdvantageContent: proposal.localAdvantageContent,
-		proposedPages: (proposal.proposedPages as ProposedPage[]) || [],
-		timeline: (proposal.timeline as TimelinePhase[]) || [],
-		closingContent: proposal.closingContent,
-
-		// New sections (PART 2: Proposal Improvements)
-		executiveSummary: proposal.executiveSummary || '',
-		seoSummary: proposal.seoSummary || '',
-		nextSteps: (proposal.nextSteps as NextStepItem[]) || [],
-
-		// Package
-		selectedPackageId: proposal.selectedPackageId || '',
-		selectedAddons: (proposal.selectedAddons as string[]) || [],
-		customPricing: (proposal.customPricing as CustomPricing) || null,
-
-		// Validity
-		validUntil: proposal.validUntil
-			? new Date(proposal.validUntil).toISOString().split('T')[0] ?? ''
-			: ''
-	});
+	function syncFormFromServer() {
+		Object.assign(formData, snapshotFromServer(data.proposal));
+	}
 
 	let isSaving = $state(false);
 	let isDirty = $state(false);
@@ -143,23 +176,26 @@
 		Object.fromEntries(ALL_SECTIONS.map((s) => [s, true]))
 	);
 
-	// Consultation insights from cached data (PART 2)
-	const consultationPainPoints = (proposal.consultationPainPoints as ConsultationPainPoints) || {};
-	const consultationGoals = (proposal.consultationGoals as ConsultationGoals) || {};
-	const consultationChallenges = (proposal.consultationChallenges as string[]) || [];
-	const hasConsultationInsights =
+	// Consultation insights from cached data (PART 2) — $derived so navigation
+	// updates if invalidateAll() reloads proposal data with new insights.
+	const consultationPainPoints = $derived((proposal.consultationPainPoints as ConsultationPainPoints) || {});
+	const consultationGoals = $derived((proposal.consultationGoals as ConsultationGoals) || {});
+	const consultationChallenges = $derived((proposal.consultationChallenges as string[]) || []);
+	const hasConsultationInsights = $derived(
 		consultationChallenges.length > 0 ||
 		Object.keys(consultationPainPoints).length > 0 ||
-		Object.keys(consultationGoals).length > 0;
+		Object.keys(consultationGoals).length > 0
+	);
 
-	// Client feedback (PART 2: Proposal Improvements)
-	const clientComments = proposal.clientComments || '';
-	const declineReason = proposal.declineReason || '';
-	const revisionRequestNotes = proposal.revisionRequestNotes || '';
-	const hasClientFeedback = !!(clientComments || declineReason || revisionRequestNotes);
+	// Client feedback (PART 2: Proposal Improvements) — $derived for the same reason.
+	const clientComments = $derived(proposal.clientComments || '');
+	const declineReason = $derived(proposal.declineReason || '');
+	const revisionRequestNotes = $derived(proposal.revisionRequestNotes || '');
+	const hasClientFeedback = $derived(!!(clientComments || declineReason || revisionRequestNotes));
 
-	// Sections for navigation
-	const sections = [
+	// Sections for navigation — $derived because hasClientFeedback /
+	// hasConsultationInsights are now reactive.
+	const sections = $derived([
 		{ id: 'client', label: 'Client Info', icon: User },
 		{ id: 'summary', label: 'Summary', icon: FileSignature },
 		{ id: 'performance', label: 'Performance', icon: BarChart3 },
@@ -172,7 +208,7 @@
 		...(hasClientFeedback ? [{ id: 'feedback', label: 'Feedback', icon: MessageSquare }] : []),
 		...(hasConsultationInsights ? [{ id: 'insights', label: 'Insights', icon: Lightbulb }] : []),
 		{ id: 'seo', label: 'SEO Audit', icon: Search }
-	];
+	]);
 
 	// Helper for checklist items
 	function addChecklistItem(list: ChecklistItem[], text: string = '') {
@@ -243,6 +279,8 @@
 				selectedPackageId: formData.selectedPackageId || null,
 				validUntil: formData.validUntil || null
 			});
+			await invalidateAll();
+			syncFormFromServer();
 			isDirty = false;
 			if (showToast) toast.success('Proposal saved');
 		} catch (err) {
@@ -264,6 +302,7 @@
 			await handleSave(false);
 			const result = await sendProposalEmail({ proposalId });
 			await invalidateAll();
+			syncFormFromServer();
 			sendModalOpen = false;
 			if (result.success) {
 				toast.success(isResend ? 'Proposal resent' : 'Proposal sent', `Email delivered to ${formData.clientEmail}`);
@@ -285,6 +324,7 @@
 			await handleSave(false);
 			await markProposalLive(proposalId);
 			await invalidateAll();
+			syncFormFromServer();
 			toast.success('Proposal marked as live', 'You can now review and send it');
 		} catch (err) {
 			console.error('Mark live error:', err);
@@ -307,6 +347,7 @@
 		try {
 			await revertProposalToDraft(proposalId);
 			await invalidateAll();
+			syncFormFromServer();
 			toast.success('Proposal reverted to draft', 'You can now make changes');
 		} catch (err) {
 			console.error('Revert to draft error:', err);
