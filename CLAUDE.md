@@ -17,6 +17,22 @@ Guidance for Claude Code when working in this repository. Reference docs in `.cl
 
 Downstream fork: leap-learn (`~/Projects/personal/leap-learn/`)
 
+## Agent skills
+
+Per-repo configuration that engineering skills (e.g. `to-issues`, `triage`, `to-prd`, `qa`, `improve-codebase-architecture`, `diagnose`, `tdd`) read at run time. Each subsection is a one-line summary; the linked doc has the contract.
+
+### Issue tracker
+
+GitHub Issues on `jamestagal/webkit` via the `gh` CLI. Distinct from `.cowork/` specs — Cowork = design intent; GitHub Issues = ticketed work units. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical roles map verbatim to label strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). Auto-create on first use. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root, both lazily populated when first needed. See `docs/agents/domain.md`.
+
 ## Cross-Agent Comms (`.comms/`)
 
 When working a thread with Cowork (the Claude desktop app acting as spec-drafter / appraiser), follow the protocol in `.comms/README.md`. The chat-vs-file and big-decisions rules:
@@ -90,6 +106,18 @@ No other writes, edits, renames, or deletes under `.cowork/` — Cowork owns tha
 One-time per clone: `sh scripts/install-git-hooks.sh`. Installs `post-commit` which stamps the matching Cowork spec when the commit message contains a `Spec: <filename>.md` trailer. Silent no-op if the trailer is absent or the spec is missing.
 
 Full pattern: `~/Workspaces/shared-context/standards/claude-code-workflow.md`.
+
+## Git Workflow — Solo-Dev Defaults
+
+Webkit is a solo-dev project. PR ceremony adds ritual without code-review payoff.
+
+**Default: direct-to-main commits.** svelte-check + build clean before push. Most work ships this way.
+
+**Prototype branch (no PR):** use when work has empirical-validation risk that might revert. Branch name: `chore/<workstream>-prototype` or `fix/<workstream>-prototype`. Fast-forward merge to main when smoke passes. Gives bisect-clean revert capability without GitHub PR overhead. Reference: Phase B of `.run()` audit (commit `9771e2a`) — refactor on prototype branch, smoke 7 gates, fast-forward to main.
+
+**PR only when** there's a specific reason: external review needed, a CI gate that only fires on PR, or explicit Benjamin request. Don't default to PR-creation. If unsure, ask in chat first.
+
+This applies to both the in-app Claude Code agent and Cowork-side spec/plan recommendations.
 
 ## Karpathy Coding Principles
 
