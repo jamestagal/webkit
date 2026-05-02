@@ -1,14 +1,15 @@
 <script lang="ts">
-	import type { Snippet, Component } from 'svelte';
+	import type { Snippet } from 'svelte';
+	import type { LucideIconComponent } from '$lib/types/icons';
 	import { alpha } from '$lib/types/content-intelligence';
 
 	interface Props {
-		icon: Component<any>;
+		icon: LucideIconComponent;
 		title: string;
 		subtitle: string;
 		color: string;
 		actionLabel?: string;
-		actionIcon?: Component<any>;
+		actionIcon?: LucideIconComponent;
 		onaction?: () => void;
 		badge?: Snippet;
 		disabled?: boolean;
