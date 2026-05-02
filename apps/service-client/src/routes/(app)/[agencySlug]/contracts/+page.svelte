@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { deleteContract } from '$lib/api/contracts.remote';
@@ -39,8 +40,9 @@
 	let deletingContract = $state<{ id: string; name: string } | null>(null);
 	let isDeleting = $state(false);
 
-	// Get current user's membership info for permission checks
-	const membership = data.membership;
+	// Snapshot at mount (untrack) — membership is set at session-start by
+	// +page.server.ts and doesn't change during the page lifecycle.
+	const membership = untrack(() => data.membership);
 
 	// Filter state
 	let statusFilter = $state<string | null>(null);

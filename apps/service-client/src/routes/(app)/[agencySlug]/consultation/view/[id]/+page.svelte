@@ -6,6 +6,7 @@
 	 * Falls back to structured view if no form schema available.
 	 */
 
+	import { untrack } from 'svelte';
 	import { page } from "$app/state";
 	import { goto } from "$app/navigation";
 	import { formatDateTime } from '$lib/utils/formatting';
@@ -33,7 +34,8 @@
 		return hex.startsWith("#") ? hexToHsl(hex) : hex;
 	}
 
-	const agency = data.agency;
+	// Snapshot at mount (untrack) — agency branding doesn't change during the page lifecycle.
+	const agency = untrack(() => data.agency);
 	let branding = $derived.by((): ResolvedBranding => {
 		const colors: ResolvedBranding["colors"] = {
 			...defaultAgencyBranding.colors,
@@ -50,8 +52,9 @@
 		} as ResolvedBranding;
 	});
 
-	// Load consultation
-	const consultation = await getConsultation(data.consultationId);
+	// Load consultation. consultationId snapshotted at mount; route param doesn't
+	// change without a full navigation, which remounts the component.
+	const consultation = await getConsultation(untrack(() => data.consultationId));
 
 	// Resolve form schema: from consultation's formId or fallback template
 	let formSchema: FormSchema | null = null;
@@ -67,10 +70,11 @@
 			// Form may have been deleted
 		}
 	}
-	if (!formSchema && data.fallbackTemplate) {
-		formSchema = buildFormSchema(data.fallbackTemplate.schema, data.fallbackTemplate.uiConfig);
-		formName = data.fallbackTemplate.name;
-		formDescription = data.fallbackTemplate.description;
+	if (!formSchema && untrack(() => data.fallbackTemplate)) {
+		const fallback = untrack(() => data.fallbackTemplate!);
+		formSchema = buildFormSchema(fallback.schema, fallback.uiConfig);
+		formName = fallback.name;
+		formDescription = fallback.description;
 	}
 
 	// Resolved branding with form header

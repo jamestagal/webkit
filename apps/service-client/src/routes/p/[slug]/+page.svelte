@@ -8,6 +8,7 @@
 	 * the component (see $lib/components/documents/ProposalDocument.svelte).
 	 */
 
+	import { untrack } from 'svelte';
 	import type { PageData, ActionData } from './$types';
 	import { Clock } from 'lucide-svelte';
 	import SvelteSeo from 'svelte-seo';
@@ -15,7 +16,10 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	const { proposal, agency, branding } = data;
+	// Public proposal page — frozen render of the proposal document at mount.
+	// untrack() makes the snapshot intent explicit; the page does not auto-update
+	// if the parent invalidates (full reload required to see new server state).
+	const { proposal, agency, branding } = untrack(() => data);
 </script>
 
 <SvelteSeo

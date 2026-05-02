@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import {
@@ -27,11 +28,12 @@
 	// Tab state
 	let activeTab = $state<'sections' | 'terms'>('sections');
 
-	// Template edit state
-	let editName = $state(data.template.name);
-	let editDescription = $state(data.template.description || '');
-	let editCategory = $state(data.template.category || '');
-	let editValidityDays = $state(data.template.defaultValidityDays?.toString() || '');
+	// Template edit state — initial snapshot via untrack();
+	// form retains user edits during edit session.
+	let editName = $state(untrack(() => data.template.name));
+	let editDescription = $state(untrack(() => data.template.description || ''));
+	let editCategory = $state(untrack(() => data.template.category || ''));
+	let editValidityDays = $state(untrack(() => data.template.defaultValidityDays?.toString() || ''));
 	let isSaving = $state(false);
 
 	// Add section modal

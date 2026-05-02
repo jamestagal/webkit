@@ -3,6 +3,8 @@
 	import { runPageSpeedAudit } from '$lib/api/consultation.remote';
 	import { formatDateTime } from '$lib/utils/formatting';
 
+	import { untrack } from 'svelte';
+
 	interface Props {
 		consultationId: string;
 		websiteUrl: string | null;
@@ -19,8 +21,12 @@
 
 	let isLoading = $state(false);
 	let error = $state<string | null>(null);
-	let performanceData = $state<PerformanceData | null>(hasContent(existingData) ? existingData : (hasContent(auditData) ? auditData : null));
-	let showingAuditData = $state(!hasContent(existingData) && hasContent(auditData));
+	// Initial snapshot via untrack(); component receives data once and exposes
+	// internal mutation paths (refresh button → updates performanceData).
+	let performanceData = $state<PerformanceData | null>(untrack(() =>
+		hasContent(existingData) ? existingData : (hasContent(auditData) ? auditData : null)
+	));
+	let showingAuditData = $state(untrack(() => !hasContent(existingData) && hasContent(auditData)));
 
 	// Derived score from data
 	let score = $derived(performanceData?.performance ?? 0);

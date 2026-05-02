@@ -7,6 +7,7 @@
 	 * which would reset DynamicForm's currentStepIndex.
 	 */
 
+	import { untrack } from 'svelte';
 	import { page } from "$app/state";
 	import { goto } from "$app/navigation";
 	import DynamicForm from "$lib/components/form-renderer/DynamicForm.svelte";
@@ -21,12 +22,14 @@
 
 	const agencySlug = page.params.agencySlug;
 
-	// All data comes from +page.server.ts — no top-level await needed
-	const consultation = data.consultation;
-	const formSchema = data.formSchema;
-	const formName = data.formName;
-	const formDescription = data.formDescription;
-	const initialData = data.initialData;
+	// All data comes from +page.server.ts — no top-level await needed.
+	// Initial snapshot via untrack(); these values are loaded once per consultation-id
+	// and don't change during the edit session.
+	const consultation = untrack(() => data.consultation);
+	const formSchema = untrack(() => data.formSchema);
+	const formName = untrack(() => data.formName);
+	const formDescription = untrack(() => data.formDescription);
+	const initialData = untrack(() => data.initialData);
 
 	// Agency branding (from parent layout)
 	function toHsl(hex: string | null | undefined): string | undefined {
@@ -34,7 +37,7 @@
 		return hex.startsWith("#") ? hexToHsl(hex) : hex;
 	}
 
-	const agency = data.agency;
+	const agency = untrack(() => data.agency);
 	let branding = $derived.by((): ResolvedBranding => {
 		const colors: ResolvedBranding["colors"] = {
 			...defaultAgencyBranding.colors,

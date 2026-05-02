@@ -6,6 +6,7 @@
 	 * Supports lazy creation (consultation created on first step advancement).
 	 */
 
+	import { untrack } from 'svelte';
 	import { page } from "$app/state";
 	import { goto } from "$app/navigation";
 	import DynamicForm from "$lib/components/form-renderer/DynamicForm.svelte";
@@ -63,14 +64,15 @@
 	const defaultForm = $derived(data.defaultForm);
 	const fallbackTemplate = $derived(data.fullDiscoveryTemplate);
 
-	// Skip client picker if prefillClient exists
-	if (data.prefillClient) {
-		prefillData = {
-			businessName: data.prefillClient.businessName,
-			email: data.prefillClient.email,
-			contactPerson: data.prefillClient.contactName ?? "",
-			phone: data.prefillClient.phone ?? "",
-		};
+	// Skip client picker if prefillClient exists. Initial snapshot via untrack();
+	// URL prefill won't change during this session.
+	if (untrack(() => data.prefillClient)) {
+		prefillData = untrack(() => ({
+			businessName: data.prefillClient!.businessName,
+			email: data.prefillClient!.email,
+			contactPerson: data.prefillClient!.contactName ?? "",
+			phone: data.prefillClient!.phone ?? "",
+		}));
 		phase = "pick-form";
 		autoSelectForm();
 	}

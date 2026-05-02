@@ -25,6 +25,7 @@
 	 * rationale; the `|| accentGradient` fallback became dead code after the
 	 * resolver tweak and was deliberately dropped here.
 	 */
+	import { untrack } from 'svelte';
 	import {
 		Check,
 		X,
@@ -70,7 +71,10 @@
 		previewMode?: boolean;
 	} = $props();
 
-	const { proposal, agency, profile, selectedPackage, selectedAddons, isPreview } = data;
+	// Snapshot at mount (untrack) — document renderer captures the data payload
+	// once. Parent pages that need live updates pass a fresh `data` prop on each
+	// re-render (e.g., preview iframe via postMessage updates `branding` only).
+	const { proposal, agency, profile, selectedPackage, selectedAddons, isPreview } = untrack(() => data);
 
 	// Parse JSONB fields off the raw proposal row.
 	const performanceData = (proposal.performanceData as PerformanceData) || {};

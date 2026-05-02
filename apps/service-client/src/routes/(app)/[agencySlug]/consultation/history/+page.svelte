@@ -6,6 +6,7 @@
 	 * Uses invalidateAll() after mutations to re-run server load.
 	 */
 
+	import { untrack } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { deleteConsultation, updateDynamicConsultation } from '$lib/api/consultation.remote';
@@ -22,8 +23,9 @@
 	// Get agency slug from URL
 	const agencySlug = page.params.agencySlug;
 
-	// Get current user's membership info for permission checks
-	const membership = data.membership;
+	// Snapshot at mount (untrack) — membership is set at session-start by
+	// +page.server.ts and doesn't change during the page lifecycle.
+	const membership = untrack(() => data.membership);
 
 	// Consultations from server load (reactive — updates when invalidateAll() runs)
 	let consultations = $derived(data.consultations);
