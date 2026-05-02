@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { updateAgencyProfile, ensureAgencyProfile } from '$lib/api/agency-profile.remote';
@@ -22,17 +23,18 @@
 		{ label: 'Explore', icon: Rocket },
 	];
 
-	// Step 1: Business Profile fields
-	let legalEntityName = $state(data.profile?.legalEntityName ?? '');
-	let tradingName = $state(data.profile?.tradingName ?? '');
-	let abn = $state(data.profile?.abn ?? '');
-	let addressLine1 = $state(data.profile?.addressLine1 ?? '');
-	let city = $state(data.profile?.city ?? '');
-	let stateField = $state(data.profile?.state ?? '');
-	let postcode = $state(data.profile?.postcode ?? '');
+	// Step 1: Business Profile fields — initial snapshot via untrack();
+	// onboarding wizard retains user edits as they step through the flow.
+	let legalEntityName = $state(untrack(() => data.profile?.legalEntityName ?? ''));
+	let tradingName = $state(untrack(() => data.profile?.tradingName ?? ''));
+	let abn = $state(untrack(() => data.profile?.abn ?? ''));
+	let addressLine1 = $state(untrack(() => data.profile?.addressLine1 ?? ''));
+	let city = $state(untrack(() => data.profile?.city ?? ''));
+	let stateField = $state(untrack(() => data.profile?.state ?? ''));
+	let postcode = $state(untrack(() => data.profile?.postcode ?? ''));
 
 	// Step 2: Branding fields
-	let tagline = $state(data.profile?.tagline ?? '');
+	let tagline = $state(untrack(() => data.profile?.tagline ?? ''));
 
 	async function saveBusinessProfile() {
 		isSaving = true;

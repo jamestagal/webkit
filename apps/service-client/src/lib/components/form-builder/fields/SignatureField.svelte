@@ -5,6 +5,7 @@
 	 * Uses canvas for drawing signatures.
 	 * Outputs base64 encoded PNG image data.
 	 */
+	import { untrack } from 'svelte';
 	import PenTool from "lucide-svelte/icons/pen-tool";
 	import Eraser from "lucide-svelte/icons/eraser";
 
@@ -34,7 +35,8 @@
 
 	let canvas: HTMLCanvasElement | undefined = $state();
 	let isDrawing = $state(false);
-	let hasSignature = $state(!!value);
+	// Initial snapshot via untrack(); flag flips on user actions, not prop changes.
+	let hasSignature = $state(untrack(() => !!value));
 
 	$effect(() => {
 		if (canvas && value) {

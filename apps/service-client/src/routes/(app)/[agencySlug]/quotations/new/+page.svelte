@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { createQuotation, getTemplateForQuotation } from '$lib/api/quotations.remote';
@@ -25,11 +26,12 @@
 		contactName: string | null;
 		phone: string | null;
 	};
-	let selectedClient = $state<Client | null>(data.prefillClient || null);
-	let manualBusinessName = $state(data.prefillClient?.businessName || '');
-	let manualEmail = $state(data.prefillClient?.email || '');
-	let manualContactName = $state(data.prefillClient?.contactName || '');
-	let manualPhone = $state(data.prefillClient?.phone || '');
+	// Initial snapshot via untrack(); URL prefill won't change during session, form retains user edits.
+	let selectedClient = $state<Client | null>(untrack(() => data.prefillClient || null));
+	let manualBusinessName = $state(untrack(() => data.prefillClient?.businessName || ''));
+	let manualEmail = $state(untrack(() => data.prefillClient?.email || ''));
+	let manualContactName = $state(untrack(() => data.prefillClient?.contactName || ''));
+	let manualPhone = $state(untrack(() => data.prefillClient?.phone || ''));
 
 	// Site fields
 	let siteAddress = $state('');
@@ -37,11 +39,11 @@
 
 	// Dates
 	let preparedDate = $state(new Date().toISOString().split('T')[0]!);
-	let expiryDate = $state(
+	let expiryDate = $state(untrack(() =>
 		new Date(Date.now() + (data.profile?.defaultQuotationValidityDays ?? 60) * 86400000)
 			.toISOString()
 			.split('T')[0]!
-	);
+	));
 
 	// Scope sections
 	let sections = $state<ScopeSectionInput[]>([]);

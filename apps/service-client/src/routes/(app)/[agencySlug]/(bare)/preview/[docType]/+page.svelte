@@ -29,7 +29,7 @@
 	 * Phase 2.6 will replace the `email` branch with a `srcdoc` iframe
 	 * rendering of the rendered email HTML.
 	 */
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import ProposalDocument from '$lib/components/documents/ProposalDocument.svelte';
 	import ContractDocument from '$lib/components/documents/ContractDocument.svelte';
 	import InvoiceDocument from '$lib/components/documents/InvoiceDocument.svelte';
@@ -48,9 +48,9 @@
 	// `style:--brand-*` directives track it reactively and update every
 	// descendant's CSS vars live. Initial render shows the loader's resolved
 	// values — no message needed.
-	let overrideBranding = $state<ProposalEffectiveBranding | EffectiveBranding>({
+	let overrideBranding = $state<ProposalEffectiveBranding | EffectiveBranding>(untrack(() => ({
 		...data.branding
-	});
+	})));
 
 	let proposalBranding = $derived(overrideBranding as ProposalEffectiveBranding);
 	let genericBranding = $derived(overrideBranding as EffectiveBranding);

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { page } from "$app/state";
 	import { invalidateAll } from "$app/navigation";
 	import {
@@ -48,8 +49,9 @@
 		return { message, isLimit };
 	}
 
-	// Local mutable copy of brand data so we can update it from polling
-	let brand = $state<BrandProfileResponse | null>(data.brand);
+	// Local mutable copy of brand data so we can update it from polling.
+	// Initial snapshot via untrack(); $effect below keeps it in sync with server.
+	let brand = $state<BrandProfileResponse | null>(untrack(() => data.brand));
 
 	// Sync when server data changes (e.g. invalidateAll)
 	$effect(() => {

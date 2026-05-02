@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { diffWords } from 'diff';
 	import type { AIProposalOutput } from '$lib/types/ai-proposal';
 	import { SECTION_DISPLAY_NAMES } from '$lib/constants/proposal-sections';
@@ -27,7 +28,8 @@
 		onclose
 	}: Props = $props();
 
-	let sectionsToApply = $state(new Set(selectedSections));
+	// Initial snapshot via untrack(); $effect below keeps in sync with selectedSections prop.
+	let sectionsToApply = $state(untrack(() => new Set(selectedSections)));
 
 	// Reset sections to apply when selectedSections changes
 	$effect(() => {

@@ -5,7 +5,7 @@
 	 * A reusable rich text editor component for contract templates,
 	 * terms & conditions, and schedule content.
 	 */
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
 	import { Editor } from '@tiptap/core';
 	import StarterKit from '@tiptap/starter-kit';
 	import Placeholder from '@tiptap/extension-placeholder';
@@ -37,7 +37,9 @@
 	// Plain (non-reactive) tracker for last known content value.
 	// Prevents infinite loops from tiptap HTML normalisation mismatches
 	// (e.g. "" vs "<p></p>"). Not $state — must NOT trigger $effect.
-	let lastContent = content;
+	// untrack() makes the snapshot intent explicit and silences
+	// state_referenced_locally; reassignment in onMount/onUpdate handles fresh values.
+	let lastContent = untrack(() => content);
 
 	onMount(() => {
 		lastContent = content;

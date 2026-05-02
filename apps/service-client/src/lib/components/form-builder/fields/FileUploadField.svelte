@@ -2,6 +2,7 @@
 	/**
 	 * FileUploadField - File upload with drag & drop
 	 */
+	import { untrack } from 'svelte';
 	import Upload from "lucide-svelte/icons/upload";
 	import X from "lucide-svelte/icons/x";
 	import FileIcon from "lucide-svelte/icons/file";
@@ -35,7 +36,8 @@
 	}: Props = $props();
 
 	let isDragging = $state(false);
-	let fileName = $state(value || "");
+	// Initial snapshot via untrack(); form field retains user edits independent of prop changes.
+	let fileName = $state(untrack(() => value || ""));
 
 	function handleFileSelect(e: Event) {
 		const target = e.target as HTMLInputElement;

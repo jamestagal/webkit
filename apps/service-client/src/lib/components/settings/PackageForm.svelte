@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import {
@@ -36,7 +37,9 @@
 		maxPages: number | null;
 		isFeatured: boolean;
 		isActive: boolean;
-	}>({
+	}>(untrack(() => ({
+		// Intentional snapshot: capture existingPackage at mount.
+		// Form retains user edits independent of subsequent prop changes.
 		name: existingPackage?.name ?? '',
 		slug: existingPackage?.slug ?? '',
 		description: existingPackage?.description ?? '',
@@ -52,7 +55,7 @@
 		maxPages: existingPackage?.maxPages ?? null,
 		isFeatured: existingPackage?.isFeatured ?? false,
 		isActive: existingPackage?.isActive ?? true
-	});
+	})));
 
 	let isSaving = $state(false);
 	let error = $state('');

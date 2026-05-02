@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	let { withDelay = false }: { withDelay?: boolean } = $props();
 
 	// show loading spinner if withDelay is false
-	let show = $state(!withDelay);
+	let show = $state(untrack(() => !withDelay));
 	// show after 500ms
 	setTimeout(() => {
 		if (!withDelay) return;

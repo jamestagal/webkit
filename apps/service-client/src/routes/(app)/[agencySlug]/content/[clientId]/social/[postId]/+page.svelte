@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { page } from "$app/state";
 	import { goto, invalidateAll } from "$app/navigation";
 	import { ArrowLeft, Save, Trash2, CheckCircle, Edit3, Info, Copy } from "lucide-svelte";
@@ -11,8 +12,9 @@
 	let agencySlug = $derived(page.params.agencySlug);
 	let clientId = $derived(page.params.clientId);
 
-	// Editable content
-	let editContent = $state(data.post.content);
+	// Editable content — initial snapshot via untrack();
+	// $effect below keeps it synced from server data.
+	let editContent = $state(untrack(() => data.post.content));
 
 	// Sync state when server data changes
 	$effect(() => {

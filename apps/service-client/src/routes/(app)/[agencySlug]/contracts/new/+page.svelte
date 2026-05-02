@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { createContractFromProposal } from '$lib/api/contracts.remote';
@@ -11,18 +12,22 @@
 
 	let agencySlug = $derived(data.agency.slug);
 
-	// Pre-fill from clientId URL param (Quick Create from Client Hub)
-	const prefillClientId = data.prefillClientId;
-	const prefillClientName = data.prefillClientName;
+	// Pre-fill from clientId URL param (Quick Create from Client Hub) — captured at
+	// mount via untrack(); URL params don't change during session.
+	const prefillClientId = untrack(() => data.prefillClientId);
+	const prefillClientName = untrack(() => data.prefillClientName);
 
-	// Sort proposals: those matching prefillClientId first
-	const sortedProposals = prefillClientId
-		? [...data.proposals].sort((a, b) => {
-				const aMatch = a.clientId === prefillClientId ? 0 : 1;
-				const bMatch = b.clientId === prefillClientId ? 0 : 1;
-				return aMatch - bMatch;
-			})
-		: data.proposals;
+	// Sort proposals: those matching prefillClientId first. Snapshot at mount —
+	// page is for creating a new contract, not displaying live proposal state.
+	const sortedProposals = untrack(() =>
+		prefillClientId
+			? [...data.proposals].sort((a, b) => {
+					const aMatch = a.clientId === prefillClientId ? 0 : 1;
+					const bMatch = b.clientId === prefillClientId ? 0 : 1;
+					return aMatch - bMatch;
+				})
+			: data.proposals
+	);
 
 	// Form state
 	let selectedProposalId = $state<string | null>(null);

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import {
@@ -37,7 +38,7 @@
 		contactName: string | null;
 		phone: string | null;
 	};
-	let selectedClient = $state<Client | null>(
+	let selectedClient = $state<Client | null>(untrack(() =>
 		data.prefillClient
 			? {
 					id: data.prefillClient.id ?? '',
@@ -47,17 +48,18 @@
 					phone: data.prefillClient.phone ?? null
 				}
 			: null
-	);
+	));
 
-	// Form state - pre-fill from clientId URL param if provided (Quick Create from Client Hub)
-	let clientBusinessName = $state(data.prefillClient?.businessName ?? '');
-	let clientContactName = $state(data.prefillClient?.contactName ?? '');
-	let clientEmail = $state(data.prefillClient?.email ?? '');
-	let clientPhone = $state(data.prefillClient?.phone ?? '');
+	// Form state - pre-fill from clientId URL param if provided (Quick Create from Client Hub).
+	// Initial snapshot via untrack(); URL param won't change during session, form retains user edits.
+	let clientBusinessName = $state(untrack(() => data.prefillClient?.businessName ?? ''));
+	let clientContactName = $state(untrack(() => data.prefillClient?.contactName ?? ''));
+	let clientEmail = $state(untrack(() => data.prefillClient?.email ?? ''));
+	let clientPhone = $state(untrack(() => data.prefillClient?.phone ?? ''));
 	let clientAddress = $state('');
 	let clientAbn = $state('');
 	let issueDate = $state(new Date().toISOString().split('T')[0]);
-	let paymentTerms = $state(data.profile?.defaultPaymentTerms || 'NET_14');
+	let paymentTerms = $state(untrack(() => data.profile?.defaultPaymentTerms || 'NET_14'));
 	let paymentTermsCustom = $state('');
 	let notes = $state('');
 	let publicNotes = $state('');

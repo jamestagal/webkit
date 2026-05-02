@@ -9,6 +9,7 @@
 	 * Supports ?clientId= URL param to filter/highlight consultations for that client.
 	 */
 
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getCompletedConsultations } from '$lib/api/consultation.remote';
@@ -25,9 +26,10 @@
 	const toast = getToast();
 	const agencySlug = page.params.agencySlug;
 
-	// Pre-fill from clientId URL param (Quick Create from Client Hub)
-	const prefillClientId = data.prefillClientId;
-	const prefillClientName = data.prefillClientName;
+	// Pre-fill from clientId URL param (Quick Create from Client Hub) — captured
+	// at mount via untrack(); URL params don't change during session.
+	const prefillClientId = untrack(() => data.prefillClientId);
+	const prefillClientName = untrack(() => data.prefillClientName);
 
 	// State
 	let selectedConsultationId = $state<string | null>(null);

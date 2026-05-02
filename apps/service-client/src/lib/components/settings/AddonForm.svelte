@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import {
@@ -30,7 +31,8 @@
 		unitLabel: string;
 		availablePackages: string[];
 		isActive: boolean;
-	}>({
+	}>(untrack(() => ({
+		// Intentional snapshot: capture existingAddon at mount.
 		name: existingAddon?.name ?? '',
 		slug: existingAddon?.slug ?? '',
 		description: existingAddon?.description ?? '',
@@ -39,7 +41,7 @@
 		unitLabel: existingAddon?.unitLabel ?? '',
 		availablePackages: (existingAddon?.availablePackages as string[]) ?? [],
 		isActive: existingAddon?.isActive ?? true
-	});
+	})));
 
 	let isSaving = $state(false);
 	let error = $state('');

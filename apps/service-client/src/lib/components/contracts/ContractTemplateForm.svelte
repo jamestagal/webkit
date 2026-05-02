@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import {
@@ -22,28 +23,29 @@
 	let isSubmitting = $state(false);
 	let richTextEditor: RichTextEditor | undefined = $state();
 
-	// Form state
-	let name = $state(template?.name || '');
-	let description = $state(template?.description || '');
-	let termsContent = $state(template?.termsContent || '');
-	let isDefault = $state(template?.isDefault || false);
+	// Form state — initial snapshot via untrack();
+	// form retains user edits during edit session, independent of prop changes.
+	let name = $state(untrack(() => template?.name || ''));
+	let description = $state(untrack(() => template?.description || ''));
+	let termsContent = $state(untrack(() => template?.termsContent || ''));
+	let isDefault = $state(untrack(() => template?.isDefault || false));
 
 	// Cover page config
-	let coverPageConfig = $state<CoverPageConfig>({
+	let coverPageConfig = $state<CoverPageConfig>(untrack(() => ({
 		showLogo: true,
 		showAgencyAddress: true,
 		showClientAddress: true,
 		...(template?.coverPageConfig as CoverPageConfig)
-	});
+	})));
 
 	// Signature config
-	let signatureConfig = $state<SignatureConfig>({
+	let signatureConfig = $state<SignatureConfig>(untrack(() => ({
 		agencySignatory: '',
 		agencyTitle: '',
 		requireClientTitle: true,
 		requireWitness: false,
 		...(template?.signatureConfig as SignatureConfig)
-	});
+	})));
 
 	let isEditing = $derived(!!template);
 
