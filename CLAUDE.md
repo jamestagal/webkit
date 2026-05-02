@@ -170,6 +170,26 @@ For multi-step tasks, state a brief plan with verification per step:
 2. [Step] → verify: [check]
 ```
 
+### 5. Cross-Layer Audit
+
+**For "does X actually happen?" questions, verify the call chain — not just the function that performs X.**
+
+Code-correct in isolation often hides cross-layer mismatch. The function that performs the action can be flawless, but if the UI never invokes it (or invokes a sibling/orphan command instead), the action never happens. Auditing the called function alone yields a false negative.
+
+When the question is *behavioural* ("is the email sent?", "is the cache invalidated?", "is the webhook fired?"), verify all four:
+
+1. **Handler exists and is correct.** (The thing being audited.)
+2. **Handler is called from the UI / event source / scheduler.** (No orphan.)
+3. **The call path doesn't get short-circuited** by a sibling/orphan command, a feature flag, a permission check, or a status-only sentinel that "looks like" the real action.
+4. **The handler actually invokes the underlying provider** (Resend / DB / queue / etc.), and that invocation reaches the wire, not just a queued promise.
+
+**Past examples that taught this rule:**
+- `[email-delivery-investigation]` (2026-05-02): `sendQuotationEmail` was correct in isolation; the UI called orphaned `sendQuotation` (status-only, no Resend) instead. Audit verified the function but missed the call site → bug shipped.
+- `[branding-workspace-v2]` Phase 2 audit: same file split between routed vs half-routed functions; tagging at the file level missed the per-function split.
+- `.run()` audit Phase A.5: `setInterval` callback inside `$effect` looked lexically wrapped but fired post-effect-setup in pure imperative async — not actually inside the effect's reactive scope.
+
+**The cheap check that catches these:** for any audit conclusion of the form *"function X is correct"*, also run `grep -rn "\bX\b"` across the call sites and verify each caller actually exists and routes to X (not to an orphan). For diagnostic-first workflows where Claude originates the spec (no Cowork draft exists), file the diagnostic to `.comms/claude-to-cowork/` before entering plan mode so Cowork has the audit context for plan appraisal.
+
 ## Plan Mode
 
 - Make plans extremely concise. Sacrifice grammar for concision.
