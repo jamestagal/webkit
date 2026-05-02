@@ -108,6 +108,17 @@ const UpdateProposalSchema = v.object({
 	clientPhone: v.optional(v.string()),
 	clientWebsite: v.optional(v.string()),
 
+	// AI generation context (Phase A doctype-coupling-relaxation: writable via QuickProposalContextModal)
+	industry: v.optional(v.nullable(v.string())),
+	consultationChallenges: v.optional(v.array(v.string())),
+	consultationGoals: v.optional(
+		v.object({
+			primary_goals: v.optional(v.array(v.string())),
+			conversion_goal: v.optional(v.string()),
+			budget_range: v.optional(v.string()),
+		}),
+	),
+
 	// Cover
 	title: v.optional(v.string()),
 	coverImage: v.optional(v.nullable(v.string())),
@@ -444,6 +455,7 @@ export const createProposal = command(CreateProposalSchema, async (data) => {
 					budget_range: consultation.budgetRange || "",
 				},
 				consultationChallenges: consultation.primaryChallenges || [],
+				industry: consultation.industry || null, // Phase A doctype-coupling-relaxation
 			};
 
 			// Copy performanceData from consultation if available (PageSpeed audit results)
@@ -545,6 +557,12 @@ export const updateProposal = command(UpdateProposalSchema, async (data) => {
 	if (data.clientEmail !== undefined) updates["clientEmail"] = data.clientEmail;
 	if (data.clientPhone !== undefined) updates["clientPhone"] = data.clientPhone;
 	if (data.clientWebsite !== undefined) updates["clientWebsite"] = data.clientWebsite;
+
+	// AI generation context (Phase A doctype-coupling-relaxation)
+	if (data.industry !== undefined) updates["industry"] = data.industry;
+	if (data.consultationChallenges !== undefined)
+		updates["consultationChallenges"] = data.consultationChallenges;
+	if (data.consultationGoals !== undefined) updates["consultationGoals"] = data.consultationGoals;
 
 	// Cover
 	if (data.title !== undefined) updates["title"] = data.title;
@@ -1216,6 +1234,7 @@ export const generateProposalWithAI = command(GenerateProposalAISchema, async (d
 			clientBusinessName: proposal.clientBusinessName,
 			clientContactName: proposal.clientContactName,
 			clientWebsite: proposal.clientWebsite,
+			industry: proposal.industry, // Phase A: proposal-level overrides consultation
 			consultationChallenges: proposal.consultationChallenges as string[] | null,
 			consultationGoals: proposal.consultationGoals as {
 				primary_goals?: string[];

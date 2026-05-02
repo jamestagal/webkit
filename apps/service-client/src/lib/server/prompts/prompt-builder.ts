@@ -331,6 +331,7 @@ export function buildContextFromProposal(
 		clientBusinessName?: string | null;
 		clientContactName?: string | null;
 		clientWebsite?: string | null;
+		industry?: string | null; // Phase A: preferred over consultation.industry
 		consultationChallenges?: string[] | null;
 		consultationGoals?: {
 			primary_goals?: string[];
@@ -369,7 +370,7 @@ export function buildContextFromProposal(
 	return {
 		businessName: proposal.clientBusinessName || "Unknown Business",
 		contactPerson: proposal.clientContactName || "Client",
-		industry: consultation?.industry || "General",
+		industry: proposal.industry || consultation?.industry || "General",
 		businessType: consultation?.businessType || "Business",
 		websiteStatus: (consultation?.websiteStatus as PromptContext["websiteStatus"]) || "refresh",
 		website: proposal.clientWebsite || undefined,

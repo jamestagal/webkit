@@ -921,6 +921,7 @@ create table if not exists proposals (
     consultation_pain_points jsonb not null default '{}',   -- Cached from consultation
     consultation_goals jsonb not null default '{}',         -- Cached from consultation
     consultation_challenges jsonb not null default '[]',    -- Array of challenge strings
+    industry text,                                          -- Cached from consultation OR set inline via Quick Context modal (Phase A doctype-coupling-relaxation)
 
     -- Creator
     created_by uuid references users(id) on delete set null,

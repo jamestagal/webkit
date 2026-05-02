@@ -777,6 +777,7 @@ export const proposals = pgTable(
 		consultationPainPoints: jsonb("consultation_pain_points").notNull().default({}), // Cached from consultation
 		consultationGoals: jsonb("consultation_goals").notNull().default({}), // Cached from consultation
 		consultationChallenges: jsonb("consultation_challenges").notNull().default([]), // Array of challenge strings
+		industry: text("industry"), // Cached from consultation OR set inline via Quick Context modal (Phase A doctype-coupling-relaxation)
 
 		// Creator
 		createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),

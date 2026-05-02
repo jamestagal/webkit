@@ -208,6 +208,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			clientBusinessName: proposal.clientBusinessName,
 			clientContactName: proposal.clientContactName,
 			clientWebsite: proposal.clientWebsite,
+			industry: proposal.industry, // Phase A: proposal-level overrides consultation
 			consultationChallenges: proposal.consultationChallenges as string[] | null,
 			consultationGoals: proposal.consultationGoals as {
 				primary_goals?: string[];

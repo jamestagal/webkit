@@ -17,6 +17,7 @@
 	import AIPreviewModal from './AIPreviewModal.svelte';
 	import AIStreamingModal from './AIStreamingModal.svelte';
 	import AIErrorDisplay from '$lib/components/AIErrorDisplay.svelte';
+	import QuickProposalContextModal from '$lib/components/QuickProposalContextModal.svelte';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import {
 		Save,
@@ -46,7 +47,7 @@
 	import SEOSummarySection from '$lib/components/proposals/SEOSummarySection.svelte';
 	import { parseSEOSummary, getStatusColorClass } from '$lib/types/seo-summary';
 	import { ALL_SECTIONS, SECTION_DISPLAY_NAMES } from '$lib/constants/proposal-sections';
-	import type { AIErrorCode } from '$lib/constants/ai-errors';
+	import { AIErrorCode } from '$lib/constants/ai-errors';
 	import type { AIProposalOutput } from '$lib/types/ai-proposal';
 	import type {
 		ChecklistItem,
@@ -170,6 +171,10 @@
 	let syncedPerformanceData = $state<Record<string, unknown> | null>(null); // Fresh data from consultation
 	let includeSEOData = $state(true); // Include SEO audit data in AI context
 	let manualEditSEO = $state(false); // Toggle manual edit mode for SEO summary
+
+	// Phase A doctype-coupling-relaxation: inline-context modal state
+	let quickContextModalOpen = $state(false);
+	let lastModalSubmitTime: number | null = $state(null);
 
 	// Section selection for AI generation (default all selected)
 	let selectedSections = $state<Record<string, boolean>>(
@@ -412,8 +417,69 @@
 	function handleStreamingError(code: AIErrorCode, message: string) {
 		showStreamingModal = false;
 		isGenerating = false;
+		// Phase A doctype-coupling-relaxation: surface inline-context modal for
+		// CONTEXT_INSUFFICIENT instead of dead-end AIErrorDisplay. Auto-re-trigger
+		// fuse: if the modal was just submitted (within 5s), don't re-open it —
+		// fall through to AIErrorDisplay so the user isn't trapped in a loop on
+		// schema-mismatch / race-condition edge cases.
+		if (code === AIErrorCode.CONTEXT_INSUFFICIENT) {
+			const justSubmitted =
+				lastModalSubmitTime !== null && Date.now() - lastModalSubmitTime < 5000;
+			if (justSubmitted) {
+				console.error(
+					'CONTEXT_INSUFFICIENT after QuickProposalContextModal submit — schema mismatch?',
+					message
+				);
+				aiError = code;
+				toast.error('Generation failed', message);
+			} else {
+				quickContextModalOpen = true;
+			}
+			return;
+		}
 		aiError = code;
 		toast.error('Generation failed', message);
+	}
+
+	// Phase A: persist 3 fields on the proposal, then re-trigger generation.
+	async function handleQuickContextSubmit(submission: {
+		industry: string;
+		primaryChallenges: string[];
+		primaryGoals: string[];
+	}) {
+		// Preserve existing JSONB fields on consultationGoals (conversion_goal,
+		// budget_range) if present, only overwrite primary_goals.
+		const existingGoals = (proposal.consultationGoals ?? {}) as {
+			primary_goals?: string[];
+			conversion_goal?: string;
+			budget_range?: string;
+		};
+		await updateProposal({
+			proposalId,
+			industry: submission.industry,
+			consultationChallenges: submission.primaryChallenges,
+			consultationGoals: {
+				primary_goals: submission.primaryGoals,
+				conversion_goal: existingGoals.conversion_goal,
+				budget_range: existingGoals.budget_range
+			}
+		});
+		await invalidateAll();
+		syncFormFromServer();
+		quickContextModalOpen = false;
+		lastModalSubmitTime = Date.now();
+		// Re-trigger streaming generation with the same selected sections.
+		isGenerating = true;
+		aiError = null;
+		showStreamingModal = true;
+	}
+
+	function handleQuickContextCancel() {
+		// Restore the AIErrorDisplay surface so the "Edit Consultation" hint
+		// stays reachable. Modal is purely additive — cancel returns to today's
+		// pre-modal UX.
+		quickContextModalOpen = false;
+		aiError = AIErrorCode.CONTEXT_INSUFFICIENT;
 	}
 
 	// Called when user cancels streaming
@@ -1641,6 +1707,21 @@
 		</form>
 	</dialog>
 {/if}
+
+<!-- Quick Proposal Context Modal (Phase A doctype-coupling-relaxation) -->
+<QuickProposalContextModal
+	open={quickContextModalOpen}
+	linkedConsultationId={proposal.consultationId}
+	initialIndustry={proposal.industry}
+	initialChallenges={(proposal.consultationChallenges as string[] | null) ?? []}
+	initialGoals={((proposal.consultationGoals as { primary_goals?: string[] } | null)
+		?.primary_goals) ?? []}
+	onSubmit={handleQuickContextSubmit}
+	onCancel={handleQuickContextCancel}
+	onLinkToConsultation={proposal.consultationId
+		? () => goto(`/${agencySlug}/consultations/${proposal.consultationId}`)
+		: () => goto(`/${agencySlug}/consultations/new`)}
+/>
 
 <!-- AI Error Display -->
 {#if aiError}
