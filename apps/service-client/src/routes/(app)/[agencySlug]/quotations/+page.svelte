@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
-	import { deleteQuotation, duplicateQuotation, sendQuotation } from '$lib/api/quotations.remote';
+	import { deleteQuotation, duplicateQuotation } from '$lib/api/quotations.remote';
+	import { sendQuotationEmail } from '$lib/api/email.remote';
 	import { FEATURES } from '$lib/config/features';
 	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';
 	import {
@@ -92,12 +93,17 @@
 	async function confirmSendEmail() {
 		if (!selectedQuotation) return;
 		sendingEmail = true;
+		const recipientEmail = selectedQuotation.clientEmail;
 
 		try {
-			await sendQuotation(selectedQuotation.id);
+			const result = await sendQuotationEmail({ quotationId: selectedQuotation.id });
 			await invalidateAll();
 			sendModalOpen = false;
-			toast.success('Quotation sent', `Status updated to sent`);
+			if (result.success) {
+				toast.success('Quotation sent', `Email delivered to ${recipientEmail}`);
+			} else {
+				toast.error('Failed to send quotation', result.error || 'Unknown error');
+			}
 		} catch (err) {
 			toast.error('Failed to send', err instanceof Error ? err.message : '');
 		} finally {

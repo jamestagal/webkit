@@ -836,49 +836,6 @@ export const duplicateQuotation = command(
 );
 
 /**
- * Send a quotation (transition draft → sent).
- * The actual email sending is handled by email.remote.ts.
- */
-export const sendQuotation = command(v.pipe(v.string(), v.uuid()), async (quotationId) => {
-	const context = await getAgencyContext();
-
-	if (!hasPermission(context.role, "quotation:send")) {
-		throw new Error("Permission denied");
-	}
-
-	const [quotation] = await db
-		.select()
-		.from(quotations)
-		.where(and(eq(quotations.id, quotationId), eq(quotations.agencyId, context.agencyId)))
-		.limit(1);
-
-	if (!quotation) {
-		throw new Error("Quotation not found");
-	}
-
-	if (!["draft", "sent"].includes(quotation.status)) {
-		throw new Error("Quotation must be in draft or sent status to send");
-	}
-
-	const now = new Date();
-
-	await db
-		.update(quotations)
-		.set({
-			status: "sent",
-			sentAt: quotation.sentAt || now,
-			updatedAt: now,
-		})
-		.where(eq(quotations.id, quotationId));
-
-	await logActivity("quotation.sent", "quotation", quotationId, {
-		newValues: { sentAt: now.toISOString() },
-	});
-
-	return { success: true, slug: quotation.slug };
-});
-
-/**
  * Accept a quotation (public — no auth required).
  */
 export const acceptQuotation = command(

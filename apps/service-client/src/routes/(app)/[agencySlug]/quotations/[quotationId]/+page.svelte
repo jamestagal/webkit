@@ -4,9 +4,9 @@
 	import {
 		updateQuotation,
 		deleteQuotation,
-		sendQuotation,
 		duplicateQuotation
 	} from '$lib/api/quotations.remote';
+	import { sendQuotationEmail } from '$lib/api/email.remote';
 	import ClientPicker from '$lib/components/shared/ClientPicker.svelte';
 	import SendEmailModal from '$lib/components/shared/SendEmailModal.svelte';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
@@ -407,11 +407,20 @@
 	// Send handler
 	async function confirmSendEmail() {
 		sendingEmail = true;
+		const wasDraft = isDraft;
+		const recipientEmail = data.quotation.clientEmail;
 		try {
-			await sendQuotation(data.quotation.id);
+			const result = await sendQuotationEmail({ quotationId: data.quotation.id });
 			await invalidateAll();
 			sendModalOpen = false;
-			toast.success('Quotation sent');
+			if (result.success) {
+				toast.success(
+					wasDraft ? 'Quotation sent' : 'Quotation resent',
+					`Email delivered to ${recipientEmail}`
+				);
+			} else {
+				toast.error('Failed to send quotation', result.error || 'Unknown error');
+			}
 		} catch (err) {
 			toast.error('Failed to send', err instanceof Error ? err.message : '');
 		} finally {
