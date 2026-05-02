@@ -85,7 +85,7 @@
 			isSearching = true;
 			searchCompleted = false;
 			try {
-				const results = await searchClients({ query: searchQuery, limit: 8 });
+				const results = await searchClients({ query: searchQuery, limit: 8 }).run();
 				searchResults = results.map((r) => ({
 					id: r.id,
 					businessName: r.businessName,
