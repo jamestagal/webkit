@@ -99,7 +99,7 @@ const UpdateInvoiceSchema = v.object({
 	invoiceId: v.pipe(v.string(), v.uuid()),
 	clientBusinessName: v.optional(v.string()),
 	clientContactName: v.optional(v.string()),
-	clientEmail: v.optional(v.pipe(v.string(), v.email())),
+	clientEmail: v.optional(v.union([v.literal(""), v.pipe(v.string(), v.email())])),
 	clientPhone: v.optional(v.string()),
 	clientAddress: v.optional(v.string()),
 	clientAbn: v.optional(v.string()),
