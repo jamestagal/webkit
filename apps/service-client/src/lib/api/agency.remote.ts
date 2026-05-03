@@ -200,7 +200,7 @@ const UpdateAgencyBrandingSchema = v.object({
 
 const UpdateAgencyContactSchema = v.object({
 	agencyId: v.optional(v.pipe(v.string(), v.uuid())),
-	email: v.optional(v.pipe(v.string(), v.email())),
+	email: v.optional(v.union([v.literal(""), v.pipe(v.string(), v.email())])),
 	phone: v.optional(v.string()),
 	website: v.optional(v.string()),
 });
