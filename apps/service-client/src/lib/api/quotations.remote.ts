@@ -82,7 +82,7 @@ const UpdateQuotationSchema = v.object({
 	quotationName: v.optional(v.string()),
 	clientBusinessName: v.optional(v.string()),
 	clientContactName: v.optional(v.string()),
-	clientEmail: v.optional(v.pipe(v.string(), v.email())),
+	clientEmail: v.optional(v.union([v.literal(""), v.pipe(v.string(), v.email())])),
 	clientPhone: v.optional(v.string()),
 	clientAddress: v.optional(v.string()),
 	siteAddress: v.optional(v.string()),
