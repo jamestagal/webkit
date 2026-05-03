@@ -13,7 +13,7 @@
 
 	import { goto, invalidateAll } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
-	import { updateContract, deleteContract, regenerateContractTerms, linkTemplateToContract } from '$lib/api/contracts.remote';
+	import { updateContract, deleteContract, regenerateContractTerms, linkTemplateToContract, reactivateContract } from '$lib/api/contracts.remote';
 	import { sendContractEmail } from '$lib/api/email.remote';
 	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import EmailHistory from '$lib/components/emails/EmailHistory.svelte';
@@ -73,6 +73,8 @@
 	// Delete modal state
 	let showDeleteModal = $state(false);
 	let isDeleting = $state(false);
+	let showReactivateModal = $state(false);
+	let isReactivating = $state(false);
 
 	// Form state - editable fields
 	let clientBusinessName = $state('');
@@ -316,6 +318,28 @@
 		}
 	}
 
+	function openReactivateModal() {
+		showReactivateModal = true;
+	}
+
+	function closeReactivateModal() {
+		showReactivateModal = false;
+	}
+
+	async function confirmReactivate() {
+		isReactivating = true;
+		try {
+			await reactivateContract(contract.id);
+			closeReactivateModal();
+			await invalidateAll();
+			toast.success('Contract reactivated', 'Status set to draft and expiry cleared. Set a new expiry date before sending.');
+		} catch (err) {
+			toast.error('Failed to reactivate', err instanceof Error ? err.message : '');
+		} finally {
+			isReactivating = false;
+		}
+	}
+
 	function copyPublicUrl() {
 		const url = `${window.location.origin}/c/${contract.slug}`;
 		navigator.clipboard.writeText(url);
@@ -506,6 +530,20 @@
 									Resend
 								</button>
 							{/if}
+						{:else if contract.status === 'expired'}
+							<button
+								type="button"
+								class="btn btn-warning btn-sm"
+								onclick={openReactivateModal}
+								disabled={isReactivating}
+							>
+								{#if isReactivating}
+									<span class="loading loading-spinner loading-sm"></span>
+								{:else}
+									<RefreshCw class="h-4 w-4" />
+								{/if}
+								Reactivate as Draft
+							</button>
 						{/if}
 					</div>
 					<!-- Secondary actions in dropdown -->
@@ -1311,5 +1349,29 @@
 			</div>
 		</div>
 		<div class="modal-backdrop" onclick={closeDeleteModal}></div>
+	</div>
+{/if}
+
+<!-- Reactivate Contract Modal -->
+{#if showReactivateModal}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="text-lg font-bold">Reactivate Contract</h3>
+			<p class="py-4">
+				This contract is expired. Reactivating <strong>{contract.contractNumber}</strong> will set the status back to draft and clear the expiry date. You'll need to set a new expiry before sending. Proceed?
+			</p>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={closeReactivateModal} disabled={isReactivating}>
+					Cancel
+				</button>
+				<button class="btn btn-warning" onclick={confirmReactivate} disabled={isReactivating}>
+					{#if isReactivating}
+						<span class="loading loading-spinner loading-sm"></span>
+					{/if}
+					Reactivate
+				</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={closeReactivateModal}></div>
 	</div>
 {/if}

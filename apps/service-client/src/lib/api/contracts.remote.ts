@@ -1390,3 +1390,50 @@ export const updateContractStatus = command(
 		return contract;
 	},
 );
+
+/**
+ * Reactivate an expired contract back to draft, clearing the validity date.
+ * Recovery affordance for contracts where validUntil has passed and the
+ * agency wants to extend or remove the expiry before re-sending.
+ */
+export const reactivateContract = command(
+	v.pipe(v.string(), v.uuid()),
+	async (contractId: string) => {
+		const context = await getAgencyContext();
+
+		const [existing] = await db
+			.select()
+			.from(contracts)
+			.where(and(eq(contracts.id, contractId), eq(contracts.agencyId, context.agencyId)))
+			.limit(1);
+
+		if (!existing) {
+			throw new Error("Contract not found");
+		}
+
+		if (!canModifyResource(context.role, existing.createdBy || "", context.userId, "contract")) {
+			throw new Error("Permission denied");
+		}
+
+		if (existing.status !== "expired") {
+			throw new Error("Only expired contracts can be reactivated");
+		}
+
+		const [contract] = await db
+			.update(contracts)
+			.set({
+				status: "draft",
+				validUntil: null,
+				updatedAt: new Date(),
+			})
+			.where(eq(contracts.id, contractId))
+			.returning();
+
+		await logActivity("contract.reactivated", "contract", contractId, {
+			oldValues: { status: existing.status, validUntil: existing.validUntil },
+			newValues: { status: "draft", validUntil: null },
+		});
+
+		return contract;
+	},
+);
