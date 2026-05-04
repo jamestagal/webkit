@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"service-core/config"
+	ot "service-core/pkg/otel"
 	"service-core/storage/query"
 	"strings"
 	"time"
@@ -110,7 +111,9 @@ func (s *Service) Refresh(ctx context.Context, accessToken string, refreshToken 
 
 	if err == nil {
 		// Get user from database
+		doneQuery := ot.StartDBQuery(ctx, "select_user_by_id")
 		user, err := s.store.SelectUser(ctx, claims.ID)
+		doneQuery(err)
 		if err != nil {
 			return nil, pkg.NotFoundError{Message: "Error selecting user by ID", Err: err}
 		}

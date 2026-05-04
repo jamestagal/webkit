@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"service-core/config"
+	ot "service-core/pkg/otel"
 	"service-core/storage/query"
 	"time"
 
@@ -113,7 +114,9 @@ func (s *Service) GetBillingInfo(ctx context.Context, agencyID uuid.UUID, sessio
 		}
 	}
 
+	doneQuery := ot.StartDBQuery(ctx, "select_agency_billing_info")
 	info, err := s.store.GetAgencyBillingInfo(ctx, agencyID)
+	doneQuery(err)
 	if err != nil {
 		return nil, pkg.InternalError{Message: "Error getting agency billing info", Err: err}
 	}
