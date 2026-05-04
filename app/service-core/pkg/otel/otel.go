@@ -1,8 +1,15 @@
+// Package otel wires the OpenTelemetry SDK for service-core.
+//
+// SDK pin: go.opentelemetry.io/otel v1.38.0; otelgrpc/otelhttp contrib v0.59.0
+// (resolved by `go mod tidy` against existing v1.34.0 indirect deps; compatible
+// with the v1.38.0 SDK pin per the gofast-otel-instrumentation Phase 1 work).
 package otel
 
 import (
 	"context"
 	"errors"
+	"net/url"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -20,6 +27,28 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	span "go.opentelemetry.io/otel/trace"
 )
+
+// parseOTLPEndpoint extracts host:port from an OTLP endpoint configuration value.
+// Accepts either:
+//   - A URL form (per OTel spec): "http://otel-collector:4317" or "https://..."
+//   - A bare host:port form: "otel-collector:4317"
+//
+// Returns the form expected by otlpgrpc.WithEndpoint().
+// Returns empty string unchanged (caller is responsible for fail-soft).
+// On URL parse failure, returns the raw string so the SDK surfaces its own error.
+func parseOTLPEndpoint(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	if strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+		u, err := url.Parse(raw)
+		if err != nil {
+			return raw
+		}
+		return u.Host
+	}
+	return raw
+}
 
 // StartSpan starts a new span and returns a cleanup function that handles
 // error recording and status setting. Use with named return values:
@@ -135,7 +164,7 @@ func newResource(ctx context.Context, serviceName string) (*resource.Resource, e
 func newTracerProvider(ctx context.Context, res *resource.Resource, endpoint string) (*trace.TracerProvider, error) {
 	traceExporter, err := otlptracegrpc.New(ctx,
 		otlptracegrpc.WithInsecure(),
-		otlptracegrpc.WithEndpoint(endpoint),
+		otlptracegrpc.WithEndpoint(parseOTLPEndpoint(endpoint)),
 	)
 	if err != nil {
 		return nil, err
@@ -152,7 +181,7 @@ func newTracerProvider(ctx context.Context, res *resource.Resource, endpoint str
 func newMeterProvider(ctx context.Context, res *resource.Resource, endpoint string) (*metric.MeterProvider, error) {
 	metricExporter, err := otlpmetricgrpc.New(ctx,
 		otlpmetricgrpc.WithInsecure(),
-		otlpmetricgrpc.WithEndpoint(endpoint),
+		otlpmetricgrpc.WithEndpoint(parseOTLPEndpoint(endpoint)),
 	)
 	if err != nil {
 		return nil, err
@@ -169,7 +198,7 @@ func newMeterProvider(ctx context.Context, res *resource.Resource, endpoint stri
 func newLoggerProvider(ctx context.Context, res *resource.Resource, endpoint string) (*log.LoggerProvider, error) {
 	logExporter, err := otlploggrpc.New(ctx,
 		otlploggrpc.WithInsecure(),
-		otlploggrpc.WithEndpoint(endpoint),
+		otlploggrpc.WithEndpoint(parseOTLPEndpoint(endpoint)),
 	)
 	if err != nil {
 		return nil, err

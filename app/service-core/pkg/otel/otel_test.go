@@ -45,3 +45,48 @@ func TestMetricsHelpers_DoNotPanic(t *testing.T) {
 	doneExternal := otel.StartExternalCall(context.Background(), "postmark", "send_email")
 	doneExternal(errors.New("boom"))
 }
+
+func TestParseOTLPEndpoint(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "http_url_strips_scheme",
+			in:   "http://otel-collector:4317",
+			want: "otel-collector:4317",
+		},
+		{
+			name: "https_url_strips_scheme",
+			in:   "https://collector.prod:4317",
+			want: "collector.prod:4317",
+		},
+		{
+			name: "host_port_unchanged",
+			in:   "otel-collector:4317",
+			want: "otel-collector:4317",
+		},
+		{
+			name: "empty_unchanged",
+			in:   "",
+			want: "",
+		},
+		{
+			name: "malformed_url_falls_through",
+			in:   "http://[::",
+			want: "http://[::",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := otel.ParseOTLPEndpointForTest(tc.in)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
