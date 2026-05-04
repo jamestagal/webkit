@@ -38,20 +38,9 @@ datasources:
         access: proxy
         isDefault: false
         editable: true
-      - name: tempo
-        type: tempo
-        uid: tempo
-        orgId: 1
-        url: http://tempo.monitoring.svc.cluster.local:3100
-        access: proxy
-        isDefault: false
-        jsonData:
-          nodeGraph:
-            enabled: true
-          tracesToMetrics:
-            datasourceUid: victoriametrics
-          serviceMap: 
-            datasourceUid: victoriametrics
+      # tempo datasource removed — Tempo replaced by VictoriaTraces in v2.18.0.
+      # VictoriaTraces datasource (jaeger type) gets added when
+      # [k8s-migration-checklist] lays down the VictoriaTraces Helm chart.
 
 dashboardProviders:
  dashboardproviders.yaml:

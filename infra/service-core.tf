@@ -82,7 +82,7 @@ resource "kubernetes_deployment" "service_core" {
           }
           env {
             name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
-            value = "http://otel-collector.monitoring:4317"
+            value = "http://otel-collector-opentelemetry-collector.monitoring.svc.cluster.local:4317"
           }
           env {
             name = "CRON_TOKEN"

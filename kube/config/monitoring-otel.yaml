@@ -7,7 +7,7 @@ replicaCount: 1
 
 image:
   repository: otel/opentelemetry-collector-contrib
-  tag: "0.123.0" # Use the latest version
+  tag: "0.147.0" # Aligned with v2.18.0 reference (gofast-v2.18.0-upgrade Phase 3.4)
 
 presets:
   kubernetesAttributes:
@@ -41,10 +41,11 @@ config:
             - "GET /ready"
 
   exporters:
-    otlp/tempo:
-      endpoint: tempo.monitoring.svc.cluster.local:4317
-      tls:
-        insecure: true
+    # otlp/tempo removed — Tempo replaced by VictoriaTraces in v2.18.0.
+    # VictoriaTraces Helm wiring (otlp_grpc/victoriatraces exporter +
+    # service pipeline rewire) deferred to [k8s-migration-checklist] —
+    # the VictoriaTraces Helm chart values file (monitoring-vts.yaml)
+    # gets added when the K8s migration workstream lays down the chart.
     otlphttp/vls:
       compression: gzip
       encoding: proto
@@ -69,10 +70,10 @@ config:
 
   service:
     pipelines:
-      traces:
-        receivers: [otlp]
-        processors: [k8sattributes, filter, batch]
-        exporters: [otlp/tempo]
+      # traces pipeline removed — Tempo gone, VictoriaTraces wiring deferred
+      # to [k8s-migration-checklist]. Traces ingestion at OTLP receiver still
+      # works (4317/4318) but no exporter routes them downstream until
+      # VictoriaTraces is added.
 
       logs:
         receivers: [otlp]
