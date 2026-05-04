@@ -3,7 +3,7 @@
   "uid": "observability",
   "title": "Errors & Traces",
   "timezone": "browser",
-  "version": 1,
+  "version": 2,
   "schemaVersion": 39,
   "style": "dark",
   "tags": [
@@ -33,14 +33,28 @@
         "name": "service",
         "label": "Service",
         "type": "query",
-        "query": "label_values({service_name!=\"\"}, service_name)",
+        "query": "label_values(traces_span_metrics_calls_total, service_name)",
         "datasource": {
-          "uid": "Loki",
-          "type": "loki"
+          "uid": "victoriametrics",
+          "type": "victoriametrics-metrics-datasource"
         },
         "refresh": 2,
         "allValue": ".+",
         "includeAll": true,
+        "multi": false,
+        "current": {}
+      },
+      {
+        "name": "trace_service",
+        "label": "Trace Service",
+        "type": "query",
+        "query": "label_values(traces_span_metrics_calls_total, service_name)",
+        "datasource": {
+          "uid": "victoriametrics",
+          "type": "victoriametrics-metrics-datasource"
+        },
+        "refresh": 2,
+        "includeAll": false,
         "multi": false,
         "current": {}
       }
@@ -54,13 +68,13 @@
       "type": "timeseries",
       "title": "Throughput (RPS)",
       "datasource": {
-        "uid": "prometheus",
-        "type": "prometheus"
+        "uid": "victoriametrics",
+        "type": "victoriametrics-metrics-datasource"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (service_name) (rate(span_metrics_calls_total{service_name=~\"$service\"}[5m]))",
+          "expr": "sum by (service_name) (rate(traces_span_metrics_calls_total{service_name=~\"$service\"}[5m]))",
           "legendFormat": "{{service_name}}"
         }
       ],
@@ -87,13 +101,13 @@
       "type": "timeseries",
       "title": "Error Rate (%)",
       "datasource": {
-        "uid": "prometheus",
-        "type": "prometheus"
+        "uid": "victoriametrics",
+        "type": "victoriametrics-metrics-datasource"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (service_name) (rate(span_metrics_calls_total{service_name=~\"$service\", status_code=\"STATUS_CODE_ERROR\"}[5m])) / sum by (service_name) (rate(span_metrics_calls_total{service_name=~\"$service\"}[5m])) * 100",
+          "expr": "sum by (service_name) (rate(traces_span_metrics_calls_total{service_name=~\"$service\", status_code=\"STATUS_CODE_ERROR\"}[5m])) / sum by (service_name) (rate(traces_span_metrics_calls_total{service_name=~\"$service\"}[5m])) * 100",
           "legendFormat": "{{service_name}}"
         }
       ],
@@ -120,13 +134,13 @@
       "type": "timeseries",
       "title": "p99 Latency (ms)",
       "datasource": {
-        "uid": "prometheus",
-        "type": "prometheus"
+        "uid": "victoriametrics",
+        "type": "victoriametrics-metrics-datasource"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.99, sum by (le, service_name) (rate(span_metrics_duration_milliseconds_bucket{service_name=~\"$service\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, service_name) (rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service\"}[5m])))",
           "legendFormat": "{{service_name}}"
         }
       ],
@@ -153,17 +167,17 @@
       "type": "nodeGraph",
       "title": "Service Graph",
       "datasource": {
-        "uid": "tempo",
-        "type": "tempo"
+        "uid": "victoriatraces",
+        "type": "jaeger"
       },
       "targets": [
         {
           "datasource": {
-            "type": "tempo",
-            "uid": "tempo"
+            "type": "jaeger",
+            "uid": "victoriatraces"
           },
           "refId": "A",
-          "queryType": "serviceMap",
+          "queryType": "dependencyGraph",
           "limit": 20,
           "tableType": "traces",
           "metricsQueryType": "range",
@@ -171,8 +185,8 @@
         }
       ],
       "gridPos": {
-        "h": 16,
-        "w": 24,
+        "h": 8,
+        "w": 12,
         "x": 0,
         "y": 8
       },
@@ -188,13 +202,13 @@
       "title": "Top Slowest Endpoints (p99)",
       "description": "Slowest gRPC methods by p99 latency across all services",
       "datasource": {
-        "uid": "prometheus",
-        "type": "prometheus"
+        "uid": "victoriametrics",
+        "type": "victoriametrics-metrics-datasource"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(10, histogram_quantile(0.99, sum by (le, rpc_service, rpc_method, service_name) (increase(span_metrics_duration_milliseconds_bucket{service_name=~\"$service\", rpc_method!=\"\"}[$__range]))))",
+          "expr": "topk(10, histogram_quantile(0.99, sum by (le, rpc_service, rpc_method, service_name) (increase(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service\", rpc_method!=\"\"}[$__range]))))",
           "legendFormat": "{{service_name}}/{{rpc_service}}/{{rpc_method}}",
           "instant": true
         }
@@ -232,29 +246,165 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Auth Refresh Outcomes",
+      "datasource": {
+        "uid": "victoriametrics",
+        "type": "victoriametrics-metrics-datasource"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (result, reason) (rate(gofast_auth_refresh_total[$__rate_interval]))",
+          "legendFormat": "{{result}} / {{reason}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 16,
+            "lineWidth": 2,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Authorization Denials",
+      "datasource": {
+        "uid": "victoriametrics",
+        "type": "victoriametrics-metrics-datasource"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (reason, access) (rate(gofast_authorize_denied_total[$__rate_interval]))",
+          "legendFormat": "{{reason}} / {{access}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 16,
+            "lineWidth": 2,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "DB Query p95 (s)",
+      "datasource": {
+        "uid": "victoriametrics",
+        "type": "victoriametrics-metrics-datasource"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, query) (rate(gofast_db_query_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "{{query}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 16,
+            "lineWidth": 2,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
         "x": 0,
         "y": 24
       }
     },
     {
-      "type": "table",
-      "title": "Tempo Traces (All)",
-      "description": "Latest traces from Tempo. Click a Trace ID to open the full trace view.",
+      "type": "timeseries",
+      "title": "External Call p95 (s)",
       "datasource": {
-        "uid": "Tempo",
-        "type": "tempo"
+        "uid": "victoriametrics",
+        "type": "victoriametrics-metrics-datasource"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, provider, operation) (rate(gofast_external_request_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "{{provider}} / {{operation}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 16,
+            "lineWidth": 2,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      }
+    },
+    {
+      "type": "table",
+      "title": "Recent Traces",
+      "description": "Latest traces from VictoriaTraces. Click a Trace ID to open the full trace view.",
+      "datasource": {
+        "uid": "victoriatraces",
+        "type": "jaeger"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "uid": "Tempo",
-            "type": "tempo"
+            "uid": "victoriatraces",
+            "type": "jaeger"
           },
-          "queryType": "traceql",
+          "queryType": "search",
           "tableType": "table",
-          "query": "{ resource.service.name =~ \"$service\" }"
+          "service": "$trace_service",
+          "tags": "",
+          "minDuration": "",
+          "maxDuration": "",
+          "limit": 50
         }
       ],
       "transformations": [
@@ -303,27 +453,31 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 44
       }
     },
     {
       "type": "table",
-      "title": "Tempo Traces (Errors)",
-      "description": "Traces that include error spans. Click a Trace ID to open the full trace view.",
+      "title": "Recent Error Traces",
+      "description": "Recent traces with error spans from VictoriaTraces.",
       "datasource": {
-        "uid": "Tempo",
-        "type": "tempo"
+        "uid": "victoriatraces",
+        "type": "jaeger"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "uid": "Tempo",
-            "type": "tempo"
+            "uid": "victoriatraces",
+            "type": "jaeger"
           },
-          "queryType": "traceql",
+          "queryType": "search",
           "tableType": "table",
-          "query": "{ resource.service.name =~ \"$service\" && status = error }"
+          "service": "$trace_service",
+          "tags": "error=true",
+          "minDuration": "",
+          "maxDuration": "",
+          "limit": 50
         }
       ],
       "transformations": [
@@ -372,21 +526,21 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 32
+        "y": 44
       }
     },
     {
       "type": "logs",
       "title": "All Logs",
-      "description": "All application logs with formatted output",
+      "description": "All application logs",
       "datasource": {
-        "uid": "Loki",
-        "type": "loki"
+        "uid": "victorialogs",
+        "type": "victoriametrics-logs-datasource"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "{service_name=~\"$service\"} | line_format `{{.detected_level}} | {{.scope_name}} | {{.procedure}} | {{ __line__ }}{{if .duration}} | duration={{.duration}}{{end}}{{if .remote_addr}} | from={{.remote_addr}}{{end}}`",
+          "expr": "{service.name=~\"$service\"}",
           "queryType": "range"
         }
       ],
@@ -404,21 +558,21 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 44
+        "y": 32
       }
     },
     {
       "type": "logs",
       "title": "Error Logs",
-      "description": "Error logs with formatted output for easier reading",
+      "description": "Error logs",
       "datasource": {
-        "uid": "Loki",
-        "type": "loki"
+        "uid": "victorialogs",
+        "type": "victoriametrics-logs-datasource"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "{service_name=~\"$service\"} | detected_level=\"error\" | line_format `ERROR | {{.scope_name}} | {{.procedure}} | {{ __line__ }}{{if .error}} | error={{.error}}{{end}}{{if .duration}} | duration={{.duration}}{{end}}`",
+          "expr": "{service.name=~\"$service\"} severity:ERROR",
           "queryType": "range"
         }
       ],
@@ -436,7 +590,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 44
+        "y": 32
       }
     }
   ]
