@@ -39,8 +39,9 @@ datasources:
         isDefault: false
         editable: true
       # tempo datasource removed — Tempo replaced by VictoriaTraces in v2.18.0.
-      # VictoriaTraces datasource (jaeger type) gets added when
-      # [k8s-migration-checklist] lays down the VictoriaTraces Helm chart.
+      # VictoriaTraces datasource (jaeger type, per local v2.18.0 reference)
+      # gets added when [k8s-migration-checklist] activates the chart-values
+      # stub at kube/config/monitoring-vts.yaml.
 
 dashboardProviders:
  dashboardproviders.yaml:

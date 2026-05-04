@@ -1,0 +1,56 @@
+################################################################################
+# Victoria Traces Single configuration
+################################################################################
+#
+# UNVALIDATED — vendor template absent in v2.18.0; validate against real cluster
+# during [k8s-migration-checklist].
+#
+# Background: GoFast v2.18.0's `gof infra` and `gof mon` do NOT generate any
+# kube/ directory or Helm-chart values files for K8s deployment. The vendor
+# stack ships only `docker-compose.monitoring.yml` for local development and
+# Terraform (`infra/`) for cloud infrastructure. K8s/Helm wiring of the
+# Victoria stack is left to the operator.
+#
+# Per [gofast-v2.18.0-upgrade] Phase 3.4 (commit c6ea247 + reopen):
+# 'visible-known-debt over invisible-known-debt' — this stub exists so future
+# agents can see the placeholder rather than discovering the gap mid-deploy.
+#
+# Validation requirements before deploying to a real cluster:
+# - Confirm the Helm chart name (`victoria-traces-single` is one candidate;
+#   check victoriametrics-charts repo for the canonical chart at deploy time)
+# - Verify the value-block structure matches whichever chart version is
+#   selected (Helm chart values are not portable across chart versions)
+# - Verify the OTLP gRPC listener address matches what monitoring-otel.yaml
+#   expects (default 4317)
+# - Test trace ingestion end-to-end before flipping production traffic
+#
+# Reference (local docker-compose form, NOT a K8s Helm values shape):
+#   image:    victoriametrics/victoria-traces:latest
+#   command:  --otlpGRPCListenAddr=:4317
+#             --otlpGRPC.tls=false
+#             --httpListenAddr=:10428
+#             --servicegraph.enableTask=true
+#   storage:  --storageDataPath=/victoria-traces-data
+#   retention: --retentionPeriod=3d
+#
+################################################################################
+
+# Stub — replace with validated chart values when [k8s-migration-checklist] activates.
+
+# server:
+#   image:
+#     repository: victoriametrics/victoria-traces
+#     tag: latest
+#   args:
+#     - "--otlpGRPCListenAddr=:4317"
+#     - "--otlpGRPC.tls=false"
+#     - "--httpListenAddr=:10428"
+#     - "--servicegraph.enableTask=true"
+#     - "--storageDataPath=/victoria-traces-data"
+#     - "--retentionPeriod=3d"
+#   service:
+#     ports:
+#       - name: otlp-grpc
+#         port: 4317
+#       - name: http
+#         port: 10428
