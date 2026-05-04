@@ -24,7 +24,7 @@ type LinksResponse struct {
 
 // GetLinks fetches a URL and returns all extracted links.
 func (c *Client) GetLinks(ctx context.Context, targetURL string) (*LinksResponse, error) {
-	data, err := c.doRequest(ctx, "/links", LinksRequest{URL: targetURL})
+	data, err := c.doRequest(ctx, "get_links", "/links", LinksRequest{URL: targetURL})
 	if err != nil {
 		return nil, err
 	}

@@ -330,3 +330,92 @@ Use this gate shape for `[gofast-otel-shared-pkg]` Phase 5 + any future OTel ver
 2. **OTel SDK non-blocking init hides export-time bugs** — Phase 2's "boots cleanly" gate couldn't catch the endpoint-format bug; Phase 3 wiring was needed for spans to actually attempt export. For OTel work, Phase-N "metric/trace appears in receive backend" is the only gate that proves the pipe.
 3. **VM scrape-window vs 5m rate query** — counters/histograms aged across container restarts disappear from `/api/v1/query` 5m default but persist in `/api/v1/series`. Use the latter for historical-record verification when the active window has rolled over.
 4. **Webkit module structure differs from reference clone in non-trivial ways** — service-core / content-service / service-admin / pkg/* shared. Single-module instrumentation work surfaces cross-module gaps. Always audit the consuming framework's package organization before deriving instrumentation patterns from a reference clone.
+
+---
+
+# Content-service coverage closed by `[gofast-otel-shared-pkg]`
+
+Appended 2026-05-04 at workstream close. The original `[gofast-v2.18.0-upgrade]` visibility goal — "full panel coverage across both service-core AND content-service so beta launch ships with day-1 visibility from both halves of the stack" — is now closed.
+
+## Final shape — what shipped across the OTel arc
+
+| Workstream | Phase | What landed |
+|---|---|---|
+| `[gofast-otel-instrumentation]` | 1 | `pkg/otel` package ported to `service-core/pkg/otel/` |
+| | 2 | service-core SDK init in `service-core/main.go` |
+| | 3 | gRPC + HTTP OTel interceptors |
+| | 4.0 | parseOTLPEndpoint hotfix (URL parsing) |
+| | 4.1 | `gofast_db_query_duration_seconds` instrumented at login + billing sites |
+| | 4.2 | `gofast_external_request_duration_seconds` instrumented at 11 service-core providers (stripe, s3, smtp, oauth_*, twilio, resend, postmark, sendgrid, ses) |
+| | 4.3 | `gofast_authorize_denied_total` rewired to inline auth check sites |
+| | 4.4 | `gofast_auth_refresh_total` instrumented at Service.Refresh |
+| | 5 | Cross-layer audit + this validation artifact |
+| `[gofast-otel-shared-pkg]` | 1 | `pkg/otel/` relocated `service-core/pkg/otel/` → `app/pkg/otel/` (shared module). 15 import paths updated. SDK pin v1.38.0 held via explicit `go get` discipline (R8 mitigation). |
+| | 2 | content-service SDK init in `content-service/cmd/server/main.go`. Bootstrap span emitted post-init (proves SDK→batch→exporter→collector→VictoriaTraces pipeline end-to-end). docker-compose env wiring on all 3 services + monitoring overlay extended with `content:` block. service-admin: NO Go init (eBPF in K8s manifest already covers; Finding 5 + Cowork Q2). |
+| | 3 | `gofast_external_request_duration_seconds` instrumented at 6 content-service providers (`dataforseo`, `cfbrowser`, `pagespeed`, `jina`, `anthropic`, `cf_workers_ai`). 17 operations across 11 wrap sites. |
+
+## Phase 3 wrap-site map (this workstream)
+
+**Sub-phase 3a — shared `app/pkg/*` providers (4 packages, 6 wraps, 16 ops):**
+
+| Package | File | Wrap site | Ops |
+|---|---|---|---|
+| `app/pkg/dataforseo` | `client.go` | `post()`, `postRaw()`, `getRaw()` (3 wraps; threaded `operation` param) | `keyword_search_volume`, `keyword_suggestions`, `domain_ranking_keywords`, `competitor_domains`, `keyword_gaps`, `create_onpage_task`, `get_onpage_summary`, `get_onpage_pages`, `backlinks_summary`, `referring_domains`, `anchors` (11 ops) |
+| `app/pkg/cfbrowser` | `client.go` | `doRequest()` (1 wrap; threaded `operation` param) | `scrape`, `get_markdown`, `get_links` (3 ops) |
+| `app/pkg/pagespeed` | `client.go` | `Run()` (1 wrap, direct) | `run_lighthouse` (1 op) |
+| `app/pkg/jina` | `client.go` | `GetMarkdown()` (1 wrap, direct) | `read_markdown` (1 op) |
+
+**Sub-phase 3b — `anthropic` (6 sites in content-service):**
+
+| File | Op |
+|---|---|
+| `internal/crawler/classifier.go` | `crawler_classify` |
+| `internal/generator/social.go` | `generator_social` |
+| `internal/generator/copy.go` | `generator_copy` |
+| `internal/generator/meta.go` | `generator_meta` |
+| `internal/profiler/themes.go` | `profiler_themes` |
+| `internal/profiler/voice.go` | `profiler_voice` |
+
+**Sub-phase 3c — `cf_workers_ai` (1 site):**
+
+| File | Op |
+|---|---|
+| `internal/embeddings/client.go` (`embedBatch()`) | `embed_text` |
+
+## Cardinality discipline preserved
+
+NO model labels for AI providers (R4 locked per Cowork Q&A). All operations are static snake_case strings; no per-keyword, per-URL, per-API-key, per-request-id labels. Same discipline as `[gofast-otel-instrumentation]` Phase 4.2.
+
+## Final panel coverage
+
+After Phase 3 ships and a manual UI walk exercises the pipeline:
+
+| Provider | Service | Coverage source |
+|---|---|---|
+| stripe | service-core | `[gofast-otel-instrumentation]` Phase 4.2 |
+| s3 | service-core | Phase 4.2 |
+| smtp / postmark / resend / sendgrid / ses | service-core | Phase 4.2 |
+| oauth_facebook / github / google / microsoft | service-core | Phase 4.2 |
+| twilio | service-core | Phase 4.2 |
+| dataforseo | content-service | `[gofast-otel-shared-pkg]` Phase 3 |
+| cfbrowser | content-service | Phase 3 |
+| pagespeed | content-service | Phase 3 |
+| jina | content-service | Phase 3 |
+| anthropic | content-service | Phase 3 |
+| cf_workers_ai | content-service | Phase 3 |
+
+Plus `gofast_authorize_denied_total`, `gofast_db_query_duration_seconds`, `gofast_auth_refresh_total` from service-core (Phase 4.1, 4.3, 4.4).
+
+## Beta-launch readiness
+
+The `[gofast-v2.18.0-upgrade]` original goal — "full panel coverage from day 1 across both service-core AND content-service" — is achieved. K8s migration (`[k8s-migration-checklist]`) carries already-instrumented services forward; manifests need OTEL_* env vars + `OTEL_SERVICE_NAME=webkit-content` for content-service container (cross-workstream debt note from plan §"Cross-workstream debt note").
+
+Beta launch ships with operationally meaningful dashboards from day 1.
+
+## Lessons banked from `[gofast-otel-shared-pkg]` (additive to prior workstream's lessons)
+
+5. **Workspace MVS pin discipline pays forward** — when one workspace module pins a dep via `go get pkg@version`, sibling modules inherit the pin via Minimum Version Selection. Saves re-pinning across modules. Phase 1's explicit-pin recipe (R8 mitigation) anchored the workspace such that Phases 2 + 3 had zero `go.mod` version drift.
+6. **Bootstrap-span pattern for services without inbound HTTP/gRPC OTel middleware** — pure SDK init alone doesn't register a service in trace backends (the SDK constructs but emits nothing until something fires a span). For services that lack `otelhttp`/`otelgrpc` interceptors at this point in the arc, emit a one-shot `otel.StartSpan(ctx, "boot")` post-init. Proves SDK→batch→exporter→collector→VictoriaTraces end-to-end at boot rather than waiting for organic traffic. Cheap, useful diagnostic, no per-request overhead.
+7. **Threading `operation string` through private rate-limited entries** — for shared client packages with multiple public methods funneling through one private HTTP entry, threading an `operation` parameter through the private function keeps wrap-site count low (1-3) while preserving accurate op-labels at each public call. Cleaner than scattering `StartExternalCall` across every public method. Used for dataforseo (3 wraps cover 11 ops) and cfbrowser (1 wrap covers 3 ops).
+8. **Cross-layer audit pattern caught 4 prior-phase assumption errors across the OTel arc** — three from `[gofast-otel-instrumentation]` brief-prep, one (the bootstrap span) from `[gofast-otel-shared-pkg]` execution. The pattern works. Keep applying.
+

@@ -20,7 +20,7 @@ type ScrapeResponse struct {
 
 // Scrape fetches a URL and extracts text from the given CSS selectors.
 func (c *Client) Scrape(ctx context.Context, targetURL string, selectors map[string]string) (*ScrapeResponse, error) {
-	data, err := c.doRequest(ctx, "/scrape", ScrapeRequest{URL: targetURL, Selectors: selectors})
+	data, err := c.doRequest(ctx, "scrape", "/scrape", ScrapeRequest{URL: targetURL, Selectors: selectors})
 	if err != nil {
 		return nil, err
 	}

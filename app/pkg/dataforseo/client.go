@@ -10,6 +10,8 @@ import (
 	"math"
 	"net/http"
 	"time"
+
+	ot "app/pkg/otel"
 )
 
 const defaultBaseURL = "https://api.dataforseo.com/v3"
@@ -91,7 +93,10 @@ type Task struct {
 
 // post sends a POST request with rate limiting, retry on 5xx/429, and response
 // envelope validation. The payload is wrapped in an array as required by the API.
-func (c *Client) post(ctx context.Context, path string, payload any) (*Response, error) {
+func (c *Client) post(ctx context.Context, operation, path string, payload any) (resp *Response, err error) {
+	done := ot.StartExternalCall(ctx, "dataforseo", operation)
+	defer func() { done(err) }()
+
 	// Acquire semaphore.
 	select {
 	case c.sem <- struct{}{}:
@@ -105,7 +110,6 @@ func (c *Client) post(ctx context.Context, path string, payload any) (*Response,
 		return nil, fmt.Errorf("dataforseo: marshal payload: %w", err)
 	}
 
-	var resp *Response
 	maxRetries := 3
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 0 {
@@ -173,7 +177,10 @@ func (c *Client) post(ctx context.Context, path string, payload any) (*Response,
 // postRaw is like post but does NOT check the envelope status code.
 // Use this for endpoints where non-20000 status codes have specific meaning
 // (e.g. 40400 = task not ready on on_page/summary).
-func (c *Client) postRaw(ctx context.Context, path string, payload any) (*Response, error) {
+func (c *Client) postRaw(ctx context.Context, operation, path string, payload any) (resp *Response, err error) {
+	done := ot.StartExternalCall(ctx, "dataforseo", operation)
+	defer func() { done(err) }()
+
 	select {
 	case c.sem <- struct{}{}:
 		defer func() { <-c.sem }()
@@ -186,7 +193,6 @@ func (c *Client) postRaw(ctx context.Context, path string, payload any) (*Respon
 		return nil, fmt.Errorf("dataforseo: marshal payload: %w", err)
 	}
 
-	var resp *Response
 	maxRetries := 3
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 0 {
@@ -250,7 +256,10 @@ func (c *Client) postRaw(ctx context.Context, path string, payload any) (*Respon
 
 // getRaw sends a GET request with rate limiting and retry. Does NOT check
 // the envelope status code — caller handles it (like postRaw).
-func (c *Client) getRaw(ctx context.Context, path string) (*Response, error) {
+func (c *Client) getRaw(ctx context.Context, operation, path string) (resp *Response, err error) {
+	done := ot.StartExternalCall(ctx, "dataforseo", operation)
+	defer func() { done(err) }()
+
 	select {
 	case c.sem <- struct{}{}:
 		defer func() { <-c.sem }()
@@ -258,7 +267,6 @@ func (c *Client) getRaw(ctx context.Context, path string) (*Response, error) {
 		return nil, fmt.Errorf("dataforseo: %w", ctx.Err())
 	}
 
-	var resp *Response
 	maxRetries := 3
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 0 {

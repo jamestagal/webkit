@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/liushuangls/go-anthropic/v2"
+
+	otel "app/pkg/otel"
 )
 
 // ModelSonnet is the model used for copy generation (high quality).
@@ -55,6 +57,7 @@ func (g *Generator) GenerateCopy(ctx context.Context, req CopyRequest) (*CopyRes
 
 	// 5. Call Claude Sonnet.
 	client := anthropic.NewClient(g.apiKey)
+	done := otel.StartExternalCall(ctx, "anthropic", "generator_copy")
 	resp, err := client.CreateMessages(ctx, anthropic.MessagesRequest{
 		Model: ModelSonnet,
 		Messages: []anthropic.Message{
@@ -68,6 +71,7 @@ func (g *Generator) GenerateCopy(ctx context.Context, req CopyRequest) (*CopyRes
 		System:    systemPrompt,
 		MaxTokens: maxTokens,
 	})
+	done(err)
 	if err != nil {
 		return nil, fmt.Errorf("generator: anthropic API: %w", err)
 	}

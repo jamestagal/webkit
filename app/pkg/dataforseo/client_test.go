@@ -132,7 +132,7 @@ func TestPost_BasicAuth(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	resp, err := client.post(ctx, "/test", map[string]string{"key": "value"})
+	resp, err := client.post(ctx, "test_post", "/test", map[string]string{"key": "value"})
 	require.NoError(t, err)
 	assert.Equal(t, 20000, resp.StatusCode)
 }
@@ -144,7 +144,7 @@ func TestPost_ErrorResponse(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	_, err := client.post(ctx, "/test", nil)
+	_, err := client.post(ctx, "test_post", "/test", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "API error 40001")
 	assert.Contains(t, err.Error(), "You are not authorized")
@@ -157,7 +157,7 @@ func TestPost_HTTP4xxError(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	_, err := client.post(ctx, "/test", nil)
+	_, err := client.post(ctx, "test_post", "/test", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "HTTP 400")
 }
@@ -906,7 +906,7 @@ func TestPost_RetryOn5xx(t *testing.T) {
 	client.httpClient.Timeout = 10 * time.Second
 
 	ctx := context.Background()
-	resp, err := client.post(ctx, "/test", nil)
+	resp, err := client.post(ctx, "test_post", "/test", nil)
 	require.NoError(t, err)
 	assert.Equal(t, 20000, resp.StatusCode)
 	assert.Equal(t, 3, attempts, "should have retried twice before succeeding")
@@ -921,7 +921,7 @@ func TestPost_RetryExhausted(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	_, err := client.post(ctx, "/test", nil)
+	_, err := client.post(ctx, "test_post", "/test", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "HTTP 500")
 	assert.Equal(t, 3, attempts, "should have attempted 3 times total")

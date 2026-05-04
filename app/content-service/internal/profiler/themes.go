@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/liushuangls/go-anthropic/v2"
+
+	otel "app/pkg/otel"
 )
 
 // ContentTheme represents a theme extracted from page content.
@@ -57,6 +59,7 @@ Return ONLY a JSON array with this exact structure:
 
 The frequency field is an estimate of how many pages reference this theme. The sentiment field should be one of: positive, negative, neutral, or mixed. The examples field should contain 1-3 direct quotes or close paraphrases from the content. Focus on brand messaging themes, value propositions, and recurring topics. Return valid JSON only, no markdown fences.`
 
+	done := otel.StartExternalCall(ctx, "anthropic", "profiler_themes")
 	resp, err := client.CreateMessages(ctx, anthropic.MessagesRequest{
 		Model: anthropic.ModelClaudeHaiku4Dot5,
 		Messages: []anthropic.Message{
@@ -70,6 +73,7 @@ The frequency field is an estimate of how many pages reference this theme. The s
 		System:    systemPrompt,
 		MaxTokens: 2048,
 	})
+	done(err)
 	if err != nil {
 		return nil, fmt.Errorf("themes: anthropic call: %w", err)
 	}

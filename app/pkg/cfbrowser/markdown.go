@@ -20,7 +20,7 @@ type MarkdownResponse struct {
 
 // GetMarkdown fetches a URL and returns its content as clean, LLM-ready markdown.
 func (c *Client) GetMarkdown(ctx context.Context, targetURL string) (*MarkdownResponse, error) {
-	data, err := c.doRequest(ctx, "/markdown", MarkdownRequest{URL: targetURL})
+	data, err := c.doRequest(ctx, "get_markdown", "/markdown", MarkdownRequest{URL: targetURL})
 	if err != nil {
 		return nil, err
 	}

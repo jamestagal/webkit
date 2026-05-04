@@ -146,7 +146,7 @@ type OnPagePageTiming struct {
 
 // CreateOnPageTask creates an on-page audit task. Returns the task ID.
 func (c *Client) CreateOnPageTask(ctx context.Context, req OnPageTaskPostRequest) (string, error) {
-	resp, err := c.post(ctx, "/on_page/task_post", []OnPageTaskPostRequest{req})
+	resp, err := c.post(ctx, "create_onpage_task", "/on_page/task_post", []OnPageTaskPostRequest{req})
 	if err != nil {
 		return "", err
 	}
@@ -165,7 +165,7 @@ func (c *Client) CreateOnPageTask(ctx context.Context, req OnPageTaskPostRequest
 // Returns ErrTaskNotReady if the task hasn't been processed yet.
 // Uses GET as per DataForSEO docs: GET /v3/on_page/summary/{task_id}
 func (c *Client) GetOnPageSummary(ctx context.Context, taskID string) (*OnPageSummary, error) {
-	resp, err := c.getRaw(ctx, "/on_page/summary/"+taskID)
+	resp, err := c.getRaw(ctx, "get_onpage_summary", "/on_page/summary/"+taskID)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +204,7 @@ type onPagePagesResult struct {
 // Returns the pages, total count, and any error.
 func (c *Client) GetOnPagePages(ctx context.Context, taskID string, limit, offset int) ([]OnPagePage, int, error) {
 	payload := []onPagePagesRequest{{ID: taskID, Limit: limit, Offset: offset}}
-	resp, err := c.post(ctx, "/on_page/pages", payload)
+	resp, err := c.post(ctx, "get_onpage_pages", "/on_page/pages", payload)
 	if err != nil {
 		return nil, 0, err
 	}

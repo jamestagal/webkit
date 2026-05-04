@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	ot "app/pkg/otel"
 )
 
 // Client communicates with a Cloudflare Browser Rendering Worker.
@@ -51,7 +53,10 @@ func NewClient(workerURL string, opts ...Option) *Client {
 const maxRetries = 3
 
 // doRequest performs a rate-limited HTTP POST with retry on 429 and 5xx.
-func (c *Client) doRequest(ctx context.Context, path string, body any) ([]byte, error) {
+func (c *Client) doRequest(ctx context.Context, operation, path string, body any) (data []byte, err error) {
+	done := ot.StartExternalCall(ctx, "cfbrowser", operation)
+	defer func() { done(err) }()
+
 	// Acquire semaphore slot.
 	select {
 	case c.sem <- struct{}{}:

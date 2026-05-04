@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/liushuangls/go-anthropic/v2"
+
+	otel "app/pkg/otel"
 )
 
 // SocialVariation represents a single generated social post variation.
@@ -56,6 +58,7 @@ func (g *Generator) GenerateSocial(ctx context.Context, req SocialRequest) (*Soc
 
 	// 4. Call Claude Haiku.
 	client := anthropic.NewClient(g.apiKey)
+	done := otel.StartExternalCall(ctx, "anthropic", "generator_social")
 	resp, err := client.CreateMessages(ctx, anthropic.MessagesRequest{
 		Model: ModelHaiku,
 		Messages: []anthropic.Message{
@@ -69,6 +72,7 @@ func (g *Generator) GenerateSocial(ctx context.Context, req SocialRequest) (*Soc
 		System:    systemPrompt,
 		MaxTokens: 2048,
 	})
+	done(err)
 	if err != nil {
 		return nil, fmt.Errorf("generator: anthropic API (social): %w", err)
 	}

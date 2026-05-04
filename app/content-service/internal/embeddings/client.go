@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	otel "app/pkg/otel"
 )
 
 const (
@@ -84,7 +86,10 @@ func (c *Client) Embed(ctx context.Context, texts []string) ([][]float32, error)
 }
 
 // embedBatch sends a single batch of texts to the Workers AI API.
-func (c *Client) embedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+func (c *Client) embedBatch(ctx context.Context, texts []string) (vectors [][]float32, err error) {
+	done := otel.StartExternalCall(ctx, "cf_workers_ai", "embed_text")
+	defer func() { done(err) }()
+
 	// Acquire semaphore slot.
 	select {
 	case c.sem <- struct{}{}:

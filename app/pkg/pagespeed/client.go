@@ -12,6 +12,8 @@ import (
 	"net/url"
 	"sort"
 	"time"
+
+	ot "app/pkg/otel"
 )
 
 const apiBaseURL = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
@@ -104,7 +106,10 @@ var thresholds = map[string]threshold{
 // --- Public API ---
 
 // Run fetches PageSpeed data for the given URL using the specified strategy ("mobile" or "desktop").
-func (c *Client) Run(ctx context.Context, targetURL, strategy string) (*Result, error) {
+func (c *Client) Run(ctx context.Context, targetURL, strategy string) (result *Result, err error) {
+	done := ot.StartExternalCall(ctx, "pagespeed", "run_lighthouse")
+	defer func() { done(err) }()
+
 	if strategy == "" {
 		strategy = "mobile"
 	}

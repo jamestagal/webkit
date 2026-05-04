@@ -90,7 +90,7 @@ func (c *Client) GetKeywordSuggestions(ctx context.Context, keyword string, loca
 		LanguageCode: languageCode,
 		Limit:        limit,
 	}}
-	resp, err := c.post(ctx, "/dataforseo_labs/google/keyword_suggestions/live", payload)
+	resp, err := c.post(ctx, "keyword_suggestions", "/dataforseo_labs/google/keyword_suggestions/live", payload)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func (c *Client) GetDomainRankingKeywords(ctx context.Context, target string, lo
 		Limit:        limit,
 		Offset:       offset,
 	}}
-	resp, err := c.post(ctx, "/dataforseo_labs/google/ranked_keywords/live", payload)
+	resp, err := c.post(ctx, "domain_ranking_keywords", "/dataforseo_labs/google/ranked_keywords/live", payload)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -273,7 +273,7 @@ func (c *Client) GetCompetitorDomains(ctx context.Context, target string, locati
 		LanguageCode: languageCode,
 		Limit:        limit,
 	}}
-	resp, err := c.post(ctx, "/dataforseo_labs/google/competitors_domain/live", payload)
+	resp, err := c.post(ctx, "competitor_domains", "/dataforseo_labs/google/competitors_domain/live", payload)
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +331,7 @@ func (c *Client) GetKeywordGaps(ctx context.Context, target1, target2 string, lo
 		LanguageCode: languageCode,
 		Limit:        limit,
 	}}
-	resp, err := c.post(ctx, "/dataforseo_labs/google/domain_intersection/live", payload)
+	resp, err := c.post(ctx, "keyword_gaps", "/dataforseo_labs/google/domain_intersection/live", payload)
 	if err != nil {
 		return nil, err
 	}

@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/liushuangls/go-anthropic/v2"
+
+	otel "app/pkg/otel"
 )
 
 // Classification represents the result of page type classification.
@@ -169,6 +171,7 @@ func (c *Classifier) classifyByLLM(ctx context.Context, pageURL string, title st
 
 	userMessage := "URL: " + pageURL + "\nTitle: " + title + "\nSnippet: " + snippet
 
+	done := otel.StartExternalCall(ctx, "anthropic", "crawler_classify")
 	resp, err := client.CreateMessages(ctx, anthropic.MessagesRequest{
 		Model: anthropic.ModelClaude3Haiku20240307,
 		Messages: []anthropic.Message{
@@ -182,6 +185,7 @@ func (c *Classifier) classifyByLLM(ctx context.Context, pageURL string, title st
 		System:    systemPrompt,
 		MaxTokens: 50,
 	})
+	done(err)
 	if err != nil {
 		slog.Warn("LLM classification failed", "url", pageURL, "error", err)
 		return "", 0

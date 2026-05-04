@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/liushuangls/go-anthropic/v2"
+
+	otel "app/pkg/otel"
 )
 
 // VoiceInput aggregates all source data for voice profile generation.
@@ -62,6 +64,7 @@ func (p *Profiler) GenerateVoiceProfile(ctx context.Context, input VoiceInput) (
 
 	client := anthropic.NewClient(p.anthropicKey)
 
+	done := otel.StartExternalCall(ctx, "anthropic", "profiler_voice")
 	resp, err := client.CreateMessages(ctx, anthropic.MessagesRequest{
 		Model: anthropic.ModelClaudeSonnet4Dot5,
 		Messages: []anthropic.Message{
@@ -75,6 +78,7 @@ func (p *Profiler) GenerateVoiceProfile(ctx context.Context, input VoiceInput) (
 		System:    voiceSystemPrompt,
 		MaxTokens: 4096,
 	})
+	done(err)
 	if err != nil {
 		return nil, fmt.Errorf("voice: anthropic call: %w", err)
 	}

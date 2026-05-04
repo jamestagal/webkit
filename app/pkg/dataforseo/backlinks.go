@@ -101,7 +101,7 @@ type backlinksSummaryRequest struct {
 // GetBacklinksSummary retrieves the backlink summary for a target domain or URL.
 func (c *Client) GetBacklinksSummary(ctx context.Context, target string) (*BacklinksSummary, error) {
 	payload := []backlinksSummaryRequest{{Target: target}}
-	resp, err := c.post(ctx, "/backlinks/summary/live", payload)
+	resp, err := c.post(ctx, "backlinks_summary", "/backlinks/summary/live", payload)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ type backlinksReferringDomainsResult struct {
 // GetReferringDomains retrieves the top referring domains for a target.
 func (c *Client) GetReferringDomains(ctx context.Context, target string, limit, offset int) ([]ReferringDomain, error) {
 	payload := []backlinksListRequest{{Target: target, Limit: limit, Offset: offset}}
-	resp, err := c.post(ctx, "/backlinks/referring_domains/live", payload)
+	resp, err := c.post(ctx, "referring_domains", "/backlinks/referring_domains/live", payload)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ type backlinksAnchorsResult struct {
 // GetAnchors retrieves the anchor text distribution for a target.
 func (c *Client) GetAnchors(ctx context.Context, target string, limit, offset int) ([]AnchorText, error) {
 	payload := []backlinksListRequest{{Target: target, Limit: limit, Offset: offset}}
-	resp, err := c.post(ctx, "/backlinks/anchors/live", payload)
+	resp, err := c.post(ctx, "anchors", "/backlinks/anchors/live", payload)
 	if err != nil {
 		return nil, err
 	}

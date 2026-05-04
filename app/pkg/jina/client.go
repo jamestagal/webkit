@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	ot "app/pkg/otel"
 )
 
 const readerBaseURL = "https://r.jina.ai/"
@@ -45,7 +47,10 @@ func NewClient(opts ...Option) *Client {
 }
 
 // GetMarkdown converts a URL to clean markdown via Jina Reader.
-func (c *Client) GetMarkdown(ctx context.Context, targetURL string) (string, error) {
+func (c *Client) GetMarkdown(ctx context.Context, targetURL string) (markdown string, err error) {
+	done := ot.StartExternalCall(ctx, "jina", "read_markdown")
+	defer func() { done(err) }()
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, readerBaseURL+targetURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("jina: create request: %w", err)

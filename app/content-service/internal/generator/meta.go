@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/liushuangls/go-anthropic/v2"
+
+	otel "app/pkg/otel"
 )
 
 // ModelHaiku is the model used for lightweight tasks like meta generation.
@@ -85,6 +87,7 @@ func (g *Generator) GenerateMeta(
 
 	// 4. Call Claude Haiku.
 	client := anthropic.NewClient(g.apiKey)
+	done := otel.StartExternalCall(ctx, "anthropic", "generator_meta")
 	resp, err := client.CreateMessages(ctx, anthropic.MessagesRequest{
 		Model: ModelHaiku,
 		Messages: []anthropic.Message{
@@ -98,6 +101,7 @@ func (g *Generator) GenerateMeta(
 		System:    systemPrompt,
 		MaxTokens: 256,
 	})
+	done(err)
 	if err != nil {
 		return nil, fmt.Errorf("generator: anthropic API (meta): %w", err)
 	}

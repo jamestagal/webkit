@@ -47,7 +47,7 @@ type keywordSearchVolumeResult struct {
 // GetSearchVolume retrieves search volume data for a list of keywords.
 func (c *Client) GetSearchVolume(ctx context.Context, req KeywordSearchVolumeRequest) ([]KeywordData, error) {
 	payload := []KeywordSearchVolumeRequest{req}
-	resp, err := c.post(ctx, "/keywords_data/google_ads/search_volume/live", payload)
+	resp, err := c.post(ctx, "keyword_search_volume", "/keywords_data/google_ads/search_volume/live", payload)
 	if err != nil {
 		return nil, err
 	}
