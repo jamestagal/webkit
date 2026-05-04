@@ -54,7 +54,7 @@ spec:
               value: "https://pr-${PR_NUMBER}-core.${DOMAIN}"
             - name: CLIENT_URL
               value: "https://pr-${PR_NUMBER}-${CONTEXT}.${WORKERS_SUBDOMAIN}.workers.dev"
-            - name: ALLOY_URL
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: ""
             - name: CRON_TOKEN
               value: "preview-cron-token-${PR_NUMBER}"

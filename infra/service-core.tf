@@ -81,8 +81,8 @@ resource "kubernetes_deployment" "service_core" {
             value = "https://${var.CLIENT_URL}"
           }
           env {
-            name  = "ALLOY_URL"
-            value = "alloy.monitoring:4317"
+            name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+            value = "http://otel-collector.monitoring:4317"
           }
           env {
             name = "CRON_TOKEN"
