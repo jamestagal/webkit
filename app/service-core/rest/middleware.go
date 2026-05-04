@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	ot "service-core/pkg/otel"
+	ot "app/pkg/otel"
 )
 
 // contextKey is a typed key for context values to avoid collisions.

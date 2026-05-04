@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	ot "service-core/pkg/otel"
+	ot "app/pkg/otel"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"

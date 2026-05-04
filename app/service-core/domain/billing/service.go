@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"service-core/config"
-	ot "service-core/pkg/otel"
+	ot "app/pkg/otel"
 	"service-core/storage/query"
 	"time"
 

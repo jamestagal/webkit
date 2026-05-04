@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"service-core/config"
-	ot "service-core/pkg/otel"
+	ot "app/pkg/otel"
 )
 
 type sendgridAttachments struct {

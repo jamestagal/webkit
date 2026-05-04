@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"service-core/config"
-	ot "service-core/pkg/otel"
+	ot "app/pkg/otel"
 )
 
 type postmarkAttachment struct {

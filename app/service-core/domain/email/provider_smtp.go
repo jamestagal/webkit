@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/smtp"
 	"service-core/config"
-	ot "service-core/pkg/otel"
+	ot "app/pkg/otel"
 	"strconv"
 	"strings"
 )

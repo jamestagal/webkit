@@ -23,7 +23,7 @@ import (
 	"service-core/domain/note"
 	"service-core/domain/user"
 	"service-core/grpc"
-	"service-core/pkg/otel"
+	"app/pkg/otel"
 	"service-core/rest"
 	"service-core/storage"
 	"service-core/storage/query"

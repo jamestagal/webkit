@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"service-core/config"
-	ot "service-core/pkg/otel"
+	ot "app/pkg/otel"
 )
 
 type resendAttachment struct {

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"service-core/config"
-	ot "service-core/pkg/otel"
+	ot "app/pkg/otel"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"

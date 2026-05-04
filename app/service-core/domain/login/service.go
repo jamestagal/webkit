@@ -11,7 +11,7 @@ import (
 	"net/mail"
 	"net/url"
 	"service-core/config"
-	ot "service-core/pkg/otel"
+	ot "app/pkg/otel"
 	"service-core/storage/query"
 	"strings"
 	"time"

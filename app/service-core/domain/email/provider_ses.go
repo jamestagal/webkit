@@ -13,7 +13,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"service-core/config"
-	ot "service-core/pkg/otel"
+	ot "app/pkg/otel"
 	"time"
 )
 
