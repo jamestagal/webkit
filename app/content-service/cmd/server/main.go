@@ -7,6 +7,7 @@ import (
 	"app/pkg/cfbrowser"
 	"app/pkg/dataforseo"
 	"app/pkg/jina"
+	"app/pkg/otel"
 	"app/pkg/usage"
 	"context"
 	"database/sql"
@@ -36,6 +37,30 @@ func main() {
 
 	// Set up the logger
 	pkg.InitLogger(cfg.LogLevel)
+
+	// Set up OpenTelemetry. Fail-soft on empty endpoint: SetupOTelSDK returns a
+	// no-op shutdown when OTEL_EXPORTER_OTLP_ENDPOINT is unset so the service
+	// boots in degraded mode without panicking. Mirrors service-core's pattern
+	// (commit 873e819) using the now-shared app/pkg/otel helper.
+	ctx := context.Background()
+	otelShutdown, err := otel.SetupOTelSDK(ctx, cfg.OTLPEndpoint, cfg.ServiceName)
+	if err != nil {
+		slog.ErrorContext(ctx, "Error setting up OpenTelemetry", "error", err)
+		panic(err)
+	}
+	if cfg.OTLPEndpoint == "" {
+		slog.InfoContext(ctx, "OpenTelemetry not configured (OTEL_EXPORTER_OTLP_ENDPOINT empty); continuing in degraded mode")
+	} else {
+		slog.InfoContext(ctx, "OpenTelemetry initialized", "endpoint", cfg.OTLPEndpoint, "service", cfg.ServiceName)
+		// Emit a one-shot bootstrap span so the service registers in
+		// VictoriaTraces' services list immediately. content-service has no
+		// inbound HTTP/gRPC OTel middleware (out of this workstream's scope),
+		// so without this the trace pipeline stays silent until Phase 3
+		// instrumentation fires. Span is cheap and proves SDK→exporter→
+		// collector→VictoriaTraces is healthy end-to-end.
+		_, _, done := otel.StartSpan(ctx, "boot")
+		done(nil)
+	}
 
 	// Connect to PostgreSQL
 	db, dbClean, err := openPostgres(cfg)
@@ -121,11 +146,17 @@ func main() {
 	<-quit
 	slog.Info("Shutting down content service...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(shutdownCtx); err != nil {
 		slog.Error("HTTP server forced to shutdown", "error", err)
+	}
+
+	// Flush pending OTel spans/metrics/logs before exit. Mirrors service-core's
+	// shutdown ordering (commit 873e819): server stops first, then OTel flushes.
+	if err := otelShutdown(shutdownCtx); err != nil {
+		slog.Error("Error shutting down OpenTelemetry", "error", err)
 	}
 
 	slog.Info("Content service stopped gracefully")

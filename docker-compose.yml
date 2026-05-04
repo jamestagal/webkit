@@ -82,6 +82,10 @@ services:
       GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
       AZBLOB_ACCOUNT_NAME: ${AZBLOB_ACCOUNT_NAME}
       AZBLOB_ACCOUNT_KEY: ${AZBLOB_ACCOUNT_KEY}
+      # Observability — empty default keeps no-OTel local boot identical;
+      # docker-compose.monitoring.yml overlay sets the live endpoint.
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_SERVICE_NAME: webkit-core
 
   admin:
     container_name: webkit-admin
@@ -107,6 +111,12 @@ services:
       CORE_URI: core:4002
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      # Observability — service-admin uses no in-process Go SDK init (eBPF
+      # auto-instrumentation in K8s manifest covers spans for inbound gRPC/HTTP;
+      # zero outbound HTTP/SDK calls per Finding 5 cross-layer audit). These
+      # vars are present for config consistency only.
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_SERVICE_NAME: webkit-admin
 
   client:
     container_name: webkit-client
@@ -188,6 +198,10 @@ services:
       CF_API_TOKEN: ${CF_API_TOKEN:-}
       PAGESPEED_API_KEY: ${PAGESPEED_API_KEY:-}
       GOTENBERG_URL: http://gotenberg:3000
+      # Observability — empty default keeps no-OTel local boot identical;
+      # docker-compose.monitoring.yml overlay sets the live endpoint.
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_SERVICE_NAME: webkit-content
     depends_on:
       postgres:
         condition: service_healthy

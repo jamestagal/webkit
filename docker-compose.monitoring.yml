@@ -7,6 +7,13 @@ services:
       - postgres
       - otel-collector
 
+  content:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    depends_on:
+      - postgres
+      - otel-collector
+
   otel-collector:
     container_name: webkit-otel-collector
     image: otel/opentelemetry-collector-contrib:0.147.0

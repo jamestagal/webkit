@@ -38,6 +38,11 @@ type Config struct {
 	// Gotenberg (HTML→PDF conversion)
 	GotenbergURL string
 
+	// Observability (OpenTelemetry). Empty OTLPEndpoint = degraded mode
+	// (SetupOTelSDK returns a no-op shutdown so the service boots without OTel).
+	OTLPEndpoint string
+	ServiceName  string
+
 	// Timeouts
 	HTTPTimeout    time.Duration
 	ContextTimeout time.Duration
@@ -79,6 +84,9 @@ func LoadConfig() *Config {
 		CFAPIToken:         os.Getenv("CF_API_TOKEN"),
 		PageSpeedAPIKey:    os.Getenv("PAGESPEED_API_KEY"),
 		GotenbergURL:       os.Getenv("GOTENBERG_URL"),
+
+		OTLPEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		ServiceName:  getEnvOrDefault("OTEL_SERVICE_NAME", "webkit-content"),
 
 		HTTPTimeout:    HTTPTimeout,
 		ContextTimeout: ContextTimeout,
