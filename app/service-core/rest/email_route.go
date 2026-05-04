@@ -14,7 +14,7 @@ func (h *Handler) handleEmails(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		user, err := h.authService.Auth(token, auth.GetEmails)
+		user, err := h.authorize(r.Context(), token, auth.GetEmails)
 		if err != nil {
 			writeResponse(h.cfg, w, r, nil, err)
 			return
@@ -25,7 +25,7 @@ func (h *Handler) handleEmails(w http.ResponseWriter, r *http.Request) {
 		return
 
 	case http.MethodPost:
-		user, err := h.authService.Auth(token, auth.SendEmail)
+		user, err := h.authorize(r.Context(), token, auth.SendEmail)
 		if err != nil {
 			writeResponse(h.cfg, w, r, nil, err)
 			return

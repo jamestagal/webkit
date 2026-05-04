@@ -15,7 +15,7 @@ func (h *Handler) handleNotesCollection(w http.ResponseWriter, r *http.Request) 
 	case http.MethodGet:
 		accessToken := extractAccessToken(r)
 
-		user, err := h.authService.Auth(accessToken, auth.GetNotes)
+		user, err := h.authorize(r.Context(), accessToken, auth.GetNotes)
 		if err != nil {
 			writeResponse(h.cfg, w, r, nil, err)
 			return
@@ -44,7 +44,7 @@ func (h *Handler) handleNotesCollection(w http.ResponseWriter, r *http.Request) 
 	case http.MethodPost:
 		accessToken := extractAccessToken(r)
 
-		user, err := h.authService.Auth(accessToken, auth.CreateNote)
+		user, err := h.authorize(r.Context(), accessToken, auth.CreateNote)
 		if err != nil {
 			writeResponse(h.cfg, w, r, nil, err)
 			return
@@ -80,7 +80,7 @@ func (h *Handler) handleNoteResource(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		_, err := h.authService.Auth(token, auth.GetNotes)
+		_, err := h.authorize(r.Context(), token, auth.GetNotes)
 		if err != nil {
 			writeResponse(h.cfg, w, r, nil, err)
 			return
@@ -91,7 +91,7 @@ func (h *Handler) handleNoteResource(w http.ResponseWriter, r *http.Request) {
 		return
 
 	case http.MethodPut:
-		_, err := h.authService.Auth(token, auth.EditNote)
+		_, err := h.authorize(r.Context(), token, auth.EditNote)
 		if err != nil {
 			writeResponse(h.cfg, w, r, nil, err)
 			return
@@ -106,7 +106,7 @@ func (h *Handler) handleNoteResource(w http.ResponseWriter, r *http.Request) {
 		return
 
 	case http.MethodDelete:
-		_, err := h.authService.Auth(token, auth.RemoveNote)
+		_, err := h.authorize(r.Context(), token, auth.RemoveNote)
 		if err != nil {
 			writeResponse(h.cfg, w, r, nil, err)
 			return

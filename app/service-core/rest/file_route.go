@@ -16,7 +16,7 @@ func (h *Handler) handleFilesCollection(w http.ResponseWriter, r *http.Request) 
 
 	switch r.Method {
 	case http.MethodGet:
-		user, err := h.authService.Auth(token, auth.GetFiles)
+		user, err := h.authorize(r.Context(), token, auth.GetFiles)
 		if err != nil {
 			writeResponse(h.cfg, w, r, nil, err)
 			return
@@ -27,7 +27,7 @@ func (h *Handler) handleFilesCollection(w http.ResponseWriter, r *http.Request) 
 		return
 
 	case http.MethodPost:
-		user, err := h.authService.Auth(token, auth.UploadFile)
+		user, err := h.authorize(r.Context(), token, auth.UploadFile)
 		if err != nil {
 			writeResponse(h.cfg, w, r, nil, err)
 			return
@@ -71,7 +71,7 @@ func (h *Handler) handleFileResource(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		_, errAuth := h.authService.Auth(token, auth.DownloadFile)
+		_, errAuth := h.authorize(r.Context(), token, auth.DownloadFile)
 		if errAuth != nil {
 			writeResponse(h.cfg, w, r, nil, errAuth)
 			return
@@ -96,7 +96,7 @@ func (h *Handler) handleFileResource(w http.ResponseWriter, r *http.Request) {
 		return
 
 	case http.MethodDelete:
-		_, errAuth := h.authService.Auth(token, auth.RemoveFile)
+		_, errAuth := h.authorize(r.Context(), token, auth.RemoveFile)
 		if errAuth != nil {
 			writeResponse(h.cfg, w, r, nil, errAuth)
 			return

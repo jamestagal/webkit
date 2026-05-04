@@ -24,6 +24,36 @@ const userContextKey contextKey = "user"
 // Middleware types
 type Middleware func(http.HandlerFunc) http.HandlerFunc
 
+// authorize centralizes the inline auth pattern used across REST handlers,
+// firing gofast_authorize_denied_total on auth failures.
+//
+// Replaces the inline `h.authService.Auth(token, access)` pattern. Migrate
+// inline call sites to use this helper; keeps AuthMiddleware as future-use
+// for any route that wants the middleware-style invocation.
+//
+// Fires gofast_authorize_denied_total on auth failures, partitioned by:
+//   - access:  decimal-encoded required access bitmask (matches reference shape)
+//   - reason:  static snake_case string — "unauthenticated" for token validation
+//              failures, "forbidden" for HasAccess=false. NEVER fmt.Sprintf —
+//              cardinality of `reason` must stay bounded (see Risk #6 in plan).
+func (h *Handler) authorize(ctx context.Context, token string, access int64) (*auth.AccessTokenClaims, error) {
+	user, err := h.authService.Auth(token, access)
+	if err != nil {
+		accessStr := strconv.FormatInt(access, 10)
+		var forbiddenError pkg.ForbiddenError
+		switch {
+		case errors.As(err, &forbiddenError):
+			ot.AuthorizeDenied(ctx, accessStr, "forbidden")
+		default:
+			// Includes pkg.UnauthorizedError (token invalid/missing/expired)
+			// and any other non-forbidden auth failure.
+			ot.AuthorizeDenied(ctx, accessStr, "unauthenticated")
+		}
+		return nil, err
+	}
+	return user, nil
+}
+
 // AuthMiddleware adds authentication to requests.
 //
 // Fires gofast_authorize_denied_total on auth failures, partitioned by:
