@@ -9,6 +9,7 @@ import (
 	"net"
 	"strings"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -43,7 +44,11 @@ func Run(handler *Handler) *grpc.Server {
 	}
 	unaryLogger := SlogUnaryServerInterceptor()
 	streamLogger := SlogStreamServerInterceptor()
-	s := grpc.NewServer(grpc.UnaryInterceptor(unaryLogger), grpc.StreamInterceptor(streamLogger))
+	s := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		grpc.UnaryInterceptor(unaryLogger),
+		grpc.StreamInterceptor(streamLogger),
+	)
 	pb.RegisterAuthServiceServer(s, &authServer{
 		UnimplementedAuthServiceServer: pb.UnimplementedAuthServiceServer{},
 		handler:                        handler,

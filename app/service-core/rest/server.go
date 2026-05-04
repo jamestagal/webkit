@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"service-core/config"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func Run(apiHandler *Handler) *http.Server {
@@ -95,7 +97,12 @@ func Run(apiHandler *Handler) *http.Server {
 	corsHandler := corsMiddleware(cfg, mux)
 	handler := loggingMiddleware(corsHandler)
 
-	server := &http.Server{Addr: ":" + cfg.HTTPPort, Handler: handler, ReadHeaderTimeout: cfg.HTTPTimeout, WriteTimeout: cfg.HTTPTimeout}
+	// Wrap the entire handler chain with OTel HTTP instrumentation so every
+	// request emits a server span. Span name "webkit-core" is the operation
+	// root; otelhttp auto-decorates with route + method attributes.
+	otelHandler := otelhttp.NewHandler(handler, "webkit-core")
+
+	server := &http.Server{Addr: ":" + cfg.HTTPPort, Handler: otelHandler, ReadHeaderTimeout: cfg.HTTPTimeout, WriteTimeout: cfg.HTTPTimeout}
 	go func() {
 		slog.Info("HTTP server listening on", "port", cfg.HTTPPort)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {

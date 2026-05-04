@@ -4,12 +4,16 @@ import (
 	"app/pkg"
 	"app/pkg/auth"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	ot "service-core/pkg/otel"
 )
 
 // contextKey is a typed key for context values to avoid collisions.
@@ -20,20 +24,37 @@ const userContextKey contextKey = "user"
 // Middleware types
 type Middleware func(http.HandlerFunc) http.HandlerFunc
 
-// AuthMiddleware adds authentication to requests
+// AuthMiddleware adds authentication to requests.
+//
+// Fires gofast_authorize_denied_total on auth failures, partitioned by:
+//   - access:  decimal-encoded required access bitmask (matches reference shape)
+//   - reason:  static snake_case string — "unauthenticated" for token validation
+//              failures, "forbidden" for HasAccess=false. NEVER fmt.Sprintf —
+//              cardinality of `reason` must stay bounded (see Risk #6 in plan).
 func AuthMiddleware(authService *auth.Service, requiredAccess int64) Middleware {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
 			accessToken := extractAccessToken(r)
 
 			user, err := authService.Auth(accessToken, requiredAccess)
 			if err != nil {
+				access := strconv.FormatInt(requiredAccess, 10)
+				var forbiddenError pkg.ForbiddenError
+				switch {
+				case errors.As(err, &forbiddenError):
+					ot.AuthorizeDenied(ctx, access, "forbidden")
+				default:
+					// Includes pkg.UnauthorizedError (token invalid/missing/expired)
+					// and any other non-forbidden auth failure.
+					ot.AuthorizeDenied(ctx, access, "unauthenticated")
+				}
 				writeResponse(nil, w, r, nil, err)
 				return
 			}
 
 			// Add user to context
-			ctx := context.WithValue(r.Context(), userContextKey, user)
+			ctx = context.WithValue(ctx, userContextKey, user)
 			r = r.WithContext(ctx)
 
 			next(w, r)
