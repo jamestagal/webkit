@@ -397,7 +397,18 @@ Full details: `.claude/notes/deployment/production.md`. Critical warnings: `.cla
 - **Never use `wget` in Docker health checks or deploy scripts.** Go services use `curl`; Node service uses `node -e "fetch(...)"`. `wget` not in base images → health fails → Traefik stops routing → site-wide 404
 - **PostgreSQL version pinning is mandatory** — `postgres:17-alpine` (dev) / `postgres:16-alpine` (prod). Major-version mismatch = data files won't load
 
-**Deploy:** GitHub → Actions → "Deploy to Production" → "Run workflow". Fully automated.
+**Deploy:** GitHub → Actions → "Deploy to Production" → "Run workflow". **Code deploy is automated; schema migrations are NOT.**
+
+**For any commit (or merged PR) touching `migrations/*.sql`:**
+
+1. Push commit / merge PR to main
+2. Trigger GitHub Actions "Deploy to Production" workflow → wait for green deploy
+3. **Run migrations separately** from local repo: `VPS_HOST=<vps-ip> VPS_USER=root sh scripts/run_migrations.sh production`
+4. Smoke at least one route that exercises the new schema
+
+**Diagnostic — if prod 500s after a deploy** and the deploy included a `migrations/*.sql` commit, suspect un-run migration first. SSH to VPS and verify column existence with `docker exec webkit-postgres psql -U webkit -d webkit -c "\d <table>"` before touching anything else.
+
+Reasoning + 2026-05-03 incident reference live in auto-memory `feedback_run_migrations_after_deploy.md`. Durable fix (CI extension to run migrations as a step) is folded into `[k8s-migration-checklist]` rather than retrofit on the soon-to-be-replaced Docker Compose deploy.
 
 ### Production database access
 
