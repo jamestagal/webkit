@@ -122,6 +122,7 @@ func (s *Service) Refresh(ctx context.Context, accessToken string, refreshToken 
 		if err != nil {
 			return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error checking user access: %w", err)}
 		}
+		ot.AuthRefresh(ctx, ot.AuthRefreshResultSkipped, ot.AuthRefreshReasonNotNeeded)
 		return &AuthResponse{
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
@@ -140,6 +141,7 @@ func (s *Service) Refresh(ctx context.Context, accessToken string, refreshToken 
 	// Validate refresh token
 	refreshTokenClaims, err := s.authService.ValidateRefreshToken(refreshToken)
 	if err != nil {
+		ot.AuthRefresh(ctx, ot.AuthRefreshResultError, ot.AuthRefreshReasonInvalidOrExpiredToken)
 		return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error validating refresh token: %w", err)}
 	}
 	// Extract token from database
@@ -149,10 +151,12 @@ func (s *Service) Refresh(ctx context.Context, accessToken string, refreshToken 
 	}
 	// Check if token has a user Id, if not it means the token have been revoked
 	if refreshTokenStore.Target == "" {
+		ot.AuthRefresh(ctx, ot.AuthRefreshResultError, ot.AuthRefreshReasonInvalidOrExpiredToken)
 		return nil, pkg.UnauthorizedError{Err: errors.New("token have been revoked")}
 	}
 	// Check if token is expired
 	if time.Now().After(refreshTokenStore.Expires) {
+		ot.AuthRefresh(ctx, ot.AuthRefreshResultError, ot.AuthRefreshReasonInvalidOrExpiredToken)
 		return nil, pkg.UnauthorizedError{Err: fmt.Errorf("token expired: %w", err)}
 	}
 	// Get user from database
@@ -214,6 +218,7 @@ func (s *Service) Refresh(ctx context.Context, accessToken string, refreshToken 
 		}
 	}()
 
+	ot.AuthRefresh(ctx, ot.AuthRefreshResultSuccess, ot.AuthRefreshReasonRefreshed)
 	return &AuthResponse{
 		AccessToken:  newAccessToken,
 		RefreshToken: newRefreshToken,

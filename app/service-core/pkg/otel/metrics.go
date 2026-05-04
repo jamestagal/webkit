@@ -76,11 +76,18 @@ func setupMetrics() error {
 
 // AuthRefresh records an authentication refresh outcome.
 //
-// Webkit's auth flow does not have a discrete refresh handler — this metric
-// may report zero in production. Future workstream [webkit-auth-refresh-design]
-// (if filed) would close this gap. Per Cowork verdict 2026-05-04 on the
-// [gofast-otel-instrumentation] plan: degenerate-empty case is acceptable
-// when documented; do NOT manufacture instrumentation sites.
+// Webkit's auth flow uses Service.Refresh (domain/login/service.go) as the
+// discrete refresh handler. Two outcome paths:
+//   - Path A: access token still valid → "skipped"/"not_needed"
+//   - Path B: access token expired → refresh token validated → new tokens minted → "success"/"refreshed"
+//
+// Plus error branches for invalid/expired/revoked refresh tokens.
+//
+// Per the appraised plan and Phase 4.4 cross-layer-audit findings, this
+// metric IS expected to fire in production (originally framed as
+// degenerate-empty in Phase 1; corrected in Phase 4.4 — see clearance comms
+// at .comms/cowork-to-claude/20260504T202500-gofast-otel-phase-4-3-cleared-
+// phase-4-4-authorized-with-scope-correction.md).
 func AuthRefresh(ctx context.Context, result string, reason string) {
 	_ = setupMetrics()
 	if appMetrics.authRefreshTotal == nil {
