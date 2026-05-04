@@ -39,6 +39,10 @@ type Config struct {
 	ClientURL string
 	TaskToken string
 
+	// Observability
+	OTLPEndpoint string
+	ServiceName  string
+
 	// Constants
 	MaxFileSize     int64
 	HTTPTimeout     time.Duration
@@ -128,6 +132,10 @@ func LoadConfig() *Config {
 		MaxFileSize                = 10 << 20
 		SubscriptionSafePeriodDays = 2
 	)
+	serviceName := os.Getenv("OTEL_SERVICE_NAME")
+	if serviceName == "" {
+		serviceName = "webkit-core"
+	}
 	return &Config{
 		LogLevel:                     MustSetEnv(true, "LOG_LEVEL"),
 		HTTPPort:                     MustSetEnv(true, "HTTP_PORT"),
@@ -137,6 +145,8 @@ func LoadConfig() *Config {
 		AdminURL:                     MustSetEnv(true, "ADMIN_URL"),
 		ClientURL:                    MustSetEnv(true, "CLIENT_URL"),
 		TaskToken:                    MustSetEnv(true, "TASK_TOKEN"),
+		OTLPEndpoint:                 os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		ServiceName:                  serviceName,
 		HTTPTimeout:                  HTTPTimeout,
 		ContextTimeout:               ContextTimeout,
 		AccessTokenExp:               AccessTokenExp,
@@ -214,6 +224,8 @@ func LoadTestConfig() *Config {
 		AdminURL:                     "http://localhost:8080",
 		ClientURL:                    "http://localhost:3000",
 		TaskToken:                    "test",
+		OTLPEndpoint:                 "",
+		ServiceName:                  "webkit-core",
 		HTTPTimeout:                  HTTPTimeout,
 		ContextTimeout:               ContextTimeout,
 		AccessTokenExp:               AccessTokenExp,

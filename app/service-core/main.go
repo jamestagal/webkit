@@ -23,17 +23,34 @@ import (
 	"service-core/domain/note"
 	"service-core/domain/user"
 	"service-core/grpc"
+	"service-core/pkg/otel"
 	"service-core/rest"
 	"service-core/storage"
 	"service-core/storage/query"
 )
 
 func main() {
+	ctx := context.Background()
+
 	// Load the configuration
 	cfg := config.LoadConfig()
 
 	// Set up the logger
 	pkg.InitLogger(cfg.LogLevel)
+
+	// Set up OpenTelemetry. Fail-soft on empty endpoint: SetupOTelSDK returns a
+	// no-op shutdown when OTEL_EXPORTER_OTLP_ENDPOINT is unset so the service
+	// boots in degraded mode without panicking.
+	otelShutdown, err := otel.SetupOTelSDK(ctx, cfg.OTLPEndpoint, cfg.ServiceName)
+	if err != nil {
+		slog.ErrorContext(ctx, "Error setting up OpenTelemetry", "error", err)
+		panic(err)
+	}
+	if cfg.OTLPEndpoint == "" {
+		slog.InfoContext(ctx, "OpenTelemetry not configured (OTEL_EXPORTER_OTLP_ENDPOINT empty); continuing in degraded mode")
+	} else {
+		slog.InfoContext(ctx, "OpenTelemetry initialized", "endpoint", cfg.OTLPEndpoint, "service", cfg.ServiceName)
+	}
 
 	// Connect to the database
 	s, clean, err := storage.NewStorage(cfg)
@@ -65,14 +82,19 @@ func main() {
 	<-quit
 	slog.Info("Shutting down servers...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := restServer.Shutdown(ctx); err != nil {
+	if err := restServer.Shutdown(shutdownCtx); err != nil {
 		slog.Error("REST server forced to shutdown", "error", err)
 	}
 
 	grpcServer.GracefulStop()
+
+	// Flush pending OTel spans/metrics/logs before exit.
+	if err := otelShutdown(shutdownCtx); err != nil {
+		slog.Error("Error shutting down OpenTelemetry", "error", err)
+	}
 
 	slog.Info("Servers stopped gracefully")
 }
