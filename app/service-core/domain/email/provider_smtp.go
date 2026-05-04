@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/smtp"
 	"service-core/config"
+	ot "service-core/pkg/otel"
 	"strconv"
 	"strings"
 )
@@ -14,7 +15,10 @@ type smtpProvider struct {
 	cfg *config.Config
 }
 
-func (p *smtpProvider) Send(_ context.Context, email Email) error {
+func (p *smtpProvider) Send(ctx context.Context, email Email) (err error) {
+	done := ot.StartExternalCall(ctx, "smtp", "send_email")
+	defer func() { done(err) }()
+
 	to := []string{email.EmailTo}
 	msg := p.buildMessage(email)
 

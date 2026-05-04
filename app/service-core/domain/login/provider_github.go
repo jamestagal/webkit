@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"service-core/config"
+	ot "service-core/pkg/otel"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -31,7 +32,9 @@ func (p *githubProvider) GetOAuthConfig() *oauth2.Config {
 
 func (p *githubProvider) GetUserInfo(ctx context.Context, accessToken string) (*Info, error) {
 	url := "https://api.github.com/user"
+	done := ot.StartExternalCall(ctx, "oauth_github", "userinfo_lookup")
 	userInfoB, err := httpCall(ctx, url, accessToken)
+	done(err)
 	if err != nil {
 		return nil, fmt.Errorf("httpCall: %w", err)
 	}
@@ -55,7 +58,9 @@ func (p *githubProvider) GetUserInfo(ctx context.Context, accessToken string) (*
 	}
 	if email == "" {
 		emailsURL := "https://api.github.com/user/emails"
+		doneEmails := ot.StartExternalCall(ctx, "oauth_github", "emails_lookup")
 		emailsInfo, err := httpCall(ctx, emailsURL, accessToken)
+		doneEmails(err)
 		if err != nil {
 			return nil, fmt.Errorf("httpCall: %w", err)
 		}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"service-core/config"
+	ot "service-core/pkg/otel"
 )
 
 type postmarkAttachment struct {
@@ -32,7 +33,10 @@ type postmarkProvider struct {
 	cfg *config.Config
 }
 
-func (p *postmarkProvider) Send(ctx context.Context, email Email) error {
+func (p *postmarkProvider) Send(ctx context.Context, email Email) (err error) {
+	done := ot.StartExternalCall(ctx, "postmark", "send_email")
+	defer func() { done(err) }()
+
 	var postmarkURL = "https://api.postmarkapp.com/email"
 
 	content := postmarkEmail{
@@ -60,7 +64,10 @@ func (p *postmarkProvider) Send(ctx context.Context, email Email) error {
 	return sendEmail(ctx, content, postmarkURL, headers)
 }
 
-func (p *postmarkProvider) SendTemplate(ctx context.Context, templateID string, to string, data map[string]any) error {
+func (p *postmarkProvider) SendTemplate(ctx context.Context, templateID string, to string, data map[string]any) (err error) {
+	done := ot.StartExternalCall(ctx, "postmark", "send_template")
+	defer func() { done(err) }()
+
 	var postmarkURL = "https://api.postmarkapp.com/email/withTemplate"
 
 	content := postmarkTemplate{

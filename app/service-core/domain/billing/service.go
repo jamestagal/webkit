@@ -162,7 +162,9 @@ func (s *Service) syncIfNeeded(ctx context.Context, agencyID uuid.UUID, sessionI
 	params.AddExpand("subscription")
 	params.AddExpand("subscription.items.data.price")
 
+	doneStripe := ot.StartExternalCall(ctx, "stripe", "checkout_session_get")
 	sess, err := checkout_session.Get(sessionID, params)
+	doneStripe(err)
 	if err != nil {
 		return err
 	}
@@ -202,7 +204,9 @@ func (s *Service) GetCheckoutSessionStatus(ctx context.Context, sessionID string
 	params.AddExpand("subscription")
 	params.AddExpand("subscription.items.data.price")
 
+	doneStripe := ot.StartExternalCall(ctx, "stripe", "checkout_session_get")
 	sess, err := checkout_session.Get(sessionID, params)
+	doneStripe(err)
 	if err != nil {
 		return nil, pkg.BadRequestError{Message: "Invalid or expired checkout session"}
 	}
@@ -262,7 +266,9 @@ func (s *Service) getOrCreateCustomer(ctx context.Context, agencyID uuid.UUID, e
 		},
 	}
 
+	doneStripe := ot.StartExternalCall(ctx, "stripe", "customer_create")
 	cust, err := customer.New(params)
+	doneStripe(err)
 	if err != nil {
 		return "", pkg.InternalError{Message: "Error creating Stripe customer", Err: err}
 	}
@@ -326,7 +332,9 @@ func (s *Service) CreateCheckoutSession(
 		AllowPromotionCodes: stripe.Bool(true),
 	}
 
+	doneStripe := ot.StartExternalCall(ctx, "stripe", "checkout_session_create")
 	sess, err := checkout_session.New(params)
+	doneStripe(err)
 	if err != nil {
 		return nil, pkg.InternalError{Message: "Error creating checkout session", Err: err}
 	}
@@ -353,7 +361,9 @@ func (s *Service) CreatePortalSession(ctx context.Context, agencyID uuid.UUID, a
 		ReturnURL: stripe.String(fmt.Sprintf("%s/%s/settings/billing", s.cfg.ClientURL, agencySlug)),
 	}
 
+	doneStripe := ot.StartExternalCall(ctx, "stripe", "billing_portal_create")
 	sess, err := portal_session.New(params)
+	doneStripe(err)
 	if err != nil {
 		return nil, pkg.InternalError{Message: "Error creating portal session", Err: err}
 	}
@@ -387,7 +397,9 @@ func (s *Service) UpgradeSubscription(
 	}
 
 	// Get current subscription from Stripe
+	doneStripeGet := ot.StartExternalCall(ctx, "stripe", "subscription_get")
 	currentSub, err := subscription.Get(info.SubscriptionID, nil)
+	doneStripeGet(err)
 	if err != nil {
 		return pkg.InternalError{Message: "Error getting current subscription", Err: err}
 	}
@@ -415,7 +427,9 @@ func (s *Service) UpgradeSubscription(
 		ProrationBehavior: stripe.String("create_prorations"),
 	}
 
+	doneStripeUpdate := ot.StartExternalCall(ctx, "stripe", "subscription_update")
 	_, err = subscription.Update(info.SubscriptionID, params)
+	doneStripeUpdate(err)
 	if err != nil {
 		return pkg.InternalError{Message: "Error updating subscription", Err: err}
 	}
@@ -442,7 +456,9 @@ func (s *Service) SyncSubscriptionFromSession(ctx context.Context, sessionID str
 	params.AddExpand("subscription")
 	params.AddExpand("subscription.items.data.price")
 
+	doneStripe := ot.StartExternalCall(ctx, "stripe", "checkout_session_get")
 	sess, err := checkout_session.Get(sessionID, params)
+	doneStripe(err)
 	if err != nil {
 		return pkg.BadRequestError{Message: "Invalid or expired checkout session"}
 	}
@@ -576,7 +592,9 @@ func (s *Service) handleCheckoutCompleted(ctx context.Context, event stripe.Even
 		return pkg.InternalError{Message: "No subscription in checkout session", Err: nil}
 	}
 
+	doneStripe := ot.StartExternalCall(ctx, "stripe", "subscription_get")
 	sub, err := subscription.Get(sess.Subscription.ID, nil)
+	doneStripe(err)
 	if err != nil {
 		return pkg.InternalError{Message: "Error getting subscription", Err: err}
 	}

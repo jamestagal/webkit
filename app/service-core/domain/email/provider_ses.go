@@ -13,6 +13,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"service-core/config"
+	ot "service-core/pkg/otel"
 	"time"
 )
 
@@ -20,7 +21,10 @@ type sesProvider struct {
 	cfg *config.Config
 }
 
-func (p *sesProvider) Send(ctx context.Context, email Email) error {
+func (p *sesProvider) Send(ctx context.Context, email Email) (err error) {
+	done := ot.StartExternalCall(ctx, "ses", "send_email")
+	defer func() { done(err) }()
+
 	var sesURL = "https://email.%s.amazonaws.com"
 
 	region := p.cfg.SesRegion

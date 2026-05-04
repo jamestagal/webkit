@@ -49,6 +49,24 @@ func newProvider(cfg *config.Config, provider Provider) provider {
 	}
 }
 
+// oauthProviderLabel maps a Provider value to a static, snake_case OTel
+// `provider` label. Returned strings are bounded to a fixed set; never
+// includes user input or IDs.
+func oauthProviderLabel(p Provider) string {
+	switch p {
+	case Google:
+		return "oauth_google"
+	case Github:
+		return "oauth_github"
+	case Microsoft:
+		return "oauth_microsoft"
+	case Facebook:
+		return "oauth_facebook"
+	default:
+		return "oauth_unknown"
+	}
+}
+
 // Helper
 func httpCall(ctx context.Context, url, accessToken string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)

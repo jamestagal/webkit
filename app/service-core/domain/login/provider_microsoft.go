@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"service-core/config"
+	ot "service-core/pkg/otel"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -27,7 +28,9 @@ func (p *microsoftProvider) GetOAuthConfig() *oauth2.Config {
 
 func (p *microsoftProvider) GetUserInfo(ctx context.Context, accessToken string) (*Info, error) {
 	url := "https://graph.microsoft.com/v1.0/me"
+	done := ot.StartExternalCall(ctx, "oauth_microsoft", "userinfo_lookup")
 	userInfoB, err := httpCall(ctx, url, accessToken)
+	done(err)
 	if err != nil {
 		return nil, fmt.Errorf("httpCall to Microsoft Graph API: %w", err)
 	}

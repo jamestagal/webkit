@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"service-core/config"
+	ot "service-core/pkg/otel"
 )
 
 type sendgridAttachments struct {
@@ -34,7 +35,10 @@ type sendgridProvider struct {
 	cfg *config.Config
 }
 
-func (p *sendgridProvider) Send(ctx context.Context, email Email) error {
+func (p *sendgridProvider) Send(ctx context.Context, email Email) (err error) {
+	done := ot.StartExternalCall(ctx, "sendgrid", "send_email")
+	defer func() { done(err) }()
+
 	var sendgridURL = "https://api.sendgrid.com/v3/mail/send"
 
 	content := sendgridEmail{

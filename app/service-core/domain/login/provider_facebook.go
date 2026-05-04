@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"service-core/config"
+	ot "service-core/pkg/otel"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -33,7 +34,9 @@ func (p *facebookProvider) GetOAuthConfig() *oauth2.Config {
 
 func (p *facebookProvider) GetUserInfo(ctx context.Context, accessToken string) (*Info, error) {
 	url := "https://graph.facebook.com/me?fields=id,name,email,picture&access_token=" + accessToken
+	done := ot.StartExternalCall(ctx, "oauth_facebook", "userinfo_lookup")
 	userInfoB, err := httpCall(ctx, url, accessToken)
+	done(err)
 	if err != nil {
 		return nil, fmt.Errorf("httpCall: %w", err)
 	}

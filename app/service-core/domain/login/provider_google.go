@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"service-core/config"
+	ot "service-core/pkg/otel"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -31,7 +32,9 @@ func (p *googleProvider) GetOAuthConfig() *oauth2.Config {
 
 func (p *googleProvider) GetUserInfo(ctx context.Context, accessToken string) (*Info, error) {
 	url := "https://www.googleapis.com/oauth2/v2/userinfo"
+	done := ot.StartExternalCall(ctx, "oauth_google", "userinfo_lookup")
 	userInfoB, err := httpCall(ctx, url, accessToken)
+	done(err)
 	if err != nil {
 		return nil, fmt.Errorf("httpCall: %w", err)
 	}

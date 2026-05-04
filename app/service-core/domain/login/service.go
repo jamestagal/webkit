@@ -393,7 +393,9 @@ func (s *Service) LoginCallback(
 		// Verify code and exchange for token
 		p := newProvider(s.cfg, provider)
 		config := p.GetOAuthConfig()
+		doneExchange := ot.StartExternalCall(ctx, oauthProviderLabel(provider), "token_exchange")
 		oauthToken, err := config.Exchange(ctx, code, oauth2.VerifierOption(token.Target))
+		doneExchange(err)
 		if err != nil {
 			return nil, pkg.InternalError{Message: "Error exchanging code for token", Err: fmt.Errorf("error exchanging code for token: %w", err)}
 		}
@@ -502,7 +504,7 @@ func (s *Service) LoginCallback(
 }
 
 func (s *Service) LoginPhone(
-	_ context.Context,
+	ctx context.Context,
 	userID uuid.UUID,
 	phone string,
 ) (string, error) {
@@ -514,7 +516,9 @@ func (s *Service) LoginPhone(
 	params := &verify.CreateVerificationParams{}
 	params.SetTo(phone)
 	params.SetChannel("sms")
+	doneTwilio := ot.StartExternalCall(ctx, "twilio", "verification_create")
 	_, err := client.VerifyV2.CreateVerification(s.cfg.TwilioServiceSID, params)
+	doneTwilio(err)
 	if err != nil {
 		return "", pkg.UnauthorizedError{Err: fmt.Errorf("error sending SMS: %w", err)}
 	}
@@ -542,7 +546,9 @@ func (s *Service) LoginVerify(
 	params.SetTo(phone)
 	params.SetCode(code)
 
+	doneTwilio := ot.StartExternalCall(ctx, "twilio", "verification_check")
 	r, err := client.VerifyV2.CreateVerificationCheck(s.cfg.TwilioServiceSID, params)
+	doneTwilio(err)
 	if err != nil {
 		return nil, pkg.UnauthorizedError{Err: fmt.Errorf("error verifying code: %w", err)}
 	}

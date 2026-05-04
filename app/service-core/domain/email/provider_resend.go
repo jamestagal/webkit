@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"service-core/config"
+	ot "service-core/pkg/otel"
 )
 
 type resendAttachment struct {
@@ -23,7 +24,10 @@ type resendProvider struct {
 	cfg *config.Config
 }
 
-func (p *resendProvider) Send(ctx context.Context, email Email) error {
+func (p *resendProvider) Send(ctx context.Context, email Email) (err error) {
+	done := ot.StartExternalCall(ctx, "resend", "send_email")
+	defer func() { done(err) }()
+
 	var resendURL = "https://api.resend.com/emails"
 
 	content := resendEmail{
