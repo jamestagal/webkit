@@ -61,7 +61,7 @@
 			let pollCount = 0;
 			while (!done) {
 				await new Promise((r) => setTimeout(r, 3000));
-				const status = await getCrawlStatus(jobId);
+				const status = await getCrawlStatus(jobId).run();
 				const phase = status.status ?? "crawling";
 				const pages = status.pages_processed ?? 0;
 				const discovered = status.pages_discovered ?? 0;

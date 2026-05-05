@@ -60,7 +60,7 @@
 		}
 		const interval = setInterval(async () => {
 			try {
-				const result = await getAudit(auditId);
+				const result = await getAudit(auditId).run();
 				polledAudit = result;
 				if (result.status === "complete" || result.status === "failed") {
 					polling = false;
