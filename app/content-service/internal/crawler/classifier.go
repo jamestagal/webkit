@@ -173,7 +173,7 @@ func (c *Classifier) classifyByLLM(ctx context.Context, pageURL string, title st
 
 	done := otel.StartExternalCall(ctx, "anthropic", "crawler_classify")
 	resp, err := client.CreateMessages(ctx, anthropic.MessagesRequest{
-		Model: anthropic.ModelClaude3Haiku20240307,
+		Model: anthropic.ModelClaudeHaiku4Dot5,
 		Messages: []anthropic.Message{
 			{
 				Role: anthropic.RoleUser,
