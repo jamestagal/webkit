@@ -5,7 +5,6 @@
 	import { getAgencyDetails, updateAgencyAccess, impersonateAgency } from '$lib/api/super-admin.remote';
 	import { formatDateTime } from '$lib/utils/formatting';
 	import { normalizeExpiry } from '$lib/utils/freemium';
-	import { onMount } from 'svelte';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 
 	type FreemiumReason =
@@ -27,50 +26,13 @@
 
 	const toast = getToast();
 
-	interface AgencyDetails {
-		agency: {
-			id: string;
-			name: string;
-			slug: string;
-			email: string;
-			phone: string;
-			website: string;
-			status: string;
-			subscriptionTier: string;
-			createdAt: Date;
-			updatedAt: Date;
-			logoUrl: string;
-			logoAvatarUrl: string;
-			isFreemium: boolean;
-			freemiumReason: string | null;
-			freemiumExpiresAt: Date | null;
-			freemiumGrantedAt: Date | null;
-			freemiumGrantedBy: string | null;
-			freemiumGrantedByName: string | null;
-			freemiumRevokedAt: Date | null;
-			freemiumRevokedBy: string | null;
-			freemiumRevokedByName: string | null;
-		};
-		members: Array<{
-			id: string;
-			userId: string;
-			role: string;
-			status: string;
-			displayName: string;
-			createdAt: Date;
-			userEmail: string;
-		}>;
-		stats: {
-			proposals: number;
-			contracts: number;
-			invoices: number;
-		};
-	}
-
 	let agencyId = $derived(page.params.agencyId!);
-	let details = $state<AgencyDetails | null>(null);
-	let loading = $state(true);
-	let error = $state<string | null>(null);
+
+	// Anchored at component setup; recomputes when agencyId changes; the singleton
+	// query instance is shared with .refresh() callers, so the post-mutation reload
+	// path no longer needs an imperative re-fetch wrapper.
+	const detailsQuery = $derived(getAgencyDetails(agencyId));
+
 	let updating = $state(false);
 
 	// Modal state
@@ -82,27 +44,21 @@
 	let freemiumExpiresAt = $state('');
 	let freemiumDirty = $state(false);
 
-	async function loadDetails() {
-		loading = true;
-		error = null;
-		try {
-			details = await getAgencyDetails(agencyId);
-			if (details) {
-				newStatus = details.agency.status as 'active' | 'suspended' | 'cancelled';
-				newTier = details.agency.subscriptionTier;
-				freemiumEnabled = details.agency.isFreemium;
-				freemiumReason = (details.agency.freemiumReason as FreemiumReason) ?? 'internal';
-				freemiumExpiresAt = details.agency.freemiumExpiresAt
-					? new Date(details.agency.freemiumExpiresAt).toISOString().slice(0, 10)
-					: '';
-				freemiumDirty = false;
-			}
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load agency details';
-		} finally {
-			loading = false;
+	// Seed modal form state from query result. Guarded by !freemiumDirty so a
+	// background refetch can't trample user mid-edit changes. handleUpdateStatus
+	// resets freemiumDirty=false before refresh() so the post-save seed re-applies.
+	$effect(() => {
+		if (detailsQuery.ready && detailsQuery.current && !freemiumDirty) {
+			const a = detailsQuery.current.agency;
+			newStatus = a.status as 'active' | 'suspended' | 'cancelled';
+			newTier = a.subscriptionTier;
+			freemiumEnabled = a.isFreemium;
+			freemiumReason = (a.freemiumReason as FreemiumReason) ?? 'internal';
+			freemiumExpiresAt = a.freemiumExpiresAt
+				? new Date(a.freemiumExpiresAt).toISOString().slice(0, 10)
+				: '';
 		}
-	}
+	});
 
 	function markFreemiumDirty() {
 		freemiumDirty = true;
@@ -120,16 +76,13 @@
 		return name ?? value;
 	}
 
-	onMount(() => {
-		loadDetails();
-	});
-
 	async function handleUpdateStatus() {
-		if (!details) return;
+		const current = detailsQuery.current;
+		if (!current) return;
 		updating = true;
 		try {
 			const payload: Parameters<typeof updateAgencyAccess>[0] = {
-				agencyId: details.agency.id,
+				agencyId: current.agency.id,
 				status: newStatus,
 				subscriptionTier: newTier
 			};
@@ -145,9 +98,8 @@
 			await updateAgencyAccess(payload);
 			toast.success('Updated', 'Agency access updated successfully');
 			showStatusModal = false;
-			// query() results are cached — force a refresh so the badge/card/timestamps re-render.
-			await getAgencyDetails(agencyId).refresh();
-			await loadDetails();
+			freemiumDirty = false;
+			await detailsQuery.refresh();
 		} catch (e) {
 			toast.error('Error', e instanceof Error ? e.message : 'Failed to update agency');
 		} finally {
@@ -156,9 +108,10 @@
 	}
 
 	async function handleImpersonate() {
-		if (!details) return;
+		const current = detailsQuery.current;
+		if (!current) return;
 		try {
-			const result = await impersonateAgency(details.agency.id);
+			const result = await impersonateAgency(current.agency.id);
 			if (result.success && result.slug) {
 				await invalidateAll();
 				await goto(`/${result.slug}`);
@@ -225,15 +178,20 @@
 		</div>
 	</div>
 
-	{#if loading}
+	{#if !detailsQuery.ready}
 		<div class="flex items-center justify-center py-12">
 			<span class="loading loading-spinner loading-lg"></span>
 		</div>
-	{:else if error}
+	{:else if detailsQuery.error}
 		<div class="alert alert-error">
-			<span>{error}</span>
+			<span>{detailsQuery.error?.message ?? 'Failed to load agency details'}</span>
 		</div>
-	{:else if details}
+	{:else if !detailsQuery.current}
+		<div class="alert alert-warning">
+			<span>Agency not found.</span>
+		</div>
+	{:else}
+		{@const details = detailsQuery.current}
 		<div class="grid gap-6 lg:grid-cols-3">
 			<!-- Agency Info -->
 			<div class="lg:col-span-2 space-y-6">
@@ -488,7 +446,7 @@
 </div>
 
 <!-- Change Access Modal -->
-{#if showStatusModal && details}
+{#if showStatusModal && detailsQuery.current}
 	<div class="modal modal-open">
 		<div class="modal-box">
 			<h3 class="text-lg font-bold">Change Access</h3>
