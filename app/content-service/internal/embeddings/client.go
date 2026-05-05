@@ -31,8 +31,15 @@ type Client struct {
 	sem        chan struct{}
 }
 
-// NewClient creates a new Workers AI embedding client.
+// NewClient returns a configured Workers AI embedding client, or nil if
+// either credential is missing. Consumers must nil-check the return value
+// before calling client methods. The nil-on-empty-creds contract prevents
+// downstream code from constructing malformed Cloudflare API URLs (empty
+// account ID produces /accounts//ai/run/... → 404).
 func NewClient(accountID, apiToken string) *Client {
+	if accountID == "" || apiToken == "" {
+		return nil
+	}
 	return &Client{
 		accountID:  accountID,
 		apiToken:   apiToken,
