@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { formatDate } from '$lib/utils/formatting';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 	import { Star, ChevronUp, ChevronDown, MoreHorizontal, Pencil, Upload, Undo2, Trash2, FileText } from 'lucide-svelte';
@@ -15,8 +14,19 @@
 
 	const toast = getToast();
 
-	let loading = $state(true);
+	// Anchored query — Phase B canonical. loadTemplates() is dual-path
+	// (lifecycle init + reorder catch-block rollbacks); SvelteKit treats
+	// onMount-async as render-adjacent, so .run() inside it triggers the
+	// inverse error. Anchor the query and seed a local mutable copy via
+	// $effect, guarded by `optimisticDirty` so background refetches don't
+	// trample in-flight optimistic mutations. Mirrors freemiumDirty pattern
+	// from 212bb41.
+	const templatesQuery = $derived(getFormTemplatesAdmin());
+
+	// Local mutable copy for optimistic UI (toggle featured, reorder, delete).
 	let templates = $state<any[]>([]);
+	let optimisticDirty = $state(false);
+	let loading = $state(true);
 	let errorMsg = $state<string | null>(null);
 
 	// Modal state
@@ -30,31 +40,35 @@
 	// Track which templates have had recent pushes (for rollback visibility)
 	let pushedTemplateIds = $state<Set<string>>(new Set());
 
-	onMount(() => {
-		loadTemplates();
-	});
-
-	async function loadTemplates() {
-		loading = true;
-		errorMsg = null;
-		try {
-			// Phase A.5 .run() (not Phase B anchored $derived): page does
-			// optimistic local mutations on `templates` (toggle featured,
-			// reorder, delete) which need mutable state.
-			templates = await getFormTemplatesAdmin().run();
-		} catch (e) {
-			errorMsg = e instanceof Error ? e.message : 'Failed to load templates';
-		} finally {
+	// Seed local templates from query.current — guarded by !optimisticDirty
+	// so a background refetch can't trample an in-flight optimistic update.
+	// Error rollback paths set optimisticDirty=false + refresh() to re-seed.
+	$effect(() => {
+		if (optimisticDirty) return;
+		if (templatesQuery.error) {
+			errorMsg =
+				templatesQuery.error instanceof Error
+					? templatesQuery.error.message
+					: 'Failed to load templates';
+			loading = false;
+			return;
+		}
+		if (templatesQuery.ready && templatesQuery.current) {
+			templates = [...templatesQuery.current];
+			errorMsg = null;
 			loading = false;
 		}
-	}
+	});
 
 	async function handleToggleFeatured(template: any) {
 		try {
+			optimisticDirty = true;
 			await updateFormTemplate({ id: template.id, isFeatured: !template.isFeatured });
 			template.isFeatured = !template.isFeatured;
 		} catch (e) {
 			toast.error('Error', 'Failed to update featured status');
+			optimisticDirty = false;
+			await templatesQuery.refresh();
 		}
 	}
 
@@ -64,11 +78,13 @@
 		[items[index - 1], items[index]] = [items[index], items[index - 1]];
 		const reorder = items.map((t, i) => ({ id: t.id, displayOrder: i }));
 		templates = items;
+		optimisticDirty = true;
 		try {
 			await reorderFormTemplates(reorder);
 		} catch (e) {
 			toast.error('Error', 'Failed to reorder');
-			await loadTemplates();
+			optimisticDirty = false;
+			await templatesQuery.refresh();
 		}
 	}
 
@@ -78,11 +94,13 @@
 		[items[index], items[index + 1]] = [items[index + 1], items[index]];
 		const reorder = items.map((t, i) => ({ id: t.id, displayOrder: i }));
 		templates = items;
+		optimisticDirty = true;
 		try {
 			await reorderFormTemplates(reorder);
 		} catch (e) {
 			toast.error('Error', 'Failed to reorder');
-			await loadTemplates();
+			optimisticDirty = false;
+			await templatesQuery.refresh();
 		}
 	}
 
@@ -145,12 +163,15 @@
 		if (!selectedTemplate) return;
 		actionLoading = true;
 		try {
+			optimisticDirty = true;
 			await deleteFormTemplate(selectedTemplate.id);
 			templates = templates.filter((t) => t.id !== selectedTemplate.id);
 			toast.success('Deleted', `Template "${selectedTemplate.name}" deleted`);
 			showDeleteModal = false;
 		} catch (e) {
 			toast.error('Error', e instanceof Error ? e.message : 'Delete failed');
+			optimisticDirty = false;
+			await templatesQuery.refresh();
 		} finally {
 			actionLoading = false;
 		}
