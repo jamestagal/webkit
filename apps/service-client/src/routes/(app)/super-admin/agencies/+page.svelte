@@ -2,70 +2,42 @@
 	import { Search, Filter, ChevronLeft, ChevronRight, Building2 } from 'lucide-svelte';
 	import { getAgencies } from '$lib/api/super-admin.remote';
 	import { formatDate } from '$lib/utils/formatting';
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
-	interface Agency {
-		id: string;
-		name: string;
-		slug: string;
-		email: string;
-		status: string;
-		subscriptionTier: string;
-		isFreemium: boolean;
-		createdAt: Date;
-		memberCount: number;
-	}
-
-	let agencies = $state<Agency[]>([]);
-	let total = $state(0);
-	let loading = $state(true);
-	let error = $state<string | null>(null);
-
-	// Filters
-	let search = $state('');
-	let statusFilter = $state<'active' | 'suspended' | 'cancelled' | ''>('');
-	let tierFilter = $state('');
+	// Filter state — anchored query refetches automatically when these change.
+	let filters = $state({
+		search: '',
+		statusFilter: '' as 'active' | 'suspended' | 'cancelled' | '',
+		tierFilter: ''
+	});
+	let searchInput = $state(''); // bound to the search box; debounced into filters.search
 	let currentPage = $state(1);
 	const pageSize = 20;
 
 	let searchDebounce: ReturnType<typeof setTimeout>;
 
-	async function loadAgencies() {
-		loading = true;
-		error = null;
-		try {
-			const result = await getAgencies({
-				search: search || undefined,
-				status: statusFilter || undefined,
-				tier: tierFilter || undefined,
-				limit: pageSize,
-				offset: (currentPage - 1) * pageSize
-			});
-			agencies = result.agencies;
-			total = result.total;
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load agencies';
-		} finally {
-			loading = false;
-		}
-	}
-
-	onMount(() => {
-		loadAgencies();
-	});
+	// Anchored query: $derived recomputes when filters or pagination change,
+	// triggering SvelteKit's remote-query cache to refetch with the new args.
+	const agenciesQuery = $derived(
+		getAgencies({
+			search: filters.search || undefined,
+			status: filters.statusFilter || undefined,
+			tier: filters.tierFilter || undefined,
+			limit: pageSize,
+			offset: (currentPage - 1) * pageSize
+		})
+	);
 
 	function handleSearchInput() {
 		clearTimeout(searchDebounce);
 		searchDebounce = setTimeout(() => {
+			filters.search = searchInput;
 			currentPage = 1;
-			loadAgencies();
 		}, 300);
 	}
 
 	function handleFilterChange() {
 		currentPage = 1;
-		loadAgencies();
 	}
 
 	// formatDate imported from '$lib/utils/formatting'
@@ -98,7 +70,7 @@
 		}
 	}
 
-	let totalPages = $derived(Math.ceil(total / pageSize));
+	let totalPages = $derived(Math.ceil((agenciesQuery.current?.total ?? 0) / pageSize));
 </script>
 
 <div>
@@ -116,7 +88,7 @@
 				type="text"
 				placeholder="Search agencies..."
 				class="input input-bordered w-full pl-10"
-				bind:value={search}
+				bind:value={searchInput}
 				oninput={handleSearchInput}
 			/>
 		</div>
@@ -126,7 +98,7 @@
 			<Filter class="h-4 w-4 text-base-content/60 shrink-0" />
 			<select
 				class="select select-bordered select-sm flex-1"
-				bind:value={statusFilter}
+				bind:value={filters.statusFilter}
 				onchange={handleFilterChange}
 			>
 				<option value="">All Status</option>
@@ -137,7 +109,7 @@
 
 			<select
 				class="select select-bordered select-sm flex-1"
-				bind:value={tierFilter}
+				bind:value={filters.tierFilter}
 				onchange={handleFilterChange}
 			>
 				<option value="">All Tiers</option>
@@ -149,24 +121,24 @@
 		</div>
 	</div>
 
-	{#if loading}
+	{#if !agenciesQuery.ready}
 		<div class="flex items-center justify-center py-12">
 			<span class="loading loading-spinner loading-lg"></span>
 		</div>
-	{:else if error}
+	{:else if agenciesQuery.error}
 		<div class="alert alert-error">
-			<span>{error}</span>
+			<span>{agenciesQuery.error?.message ?? 'Failed to load agencies'}</span>
 		</div>
-	{:else if agencies.length === 0}
+	{:else if agenciesQuery.ready && agenciesQuery.current.agencies.length === 0}
 		<div class="text-center py-12">
 			<Building2 class="mx-auto h-12 w-12 text-base-content/30" />
 			<h3 class="mt-4 text-lg font-medium">No agencies found</h3>
 			<p class="text-base-content/60">Try adjusting your search or filters</p>
 		</div>
-	{:else}
+	{:else if agenciesQuery.ready}
 		<!-- Mobile: Card Layout -->
 		<div class="space-y-3 lg:hidden">
-			{#each agencies as agency (agency.id)}
+			{#each agenciesQuery.current.agencies as agency (agency.id)}
 				<button
 					class="w-full text-left rounded-lg border border-base-300 p-4 hover:bg-base-200/50 transition-colors"
 					onclick={() => goto(`/super-admin/agencies/${agency.id}`)}
@@ -211,7 +183,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each agencies as agency (agency.id)}
+					{#each agenciesQuery.current.agencies as agency (agency.id)}
 						<tr
 							class="cursor-pointer hover:bg-base-200/50"
 							onclick={() => goto(`/super-admin/agencies/${agency.id}`)}
@@ -249,16 +221,13 @@
 		{#if totalPages > 1}
 			<div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
 				<p class="text-sm text-base-content/60">
-					Showing {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, total)} of {total}
+					Showing {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, agenciesQuery.current.total)} of {agenciesQuery.current.total}
 				</p>
 				<div class="flex items-center gap-2">
 					<button
 						class="btn btn-ghost btn-sm"
 						disabled={currentPage === 1}
-						onclick={() => {
-							currentPage--;
-							loadAgencies();
-						}}
+						onclick={() => currentPage--}
 					>
 						<ChevronLeft class="h-4 w-4" />
 						<span class="hidden sm:inline">Previous</span>
@@ -269,10 +238,7 @@
 					<button
 						class="btn btn-ghost btn-sm"
 						disabled={currentPage === totalPages}
-						onclick={() => {
-							currentPage++;
-							loadAgencies();
-						}}
+						onclick={() => currentPage++}
 					>
 						<span class="hidden sm:inline">Next</span>
 						<ChevronRight class="h-4 w-4" />

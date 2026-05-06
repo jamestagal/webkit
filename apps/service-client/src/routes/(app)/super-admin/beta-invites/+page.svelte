@@ -2,41 +2,16 @@
 	import { Search, Mail, RotateCcw, X, Plus, Send, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-svelte';
 	import { getBetaInvites, createBetaInvite, revokeBetaInvite, resendBetaInvite } from '$lib/api/beta-invites.remote';
 	import { formatDate, formatDateTime } from '$lib/utils/formatting';
-	import { onMount } from 'svelte';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 
 	const toast = getToast();
 
-	interface BetaInvite {
-		id: string;
-		email: string;
-		token: string;
-		status: string;
-		createdAt: Date;
-		expiresAt: Date;
-		usedAt: Date | null;
-		usedByAgencyId: string | null;
-		notes: string | null;
-		createdByEmail: string | null;
-		isExpired: boolean;
-	}
-
-	interface Stats {
-		pending: number;
-		used: number;
-		expired: number;
-		revoked: number;
-	}
-
-	let invites = $state<BetaInvite[]>([]);
-	let total = $state(0);
-	let stats = $state<Stats>({ pending: 0, used: 0, expired: 0, revoked: 0 });
-	let loading = $state(true);
-	let error = $state<string | null>(null);
-
-	// Filters
-	let search = $state('');
-	let statusFilter = $state<'pending' | 'used' | 'expired' | 'revoked' | ''>('');
+	// Filter state — anchored query refetches automatically when these change.
+	let filters = $state({
+		search: '',
+		statusFilter: '' as 'pending' | 'used' | 'expired' | 'revoked' | ''
+	});
+	let searchInput = $state('');
 	let currentPage = $state(1);
 	const pageSize = 20;
 
@@ -53,41 +28,27 @@
 
 	let searchDebounce: ReturnType<typeof setTimeout>;
 
-	async function loadInvites() {
-		loading = true;
-		error = null;
-		try {
-			const result = await getBetaInvites({
-				search: search || undefined,
-				status: statusFilter || undefined,
-				limit: pageSize,
-				offset: (currentPage - 1) * pageSize
-			});
-			invites = result.invites;
-			total = result.total;
-			stats = result.stats;
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load invites';
-		} finally {
-			loading = false;
-		}
-	}
-
-	onMount(() => {
-		loadInvites();
-	});
+	// Anchored query: $derived recomputes when filters or pagination change,
+	// triggering refetch with the new args.
+	const invitesQuery = $derived(
+		getBetaInvites({
+			search: filters.search || undefined,
+			status: filters.statusFilter || undefined,
+			limit: pageSize,
+			offset: (currentPage - 1) * pageSize
+		})
+	);
 
 	function handleSearchInput() {
 		clearTimeout(searchDebounce);
 		searchDebounce = setTimeout(() => {
+			filters.search = searchInput;
 			currentPage = 1;
-			loadInvites();
 		}, 300);
 	}
 
 	function handleFilterChange() {
 		currentPage = 1;
-		loadInvites();
 	}
 
 	async function handleCreateInvite() {
@@ -106,7 +67,7 @@
 			showCreateModal = false;
 			newInviteEmail = '';
 			newInviteNotes = '';
-			loadInvites();
+			await invitesQuery.refresh();
 		} catch (e) {
 			toast.error('Error', e instanceof Error ? e.message : 'Failed to create invite');
 		} finally {
@@ -131,7 +92,7 @@
 			await revokeBetaInvite(revokingInvite.id);
 			closeRevokeModal();
 			toast.success('Success', 'Invite revoked');
-			loadInvites();
+			await invitesQuery.refresh();
 		} catch (e) {
 			toast.error('Error', e instanceof Error ? e.message : 'Failed to revoke invite');
 		} finally {
@@ -182,7 +143,7 @@
 		}
 	}
 
-	const totalPages = $derived(Math.ceil(total / pageSize));
+	const totalPages = $derived(Math.ceil((invitesQuery.current?.total ?? 0) / pageSize));
 </script>
 
 <svelte:head>
@@ -205,19 +166,19 @@
 	<!-- Stats -->
 	<div class="grid grid-cols-4 gap-4">
 		<div class="rounded-lg bg-base-200 p-4">
-			<div class="text-2xl font-bold text-info">{stats.pending}</div>
+			<div class="text-2xl font-bold text-info">{invitesQuery.current?.stats.pending ?? 0}</div>
 			<div class="text-sm text-base-content/60">Pending</div>
 		</div>
 		<div class="rounded-lg bg-base-200 p-4">
-			<div class="text-2xl font-bold text-success">{stats.used}</div>
+			<div class="text-2xl font-bold text-success">{invitesQuery.current?.stats.used ?? 0}</div>
 			<div class="text-sm text-base-content/60">Used</div>
 		</div>
 		<div class="rounded-lg bg-base-200 p-4">
-			<div class="text-2xl font-bold text-warning">{stats.expired}</div>
+			<div class="text-2xl font-bold text-warning">{invitesQuery.current?.stats.expired ?? 0}</div>
 			<div class="text-sm text-base-content/60">Expired</div>
 		</div>
 		<div class="rounded-lg bg-base-200 p-4">
-			<div class="text-2xl font-bold text-error">{stats.revoked}</div>
+			<div class="text-2xl font-bold text-error">{invitesQuery.current?.stats.revoked ?? 0}</div>
 			<div class="text-sm text-base-content/60">Revoked</div>
 		</div>
 	</div>
@@ -232,14 +193,14 @@
 				type="text"
 				placeholder="Search by email..."
 				class="input input-sm input-bordered join-item w-64"
-				bind:value={search}
+				bind:value={searchInput}
 				oninput={handleSearchInput}
 			/>
 		</div>
 
 		<select
 			class="select select-bordered select-sm"
-			bind:value={statusFilter}
+			bind:value={filters.statusFilter}
 			onchange={handleFilterChange}
 		>
 			<option value="">All Status</option>
@@ -249,28 +210,28 @@
 			<option value="revoked">Revoked</option>
 		</select>
 
-		<button class="btn btn-ghost btn-sm" onclick={loadInvites}>
+		<button class="btn btn-ghost btn-sm" onclick={() => invitesQuery.refresh()}>
 			<RotateCcw class="h-4 w-4" />
 			Refresh
 		</button>
 	</div>
 
 	<!-- Table -->
-	{#if loading}
+	{#if !invitesQuery.ready}
 		<div class="flex justify-center py-12">
 			<span class="loading loading-spinner loading-lg"></span>
 		</div>
-	{:else if error}
+	{:else if invitesQuery.error}
 		<div class="alert alert-error">
-			<span>{error}</span>
+			<span>{invitesQuery.error?.message ?? 'Failed to load invites'}</span>
 		</div>
-	{:else if invites.length === 0}
+	{:else if invitesQuery.ready && invitesQuery.current.invites.length === 0}
 		<div class="rounded-lg bg-base-200 p-12 text-center">
 			<Mail class="mx-auto h-12 w-12 text-base-content/30" />
 			<h3 class="mt-4 text-lg font-medium">No invites found</h3>
 			<p class="text-base-content/60">Create your first beta invite to get started.</p>
 		</div>
-	{:else}
+	{:else if invitesQuery.ready}
 		<div class="overflow-x-auto rounded-lg border border-base-300">
 			<table class="table">
 				<thead>
@@ -284,7 +245,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each invites as invite}
+					{#each invitesQuery.current.invites as invite}
 						{@const StatusIcon = getStatusIcon(invite.status, invite.isExpired)}
 						<tr class="hover">
 							<td>
@@ -342,16 +303,13 @@
 		{#if totalPages > 1}
 			<div class="flex items-center justify-between">
 				<div class="text-sm text-base-content/60">
-					Showing {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, total)} of {total}
+					Showing {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, invitesQuery.current.total)} of {invitesQuery.current.total}
 				</div>
 				<div class="join">
 					<button
 						class="btn btn-sm join-item"
 						disabled={currentPage === 1}
-						onclick={() => {
-							currentPage--;
-							loadInvites();
-						}}
+						onclick={() => currentPage--}
 					>
 						Previous
 					</button>
@@ -361,10 +319,7 @@
 					<button
 						class="btn btn-sm join-item"
 						disabled={currentPage === totalPages}
-						onclick={() => {
-							currentPage++;
-							loadInvites();
-						}}
+						onclick={() => currentPage++}
 					>
 						Next
 					</button>

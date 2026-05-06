@@ -2,38 +2,10 @@
 	import { Search, ChevronLeft, ChevronRight, ScrollText, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { getSystemAuditLogs, getAgencies } from '$lib/api/super-admin.remote';
 	import { formatDateTime } from '$lib/utils/formatting';
-	import { onMount } from 'svelte';
 
-	interface AuditLog {
-		id: string;
-		createdAt: Date;
-		action: string;
-		entityType: string;
-		entityId: string | null;
-		oldValues: unknown;
-		newValues: unknown;
-		ipAddress: string | null;
-		agencyId: string;
-		userId: string | null;
-		agencyName: string | null;
-		userEmail: string | null;
-	}
-
-	interface Agency {
-		id: string;
-		name: string;
-		slug: string;
-	}
-
-	let logs = $state<AuditLog[]>([]);
-	let agencies = $state<Agency[]>([]);
-	let total = $state(0);
-	let loading = $state(true);
-	let error = $state<string | null>(null);
-
-	// Filters
-	let agencyFilter = $state('');
-	let actionFilter = $state('');
+	// Filter state — anchored queries refetch automatically when these change.
+	let filters = $state({ agencyFilter: '', actionFilter: '' });
+	let actionInput = $state(''); // bound to action filter input; debounced into filters.actionFilter
 	let currentPage = $state(1);
 	const pageSize = 25;
 
@@ -42,49 +14,28 @@
 
 	let searchDebounce: ReturnType<typeof setTimeout>;
 
-	async function loadAgencies() {
-		try {
-			const result = await getAgencies({ limit: 100 });
-			agencies = result.agencies;
-		} catch (e) {
-			console.error('Failed to load agencies for filter:', e);
-		}
-	}
-
-	async function loadLogs() {
-		loading = true;
-		error = null;
-		try {
-			const result = await getSystemAuditLogs({
-				agencyId: agencyFilter || undefined,
-				action: actionFilter || undefined,
-				limit: pageSize,
-				offset: (currentPage - 1) * pageSize
-			});
-			logs = result.logs;
-			total = result.total;
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load audit logs';
-		} finally {
-			loading = false;
-		}
-	}
-
-	onMount(async () => {
-		await loadAgencies();
-		await loadLogs();
-	});
+	// Two anchored queries — agencies-for-filter-dropdown (no filters) and
+	// the logs query (refetches on filter/page change). Canonical "page with
+	// two queries" template instance.
+	const agenciesQuery = $derived(getAgencies({ limit: 100 }));
+	const logsQuery = $derived(
+		getSystemAuditLogs({
+			agencyId: filters.agencyFilter || undefined,
+			action: filters.actionFilter || undefined,
+			limit: pageSize,
+			offset: (currentPage - 1) * pageSize
+		})
+	);
 
 	function handleFilterChange() {
 		currentPage = 1;
-		loadLogs();
 	}
 
 	function handleActionInput() {
 		clearTimeout(searchDebounce);
 		searchDebounce = setTimeout(() => {
+			filters.actionFilter = actionInput;
 			currentPage = 1;
-			loadLogs();
 		}, 300);
 	}
 
@@ -121,7 +72,7 @@
 		return 'badge-ghost';
 	}
 
-	let totalPages = $derived(Math.ceil(total / pageSize));
+	let totalPages = $derived(Math.ceil((logsQuery.current?.total ?? 0) / pageSize));
 </script>
 
 <div>
@@ -134,11 +85,11 @@
 	<div class="mb-6 space-y-3">
 		<select
 			class="select select-bordered w-full"
-			bind:value={agencyFilter}
+			bind:value={filters.agencyFilter}
 			onchange={handleFilterChange}
 		>
 			<option value="">All Agencies</option>
-			{#each agencies as agency (agency.id)}
+			{#each agenciesQuery.current?.agencies ?? [] as agency (agency.id)}
 				<option value={agency.id}>{agency.name}</option>
 			{/each}
 		</select>
@@ -149,30 +100,30 @@
 				type="text"
 				placeholder="Filter by action..."
 				class="input input-bordered w-full pl-10"
-				bind:value={actionFilter}
+				bind:value={actionInput}
 				oninput={handleActionInput}
 			/>
 		</div>
 	</div>
 
-	{#if loading}
+	{#if !logsQuery.ready}
 		<div class="flex items-center justify-center py-12">
 			<span class="loading loading-spinner loading-lg"></span>
 		</div>
-	{:else if error}
+	{:else if logsQuery.error}
 		<div class="alert alert-error">
-			<span>{error}</span>
+			<span>{logsQuery.error?.message ?? 'Failed to load audit logs'}</span>
 		</div>
-	{:else if logs.length === 0}
+	{:else if logsQuery.ready && logsQuery.current.logs.length === 0}
 		<div class="text-center py-12">
 			<ScrollText class="mx-auto h-12 w-12 text-base-content/30" />
 			<h3 class="mt-4 text-lg font-medium">No audit logs found</h3>
 			<p class="text-base-content/60">Try adjusting your filters</p>
 		</div>
-	{:else}
+	{:else if logsQuery.ready}
 		<!-- Mobile: Card Layout -->
 		<div class="space-y-3 lg:hidden">
-			{#each logs as log (log.id)}
+			{#each logsQuery.current.logs as log (log.id)}
 				<div class="rounded-lg border border-base-300 overflow-hidden">
 					<button
 						class="w-full text-left p-4 hover:bg-base-200/50 transition-colors"
@@ -246,7 +197,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each logs as log (log.id)}
+					{#each logsQuery.current.logs as log (log.id)}
 						<tr class="hover:bg-base-200/50">
 							<td>
 								<button
@@ -316,16 +267,13 @@
 		{#if totalPages > 1}
 			<div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
 				<p class="text-sm text-base-content/60">
-					Showing {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, total)} of {total}
+					Showing {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, logsQuery.current.total)} of {logsQuery.current.total}
 				</p>
 				<div class="flex items-center gap-2">
 					<button
 						class="btn btn-ghost btn-sm"
 						disabled={currentPage === 1}
-						onclick={() => {
-							currentPage--;
-							loadLogs();
-						}}
+						onclick={() => currentPage--}
 					>
 						<ChevronLeft class="h-4 w-4" />
 						<span class="hidden sm:inline">Previous</span>
@@ -336,10 +284,7 @@
 					<button
 						class="btn btn-ghost btn-sm"
 						disabled={currentPage === totalPages}
-						onclick={() => {
-							currentPage++;
-							loadLogs();
-						}}
+						onclick={() => currentPage++}
 					>
 						<span class="hidden sm:inline">Next</span>
 						<ChevronRight class="h-4 w-4" />

@@ -3,7 +3,6 @@
 	import { getFreemiumAgencies, updateAgencyAccess } from '$lib/api/super-admin.remote';
 	import { normalizeExpiry } from '$lib/utils/freemium';
 	import { formatDate } from '$lib/utils/formatting';
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { getToast } from '$lib/ui/toast_store.svelte';
 
@@ -24,15 +23,9 @@
 		ownerEmail: string | null;
 	}
 
-	let agencies = $state<FreemiumAgency[]>([]);
-	let total = $state(0);
-	let stats = $state<Record<string, number>>({});
-	let loading = $state(true);
-	let error = $state<string | null>(null);
-
-	// Filters
-	let search = $state('');
-	let reasonFilter = $state('');
+	// Filter state — anchored query refetches automatically when these change.
+	let filters = $state({ search: '', reasonFilter: '' });
+	let searchInput = $state('');
 	let currentPage = $state(1);
 	const pageSize = 20;
 
@@ -59,44 +52,28 @@
 		internal: 'Internal'
 	};
 
-	async function loadAgencies() {
-		loading = true;
-		error = null;
-		try {
-			const args = {
-				search: search || undefined,
-				reason: reasonFilter || undefined,
-				limit: pageSize,
-				offset: (currentPage - 1) * pageSize
-			};
-			// query() results are cached — bust the cache so mutations reflect immediately.
-			await getFreemiumAgencies(args).refresh();
-			const result = await getFreemiumAgencies(args);
-			agencies = result.agencies;
-			total = result.total;
-			stats = result.stats;
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load agencies';
-		} finally {
-			loading = false;
-		}
-	}
-
-	onMount(() => {
-		loadAgencies();
-	});
+	// Anchored query: $derived recomputes when filters or pagination change,
+	// triggering refetch with the new args. Replaces the prior loadAgencies()
+	// imperative path + explicit cache-bust pattern.
+	const freemiumQuery = $derived(
+		getFreemiumAgencies({
+			search: filters.search || undefined,
+			reason: filters.reasonFilter || undefined,
+			limit: pageSize,
+			offset: (currentPage - 1) * pageSize
+		})
+	);
 
 	function handleSearchInput() {
 		clearTimeout(searchDebounce);
 		searchDebounce = setTimeout(() => {
+			filters.search = searchInput;
 			currentPage = 1;
-			loadAgencies();
 		}, 300);
 	}
 
 	function handleFilterChange() {
 		currentPage = 1;
-		loadAgencies();
 	}
 
 	function openRevokeModal(agency: FreemiumAgency) {
@@ -119,7 +96,7 @@
 			});
 			closeRevokeModal();
 			toast.success('Success', 'Freemium status revoked');
-			loadAgencies();
+			await freemiumQuery.refresh();
 		} catch (e) {
 			toast.error('Error', e instanceof Error ? e.message : 'Failed to revoke freemium');
 		} finally {
@@ -155,7 +132,7 @@
 			toast.success('Success', newExpiryDate ? 'Expiry date updated' : 'Expiry removed (no expiry)');
 			showExpiryModal = false;
 			selectedAgency = null;
-			loadAgencies();
+			await freemiumQuery.refresh();
 		} catch (e) {
 			toast.error('Error', e instanceof Error ? e.message : 'Failed to update expiry');
 		} finally {
@@ -187,8 +164,12 @@
 		}
 	}
 
-	const totalPages = $derived(Math.ceil(total / pageSize));
-	const totalFreemium = $derived(Object.values(stats).reduce((a, b) => a + b, 0));
+	const totalPages = $derived(Math.ceil((freemiumQuery.current?.total ?? 0) / pageSize));
+	const totalFreemium = $derived(
+		freemiumQuery.current?.stats
+			? Object.values(freemiumQuery.current.stats).reduce((a, b) => a + b, 0)
+			: 0
+	);
 </script>
 
 <svelte:head>
@@ -210,7 +191,7 @@
 		</div>
 		{#each Object.entries(reasonLabels) as [key, label]}
 			<div class="rounded-lg bg-base-200 p-4">
-				<div class="text-2xl font-bold">{stats[key] || 0}</div>
+				<div class="text-2xl font-bold">{freemiumQuery.current?.stats?.[key] || 0}</div>
 				<div class="text-sm text-base-content/60">{label}</div>
 			</div>
 		{/each}
@@ -226,14 +207,14 @@
 				type="text"
 				placeholder="Search by name or email..."
 				class="input input-sm input-bordered join-item w-64"
-				bind:value={search}
+				bind:value={searchInput}
 				oninput={handleSearchInput}
 			/>
 		</div>
 
 		<select
 			class="select select-bordered select-sm"
-			bind:value={reasonFilter}
+			bind:value={filters.reasonFilter}
 			onchange={handleFilterChange}
 		>
 			<option value="">All Reasons</option>
@@ -242,28 +223,28 @@
 			{/each}
 		</select>
 
-		<button class="btn btn-ghost btn-sm" onclick={loadAgencies}>
+		<button class="btn btn-ghost btn-sm" onclick={() => freemiumQuery.refresh()}>
 			<RotateCcw class="h-4 w-4" />
 			Refresh
 		</button>
 	</div>
 
 	<!-- Table -->
-	{#if loading}
+	{#if !freemiumQuery.ready}
 		<div class="flex justify-center py-12">
 			<span class="loading loading-spinner loading-lg"></span>
 		</div>
-	{:else if error}
+	{:else if freemiumQuery.error}
 		<div class="alert alert-error">
-			<span>{error}</span>
+			<span>{freemiumQuery.error?.message ?? 'Failed to load agencies'}</span>
 		</div>
-	{:else if agencies.length === 0}
+	{:else if freemiumQuery.ready && freemiumQuery.current.agencies.length === 0}
 		<div class="rounded-lg bg-base-200 p-12 text-center">
 			<Gift class="mx-auto h-12 w-12 text-base-content/30" />
 			<h3 class="mt-4 text-lg font-medium">No freemium agencies</h3>
 			<p class="text-base-content/60">Agencies with freemium status will appear here.</p>
 		</div>
-	{:else}
+	{:else if freemiumQuery.ready}
 		<div class="overflow-x-auto rounded-lg border border-base-300">
 			<table class="table">
 				<thead>
@@ -277,7 +258,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each agencies as agency}
+					{#each freemiumQuery.current.agencies as agency}
 						<tr class="hover">
 							<td>
 								<div class="flex items-center gap-3">
@@ -337,16 +318,13 @@
 		{#if totalPages > 1}
 			<div class="flex items-center justify-between">
 				<div class="text-sm text-base-content/60">
-					Showing {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, total)} of {total}
+					Showing {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, freemiumQuery.current.total)} of {freemiumQuery.current.total}
 				</div>
 				<div class="join">
 					<button
 						class="btn btn-sm join-item"
 						disabled={currentPage === 1}
-						onclick={() => {
-							currentPage--;
-							loadAgencies();
-						}}
+						onclick={() => currentPage--}
 					>
 						Previous
 					</button>
@@ -356,10 +334,7 @@
 					<button
 						class="btn btn-sm join-item"
 						disabled={currentPage === totalPages}
-						onclick={() => {
-							currentPage++;
-							loadAgencies();
-						}}
+						onclick={() => currentPage++}
 					>
 						Next
 					</button>
