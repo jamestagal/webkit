@@ -38,7 +38,10 @@
 		loading = true;
 		errorMsg = null;
 		try {
-			templates = await getFormTemplatesAdmin();
+			// Phase A.5 .run() (not Phase B anchored $derived): page does
+			// optimistic local mutations on `templates` (toggle featured,
+			// reorder, delete) which need mutable state.
+			templates = await getFormTemplatesAdmin().run();
 		} catch (e) {
 			errorMsg = e instanceof Error ? e.message : 'Failed to load templates';
 		} finally {
