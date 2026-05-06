@@ -93,21 +93,30 @@ func main() {
 	// Create auth service
 	authService := auth.NewService()
 
-	// Build the usage service. TierLookup reads subscription_tier from
-	// the agencies table via a narrow raw query — no need to depend on
-	// service-core's billing service here, which would introduce an extra
-	// HTTP hop per Consume() call.
+	// Build the usage service. TierLookup reads subscription_tier and the
+	// freemium columns from the agencies table via a narrow raw query — no
+	// need to depend on service-core's billing service here, which would
+	// introduce an extra HTTP hop per Consume() call. The result is routed
+	// through billing.EffectiveTier so freemium agencies receive Agency Pro
+	// caps, mirroring SvelteKit's getEffectiveTier.
 	usageRepo := query.New(db)
 	tierLookup := func(ctx context.Context, agencyID uuid.UUID) (billing.SubscriptionTier, error) {
 		var tier string
+		var isFreemium bool
+		var expiresAt sql.NullTime
 		err := db.QueryRowContext(ctx,
-			"SELECT subscription_tier FROM agencies WHERE id = $1",
+			"SELECT subscription_tier, is_freemium, freemium_expires_at FROM agencies WHERE id = $1",
 			agencyID,
-		).Scan(&tier)
+		).Scan(&tier, &isFreemium, &expiresAt)
 		if err != nil {
 			return "", fmt.Errorf("lookup tier for agency %s: %w", agencyID, err)
 		}
-		return billing.SubscriptionTier(tier), nil
+		return billing.EffectiveTier(
+			billing.SubscriptionTier(tier),
+			isFreemium,
+			expiresAt,
+			time.Now().UTC(),
+		), nil
 	}
 	usageService := usage.NewService(usageRepo, tierLookup)
 

@@ -112,12 +112,20 @@ func setupRESTHandlers(cfg *config.Config, storage *storage.Storage) *rest.Handl
 
 	// Usage service: TierLookup reuses the existing GetAgencyBillingInfo
 	// sqlc query (single-row SELECT) so the hot path stays one DB round-trip.
+	// The IsFreemium / FreemiumExpiresAt fields on the row are routed through
+	// billing.EffectiveTier so freemium agencies receive Agency Pro caps,
+	// mirroring SvelteKit's getEffectiveTier.
 	tierLookup := func(ctx context.Context, agencyID uuid.UUID) (pkgbilling.SubscriptionTier, error) {
 		info, err := store.GetAgencyBillingInfo(ctx, agencyID)
 		if err != nil {
 			return "", fmt.Errorf("lookup tier for agency %s: %w", agencyID, err)
 		}
-		return pkgbilling.SubscriptionTier(info.SubscriptionTier), nil
+		return pkgbilling.EffectiveTier(
+			pkgbilling.SubscriptionTier(info.SubscriptionTier),
+			info.IsFreemium,
+			info.FreemiumExpiresAt,
+			time.Now().UTC(),
+		), nil
 	}
 	usageService := usage.NewService(store, tierLookup)
 
