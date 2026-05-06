@@ -47,7 +47,9 @@
 			clearTimeout(slugCheckTimeout);
 			slugCheckTimeout = setTimeout(async () => {
 				try {
-					const result = await checkSlugAvailable(slug);
+					// setTimeout callback fires post-effect-setup in imperative async;
+					// fresh unanchored query needs explicit .run() per the anchoring rule.
+					const result = await checkSlugAvailable(slug).run();
 					slugAvailable = result.available;
 					slugValid = result.valid;
 				} catch {

@@ -198,7 +198,10 @@
 
 		const interval = setInterval(async () => {
 			try {
-				const result = await getBrandProfile(clientId);
+				// setInterval callback fires post-effect-setup in imperative async
+				// context — the $effect lexical scope does not carry into the timer
+				// callback, so a fresh unanchored query needs explicit .run().
+				const result = await getBrandProfile(clientId).run();
 				if (result && result.generated_at !== previousGeneratedAt) {
 					isGenerating = false;
 					brand = result;
