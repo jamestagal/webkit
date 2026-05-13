@@ -6,7 +6,7 @@ export const TIER_LIMITS = {
 	free: { seo_audit: 2, crawl: 2, ai_generation: 5, pdf_export: 10, social_profile: 0, form: 2, max_clients: 3, max_members: 1, storage_gb: 0.5 },
 	starter: { seo_audit: 10, crawl: 10, ai_generation: 25, pdf_export: 50, social_profile: 1, form: 10, max_clients: 10, max_members: 3, storage_gb: 5 },
 	growth: { seo_audit: 50, crawl: 50, ai_generation: 100, pdf_export: 500, social_profile: 5, form: 50, max_clients: 50, max_members: 10, storage_gb: 20 },
-	agency_pro: { seo_audit: 200, crawl: 200, ai_generation: 500, pdf_export: 2000, social_profile: 20, form: 200, max_clients: 200, max_members: 25, storage_gb: 50 },
+	agency_pro: { seo_audit: 100, crawl: 100, ai_generation: 500, pdf_export: 2000, social_profile: 20, form: 200, max_clients: 200, max_members: 25, storage_gb: 50 },
 } as const;
 
 export type Tier = keyof typeof TIER_LIMITS;

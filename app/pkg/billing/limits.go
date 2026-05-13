@@ -68,8 +68,8 @@ var TierLimits = map[SubscriptionTier]Limits{
 		MaxStorageBytes: 20 * gb,
 	},
 	TierAgencyPro: {
-		SEOAudits:       200,
-		Crawls:          200,
+		SEOAudits:       100,
+		Crawls:          100,
 		AIGenerations:   500,
 		PDFExports:      2000,
 		SocialProfiles:  20,
