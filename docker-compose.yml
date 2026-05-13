@@ -86,6 +86,11 @@ services:
       # docker-compose.monitoring.yml overlay sets the live endpoint.
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_SERVICE_NAME: webkit-core
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
 
   admin:
     container_name: webkit-admin
