@@ -78,12 +78,21 @@
 		return value === -1 ? 'Unlimited' : value.toLocaleString();
 	}
 
+	function formatStorage(gb: number): string {
+		if (gb < 1) return `${Math.round(gb * 1024)} MB`;
+		return `${gb} GB`;
+	}
+
 	function deriveQuotaFeatures(tier: Tier): string[] {
 		const limits = TIER_LIMITS[tier];
 		return [
+			`${formatLimit(limits.max_clients)} clients`,
 			`${formatLimit(limits.max_members)} team members`,
+			`${formatLimit(limits.seo_audit)} SEO audits/month`,
+			`${formatLimit(limits.crawl)} page crawls/month`,
 			`${formatLimit(limits.ai_generation)} AI generations/month`,
-			`${formatLimit(limits.seo_audit)} SEO audits/month`
+			`${formatLimit(limits.pdf_export)} PDF exports/month`,
+			`${formatStorage(limits.storage_gb)} storage`
 		];
 	}
 

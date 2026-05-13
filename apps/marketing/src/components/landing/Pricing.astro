@@ -1,7 +1,7 @@
 ---
 import Button from "@components/Button/Button.astro";
 import MarketingIcon from "@components/landing/MarketingIcon.astro";
-import { TIER_LIMITS } from "@webkit/billing-tokens";
+import { TIER_LIMITS, type Tier } from "@webkit/billing-tokens";
 
 // Feature counts pulled from the canonical Go-source-of-truth tier-limits.ts.
 // Dollar amounts are hardcoded to match the current Stripe products
@@ -11,12 +11,28 @@ import { TIER_LIMITS } from "@webkit/billing-tokens";
 // Enterprise is custom-quote only — surfaced as a separate "Need more?"
 // Contact Sales section below the grid (NOT as a 5th tile), matching the
 // canonical billing model where enterprise tiers are negotiated per-agency.
-//
-// Inventory metric labels rephrased where they don't match what tier-limits.ts
-// actually tracks: "consultations/month" and "templates" don't appear in
-// tier-limits.ts and were drift from the 2026-02 LandingPage.svelte. Replaced
-// with metrics that are tracked (team members, AI generations, SEO audits,
-// client records).
+
+function formatLimit(value: number): string {
+  return value === -1 ? "Unlimited" : value.toLocaleString();
+}
+
+function formatStorage(gb: number): string {
+  if (gb < 1) return `${Math.round(gb * 1024)} MB`;
+  return `${gb} GB`;
+}
+
+function quotaRows(tier: Tier): string[] {
+  const limits = TIER_LIMITS[tier];
+  return [
+    `${formatLimit(limits.max_clients)} clients`,
+    `${formatLimit(limits.max_members)} team members`,
+    `${formatLimit(limits.seo_audit)} SEO audits/month`,
+    `${formatLimit(limits.crawl)} page crawls/month`,
+    `${formatLimit(limits.ai_generation)} AI generations/month`,
+    `${formatLimit(limits.pdf_export)} PDF exports/month`,
+    `${formatStorage(limits.storage_gb)} storage`,
+  ];
+}
 
 const tiers = [
   {
@@ -24,13 +40,7 @@ const tiers = [
     price: "$0",
     period: "forever",
     description: "Perfect for solo freelancers getting started",
-    features: [
-      `${TIER_LIMITS.free.max_members} team member`,
-      `${TIER_LIMITS.free.ai_generation} AI generations/mo`,
-      `${TIER_LIMITS.free.seo_audit} SEO audits/mo`,
-      `${TIER_LIMITS.free.max_clients} client records`,
-      "Basic proposals",
-    ],
+    features: [...quotaRows("free"), "Basic proposals"],
     cta: "Get Started Free",
     featured: false,
   },
@@ -39,14 +49,7 @@ const tiers = [
     price: "$29",
     period: "/month",
     description: "For small agencies building their client base",
-    features: [
-      `${TIER_LIMITS.starter.max_members} team members`,
-      `${TIER_LIMITS.starter.ai_generation} AI generations/mo`,
-      `${TIER_LIMITS.starter.seo_audit} SEO audits/mo`,
-      `${TIER_LIMITS.starter.max_clients} client records`,
-      "PDF export",
-      "Email delivery",
-    ],
+    features: [...quotaRows("starter"), "Email delivery"],
     cta: "Start Free Trial",
     featured: false,
   },
@@ -55,14 +58,7 @@ const tiers = [
     price: "$79",
     period: "/month",
     description: "For growing agencies that need more power",
-    features: [
-      `${TIER_LIMITS.growth.max_members} team members`,
-      `${TIER_LIMITS.growth.ai_generation} AI generations/mo`,
-      `${TIER_LIMITS.growth.seo_audit} SEO audits/mo`,
-      `${TIER_LIMITS.growth.max_clients} client records`,
-      "Custom branding",
-      "API access",
-    ],
+    features: [...quotaRows("growth"), "Custom branding", "API access"],
     cta: "Start Free Trial",
     featured: true,
   },
@@ -71,14 +67,7 @@ const tiers = [
     price: "$199",
     period: "/month",
     description: "For established agencies with advanced needs",
-    features: [
-      `${TIER_LIMITS.agency_pro.max_members} team members`,
-      `${TIER_LIMITS.agency_pro.ai_generation} AI generations/mo`,
-      `${TIER_LIMITS.agency_pro.seo_audit} SEO audits/mo`,
-      `${TIER_LIMITS.agency_pro.max_clients} client records`,
-      "Priority support",
-      "Custom domain & SSO",
-    ],
+    features: [...quotaRows("agency_pro"), "Priority support", "Custom domain & SSO"],
     cta: "Get Started",
     featured: false,
   },
