@@ -6,6 +6,7 @@ on:
     paths:
       - "apps/marketing/**"
       - "packages/tokens/**"
+      - "packages/billing-tokens/**"
       - ".github/workflows/deploy-marketing.yml"
       - "pnpm-lock.yaml"
   workflow_dispatch:
