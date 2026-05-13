@@ -128,7 +128,8 @@ export const load: PageServerLoad = async ({ params }) => {
 		];
 
 		return { overview, analysisModules, contentModules, progressSteps };
-	} catch {
+	} catch (e) {
+		console.error('[content overview load]', e);
 		return {
 			overview: null,
 			analysisModules: [] as Module[],
