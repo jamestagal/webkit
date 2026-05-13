@@ -8,7 +8,8 @@ export const load: PageServerLoad = async ({ params }) => {
 	try {
 		const keywords = await getAuditKeywords(first.id);
 		return { keywords };
-	} catch {
+	} catch (e) {
+		console.error("[content audit keywords load]", e);
 		return { keywords: null };
 	}
 };

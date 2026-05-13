@@ -5,7 +5,8 @@ export const load: PageServerLoad = async ({ params }) => {
 	try {
 		const brand = await getBrandProfile(params.clientId);
 		return { brand };
-	} catch {
+	} catch (e) {
+		console.error("[content brand load]", e);
 		return { brand: null };
 	}
 };

@@ -8,7 +8,8 @@ export const load: PageServerLoad = async ({ params }) => {
 	if (first) {
 		try {
 			latestAudit = await getAudit(first.id);
-		} catch {
+		} catch (e) {
+			console.error("[content audit load]", e);
 			latestAudit = null;
 		}
 	}
@@ -17,7 +18,8 @@ export const load: PageServerLoad = async ({ params }) => {
 	if (first && latestAudit?.status === "complete") {
 		try {
 			shareStatus = await getShareStatus(first.id);
-		} catch {
+		} catch (e) {
+			console.error("[content audit share-status load]", e);
 			shareStatus = null;
 		}
 	}

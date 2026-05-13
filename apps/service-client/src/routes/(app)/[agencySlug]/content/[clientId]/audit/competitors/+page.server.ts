@@ -8,7 +8,8 @@ export const load: PageServerLoad = async ({ params }) => {
 	try {
 		const competitors = await getAuditCompetitors(first.id);
 		return { competitors };
-	} catch {
+	} catch (e) {
+		console.error("[content audit competitors load]", e);
 		return { competitors: null };
 	}
 };

@@ -15,7 +15,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	try {
 		const issues = await getAuditIssues({ auditId, category, severity, page, perPage });
 		return { issues, auditId };
-	} catch {
+	} catch (e) {
+		console.error("[content audit issues load]", e);
 		return { issues: null, auditId };
 	}
 };

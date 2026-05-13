@@ -8,7 +8,8 @@ export const load: PageServerLoad = async ({ params }) => {
 	try {
 		const backlinks = await getAuditBacklinks(first.id);
 		return { backlinks };
-	} catch {
+	} catch (e) {
+		console.error("[content audit backlinks load]", e);
 		return { backlinks: null };
 	}
 };
